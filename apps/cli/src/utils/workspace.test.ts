@@ -1,9 +1,12 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { findWorkspaceRoot, listWorkspacePackages } from './workspace.js';
 
 describe('workspace utils', () => {
-  it('finds the pnpm workspace root', () => {
-    expect(findWorkspaceRoot()).toMatch(/amsterdam-v1$/);
+  it('finds the directory containing pnpm-workspace.yaml', () => {
+    const root = findWorkspaceRoot();
+    expect(existsSync(join(root, 'pnpm-workspace.yaml'))).toBe(true);
   });
 
   it('lists every workspace package', () => {
