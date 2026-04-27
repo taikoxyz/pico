@@ -1,0 +1,16 @@
+{
+  "name": "@tainnel/contracts",
+  "version": "0.0.0",
+  "private": false,
+  "license": "MIT",
+  "description": "Solidity contracts for tainnel pairwise payment channels (PaymentChannel, HTLC, Adjudicator).",
+  "scripts": {
+    "build": "forge build",
+    "typecheck": "echo 'no-op for solidity package'",
+    "test": "forge test",
+    "lint": "forge fmt --check",
+    "format": "forge fmt",
+    "clean": "forge clean && rm -rf .turbo"
+  },
+  "files": ["src", "out", "remappings.txt", "foundry.toml", "README.md"]
+}

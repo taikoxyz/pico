@@ -1,0 +1,24 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+remappings_path = "remappings.txt"
+solc = "0.8.26"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+fs_permissions = [{ access = "read", path = "./" }]
+
+[profile.ci]
+fuzz = { runs = 1000 }
+verbosity = 3
+
+[rpc_endpoints]
+taiko_mainnet = "${TAIKO_MAINNET_RPC_URL}"
+taiko_hoodi = "${TAIKO_HOODI_RPC_URL}"
+
+[etherscan]
+taiko_mainnet = { key = "${TAIKOSCAN_API_KEY}", url = "https://api.taikoscan.io/api" }
+taiko_hoodi = { key = "${TAIKOSCAN_API_KEY}", url = "https://api.hoodi.taikoscan.io/api" }
