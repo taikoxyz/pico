@@ -41,7 +41,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
       - run: pnpm typecheck
 
   test-ts:
@@ -56,8 +55,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm --filter '!@tainnel/contracts' test
+      - run: pnpm exec turbo run test --filter='!@tainnel/contracts'
 
   test-solidity:
     runs-on: ubuntu-latest
