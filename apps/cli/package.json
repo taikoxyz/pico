@@ -1,0 +1,33 @@
+{
+  "name": "@tainnel/cli",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "tainnel developer/operator CLI: open and close channels, pay, query hubs, run dev fork.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "tainnel": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@tainnel/dvm-adapter": "workspace:*",
+    "@tainnel/protocol": "workspace:*",
+    "@tainnel/sdk": "workspace:*",
+    "@tainnel/state-machine": "workspace:*",
+    "commander": "^12.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.8"
+  }
+}

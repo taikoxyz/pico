@@ -1,0 +1,34 @@
+{
+  "name": "tainnel",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Trustless 1-hop state channel network for micro-payments on Taiko L2.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "changeset": "changeset",
+    "release": "pnpm build && changeset publish",
+    "version-packages": "changeset version",
+    "tainnel": "node apps/cli/dist/index.js",
+    "prepare": "lefthook install || true"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@changesets/cli": "^2.27.10",
+    "lefthook": "^1.10.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.5.4"
+  }
+}

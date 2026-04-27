@@ -1,0 +1,31 @@
+{
+  "name": "@tainnel/state-machine",
+  "version": "0.0.0",
+  "private": false,
+  "license": "MIT",
+  "description": "Pure-function state-transition library for tainnel payment channels.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@tainnel/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "fast-check": "^3.23.1",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.8"
+  }
+}

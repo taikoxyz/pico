@@ -1,0 +1,31 @@
+{
+  "name": "@tainnel/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Anvil/forge fork helpers, mock hubs, and deterministic key fixtures shared by tainnel test suites.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@tainnel/protocol": "workspace:*",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.8"
+  }
+}
