@@ -1,7 +1,13 @@
 # P4 — SDK
 
-**Status:** 🔵 not started (interfaces only — `client.ts`, `transport.ts`, `wallet.ts`,
-`storage.ts`, `payment.ts` are all method stubs that throw `not implemented`)
+**Status:** 🟡 partial — core foundation implemented and tested at 91%
+coverage: storage (Memory + File), transport (WebSocket + InMemory + request/reply
++ backoff + heartbeat), wallet (Viem), and `ChannelClient.open/pay/close/
+list/getBalance` are real and exercised by 76 unit + integration tests.
+Persistence-survives-crash test passes. **Deferred** to a follow-up PR:
+`IndexedDBStorage` (browser), `BrowserWalletAdapter` (EIP-1193), real
+WebSocket-backed mock hub (`startMockHub`), and runnable
+`examples/sdk-mock-flow.ts`.
 **Blocks:** P5 (hub WebSocket protocol depends on SDK message shapes), P7 (wallet UI)
 **Effort:** ~1 week
 **Depends on:** P3 (state machine real, esp. `signing.ts`)
