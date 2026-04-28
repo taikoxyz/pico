@@ -27,8 +27,8 @@ agent must stop before pressing the button.
 | #   | Phase                       | Style                | Status     | Blocked by | Detail                                                |
 |-----|-----------------------------|----------------------|------------|------------|-------------------------------------------------------|
 | P0  | Bootstrap monorepo          | mixed                | 🟢 done    | —          | merged in `chore: bootstrap monorepo skeleton`        |
-| P1  | Protocol freeze             | `[human]` heavy      | 🔵 not started | P0     | [01-protocol-freeze.md](./docs/plans/01-protocol-freeze.md) |
-| P2  | Contracts                   | `[agent]`+`[review]` | 🔵 not started | P1     | [02-contracts.md](./docs/plans/02-contracts.md)        |
+| P1  | Protocol freeze             | `[human]` heavy      | 🟢 done    | P0         | merged in `feat(protocol): freeze v1 wire format`     |
+| P2  | Contracts                   | `[agent]`+`[review]` | 🟡 partial | P1         | deployed + verified on Taiko mainnet; awaits line-by-line review, smoke channel, and owner-key rotation |
 | P3  | State machine               | `[agent]`            | 🟡 partial | P1         | [03-state-machine.md](./docs/plans/03-state-machine.md) |
 | P4  | SDK                         | `[agent]`            | 🔵 not started | P3     | [04-sdk.md](./docs/plans/04-sdk.md)                    |
 | P5  | Hub                         | `[agent]`+`[review]` | 🔵 not started | P3, P4 | [05-hub.md](./docs/plans/05-hub.md)                    |
@@ -50,8 +50,15 @@ agent must stop before pressing the button.
 
 ## What to work on next
 
-1. **P1 protocol freeze** is the only unblocked phase. Open [`docs/plans/01-protocol-freeze.md`](./docs/plans/01-protocol-freeze.md), work through the **decisions** section first (those are all `[human]`). Each decision has a default — accepting all defaults is fine for a dogfood launch.
-2. Once P1 is locked in, dispatch one agent against P2 and a second agent against P3 in parallel.
+1. **P2 (contracts)**: deployed + verified on Taiko mainnet. Three things still
+   gate P2 → 🟢, all `[human]`:
+   - **Line-by-line `[review]`** of `PaymentChannel.sol` + `Adjudicator.sol`.
+   - **Open a smoke channel** (≤ MIN_CHANNEL_AMOUNT) and confirm `ChannelOpened`
+     on Taikoscan.
+   - **Rotate the owner key.** Current owner of both proxies is the deployer
+     (`0x327fa3...c458`) whose private key was pasted into a Claude session —
+     treat as compromised. `transferOwnership` from a clean key.
+2. **P3 (state machine)** is unblocked and parallelizable with the P2 follow-ups.
 3. Don't start P5/P6/P7 until P3 has at least the signing + HTLC root computation merged.
 
 ---
@@ -64,13 +71,6 @@ scan them in one place. Each has a default; accepting defaults across the board 
 
 | Phase | Decision | Default | Where |
 |---|---|---|---|
-| P1 | Dispute window length | 24h | [01](./docs/plans/01-protocol-freeze.md#decisions) |
-| P1 | HTLC hash function | `sha256` | [01](./docs/plans/01-protocol-freeze.md#decisions) |
-| P1 | HTLC root algorithm | sorted-keccak (small set) | [01](./docs/plans/01-protocol-freeze.md#decisions) |
-| P1 | Min channel amount | 1 USDC (1_000_000) | [01](./docs/plans/01-protocol-freeze.md#decisions) |
-| P1 | Hub fee for v1 | 0 (free) | [01](./docs/plans/01-protocol-freeze.md#decisions) |
-| P2 | Penalty share | 100% slash | [02](./docs/plans/02-contracts.md#decisions) |
-| P2 | Reentrancy guard library | OZ `ReentrancyGuard` | [02](./docs/plans/02-contracts.md#decisions) |
 | P5 | Hub DB in production | sqlite + litestream | [05](./docs/plans/05-hub.md#decisions) |
 | P5 | Hub WebSocket auth | signed message per request | [05](./docs/plans/05-hub.md#decisions) |
 | P6 | Watchtower deployment mode | self-hosted only | [06](./docs/plans/06-watchtower.md#decisions) |
@@ -123,7 +123,7 @@ The project is "dogfood production ready" when **every gate** below is green:
 - [ ] Contracts deployed + verified on Taiko mainnet
 - [ ] Hub + watchtower running on production infra with monitoring + alerts
 - [ ] One end-to-end mainnet payment (client → hub → recipient) succeeds with real USDC
-- [ ] Dispute drill on testnet: a deliberately-stale state submission is penalized by the
-      watchtower within the dispute window
+- [ ] Dispute drill on mainnet (≤ MIN_CHANNEL_AMOUNT funds): a deliberately-stale state
+      submission is penalized by the watchtower within the dispute window
 - [ ] 2-week soak: 3–5 dogfood users, no funds lost, alerts behaved correctly
 - [ ] Post-launch retro written, follow-up phase 2 issues filed (DVM, ETH, multi-hub)

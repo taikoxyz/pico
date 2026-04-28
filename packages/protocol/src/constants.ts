@@ -17,8 +17,8 @@ export const CONTRACT_ADDRESSES: Record<
   Record<'PaymentChannel' | 'Adjudicator', Address>
 > = {
   [TAIKO_MAINNET_CHAIN_ID]: {
-    PaymentChannel: ZERO_ADDRESS,
-    Adjudicator: ZERO_ADDRESS,
+    PaymentChannel: '0x07B32f52523Fdf0780821595422DccEF31FA2335' as Address,
+    Adjudicator: '0x775904054b4A97b3925f1Dd60aE61fBc81567dB9' as Address,
   },
   [TAIKO_HOODI_CHAIN_ID]: {
     PaymentChannel: ZERO_ADDRESS,
@@ -29,7 +29,7 @@ export const CONTRACT_ADDRESSES: Record<
 export const USDC_TOKENS: Record<ChainId, TokenInfo> = {
   [TAIKO_MAINNET_CHAIN_ID]: {
     asset: 'USDC',
-    address: ZERO_ADDRESS,
+    address: '0x07d83526730c7438048D55A4fc0b850e2aaB6f0b' as Address,
     decimals: 6,
     chainId: TAIKO_MAINNET_CHAIN_ID,
   },
