@@ -352,6 +352,16 @@ describe('ChannelClient.pay', () => {
         expiryMs: 9_999_999_999_999n,
       }),
     ).rejects.toBeInstanceOf(PaymentTimeoutError);
+
+    // After timeout, the fail-htlc fallback should leave storage with no
+    // pending htlcs and the sender's balance restored.
+    const postFail = await storage.loadLatestState(ch.id);
+    expect(postFail?.state.htlcs.length).toBe(0);
+    expect(postFail?.state.balanceA).toBe(1_000n);
+    expect(postFail?.state.balanceB).toBe(1_000n);
+    // version should have advanced twice: pending (v2) → failed (v3)
+    expect(postFail?.state.version).toBe(3n);
+
     await pipe.client.close();
     await pipe.server.close();
   });
@@ -580,5 +590,87 @@ describe('ChannelClient.close — unilateral', () => {
     await h.client.close(channel.id, { cooperative: false });
     expect(h.chain.unilateralCloses).toHaveLength(1);
     expect(h.chain.unilateralCloses[0]?.state.state.balanceA).toBe(600n);
+  });
+});
+
+describe('ChannelClient.waitForFinalized', () => {
+  it('throws UnknownChannelError for an unknown channel', async () => {
+    const h = makeHarness();
+    const unknown: ChannelId = `0x${'fe'.repeat(32)}` as ChannelId;
+    await expect(h.client.waitForFinalized(unknown)).rejects.toBeInstanceOf(UnknownChannelError);
+    await h.cleanup();
+  });
+
+  it('throws WaitForFinalizedUnsupportedError when chain adapter does not implement it', async () => {
+    const { WaitForFinalizedUnsupportedError } = await import('./errors.js');
+    const h = makeHarness();
+    const channel = await h.client.open({ amount: 10n });
+    await expect(h.client.waitForFinalized(channel.id)).rejects.toBeInstanceOf(
+      WaitForFinalizedUnsupportedError,
+    );
+    await h.cleanup();
+  });
+
+  it('forwards to chain.waitForFinalized and marks channel closed on resolution', async () => {
+    class FinalizingChain extends MockChainAdapter {
+      override readonly chainId = chainId;
+      waitForFinalized = async (
+        cid: ChannelId,
+      ): Promise<{ channelId: ChannelId; paidA: bigint; paidB: bigint; txHash: Hex }> => {
+        return {
+          channelId: cid,
+          paidA: 700n,
+          paidB: 300n,
+          txHash: `0x${'44'.repeat(32)}` as Hex,
+        };
+      };
+    }
+    const wallet = makeViemWallet(TEST_KEYS.alice.privateKey);
+    const storage = new MemoryStorage();
+    const pipe = createInMemoryPipe();
+    const chain = new FinalizingChain(TEST_KEYS.alice.address);
+    const hub = createMockHub({
+      hubPrivateKey: TEST_KEYS.hub.privateKey,
+      chainId,
+      verifyingContract,
+    });
+    hub.attach({
+      send: (m) => pipe.server.send(m),
+      onMessage: (h2) => pipe.server.onMessage(h2),
+      close: () => pipe.server.close(),
+    });
+    const client = new ChannelClient({
+      wallet,
+      transport: pipe.client,
+      storage,
+      chain,
+      hubAddress: TEST_KEYS.hub.address,
+      contract: verifyingContract,
+    });
+    const channel = await client.open({ amount: 10n });
+    await storage.saveState(channel.id, {
+      state: {
+        channelId: channel.id,
+        version: 1n,
+        balanceA: 700n,
+        balanceB: 300n,
+        htlcs: [],
+        finalized: false,
+      },
+      sigA: { r: `0x${'0'.repeat(64)}` as Hex, s: `0x${'0'.repeat(64)}` as Hex, v: 0 },
+      sigB: { r: `0x${'0'.repeat(64)}` as Hex, s: `0x${'0'.repeat(64)}` as Hex, v: 0 },
+    });
+    await client.close(channel.id, { cooperative: false });
+    const stored = await storage.loadChannel(channel.id);
+    expect(stored?.status).toBe('closing-unilateral');
+
+    const receipt = await client.waitForFinalized(channel.id);
+    expect(receipt.paidA).toBe(700n);
+    expect(receipt.paidB).toBe(300n);
+    const finalChannel = await storage.loadChannel(channel.id);
+    expect(finalChannel?.status).toBe('closed');
+
+    await pipe.client.close();
+    await pipe.server.close();
   });
 });

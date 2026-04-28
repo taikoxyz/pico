@@ -77,3 +77,10 @@ export class CloseRejectedError extends ChannelClientError {
     this.name = 'CloseRejectedError';
   }
 }
+
+export class WaitForFinalizedUnsupportedError extends ChannelClientError {
+  constructor() {
+    super('chain adapter does not implement waitForFinalized', 'WAIT_FOR_FINALIZED_UNSUPPORTED');
+    this.name = 'WaitForFinalizedUnsupportedError';
+  }
+}

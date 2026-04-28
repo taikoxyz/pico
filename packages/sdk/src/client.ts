@@ -17,17 +17,19 @@ import {
 } from '@tainnel/protocol';
 import {
   addHtlc,
+  failHtlc,
   settleHtlc,
   verifyCooperativeCloseSignature,
   verifyPreimage,
 } from '@tainnel/state-machine';
 import { sha256 } from 'viem';
-import type { ChainAdapter } from './chain.js';
+import type { ChainAdapter, ChannelFinalizedReceipt, WaitForFinalizedOptions } from './chain.js';
 import {
   CloseRejectedError,
   PaymentRejectedError,
   PaymentTimeoutError,
   UnknownChannelError,
+  WaitForFinalizedUnsupportedError,
 } from './errors.js';
 import type { PaymentRequest, PaymentResult } from './payment.js';
 import type { ChannelStorage } from './storage.js';
@@ -228,6 +230,7 @@ export class ChannelClient {
       reply = await ackP;
     } catch (err) {
       if (err instanceof Error && err.name === 'TransportTimeoutError') {
+        await this.failPendingHtlcLocally(channel, signedNext, htlc.id);
         throw new PaymentTimeoutError(htlc.id);
       }
       throw err;
@@ -286,6 +289,25 @@ export class ChannelClient {
       }
     }
     await this.unilateralClose(channel, latest);
+  }
+
+  /// Block until the chain emits ChannelFinalized for this channel. Cooperative
+  /// closes finalize on receipt; unilateral closes finalize after the dispute
+  /// window. Caller decides when to await this. Throws
+  /// `WaitForFinalizedUnsupportedError` if the configured ChainAdapter does
+  /// not implement it.
+  async waitForFinalized(
+    id: ChannelId,
+    opts?: WaitForFinalizedOptions,
+  ): Promise<ChannelFinalizedReceipt> {
+    const channel = await this.opts.storage.loadChannel(id);
+    if (!channel) throw new UnknownChannelError(id);
+    if (typeof this.opts.chain.waitForFinalized !== 'function') {
+      throw new WaitForFinalizedUnsupportedError();
+    }
+    const receipt = await this.opts.chain.waitForFinalized(id, opts);
+    await this.opts.storage.saveChannel({ ...channel, status: 'closed' });
+    return receipt;
   }
 
   private async cooperativeClose(channel: Channel, latest?: SignedState): Promise<void> {
@@ -427,6 +449,19 @@ export class ChannelClient {
       sigA: myA ? sigStruct : prev.sigA,
       sigB: myA ? prev.sigB : sigStruct,
     };
+  }
+
+  private async failPendingHtlcLocally(
+    channel: Channel,
+    pending: SignedState,
+    htlcId: HtlcId,
+  ): Promise<void> {
+    const failedChannelState: ChannelState = {
+      ...failHtlc(pending.state, htlcId),
+      version: pending.state.version + 1n,
+    };
+    const signedFailed = await this.signMyHalfOfState(channel, failedChannelState, pending);
+    await this.opts.storage.saveState(channel.id, signedFailed);
   }
 }
 

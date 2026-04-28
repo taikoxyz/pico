@@ -75,3 +75,123 @@ export class ViemWalletAdapter implements WalletAdapter {
     return this.walletClient.account;
   }
 }
+
+export interface Eip1193Provider {
+  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+}
+
+export interface BrowserWalletAdapterOptions {
+  readonly provider: Eip1193Provider;
+  readonly account?: Address;
+  readonly autoConnect?: boolean;
+}
+
+export class BrowserWalletAdapter implements WalletAdapter {
+  private readonly provider: Eip1193Provider;
+  private accountOverride: Address | undefined;
+  private readonly autoConnect: boolean;
+
+  constructor(opts: BrowserWalletAdapterOptions) {
+    this.provider = opts.provider;
+    this.accountOverride = opts.account;
+    this.autoConnect = opts.autoConnect ?? true;
+  }
+
+  async getAddress(): Promise<Address> {
+    if (this.accountOverride) return this.accountOverride;
+    const accounts = await this.requestAccounts('eth_accounts');
+    if (accounts[0]) {
+      this.accountOverride = accounts[0];
+      return accounts[0];
+    }
+    if (!this.autoConnect) {
+      throw new WalletError('no accounts; provider has not connected any', 'NO_ACCOUNTS');
+    }
+    const requested = await this.requestAccounts('eth_requestAccounts');
+    const first = requested[0];
+    if (!first) {
+      throw new WalletError('user rejected eth_requestAccounts', 'NO_ACCOUNTS');
+    }
+    this.accountOverride = first;
+    return first;
+  }
+
+  async signTypedData(args: SignTypedDataArgs): Promise<Hex> {
+    const address = await this.getAddress();
+    const payload = JSON.stringify({
+      domain: {
+        name: 'tainnel',
+        version: '1',
+        chainId: args.domain.chainId,
+        verifyingContract: args.domain.verifyingContract,
+      },
+      message: serializeTypedDataMessage(args.message),
+      primaryType: args.primaryType,
+      types: {
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chainId', type: 'uint256' },
+          { name: 'verifyingContract', type: 'address' },
+        ],
+        ...args.types,
+      },
+    });
+    try {
+      const sig = await this.provider.request({
+        method: 'eth_signTypedData_v4',
+        params: [address, payload],
+      });
+      return sig as Hex;
+    } catch (err) {
+      throw new WalletError(
+        `eth_signTypedData_v4 failed: ${(err as Error).message}`,
+        'SIGN_TYPED_DATA_FAILED',
+      );
+    }
+  }
+
+  async signMessage(message: string): Promise<Hex> {
+    const address = await this.getAddress();
+    try {
+      const sig = await this.provider.request({
+        method: 'personal_sign',
+        params: [message, address],
+      });
+      return sig as Hex;
+    } catch (err) {
+      throw new WalletError(
+        `personal_sign failed: ${(err as Error).message}`,
+        'SIGN_MESSAGE_FAILED',
+      );
+    }
+  }
+
+  private async requestAccounts(
+    method: 'eth_accounts' | 'eth_requestAccounts',
+  ): Promise<Address[]> {
+    try {
+      const res = (await this.provider.request({ method })) as Address[] | null | undefined;
+      return Array.isArray(res) ? res : [];
+    } catch (err) {
+      throw new WalletError(`${method} failed: ${(err as Error).message}`, 'NO_ACCOUNTS');
+    }
+  }
+}
+
+function serializeTypedDataMessage(message: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(message)) {
+    out[k] = serializeTypedDataValue(v);
+  }
+  return out;
+}
+
+function serializeTypedDataValue(v: unknown): unknown {
+  if (typeof v === 'bigint') return v.toString();
+  if (Array.isArray(v)) return v.map(serializeTypedDataValue);
+  if (v !== null && typeof v === 'object') {
+    return serializeTypedDataMessage(v as Record<string, unknown>);
+  }
+  return v;
+}

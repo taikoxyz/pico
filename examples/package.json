@@ -1,0 +1,26 @@
+{
+  "name": "@tainnel/examples",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Runnable end-to-end examples for the tainnel SDK.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo 'no automated tests; see scripts under ./'",
+    "sdk-mock-flow": "tsx sdk-mock-flow.ts",
+    "clean": "rm -rf .turbo"
+  },
+  "dependencies": {
+    "@tainnel/protocol": "workspace:*",
+    "@tainnel/sdk": "workspace:*",
+    "@tainnel/state-machine": "workspace:*",
+    "@tainnel/test-utils": "workspace:*",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

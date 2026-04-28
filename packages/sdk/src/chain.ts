@@ -36,9 +36,24 @@ export interface CloseReceipt {
   readonly txHash: Hex;
 }
 
+export interface ChannelFinalizedReceipt {
+  readonly channelId: ChannelId;
+  readonly paidA: bigint;
+  readonly paidB: bigint;
+  readonly txHash: Hex;
+}
+
+export interface WaitForFinalizedOptions {
+  readonly timeoutMs?: number;
+}
+
 export interface ChainAdapter {
   readonly chainId: ChainId;
   openChannel(args: OpenChannelTxArgs): Promise<OpenChannelReceipt>;
   closeCooperative(args: CloseCooperativeTxArgs): Promise<CloseReceipt>;
   closeUnilateral(args: CloseUnilateralTxArgs): Promise<CloseReceipt>;
+  waitForFinalized?(
+    channelId: ChannelId,
+    opts?: WaitForFinalizedOptions,
+  ): Promise<ChannelFinalizedReceipt>;
 }

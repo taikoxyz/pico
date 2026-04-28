@@ -11,6 +11,26 @@ export interface ChannelStorage {
   clear(): Promise<void>;
 }
 
+function validateStateUpdate(
+  channelId: ChannelId,
+  state: SignedState,
+  previousVersion: bigint | undefined,
+  channelExists: boolean,
+): void {
+  if (!channelExists) {
+    throw new StorageError(`cannot save state for unknown channel ${channelId}`, 'UNKNOWN_CHANNEL');
+  }
+  if (state.state.channelId !== channelId) {
+    throw new StorageError('state.channelId does not match key', 'CHANNEL_ID_MISMATCH');
+  }
+  if (previousVersion !== undefined && state.state.version <= previousVersion) {
+    throw new StorageError(
+      `attempt to overwrite state v${previousVersion} with older v${state.state.version}`,
+      'STALE_STATE',
+    );
+  }
+}
+
 export class MemoryStorage implements ChannelStorage {
   private readonly channels = new Map<ChannelId, Channel>();
   private readonly states = new Map<ChannelId, SignedState>();
@@ -22,22 +42,8 @@ export class MemoryStorage implements ChannelStorage {
     return this.channels.get(id);
   }
   async saveState(channelId: ChannelId, state: SignedState): Promise<void> {
-    if (!this.channels.has(channelId)) {
-      throw new StorageError(
-        `cannot save state for unknown channel ${channelId}`,
-        'UNKNOWN_CHANNEL',
-      );
-    }
-    if (state.state.channelId !== channelId) {
-      throw new StorageError('state.channelId does not match key', 'CHANNEL_ID_MISMATCH');
-    }
     const existing = this.states.get(channelId);
-    if (existing && state.state.version <= existing.state.version) {
-      throw new StorageError(
-        `attempt to overwrite state v${existing.state.version} with older v${state.state.version}`,
-        'STALE_STATE',
-      );
-    }
+    validateStateUpdate(channelId, state, existing?.state.version, this.channels.has(channelId));
     this.states.set(channelId, state);
   }
   async loadLatestState(channelId: ChannelId): Promise<SignedState | undefined> {
@@ -263,28 +269,16 @@ export class FileStorage implements ChannelStorage {
   }
 
   async saveState(channelId: ChannelId, state: SignedState): Promise<void> {
-    if (state.state.channelId !== channelId) {
-      throw new StorageError('state.channelId does not match key', 'CHANNEL_ID_MISMATCH');
-    }
     const existing = await this.readFileFor(channelId);
-    if (!existing) {
-      throw new StorageError(
-        `cannot save state for unknown channel ${channelId}`,
-        'UNKNOWN_CHANNEL',
-      );
-    }
-    if (existing.state) {
-      const prevVersion = BigInt(existing.state.state.version);
-      if (state.state.version <= prevVersion) {
-        throw new StorageError(
-          `attempt to overwrite state v${prevVersion} with older v${state.state.version}`,
-          'STALE_STATE',
-        );
-      }
-    }
+    validateStateUpdate(
+      channelId,
+      state,
+      existing?.state ? BigInt(existing.state.state.version) : undefined,
+      Boolean(existing),
+    );
     const file: ChannelFile = {
       version: 1,
-      channel: existing.channel,
+      channel: (existing as ChannelFile).channel,
       state: serializeSignedState(state),
     };
     await this.atomicWrite(channelId, file);
@@ -318,3 +312,162 @@ export class FileStorage implements ChannelStorage {
     for (const c of channels) await this.delete(c.id);
   }
 }
+
+interface IDBLike {
+  open(name: string, version?: number): IDBOpenDBRequestLike;
+}
+
+interface IDBOpenDBRequestLike {
+  result: IDBDatabaseLike;
+  onsuccess: ((ev: unknown) => void) | null;
+  onerror: ((ev: unknown) => void) | null;
+  onupgradeneeded: ((ev: unknown) => void) | null;
+}
+
+interface IDBDatabaseLike {
+  createObjectStore(name: string, opts?: { keyPath?: string }): unknown;
+  transaction(
+    stores: string | readonly string[],
+    mode: 'readonly' | 'readwrite',
+  ): IDBTransactionLike;
+  close(): void;
+  objectStoreNames: { contains(name: string): boolean };
+}
+
+interface IDBTransactionLike {
+  objectStore(name: string): IDBObjectStoreLike;
+  oncomplete: ((ev: unknown) => void) | null;
+  onerror: ((ev: unknown) => void) | null;
+  onabort: ((ev: unknown) => void) | null;
+}
+
+interface IDBObjectStoreLike {
+  put(value: unknown): IDBRequestLike<unknown>;
+  get(key: unknown): IDBRequestLike<unknown>;
+  delete(key: unknown): IDBRequestLike<unknown>;
+  clear(): IDBRequestLike<unknown>;
+  getAll(): IDBRequestLike<unknown[]>;
+}
+
+interface IDBRequestLike<T> {
+  result: T;
+  onsuccess: ((ev: unknown) => void) | null;
+  onerror: ((ev: unknown) => void) | null;
+}
+
+const IDB_CHANNELS_STORE = 'channels';
+const IDB_STATES_STORE = 'states';
+
+function promisifyRequest<T>(req: IDBRequestLike<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(new StorageError('indexeddb request failed', 'IDB_REQUEST_FAILED'));
+  });
+}
+
+function promisifyTx(tx: IDBTransactionLike): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(new StorageError('indexeddb transaction failed', 'IDB_TX_FAILED'));
+    tx.onabort = () => reject(new StorageError('indexeddb transaction aborted', 'IDB_TX_ABORTED'));
+  });
+}
+
+export interface IndexedDBStorageOptions {
+  readonly dbName?: string;
+  readonly indexedDB?: IDBLike;
+}
+
+export class IndexedDBStorage implements ChannelStorage {
+  private readonly db: IDBDatabaseLike;
+  private constructor(db: IDBDatabaseLike) {
+    this.db = db;
+  }
+
+  static async create(opts: IndexedDBStorageOptions = {}): Promise<IndexedDBStorage> {
+    const dbName = opts.dbName ?? 'tainnel-sdk';
+    const idb = opts.indexedDB ?? (globalThis as { indexedDB?: IDBLike }).indexedDB;
+    if (!idb) {
+      throw new StorageError(
+        'no IndexedDB available; pass opts.indexedDB explicitly (e.g. fake-indexeddb)',
+        'IDB_UNAVAILABLE',
+      );
+    }
+    const req = idb.open(dbName, 1);
+    const db = await new Promise<IDBDatabaseLike>((resolve, reject) => {
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains(IDB_CHANNELS_STORE)) {
+          d.createObjectStore(IDB_CHANNELS_STORE, { keyPath: 'id' });
+        }
+        if (!d.objectStoreNames.contains(IDB_STATES_STORE)) {
+          d.createObjectStore(IDB_STATES_STORE, { keyPath: 'channelId' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(new StorageError('failed to open indexeddb', 'IDB_OPEN_FAILED'));
+    });
+    return new IndexedDBStorage(db);
+  }
+
+  async saveChannel(channel: Channel): Promise<void> {
+    const tx = this.db.transaction([IDB_CHANNELS_STORE], 'readwrite');
+    tx.objectStore(IDB_CHANNELS_STORE).put(serializeChannel(channel));
+    await promisifyTx(tx);
+  }
+
+  async loadChannel(id: ChannelId): Promise<Channel | undefined> {
+    const tx = this.db.transaction([IDB_CHANNELS_STORE], 'readonly');
+    const raw = await promisifyRequest(tx.objectStore(IDB_CHANNELS_STORE).get(id));
+    return raw ? deserializeChannel(raw as SerializedChannel) : undefined;
+  }
+
+  async saveState(channelId: ChannelId, state: SignedState): Promise<void> {
+    const tx = this.db.transaction([IDB_CHANNELS_STORE, IDB_STATES_STORE], 'readwrite');
+    const channelRaw = await promisifyRequest(tx.objectStore(IDB_CHANNELS_STORE).get(channelId));
+    const previousRaw = await promisifyRequest(tx.objectStore(IDB_STATES_STORE).get(channelId));
+    validateStateUpdate(
+      channelId,
+      state,
+      previousRaw ? BigInt((previousRaw as SerializedSignedStateWithKey).state.version) : undefined,
+      Boolean(channelRaw),
+    );
+    tx.objectStore(IDB_STATES_STORE).put({
+      channelId,
+      ...serializeSignedState(state),
+    });
+    await promisifyTx(tx);
+  }
+
+  async loadLatestState(channelId: ChannelId): Promise<SignedState | undefined> {
+    const tx = this.db.transaction([IDB_STATES_STORE], 'readonly');
+    const raw = await promisifyRequest(tx.objectStore(IDB_STATES_STORE).get(channelId));
+    return raw ? deserializeSignedState(raw as SerializedSignedStateWithKey) : undefined;
+  }
+
+  async list(): Promise<readonly Channel[]> {
+    const tx = this.db.transaction([IDB_CHANNELS_STORE], 'readonly');
+    const all = await promisifyRequest(tx.objectStore(IDB_CHANNELS_STORE).getAll());
+    return (all as SerializedChannel[]).map(deserializeChannel);
+  }
+
+  async delete(id: ChannelId): Promise<void> {
+    const tx = this.db.transaction([IDB_CHANNELS_STORE, IDB_STATES_STORE], 'readwrite');
+    tx.objectStore(IDB_CHANNELS_STORE).delete(id);
+    tx.objectStore(IDB_STATES_STORE).delete(id);
+    await promisifyTx(tx);
+  }
+
+  async clear(): Promise<void> {
+    const tx = this.db.transaction([IDB_CHANNELS_STORE, IDB_STATES_STORE], 'readwrite');
+    tx.objectStore(IDB_CHANNELS_STORE).clear();
+    tx.objectStore(IDB_STATES_STORE).clear();
+    await promisifyTx(tx);
+  }
+
+  close(): void {
+    this.db.close();
+  }
+}
+
+type SerializedSignedStateWithKey = SerializedSignedState & { channelId: string };

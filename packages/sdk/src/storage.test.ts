@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { Channel, ChannelId, Hex, SignedState } from '@tainnel/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { StorageError } from './errors.js';
-import { type ChannelStorage, FileStorage, MemoryStorage } from './storage.js';
+import { type ChannelStorage, FileStorage, IndexedDBStorage, MemoryStorage } from './storage.js';
 
 const channelId: ChannelId = '0x0000000000000000000000000000000000000000000000000000000000000001';
 
@@ -221,5 +221,61 @@ describe('FileStorage', () => {
     await fs.writeFile(`${dir}/channels/.DS_Store`, 'mac junk', 'utf8');
     const list = await a.list();
     expect(list).toHaveLength(1);
+  });
+});
+
+describe('IndexedDBStorage', () => {
+  let dbName: string;
+  let counter = 0;
+
+  beforeEach(() => {
+    counter++;
+    dbName = `tainnel-sdk-test-${Date.now()}-${counter}`;
+  });
+
+  async function newStorage(): Promise<ChannelStorage> {
+    const fakeIDB = await import('fake-indexeddb');
+    return IndexedDBStorage.create({
+      dbName,
+      indexedDB: fakeIDB.indexedDB as unknown as Parameters<
+        typeof IndexedDBStorage.create
+      >[0]['indexedDB'],
+    });
+  }
+
+  runConformance('conformance', newStorage);
+
+  it('throws if no IndexedDB is available and none is injected', async () => {
+    const original = (globalThis as { indexedDB?: unknown }).indexedDB;
+    (globalThis as { indexedDB?: unknown }).indexedDB = undefined;
+    try {
+      await expect(IndexedDBStorage.create({ dbName: 'no-idb' })).rejects.toThrow(/no IndexedDB/);
+    } finally {
+      if (original !== undefined) (globalThis as { indexedDB?: unknown }).indexedDB = original;
+      else (globalThis as { indexedDB?: unknown }).indexedDB = undefined;
+    }
+  });
+
+  it('persists across instances backed by the same dbName', async () => {
+    const fakeIDB = await import('fake-indexeddb');
+    const a = await IndexedDBStorage.create({
+      dbName,
+      indexedDB: fakeIDB.indexedDB as unknown as Parameters<
+        typeof IndexedDBStorage.create
+      >[0]['indexedDB'],
+    });
+    await a.saveChannel(makeChannel());
+    await a.saveState(channelId, makeSignedState(2n));
+    a.close();
+
+    const b = await IndexedDBStorage.create({
+      dbName,
+      indexedDB: fakeIDB.indexedDB as unknown as Parameters<
+        typeof IndexedDBStorage.create
+      >[0]['indexedDB'],
+    });
+    expect((await b.loadChannel(channelId))?.id).toBe(channelId);
+    expect((await b.loadLatestState(channelId))?.state.version).toBe(2n);
+    b.close();
   });
 });

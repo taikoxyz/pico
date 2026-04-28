@@ -7,10 +7,112 @@ export interface MockHubHandle {
   stop(): Promise<void>;
 }
 
-export async function startMockHub(_opts?: { port?: number }): Promise<MockHubHandle> {
-  throw new Error(
-    'startMockHub: WebSocket-based mock hub not yet implemented; use createMockHub for in-process tests',
-  );
+export interface StartMockHubOptions extends Partial<MockHubOptions> {
+  readonly port?: number;
+  readonly host?: string;
+}
+
+export async function startMockHub(
+  opts: StartMockHubOptions = {},
+): Promise<MockHubHandle & { hub: MockHub }> {
+  const wsModule = (await import('ws')) as unknown as {
+    WebSocketServer: new (cfg: { port?: number; host?: string }) => {
+      address(): null | string | { address: string; family: string; port: number };
+      close(cb?: (err?: Error) => void): void;
+      on(event: 'connection', cb: (socket: MockWebSocket) => void): void;
+      on(event: 'error', cb: (err: Error) => void): void;
+    };
+  };
+  const server = new wsModule.WebSocketServer({
+    port: opts.port ?? 0,
+    host: opts.host ?? '127.0.0.1',
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.on('error', (err: Error) => reject(err));
+    const start = Date.now();
+    const tryAddr = (): void => {
+      const a = server.address();
+      if (a && typeof a === 'object') {
+        resolve();
+        return;
+      }
+      if (Date.now() - start > 1_000) {
+        reject(new Error('mock hub failed to bind'));
+        return;
+      }
+      setTimeout(tryAddr, 5);
+    };
+    tryAddr();
+  });
+  const addr = server.address();
+  if (!addr || typeof addr !== 'object') {
+    throw new Error('failed to determine mock hub address');
+  }
+  const url = `ws://${addr.address}:${addr.port}`;
+
+  const hubOptions: MockHubOptions = {
+    hubPrivateKey:
+      opts.hubPrivateKey ??
+      ('0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as Hex),
+    chainId: opts.chainId ?? (167009 as ChainId),
+    verifyingContract:
+      opts.verifyingContract ?? ('0x1111111111111111111111111111111111111111' as Address),
+    ...(opts.preimages ? { preimages: opts.preimages } : {}),
+    ...(opts.autoSettlePayments !== undefined
+      ? { autoSettlePayments: opts.autoSettlePayments }
+      : {}),
+    ...(opts.rejectAllPayments !== undefined ? { rejectAllPayments: opts.rejectAllPayments } : {}),
+    ...(opts.rejectAllCloses !== undefined ? { rejectAllCloses: opts.rejectAllCloses } : {}),
+  };
+  const hub = createMockHub(hubOptions);
+
+  server.on('connection', (socket: MockWebSocket) => {
+    const handlers = new Set<(msg: { id: string; kind: string; payload: unknown }) => void>();
+    const dispose = hub.attach({
+      send: async (msg) => {
+        socket.send(JSON.stringify(msg));
+      },
+      onMessage: (h) => {
+        handlers.add(h);
+        return () => handlers.delete(h);
+      },
+      close: async () => {
+        socket.close();
+      },
+    });
+    socket.on('message', (data: { toString(): string }) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(data.toString());
+      } catch {
+        return;
+      }
+      if (!parsed || typeof parsed !== 'object') return;
+      const m = parsed as { id?: unknown; kind?: unknown; payload?: unknown };
+      if (typeof m.id !== 'string' || typeof m.kind !== 'string') return;
+      const msg = { id: m.id, kind: m.kind, payload: m.payload };
+      if (msg.kind === 'ping') {
+        socket.send(JSON.stringify({ id: msg.id, kind: 'pong', payload: null }));
+        return;
+      }
+      for (const h of handlers) h(msg);
+    });
+    socket.on('close', () => dispose());
+  });
+
+  const stop = (): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+      server.close((err?: Error) => (err ? reject(err) : resolve()));
+    });
+
+  return { url, hub, stop };
+}
+
+interface MockWebSocket {
+  send(data: string): void;
+  close(): void;
+  on(event: 'message', cb: (data: { toString(): string }) => void): void;
+  on(event: 'close', cb: () => void): void;
 }
 
 export interface InMemoryTransportLike {
