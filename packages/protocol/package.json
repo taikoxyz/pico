@@ -20,6 +20,9 @@
     "test": "vitest run",
     "clean": "rm -rf dist .turbo"
   },
+  "dependencies": {
+    "viem": "^2.21.0"
+  },
   "devDependencies": {
     "typescript": "^5.5.4",
     "vitest": "^2.1.8"

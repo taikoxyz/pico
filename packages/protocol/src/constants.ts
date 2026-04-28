@@ -45,5 +45,5 @@ export const DEFAULT_DISPUTE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_HTLC_EXPIRY_MS = 60 * 60 * 1000;
 export const DEFAULT_HUB_FEE_BPS = 10n;
 export const DEFAULT_HUB_FEE_FLAT = 1n;
-export const MIN_CHANNEL_AMOUNT_USDC = 1_000_000n;
+export const MIN_CHANNEL_AMOUNT_USDC = 10_000_000n;
 export const MIN_CHANNEL_AMOUNT_ETH = 10n ** 16n;

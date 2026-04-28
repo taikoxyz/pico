@@ -1,11 +1,20 @@
 import {
   type Address,
   CHANNEL_STATE_TYPES,
+  COOPERATIVE_CLOSE_TYPES,
   type ChainId,
   type ChannelState,
+  type CooperativeClose,
   type Eip712Domain,
+  HTLC_TYPES,
   type Hex,
+  type Htlc,
+  UPDATE_TYPES,
+  type Update,
   buildDomain,
+  htlcDirectionByte,
+  htlcExpirySeconds,
+  htlcMerkleRoot,
 } from '@tainnel/protocol';
 
 export interface ChannelStateTypedData {
@@ -22,23 +31,118 @@ export interface ChannelStateTypedData {
   };
 }
 
+export interface HtlcTypedData {
+  readonly domain: Eip712Domain;
+  readonly types: typeof HTLC_TYPES;
+  readonly primaryType: 'Htlc';
+  readonly message: {
+    readonly id: Hex;
+    readonly amount: bigint;
+    readonly paymentHash: Hex;
+    readonly expiry: bigint;
+    readonly direction: number;
+  };
+}
+
+export interface UpdateTypedData {
+  readonly domain: Eip712Domain;
+  readonly types: typeof UPDATE_TYPES;
+  readonly primaryType: 'Update';
+  readonly message: {
+    readonly channelId: Hex;
+    readonly fromVersion: bigint;
+    readonly toVersion: bigint;
+    readonly nextState: ChannelStateTypedData['message'];
+  };
+}
+
+export interface CooperativeCloseTypedData {
+  readonly domain: Eip712Domain;
+  readonly types: typeof COOPERATIVE_CLOSE_TYPES;
+  readonly primaryType: 'CooperativeClose';
+  readonly message: {
+    readonly channelId: Hex;
+    readonly finalBalanceA: bigint;
+    readonly finalBalanceB: bigint;
+    readonly signedAt: bigint;
+  };
+}
+
+function channelStateMessage(state: ChannelState): ChannelStateTypedData['message'] {
+  return {
+    channelId: state.channelId,
+    version: state.version,
+    balanceA: state.balanceA,
+    balanceB: state.balanceB,
+    htlcsRoot: htlcMerkleRoot(state.htlcs),
+    finalized: state.finalized,
+  };
+}
+
 export function buildChannelStateTypedData(
   state: ChannelState,
   chainId: ChainId,
   verifyingContract: Address,
-  htlcsRoot: Hex,
 ): ChannelStateTypedData {
   return {
     domain: buildDomain(chainId, verifyingContract),
     types: CHANNEL_STATE_TYPES,
     primaryType: 'ChannelState',
+    message: channelStateMessage(state),
+  };
+}
+
+export function buildHtlcTypedData(
+  htlc: Htlc,
+  chainId: ChainId,
+  verifyingContract: Address,
+): HtlcTypedData {
+  return {
+    domain: buildDomain(chainId, verifyingContract),
+    types: HTLC_TYPES,
+    primaryType: 'Htlc',
     message: {
-      channelId: state.channelId,
-      version: state.version,
-      balanceA: state.balanceA,
-      balanceB: state.balanceB,
-      htlcsRoot,
-      finalized: state.finalized,
+      id: htlc.id,
+      amount: htlc.amount,
+      paymentHash: htlc.paymentHash,
+      expiry: htlcExpirySeconds(htlc),
+      direction: htlcDirectionByte(htlc.direction),
+    },
+  };
+}
+
+export function buildUpdateTypedData(
+  update: Update,
+  chainId: ChainId,
+  verifyingContract: Address,
+): UpdateTypedData {
+  return {
+    domain: buildDomain(chainId, verifyingContract),
+    types: UPDATE_TYPES,
+    primaryType: 'Update',
+    message: {
+      channelId: update.channelId,
+      fromVersion: update.fromVersion,
+      toVersion: update.toVersion,
+      nextState: channelStateMessage(update.nextState),
+    },
+  };
+}
+
+export function buildCooperativeCloseTypedData(
+  close: CooperativeClose,
+  chainId: ChainId,
+  verifyingContract: Address,
+): CooperativeCloseTypedData {
+  return {
+    domain: buildDomain(chainId, verifyingContract),
+    types: COOPERATIVE_CLOSE_TYPES,
+    primaryType: 'CooperativeClose',
+    message: {
+      channelId: close.channelId,
+      finalBalanceA: close.finalBalanceA,
+      finalBalanceB: close.finalBalanceB,
+      signedAt: close.signedAt,
     },
   };
 }

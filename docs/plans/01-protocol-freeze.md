@@ -1,6 +1,6 @@
 # P1 — Protocol freeze
 
-**Status:** 🔵 not started
+**Status:** 🟢 decisions locked, implementation in progress
 **Blocks:** P2 (contracts), P3 (state machine) — and transitively P4–P7
 **Effort:** 2–4 days, mostly your decision-making
 
@@ -25,7 +25,7 @@ defaults is fine.
 - **Tradeoff:** shorter = faster cooperative-close fallback, snappier UX. Longer =
   more safety margin if your watchtower is briefly down. 24h is the Lightning norm.
 - **Why it matters now:** baked into the contract as an immutable constant.
-- Decision: ☐ 12h ☐ 24h ☐ 48h ☐ 72h
+- Decision: ☐ 12h ☑ 24h ☐ 48h ☐ 72h
 
 ### D1.2 HTLC hash function
 - **Default:** `sha256`
@@ -34,7 +34,7 @@ defaults is fine.
   cheaper per HTLC on-chain. We don't expect on-chain HTLC reveals to be common
   (only on dispute), so off-chain ergonomics win.
 - **Why it matters now:** baked into the contract.
-- Decision: ☐ `sha256` ☐ `keccak256`
+- Decision: ☑ `sha256` ☐ `keccak256`
 
 ### D1.3 HTLC root algorithm (how the set of in-flight HTLCs gets hashed into a state)
 - **Default:** sorted-then-`keccak256`-concat (i.e., sort HTLCs by `id`, abi-encode
@@ -44,13 +44,13 @@ defaults is fine.
   inclusion on-chain without the others, which we don't in the dogfood scope.
 - **Why it matters now:** identical algorithm must run in Solidity (`HTLC.rootOf`)
   and TypeScript (`@tainnel/state-machine`).
-- Decision: ☐ sorted-keccak ☐ Merkle (more complex, defer)
+- Decision: ☐ sorted-keccak ☑ Merkle (more complex, defer)
 
 ### D1.4 Minimum channel amount
 - **Default:** 1 USDC (1_000_000 = 1 USDC at 6 decimals)
 - **Tradeoff:** prevents dust channels that cost more in gas than they're worth to
   open. Higher minimums make the network feel less micropayment-friendly.
-- Decision: ☐ 0.5 USDC ☐ 1 USDC ☐ 5 USDC ☐ 10 USDC
+- Decision: ☐ 0.5 USDC ☐ 1 USDC ☐ 5 USDC ☑ 10 USDC
 
 ### D1.5 Hub fee policy default for v1
 - **Default:** 0 (no fee)
@@ -58,7 +58,7 @@ defaults is fine.
   routing-failure mode (fees > sent amount). For 1–2 month dogfood, run free. The
   `FlatPlusBpsFeePolicy` plumbing already exists — flipping it on later is a config
   change.
-- Decision: ☐ 0 ☐ 0.1% + 1 unit (current code default) ☐ custom
+- Decision: ☐ 0 ☑ 0.1% + 1 unit (current code default) ☐ custom
 
 ### D1.6 Time source for HTLC expiry
 - **Default:** on-chain `block.timestamp` (uint64, seconds), off-chain `Date.now()`
@@ -66,7 +66,7 @@ defaults is fine.
 - **Tradeoff:** the only viable choice. Using ms off-chain causes off-by-1000 bugs
   when comparing signed messages to chain timestamps.
 - **Why it matters now:** easy to misread the spec and pick ms everywhere; lock it.
-- Decision: ☐ accept default
+- Decision: ☑ accept default
 
 ## Implementation tasks
 

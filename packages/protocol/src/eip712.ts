@@ -10,15 +10,17 @@ export interface Eip712Domain {
   readonly verifyingContract: Address;
 }
 
+const CHANNEL_STATE_FIELDS = [
+  { name: 'channelId', type: 'bytes32' },
+  { name: 'version', type: 'uint64' },
+  { name: 'balanceA', type: 'uint256' },
+  { name: 'balanceB', type: 'uint256' },
+  { name: 'htlcsRoot', type: 'bytes32' },
+  { name: 'finalized', type: 'bool' },
+] as const;
+
 export const CHANNEL_STATE_TYPES = {
-  ChannelState: [
-    { name: 'channelId', type: 'bytes32' },
-    { name: 'version', type: 'uint64' },
-    { name: 'balanceA', type: 'uint256' },
-    { name: 'balanceB', type: 'uint256' },
-    { name: 'htlcsRoot', type: 'bytes32' },
-    { name: 'finalized', type: 'bool' },
-  ],
+  ChannelState: CHANNEL_STATE_FIELDS,
 } as const;
 
 export const HTLC_TYPES = {
@@ -28,6 +30,25 @@ export const HTLC_TYPES = {
     { name: 'paymentHash', type: 'bytes32' },
     { name: 'expiry', type: 'uint64' },
     { name: 'direction', type: 'uint8' },
+  ],
+} as const;
+
+export const UPDATE_TYPES = {
+  Update: [
+    { name: 'channelId', type: 'bytes32' },
+    { name: 'fromVersion', type: 'uint64' },
+    { name: 'toVersion', type: 'uint64' },
+    { name: 'nextState', type: 'ChannelState' },
+  ],
+  ChannelState: CHANNEL_STATE_FIELDS,
+} as const;
+
+export const COOPERATIVE_CLOSE_TYPES = {
+  CooperativeClose: [
+    { name: 'channelId', type: 'bytes32' },
+    { name: 'finalBalanceA', type: 'uint256' },
+    { name: 'finalBalanceB', type: 'uint256' },
+    { name: 'signedAt', type: 'uint64' },
   ],
 } as const;
 
