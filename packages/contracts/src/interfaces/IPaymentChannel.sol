@@ -46,7 +46,10 @@ interface IPaymentChannel {
     function closeUnilateral(bytes32 channelId, bytes calldata state, bytes calldata sigCounterparty) external;
 
     /// @notice Challenge an in-progress unilateral close with a strictly newer signed state.
-    function dispute(bytes32 channelId, bytes calldata state, bytes calldata sigCounterparty) external;
+    /// @dev `sigCloser` MUST be the closer's signature on `state`. Verifying any other
+    ///      party's signature would let a malicious counterparty forge a state and steal
+    ///      the channel pot.
+    function dispute(bytes32 channelId, bytes calldata state, bytes calldata sigCloser) external;
 
     /// @notice After the dispute window, withdraw funds according to the latest accepted state.
     function finalize(bytes32 channelId) external;

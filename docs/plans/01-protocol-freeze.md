@@ -1,6 +1,6 @@
 # P1 — Protocol freeze
 
-**Status:** 🟢 decisions locked, implementation in progress
+**Status:** 🟢 done — merged in `feat(protocol): freeze v1 wire format` (#2)
 **Blocks:** P2 (contracts), P3 (state machine) — and transitively P4–P7
 **Effort:** 2–4 days, mostly your decision-making
 
@@ -70,16 +70,16 @@ defaults is fine.
 
 ## Implementation tasks
 
-- [ ] `[agent]` Fully populate [`docs/protocol-spec.md`](../protocol-spec.md) sections
+- [x] `[agent]` Fully populate [`docs/protocol-spec.md`](../protocol-spec.md) sections
       1–7 with concrete normative content based on the locked decisions above. Replace
       every "will be specified here" with actual prose, ABIs, and pseudocode.
       **Acceptance:** every section non-empty; reviewer can read the spec end-to-end
       without external context and understand the wire format.
-- [ ] `[agent]` Update `packages/protocol/src/constants.ts`:
+- [x] `[agent]` Update `packages/protocol/src/constants.ts`:
       `DEFAULT_DISPUTE_WINDOW_MS`, `DEFAULT_HTLC_EXPIRY_MS`, `DEFAULT_HUB_FEE_BPS`,
       `DEFAULT_HUB_FEE_FLAT`, `MIN_CHANNEL_AMOUNT_USDC` to match D1.1 / D1.4 / D1.5.
       **Acceptance:** values reflect decisions; `pnpm test` still green.
-- [ ] `[agent]` Finalize EIP-712 typed-data definitions in
+- [x] `[agent]` Finalize EIP-712 typed-data definitions in
       `packages/protocol/src/eip712.ts`. Add typed-data for `HTLC`, `Update`, and
       `CooperativeClose` in addition to the existing `ChannelState`. Include a
       versioning byte in the domain so future protocol bumps don't replay against v1
@@ -87,11 +87,11 @@ defaults is fine.
       **Acceptance:** types compile; corresponding fixture in
       `packages/state-machine/src/signing.test.ts` exercises every typed-data variant
       with a viem account.
-- [ ] `[agent]` Update [`docs/threat-model.md`](../threat-model.md) sections with
+- [x] `[agent]` Update [`docs/threat-model.md`](../threat-model.md) sections with
       concrete adversary models for each section heading (malicious user, malicious
       hub, etc.). 2–3 paragraphs per section. Reference specific protocol fields.
       **Acceptance:** reviewer can map every threat to a mitigation in the spec.
-- [ ] `[review]` You skim the spec and threat model. Ask the agent to push back if
+- [x] `[review]` You skim the spec and threat model. Ask the agent to push back if
       anything reads wrong against your mental model.
 
 ## Done when
