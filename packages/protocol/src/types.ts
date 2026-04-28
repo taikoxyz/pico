@@ -60,6 +60,13 @@ export interface Update {
   readonly nextState: ChannelState;
 }
 
+export interface CooperativeClose {
+  readonly channelId: ChannelId;
+  readonly finalBalanceA: bigint;
+  readonly finalBalanceB: bigint;
+  readonly signedAt: bigint;
+}
+
 export interface Signature {
   readonly r: Hex;
   readonly s: Hex;

@@ -21,7 +21,8 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@tainnel/protocol": "workspace:*"
+    "@tainnel/protocol": "workspace:*",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "fast-check": "^3.23.1",
