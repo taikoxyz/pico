@@ -39,7 +39,7 @@ P10 is the final cutover; P9 is everything you have to do to be ready for it.
   Phase 2 once stable.
 - Decision: ☐ Fly.io subdomain ☐ custom domain
 - If custom: domain registrar of choice, DNS at Cloudflare, Fly TLS auto-
-  provisioned. Record domain in `apps/wallet-ui/.env.production`.
+  provisioned. Record domain in the hub's deploy config / `apps/hub/fly.toml`.
 
 ### D9.4 Hub key management
 - **Default:** hot wallet (private key) stored as Fly.io secret on the hub

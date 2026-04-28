@@ -7,8 +7,8 @@ does, where trust boundaries sit, and why the topology is **1-hop**.
 
 ```mermaid
 flowchart LR
-    subgraph User["User device"]
-        UI[Wallet UI]
+    subgraph Agent["Agent / operator host"]
+        CLI[@tainnel/cli]
         SDK[@tainnel/sdk]
         SM[@tainnel/state-machine]
     end
@@ -23,13 +23,12 @@ flowchart LR
         ADJ[Adjudicator.sol]
     end
 
-    subgraph Nostr["Nostr relays"]
+    subgraph Nostr["Nostr relays (Phase 2 — DVM payments)"]
         REL[(Relays)]
     end
 
-    UI --> SDK --> SM
+    CLI --> SDK --> SM
     SDK <-->|WebSocket| Hub
-    UI <-->|DVM events| REL
     Hub <-->|DVM events| REL
     Hub -->|open/close/dispute| PC
     PC -->|verify| ADJ
@@ -41,7 +40,7 @@ flowchart LR
 
 | Actor       | Trust level      | Why                                                                 |
 |-------------|------------------|---------------------------------------------------------------------|
-| User wallet | trusted to self  | Holds the user's signing key.                                       |
+| Agent wallet | trusted to self  | Holds the agent / operator's signing key. v1: hot key in env var. |
 | Hub         | semi-trusted     | Cannot steal funds; can refuse service or stall a payment.          |
 | Watchtower  | semi-trusted     | Cannot steal funds; can fail to post a penalty tx in time.          |
 | Adjudicator | trustless        | Pure on-chain logic; verifies EIP-712 signed states.                |

@@ -34,10 +34,10 @@ verify each box yourself.
 - Decision: ☐ just you ☐ 3 ☐ 5 ☐ open invite to a small Discord
 
 ### D10.4 How channels are opened on mainnet
-- **Default:** users open their own channels using the wallet UI. Hub
-  auto-accepts up to D10.1. The deployer (cold wallet) does not open
-  channels on behalf of others.
-- Decision: ☐ self-serve (default) ☐ Daniel manually opens for each user
+- **Default:** users run `tainnel channel open --hub <url> --amount <n>`
+  from their own machine. Hub auto-accepts up to D10.1. The deployer (cold
+  wallet) does not open channels on behalf of others.
+- Decision: ☐ self-serve via CLI (default) ☐ Daniel manually opens for each user
 
 ### D10.5 Soak duration
 - **Default:** 14 days of observed normal operation before declaring the
@@ -63,8 +63,10 @@ verify each box yourself.
       $DATE on Taiko mainnet, here's what to expect".
 - [ ] `[human]` Confirm cold wallet has ≥ 0.1 ETH (deploy gas) + D10.2 USDC
       (initial hub liquidity) + 0.1 ETH each for hub & watchtower hot wallets.
-- [ ] `[agent]` Update `apps/wallet-ui/.env.production` with mainnet chain id
-      and a placeholder for the soon-to-be-deployed contract address.
+- [ ] `[agent]` Confirm `packages/protocol/src/constants.ts`
+      `CONTRACT_ADDRESSES[167000]` is wired with a placeholder slot for the
+      soon-to-be-deployed contract address. (The CLI reads addresses from
+      `constants.ts`; no separate env file.)
 
 ### Day of: contract deployment
 - [ ] `[human]` From the **cold wallet**, deploy contracts to Taiko mainnet:
@@ -79,7 +81,6 @@ verify each box yourself.
 - [ ] `[human]` Verify both contracts on Taikoscan show source code.
 - [ ] `[human]` Record addresses in:
       - `packages/protocol/src/constants.ts` `CONTRACT_ADDRESSES[167000]`
-      - `apps/wallet-ui/.env.production`
       - your password manager / project tracking
 - [ ] `[agent]` Update USDC token address in `constants.ts` to the canonical
       Taiko mainnet USDC.
@@ -90,10 +91,11 @@ verify each box yourself.
       contract addresses, real USDC token). **Health check first**, then
       monitoring dashboards.
 - [ ] `[human]` `flyctl deploy` watchtower against mainnet config.
-- [ ] `[human]` Deploy wallet UI to production hosting (Cloudflare Pages
-      production branch).
-- [ ] `[human]` Smoke test: open `https://wallet.tainnel.dev` (or whatever your
-      domain is), connect wallet, confirm it sees Taiko mainnet.
+- [ ] `[human]` Publish the CLI: `pnpm --filter @tainnel/cli build` and
+      `pnpm pack --filter @tainnel/cli` (or `npm publish` if going public).
+- [ ] `[human]` Smoke test: install `@tainnel/cli` on a fresh machine, set
+      `TAINNEL_PRIVATE_KEY` and `TAINNEL_HUB_URL`, run `tainnel hub status
+      $TAINNEL_HUB_URL`, confirm the hub responds with mainnet chain id.
 
 ### Day of: hub bootstrap
 - [ ] `[human]` From cold wallet, send the hub's hot wallet:
@@ -108,8 +110,10 @@ verify each box yourself.
       hub. Confirm settlement.
 
 ### Onboard the dogfood crew
-- [ ] `[human]` Send each user the wallet UI URL + a 1-pager explaining:
-      "open a channel up to D10.1 USDC, pay each other, report bugs."
+- [ ] `[human]` Send each user the CLI install + setup snippet
+      (`TAINNEL_PRIVATE_KEY`, `TAINNEL_HUB_URL`) + a 1-pager explaining:
+      "run `tainnel channel open --amount <n>` up to D10.1 USDC, pay each
+      other with `tainnel pay`, report bugs."
 - [ ] `[human]` Confirm each onboard with a test payment.
 
 ## Soak period (D10.5 days)

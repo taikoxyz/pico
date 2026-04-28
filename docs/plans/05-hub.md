@@ -1,12 +1,19 @@
 # P5 — Hub
 
-**Status:** 🔵 not started — module shells exist (`channel-pool`, `router`,
-`liquidity`, `fee-policy`, `chain-watcher`, `dispute-handler`, `api`) but only
-`fee-policy.ts` has real logic
+**Status:** 🟡 partial — first cut landed: sqlite persistence + repos, channel
+pool with per-channel mutex, liquidity reservations, fee policy, real
+`viem.watchContractEvent` chain-watcher, dispute handler that calls `dispute()`
+on PaymentChannel, WebSocket protocol matching the SDK wire shapes
+(subscribe / pay / close.request / ping), REST endpoints (/health,
+/v1/channels, /v1/channels/open, /v1/payments, /v1/preimages) gated by bearer
+token, six custom Prometheus metrics, and an integration test exercising the
+full happy-path WS protocol against the real Fastify server. 26 hub tests pass.
+Still TODO before 🟢: signed-envelope auth (D5.2), router work for true
+hub→hub forwarding, anvil-backed integration test, coverage gate.
 **Blocks:** P8, P10
 **Effort:** ~1.5 weeks (the longest sub-project)
 **Depends on:** P3 (state machine), P4 (SDK message shapes), P2 (deployed contracts on Hoodi)
-**Parallelizable with:** P6 (watchtower) and P7 (wallet UI)
+**Parallelizable with:** P6 (watchtower) and P7 (CLI)
 
 ## Decisions
 
@@ -44,87 +51,100 @@
 ## Implementation tasks
 
 ### Persistence layer (`src/db/`)
-- [ ] `[agent]` Migrations: `migrations/001_initial.sql` with tables `channels`,
-      `signed_states`, `htlcs`, `payments`, `seen_nonces`. Run on startup.
-- [ ] `[agent]` `SqliteDatabase` real impl using `better-sqlite3`. Prepared
+- [x] `[agent]` Migrations: `migrations.ts` with tables `channels`,
+      `signed_states`, `htlcs`, `payments`, `seen_nonces`, `disputes`. Idempotent,
+      driven by a `_schema_migrations` table. Runs on startup.
+- [x] `[agent]` `SqliteDatabase` real impl using `better-sqlite3`. Prepared
       statements for hot paths.
-- [ ] `[agent]` `PostgresDatabase` real impl using `pg`. Same query interface.
-- [ ] `[agent]` Repository abstraction: `ChannelRepo`, `StateRepo`, `PaymentRepo`,
-      one method = one query. **No ORM.**
+- [ ] `[agent]` `PostgresDatabase` real impl using `pg`. **Skipped for v1**: stub
+      throws "postgres not implemented for v1; use sqlite". sqlite + litestream
+      is the dogfood path (D5.1) — postgres is a phase-2 follow-up.
+- [x] `[agent]` Repository abstraction: `ChannelRepo`, `StateRepo`, `HtlcRepo`,
+      `PaymentRepo`, `NonceRepo`, `DisputeRepo`. One method = one query.
 
 ### `channel-pool.ts`
-- [ ] `[agent]` Persist on `register`. Hydrate from DB on startup.
-- [ ] `[agent]` `recordState`: only persist if `version > existing.version` (the
-      same monotonic invariant as the state machine).
-- [ ] `[agent]` Concurrency: a per-channel async mutex so two messages on the same
-      channel can't race.
+- [x] `[agent]` Persist on `register`. `hydrate()` rebuilds from DB on startup.
+- [x] `[agent]` `recordState`: rejects with `StaleStateError` if `version <=` known.
+- [x] `[agent]` Concurrency: per-channel async mutex via `withLock` (chained
+      promise map). Test asserts serialized order on concurrent ops.
 
 ### `router.ts` — the actual 1-hop routing engine
-- [ ] `[agent]` `route(req)`:
-      1. Look up `req.fromChannel` and `req.toChannel`. Both must be `open`.
-      2. Verify the incoming HTLC is valid in `fromChannel` (state machine).
-      3. Check liquidity: `toChannel`'s capacity ≥ outgoing amount.
-      4. Decrement upstream/downstream `expiry` by `EXPIRY_BUFFER_SECONDS` (e.g.,
-         3600s) so we have time to settle if recipient delays.
-      5. Send the new HTLC to the recipient over their WebSocket.
-      6. On preimage reveal, propagate back to source channel within the buffer.
-      7. Persist intermediate state at every step.
-- [ ] `[agent]` Failure modes: recipient unreachable, downstream insufficient
-      liquidity, expiry too tight. Each returns a typed error → typed message to
-      the source client.
-- [ ] `[agent]` Idempotency: same HTLC `id` arriving twice is a no-op, not an
-      error.
+- [x] `[agent]` `route(req)`: validates source/dest channels are open, reserves
+      outbound liquidity, looks up preimage in `PreimageRegistry`, returns
+      `{outgoingHtlc, preimage, feePaid}` or throws typed errors
+      (`ChannelNotOpenError`, `InsufficientLiquidityError`, `UnknownPaymentHashError`).
+- [ ] `[agent]` Expiry buffer math + multi-step persistence are not yet wired —
+      v1 dogfood treats the hub as the payee (knows the preimage). True hub→hub
+      forwarding lands as a follow-up.
+- [x] `[agent]` Failure modes: each returns a typed error.
+- [ ] `[agent]` Idempotency on duplicate HTLC `id`: deferred — relies on DB
+      primary-key constraint at the `htlcs` table for now.
 
 ### `liquidity.ts`
-- [ ] `[agent]` `set/get` already exist; add `reserveOutbound(channelId, amount)`
-      and `releaseReservation(channelId, amount)` for in-flight HTLCs.
-- [ ] `[agent]` Hydrate from DB on startup using sum of pending HTLCs.
+- [x] `[agent]` `reserveOutbound(channelId, amount)` and
+      `releaseReservation(channelId, amount)` plus `availableOutbound` and
+      `InsufficientLiquidityError`.
+- [x] `[agent]` `hydrateFromHtlcs(channelId, htlcRepo)` sums pending HTLCs.
 
 ### `chain-watcher.ts`
-- [ ] `[agent]` Use `viem.watchContractEvent` on the deployed `PaymentChannel` for
-      `ChannelOpened`, `ChannelClosingUnilateral`, `DisputeRaised`,
-      `ChannelFinalized`. Filter to channels in our pool.
-- [ ] `[agent]` On `ChannelOpened`, transition channel from `pending` → `open`.
-- [ ] `[agent]` On `ChannelClosingUnilateral` against a hub-held channel, hand off
-      to `dispute-handler`.
-- [ ] `[agent]` Reorg handling: track confirmations, only act after N=3.
+- [x] `[agent]` Real `viem.watchContractEvent` on the four deployed
+      `PaymentChannel` events. Inline ABI in the file.
+- [x] `[agent]` On `channelOpened`, transitions channel `pending` → `open`.
+- [x] `[agent]` On `closingUnilateral`, hands off to `dispute-handler`.
+- [x] `[agent]` Reorg buffer: holds events until `currentBlock - firstSeenBlock
+      >= 3` (configurable).
 
 ### `dispute-handler.ts`
-- [ ] `[agent]` On dispute event, fetch our latest signed state for the channel,
-      compare versions, and if our state is newer, build a `dispute` tx via viem
-      and submit. Use the hub's hot wallet.
-- [ ] `[agent]` Bookkeeping: write `disputed_at`, `responded_at`, `tx_hash` to DB.
-- [ ] `[agent]` If our state is older or equal, log loudly (this is a sign of
-      compromised key or stale local DB).
+- [x] `[agent]` Fetches `stateRepo.latest(channelId)`. If newer, encodes the
+      `Adjudicator.ChannelState` ABI tuple and calls `dispute(channelId, state,
+      sigCloser)` via `viem.walletClient.sendTransaction`.
+- [x] `[agent]` Persists `disputeRepo.record(...)` then
+      `disputeRepo.markResponded(channelId, txHash)`.
+- [x] `[agent]` If our state is older or equal, logs loudly via
+      `logger.error` and persists the observation as a pending dispute row.
 
 ### REST + WebSocket API (`src/api/`)
-- [ ] `[agent]` `GET /health` — already done; expand to include DB ping and chain
-      RPC reachability.
-- [ ] `[agent]` `GET /v1/channels` — list (already returns pool state; gate behind
-      hub-operator auth).
-- [ ] `[agent]` `POST /v1/channels/open` — accept open request, return `channelId`
-      and on-chain tx hash once mined.
-- [ ] `[agent]` `POST /v1/payments` — for clients without persistent WS (e.g., an
-      AI agent doing a one-shot pay). Internally creates a short-lived WS session.
-- [ ] `[agent]` `WS /v1/ws` — bidirectional channel for state updates,
-      payment.send, payment.settle, dispute notifications.
+- [x] `[agent]` `GET /health` — returns `{status, dbReady, chainReady}`. DB ping
+      via `channelRepo.list()`. Chain ping via `pingChain()` with a 2s timeout.
+- [x] `[agent]` `GET /v1/channels` — bearer-auth gated.
+- [x] `[agent]` `POST /v1/channels/open` — records pending row, returns
+      `{channelId, status: 'pending'}`.
+- [x] `[agent]` `POST /v1/payments` — accepts a wrapped `{ msg }` body and runs
+      the same WS handler.
+- [x] `[agent]` `WS /v1/ws` — bidirectional. Handles `subscribe` /
+      `subscribe.ack`, `pay` / `payment.settle` / `payment.fail`, `close.request`
+      / `close.counter` / `close.reject`, `ping` / `pong`. Wire shapes match
+      `packages/test-utils/src/mock-hub.ts` byte-for-byte. Verified by an
+      integration test that uses the SDK's `WebSocketTransport` against the
+      live Fastify server.
+- [x] `[agent]` `POST /v1/preimages` — bearer-auth gated; lets the hub operator
+      seed paymentHash → preimage so the hub can settle pay messages.
 
 ### Auth (D5.2 implementation)
-- [ ] `[agent]` Verify signed envelope on every WS message. Cache seen nonces in
-      DB with a TTL of 24h to bound memory.
+- [ ] `[agent]` Signed envelope verification. **Deferred**: the wire handler
+      already accepts a bare `{id, kind, payload}` (matching the mock hub).
+      Wrapping with `{nonce, ts, payload, sig}` is a follow-up. The
+      `seen_nonces` table is in place so the auth layer can drop in cleanly.
 
 ### Operational details
-- [ ] `[agent]` `/metrics` Prometheus endpoint: `tainnel_hub_channels_total`,
-      `tainnel_hub_payments_total`, `tainnel_hub_htlcs_in_flight`,
+- [x] `[agent]` `/metrics` Prometheus endpoint: `tainnel_hub_channels_total`,
+      `tainnel_hub_payments_total{status}`, `tainnel_hub_htlcs_in_flight`,
       `tainnel_hub_inbound_liquidity_usdc`, `tainnel_hub_outbound_liquidity_usdc`,
       `tainnel_hub_disputes_total`.
-- [ ] `[agent]` Structured logs for every state transition, payment, dispute.
-- [ ] `[agent]` Graceful shutdown: drain WS, persist all pending state, close DB.
+- [x] `[agent]` Structured pino logs at every state transition, payment,
+      dispute, and chain event.
+- [ ] `[agent]` Graceful shutdown: `app.addHook('onClose', ...)` stops the
+      chain watcher and closes the DB. WS draining with code 1001 is
+      a follow-up — Fastify closes the socket on `app.close()` already, but
+      explicit drain isn't yet wired.
 
 ### Tests
-- [ ] `[agent]` Integration tests using a real anvil + deployed contracts:
-      register channel, route a payment, dispute a stale state.
-- [ ] `[agent]` Coverage ≥ 70% lines (per spec §6 standards).
+- [ ] `[agent]` Integration tests using a real anvil + deployed contracts.
+      **Deferred to P10 launch infra.** The current integration test runs
+      against a real Fastify+ws server but mocks the chain. Marked `// TODO P10`.
+- [ ] `[agent]` Coverage ≥ 70% lines. Vitest threshold enforced; current
+      coverage not measured numerically. To run with coverage:
+      `pnpm --filter @tainnel/hub test --coverage`.
 
 ## `[review]` gates
 

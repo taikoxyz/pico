@@ -1,7 +1,8 @@
 # tainnel roadmap
 
 > **Target:** dogfood / private launch on Taiko mainnet. USDC only, full 1-hop routing,
-> one watchtower. ~1–2 months end-to-end. DVM and ETH support are Phase-2 follow-ups.
+> one watchtower. **CLI-only user surface — no browser wallet UI.** ~1–2 months
+> end-to-end. DVM, ETH support, and ERC-8004 agent identity are Phase-2 follow-ups.
 
 This roadmap is the bird's-eye view. Each phase has a detailed plan in
 [`docs/plans/`](./docs/plans/). Work the phases in order unless explicitly marked
@@ -31,9 +32,9 @@ agent must stop before pressing the button.
 | P2  | Contracts                   | `[agent]`+`[review]` | 🟡 partial | P1         | code 🟢 (117 tests, 100% coverage, deployed + verified, line-by-line review done, dispute() bug fixed via UUPS); awaits two mainnet ops gates (smoke channel, owner-key rotation) — P10 prereqs, not P5 blockers |
 | P3  | State machine               | `[agent]`            | 🟢 done    | P1         | 109 tests, 100% coverage; consumed by SDK — [03-state-machine.md](./docs/plans/03-state-machine.md) |
 | P4  | SDK                         | `[agent]`            | 🟢 done    | P3         | 105+ tests, 92% coverage; ChannelClient, IndexedDB, BrowserWallet, real-WS mock hub — [04-sdk.md](./docs/plans/04-sdk.md) |
-| P5  | Hub                         | `[agent]`+`[review]` | 🔵 not started | P3, P4 | [05-hub.md](./docs/plans/05-hub.md)                    |
-| P6  | Watchtower                  | `[agent]`+`[review]` | 🔵 not started | P3     | [06-watchtower.md](./docs/plans/06-watchtower.md)      |
-| P7  | Wallet UI                   | `[agent]`+`[review]` | 🔵 not started | P4     | [07-wallet-ui.md](./docs/plans/07-wallet-ui.md)        |
+| P5  | Hub                         | `[agent]`+`[review]` | 🟡 partial | P3, P4 | first cut: 26 tests pass, sqlite + WS protocol matches SDK + chain-watcher + dispute handler. Deferred: signed-envelope auth, anvil integration, coverage gate — [05-hub.md](./docs/plans/05-hub.md) |
+| P6  | Watchtower                  | `[agent]`+`[review]` | 🟢 done    | P3     | 35 tests pass, full pipeline (storage + reorg-aware watcher + responder + scheduler + /health,/metrics) — [06-watchtower.md](./docs/plans/06-watchtower.md) |
+| P7  | CLI                         | `[agent]`+`[review]` | 🟡 partial | P4     | scaffold (`apps/cli/`) exists; SDK wiring + E2E pending — [07-cli.md](./docs/plans/07-cli.md) |
 | P8  | E2E + internal audit        | mixed                | 🔵 not started | P5, P6, P7 | [08-e2e-and-audit.md](./docs/plans/08-e2e-and-audit.md) |
 | P9  | Ops & infra                 | `[human]` heavy      | ⚪ planning | P8        | [09-ops.md](./docs/plans/09-ops.md)                    |
 | P10 | Mainnet dogfood launch      | `[human]` heavy      | ⚪ planning | P9        | [10-launch.md](./docs/plans/10-launch.md)              |
@@ -42,31 +43,40 @@ agent must stop before pressing the button.
 
 ### Parallelism opportunities
 
-P2/P3/P4 are all complete (P2 code-complete; only mainnet ops gates remain).
-The next fan-out is:
+P2/P3/P4 are complete (P2 code-complete; only mainnet ops gates remain). P6
+is 🟢 done. P5 has a working first cut covering the SDK wire contract end to
+end. The remaining fan-out is:
 
-- **P5 (hub) ‖ P6 (watchtower)** — P6 depends on P3 only and does not need
-  the hub running, so it can start at the same time as P5.
-- **P7 (wallet UI)** — can start as soon as P5's WebSocket protocol is real
-  enough to point a wallet at; until then, P4's `@tainnel/test-utils`
-  real-WS mock hub is a sufficient stand-in.
+- **P5 follow-ups** (signed-envelope auth, anvil-backed integration,
+  coverage gate) can land independently from P7.
+- **P7 (CLI)** — can start now. `apps/cli/` already has the commander.js
+  scaffold + command stubs (`channel open/list/close`, `pay`, `hub status`)
+  and depends on `@tainnel/sdk`. The remaining work is wiring those stubs to
+  the SDK and adding a `PrivateKeyWalletAdapter` to the SDK so the CLI can
+  sign on the Node side. Runs end-to-end against the P4 mock hub today;
+  switch the `--hub` flag once P5 follow-ups land.
 
 ---
 
 ## What to work on next
 
-P0–P4 are complete from an engineering standpoint. **The next engineering
-milestone is P5 (hub).** P6 and P7 can be picked up in parallel — see the
-section above.
+P0–P4 are complete from an engineering standpoint. P6 (watchtower) is 🟢
+done and P5 (hub) has a working first cut.
 
-1. **P5 (hub)** — unblocked. State machine, SDK, and the SDK↔hub WebSocket
-   wire contract (`subscribe`, `pay` / `payment.settle` / `payment.fail`,
-   `close.request` / `close.counter` / `close.reject`) are all locked. The
-   real-WS mock hub at `packages/test-utils/src/mock-hub.ts` is the
-   reference behaviour the production hub should match.
-2. **P6 (watchtower)** — unblocked, parallel with P5.
-3. **P7 (wallet UI)** — can start once P5's WS server is reachable; before
-   that, point it at the mock hub from P4.
+1. **P5 follow-ups** — to flip from 🟡 partial to 🟢 done:
+   - Signed-envelope WebSocket auth (D5.2). The wire handler accepts a bare
+     `{id, kind, payload}` today; wrap it with `{nonce, ts, payload, sig}`
+     verification. The `seen_nonces` table is already in place.
+   - Anvil-backed integration: replace the chain mock in
+     `apps/hub/test/integration.test.ts` with a real anvil run plus the
+     deployed contracts (this also gates P10's dispute drill). The current
+     test mocks the chain and is marked `// TODO P10`.
+   - Coverage report: `pnpm --filter @tainnel/hub test --coverage`. The
+     vitest threshold of ≥70% is set; current numeric coverage is unmeasured.
+2. **P7 (CLI)** — unblocked. The `apps/cli/` scaffold + command stubs
+   already exist; fill them in against the SDK and add
+   `PrivateKeyWalletAdapter` to the SDK. Point it at the hub's `WS /v1/ws`
+   (or, for pure offline work, the SDK's existing `startMockHub`).
 
 ### Outstanding mainnet ops gates (P10 prereqs, not P5 blockers)
 
@@ -95,7 +105,7 @@ scan them in one place. Each has a default; accepting defaults across the board 
 | P5 | Hub WebSocket auth | signed message per request | [05](./docs/plans/05-hub.md#decisions) |
 | P6 | Watchtower deployment mode | self-hosted only | [06](./docs/plans/06-watchtower.md#decisions) |
 | P6 | Penalty trigger threshold | 50% of dispute window | [06](./docs/plans/06-watchtower.md#decisions) |
-| P7 | Wallet connector(s) | WalletConnect via wagmi | [07](./docs/plans/07-wallet-ui.md#decisions) |
+| P7 | CLI keystore handling | `TAINNEL_PRIVATE_KEY` env var | [07](./docs/plans/07-cli.md#decisions) |
 | P9 | Hosting platform | Fly.io | [09](./docs/plans/09-ops.md#decisions) |
 | P9 | Watchtower placement | separate region from hub | [09](./docs/plans/09-ops.md#decisions) |
 | P9 | Alert destination | Discord webhook | [09](./docs/plans/09-ops.md#decisions) |
@@ -142,8 +152,8 @@ The project is "dogfood production ready" when **every gate** below is green:
 - [ ] All 10 sub-plans report status 🟢
 - [ ] Contracts deployed + verified on Taiko mainnet
 - [ ] Hub + watchtower running on production infra with monitoring + alerts
-- [ ] One end-to-end mainnet payment (client → hub → recipient) succeeds with real USDC
+- [ ] One end-to-end mainnet payment (CLI process A → hub → CLI process B) succeeds with real USDC
 - [ ] Dispute drill on mainnet (≤ MIN_CHANNEL_AMOUNT funds): a deliberately-stale state
       submission is penalized by the watchtower within the dispute window
 - [ ] 2-week soak: 3–5 dogfood users, no funds lost, alerts behaved correctly
-- [ ] Post-launch retro written, follow-up phase 2 issues filed (DVM, ETH, multi-hub)
+- [ ] Post-launch retro written, follow-up phase 2 issues filed (DVM, ETH, multi-hub, ERC-8004 agent identity)

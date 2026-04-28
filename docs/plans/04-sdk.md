@@ -8,7 +8,7 @@ tests + 3 mock-hub round-trip tests. Pay timeout triggers a local
 `failHtlc` fallback. Real-WebSocket `startMockHub` ships in
 `@tainnel/test-utils`. End-to-end runnable example at
 `examples/sdk-mock-flow.ts`. Coverage 92% lines (gate ≥80%).
-**Blocks:** P5 (hub WebSocket protocol depends on SDK message shapes), P7 (wallet UI)
+**Blocks:** P5 (hub WebSocket protocol depends on SDK message shapes), P7 (CLI)
 **Effort:** ~1 week
 **Depends on:** P3 (state machine real, esp. `signing.ts`)
 
@@ -59,8 +59,9 @@ tests + 3 mock-hub round-trip tests. Pay timeout triggers a local
 - [x] `[agent]` `ViemWalletAdapter` wrapping a viem `WalletClient` from
       `createWalletClient(...)`. Uses `signTypedData` directly.
 - [x] `[agent]` `BrowserWalletAdapter` wrapping `window.ethereum` (EIP-1193) for
-      browsers that don't ship a connected wagmi client. The wallet UI will use
-      wagmi's hook output instead, but the SDK should be usable from a plain page.
+      embedded EVM-RPC providers. (The v1 user-facing surface is the
+      `tainnel` CLI, which uses a Node-side `PrivateKeyWalletAdapter` —
+      see P7. The SDK is usable from either path.)
 - [x] `[agent]` Document in README that the wallet adapter must be the **same
       address** as one of the channel's parties; otherwise sigs will fail.
 

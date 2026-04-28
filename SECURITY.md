@@ -20,7 +20,6 @@ In scope:
 
 Out of scope (in the bootstrap):
 
-- The reference wallet UI under `apps/wallet-ui` — pre-production, design only.
 - Documentation typos, dead links.
 
 ## Disclosure
