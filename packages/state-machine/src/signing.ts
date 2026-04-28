@@ -152,8 +152,12 @@ async function recoveredMatches(
   data: Parameters<typeof recoverTypedDataAddress>[0],
   expectedSigner: Address,
 ): Promise<boolean> {
-  const recovered = await recoverTypedDataAddress(data);
-  return recovered.toLowerCase() === expectedSigner.toLowerCase();
+  try {
+    const recovered = await recoverTypedDataAddress(data);
+    return recovered.toLowerCase() === expectedSigner.toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 export function hashChannelState(

@@ -290,3 +290,160 @@ describe('property: sorted-merkle determinism', () => {
     );
   });
 });
+
+describe('property: addHtlc / settleHtlc / failHtlc / expireHtlcs are pure', () => {
+  it('addHtlc never mutates the input state', () => {
+    fc.assert(
+      fc.property(
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        htlcArb,
+        (balanceA, balanceB, htlc) => {
+          const fits =
+            htlc.direction === 'AtoB' ? htlc.amount <= balanceA : htlc.amount <= balanceB;
+          if (!fits) return true;
+          const start = makeState(1n, balanceA, balanceB, []);
+          const beforeBalanceA = start.balanceA;
+          const beforeBalanceB = start.balanceB;
+          const beforeHtlcsRef = start.htlcs;
+          addHtlc(start, htlc);
+          return (
+            start.balanceA === beforeBalanceA &&
+            start.balanceB === beforeBalanceB &&
+            start.htlcs === beforeHtlcsRef &&
+            start.htlcs.length === 0
+          );
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  it('applyUpdate never mutates the input state', () => {
+    fc.assert(
+      fc.property(fc.bigUintN(48), fc.bigUintN(48), fc.bigUintN(32), (a, b, fromV) => {
+        const prev = makeState(fromV, a, b, []);
+        const beforeBalanceA = prev.balanceA;
+        const beforeBalanceB = prev.balanceB;
+        const beforeVersion = prev.version;
+        applyUpdate(prev, {
+          channelId,
+          fromVersion: fromV,
+          toVersion: fromV + 1n,
+          nextState: makeState(fromV + 1n, b, a, []),
+        });
+        return (
+          prev.balanceA === beforeBalanceA &&
+          prev.balanceB === beforeBalanceB &&
+          prev.version === beforeVersion
+        );
+      }),
+      { numRuns: 200 },
+    );
+  });
+});
+
+describe('property: total balance preservation across single htlc operations', () => {
+  function totalOf(s: ChannelState): bigint {
+    let t = s.balanceA + s.balanceB;
+    for (const h of s.htlcs) t += h.amount;
+    return t;
+  }
+
+  it('addHtlc preserves total balance', () => {
+    fc.assert(
+      fc.property(
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        htlcArb,
+        (balanceA, balanceB, htlc) => {
+          const fits =
+            htlc.direction === 'AtoB' ? htlc.amount <= balanceA : htlc.amount <= balanceB;
+          if (!fits) return true;
+          const start = makeState(1n, balanceA, balanceB, []);
+          const after = addHtlc(start, htlc);
+          return totalOf(after) === totalOf(start);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  it('settleHtlc preserves total balance', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 0xffffffff }),
+        fc.bigInt({ min: 1n, max: 1_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        direction,
+        (seed, amount, balanceA, balanceB, dir) => {
+          const { preimage, paymentHash } = preimagePair(seed);
+          const htlc: Htlc = {
+            id: bytes32From(seed ^ 0x1234abcd),
+            direction: dir,
+            amount,
+            paymentHash,
+            expiryMs: 9_999_999n,
+          };
+          const start = addHtlc(makeState(1n, balanceA, balanceB, []), htlc);
+          const total = totalOf(start);
+          const after = settleHtlc(start, htlc.id, preimage);
+          return totalOf(after) === total;
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  it('failHtlc preserves total balance', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 0xffffffff }),
+        fc.bigInt({ min: 1n, max: 1_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        direction,
+        (seed, amount, balanceA, balanceB, dir) => {
+          const htlc: Htlc = {
+            id: bytes32From(seed),
+            direction: dir,
+            amount,
+            paymentHash: preimagePair(seed).paymentHash,
+            expiryMs: 9_999_999n,
+          };
+          const start = addHtlc(makeState(1n, balanceA, balanceB, []), htlc);
+          const total = totalOf(start);
+          const after = failHtlc(start, htlc.id);
+          return totalOf(after) === total;
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  it('expireHtlcs preserves total balance', () => {
+    fc.assert(
+      fc.property(
+        fc.array(htlcArb, { maxLength: 6 }),
+        fc.bigInt({ min: 0n, max: 20_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        fc.bigInt({ min: 1_000_000n, max: 10_000_000n }),
+        (rawHtlcs, nowMs, balanceA, balanceB) => {
+          let s = makeState(1n, balanceA, balanceB, []);
+          for (const h of uniqueHtlcs(rawHtlcs)) {
+            try {
+              s = addHtlc(s, h);
+            } catch {
+              // skip ones that don't fit
+            }
+          }
+          const total = totalOf(s);
+          const after = expireHtlcs(s, nowMs);
+          return totalOf(after) === total;
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+});

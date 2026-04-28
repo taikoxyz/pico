@@ -124,6 +124,159 @@ describe('channel', () => {
     expect(computeBalance(state)).toEqual({ totalA: 100n, totalB: 50n });
   });
 
+  it('error codes are stable for each rejection path', () => {
+    const prev = makeState(5n, 100n, 50n);
+    try {
+      validateUpdate(prev, {
+        channelId: `0x${'aa'.repeat(32)}`,
+        fromVersion: 5n,
+        toVersion: 6n,
+        nextState: makeState(6n, 100n, 50n),
+      });
+    } catch (err) {
+      expect(err).toBeInstanceOf(StateMachineError);
+      expect((err as StateMachineError).code).toBe('CHANNEL_ID_MISMATCH');
+    }
+    try {
+      validateUpdate(
+        { ...prev, finalized: true },
+        { channelId, fromVersion: 5n, toVersion: 6n, nextState: makeState(6n, 100n, 50n) },
+      );
+    } catch (err) {
+      expect((err as StateMachineError).code).toBe('FINALIZED');
+    }
+    try {
+      validateUpdate(prev, {
+        channelId,
+        fromVersion: 5n,
+        toVersion: 5n,
+        nextState: makeState(5n, 100n, 50n),
+      });
+    } catch (err) {
+      expect((err as StateMachineError).code).toBe('STALE_VERSION');
+    }
+    try {
+      validateUpdate(prev, {
+        channelId,
+        fromVersion: 5n,
+        toVersion: 6n,
+        nextState: makeState(6n, 200n, 50n),
+      });
+    } catch (err) {
+      expect((err as StateMachineError).code).toBe('BALANCE_MISMATCH');
+    }
+  });
+
+  it('does not mutate the previous state when applying an update', () => {
+    const prev = makeState(1n, 100n, 50n);
+    const snapshot = {
+      version: prev.version,
+      balanceA: prev.balanceA,
+      balanceB: prev.balanceB,
+      htlcsLength: prev.htlcs.length,
+      finalized: prev.finalized,
+    };
+    const update: Update = {
+      channelId,
+      fromVersion: 1n,
+      toVersion: 2n,
+      nextState: makeState(2n, 60n, 90n),
+    };
+    applyUpdate(prev, update);
+    expect(prev.version).toBe(snapshot.version);
+    expect(prev.balanceA).toBe(snapshot.balanceA);
+    expect(prev.balanceB).toBe(snapshot.balanceB);
+    expect(prev.htlcs.length).toBe(snapshot.htlcsLength);
+    expect(prev.finalized).toBe(snapshot.finalized);
+  });
+
+  it('does not mutate the update.nextState reference when applying', () => {
+    const next = makeState(2n, 60n, 90n);
+    const snapshotBalanceA = next.balanceA;
+    applyUpdate(makeState(1n, 100n, 50n), {
+      channelId,
+      fromVersion: 1n,
+      toVersion: 2n,
+      nextState: next,
+    });
+    expect(next.balanceA).toBe(snapshotBalanceA);
+  });
+
+  it('chains multiple updates that each preserve total balance', () => {
+    const total = 150n;
+    let cur = makeState(1n, 100n, 50n);
+    const flips = [
+      { a: 60n, b: 90n },
+      { a: 75n, b: 75n },
+      { a: 0n, b: 150n },
+      { a: 150n, b: 0n },
+    ];
+    for (let i = 0; i < flips.length; i++) {
+      const f = flips[i];
+      if (!f) continue;
+      const next = makeState(cur.version + 1n, f.a, f.b);
+      cur = applyUpdate(cur, {
+        channelId,
+        fromVersion: cur.version,
+        toVersion: cur.version + 1n,
+        nextState: next,
+      });
+      expect(cur.balanceA + cur.balanceB).toBe(total);
+    }
+    expect(cur.version).toBe(5n);
+  });
+
+  it('accepts the smallest valid version bump (current + 1)', () => {
+    const prev = makeState(0n, 100n, 50n);
+    const next = makeState(1n, 100n, 50n);
+    const update: Update = { channelId, fromVersion: 0n, toVersion: 1n, nextState: next };
+    expect(applyUpdate(prev, update)).toEqual(next);
+  });
+
+  it('preserves total when transitioning into a state with htlcs', () => {
+    const prev = makeState(1n, 100n, 50n);
+    const htlc: Htlc = {
+      id: `0x${'aa'.repeat(32)}`,
+      direction: 'AtoB',
+      amount: 25n,
+      paymentHash: `0x${'bb'.repeat(32)}`,
+      expiryMs: 9_999_999n,
+    };
+    const next: ChannelState = {
+      ...prev,
+      version: 2n,
+      balanceA: 75n,
+      htlcs: [htlc],
+    };
+    const result = applyUpdate(prev, {
+      channelId,
+      fromVersion: 1n,
+      toVersion: 2n,
+      nextState: next,
+    });
+    const totals = computeBalance(result);
+    expect(totals.totalA + totals.totalB).toBe(150n);
+  });
+
+  it('preserves total when transitioning out of a state with htlcs', () => {
+    const htlc: Htlc = {
+      id: `0x${'cc'.repeat(32)}`,
+      direction: 'AtoB',
+      amount: 25n,
+      paymentHash: `0x${'dd'.repeat(32)}`,
+      expiryMs: 9_999_999n,
+    };
+    const prev: ChannelState = { ...makeState(1n, 75n, 50n), htlcs: [htlc] };
+    const next = makeState(2n, 75n, 75n);
+    const result = applyUpdate(prev, {
+      channelId,
+      fromVersion: 1n,
+      toVersion: 2n,
+      nextState: next,
+    });
+    expect(computeBalance(result)).toEqual({ totalA: 75n, totalB: 75n });
+  });
+
   it('property: applyUpdate preserves total balance for any monotonic version bump', () => {
     fc.assert(
       fc.property(

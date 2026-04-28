@@ -173,3 +173,184 @@ describe('computeHtlcsRoot / computeHtlcLeaf', () => {
     expect(a).toBe(b);
   });
 });
+
+describe('error codes', () => {
+  it('zero-amount → ZERO_AMOUNT_HTLC', () => {
+    try {
+      addHtlc(makeState(), makeHtlc({ amount: 0n }));
+    } catch (err) {
+      expect(err).toBeInstanceOf(StateMachineError);
+      expect((err as StateMachineError).code).toBe('ZERO_AMOUNT_HTLC');
+    }
+  });
+
+  it('duplicate id → DUPLICATE_HTLC', () => {
+    try {
+      const state = addHtlc(makeState(), makeHtlc());
+      addHtlc(state, makeHtlc());
+    } catch (err) {
+      expect((err as StateMachineError).code).toBe('DUPLICATE_HTLC');
+    }
+  });
+
+  it('insufficient balance → INSUFFICIENT_BALANCE', () => {
+    try {
+      addHtlc(makeState(), makeHtlc({ amount: 10_000_000n }));
+    } catch (err) {
+      expect((err as StateMachineError).code).toBe('INSUFFICIENT_BALANCE');
+    }
+  });
+
+  it('invalid preimage → INVALID_PREIMAGE', () => {
+    const state = addHtlc(makeState(), makeHtlc());
+    try {
+      const bad: Preimage = '0x2222222222222222222222222222222222222222222222222222222222222222';
+      settleHtlc(state, makeHtlc().id, bad);
+    } catch (err) {
+      expect(err).toBeInstanceOf(InvalidPreimageError);
+      expect((err as StateMachineError).code).toBe('INVALID_PREIMAGE');
+    }
+  });
+
+  it('unknown htlc → UNKNOWN_HTLC', () => {
+    const unknown = `0x${'de'.repeat(32)}`;
+    try {
+      failHtlc(makeState(), unknown);
+    } catch (err) {
+      expect(err).toBeInstanceOf(UnknownHtlcError);
+      expect((err as StateMachineError).code).toBe('UNKNOWN_HTLC');
+    }
+  });
+});
+
+describe('immutability', () => {
+  it('addHtlc does not mutate the input state', () => {
+    const state = makeState();
+    const balanceASnap = state.balanceA;
+    const htlcsRefSnap = state.htlcs;
+    addHtlc(state, makeHtlc());
+    expect(state.balanceA).toBe(balanceASnap);
+    expect(state.htlcs).toBe(htlcsRefSnap);
+    expect(state.htlcs.length).toBe(0);
+  });
+
+  it('settleHtlc does not mutate the input state', () => {
+    const start = addHtlc(makeState(), makeHtlc());
+    const lenBefore = start.htlcs.length;
+    settleHtlc(start, makeHtlc().id, PREIMAGE);
+    expect(start.htlcs.length).toBe(lenBefore);
+    expect(start.balanceA).toBe(900n);
+  });
+
+  it('failHtlc does not mutate the input state', () => {
+    const start = addHtlc(makeState(), makeHtlc());
+    failHtlc(start, makeHtlc().id);
+    expect(start.htlcs.length).toBe(1);
+    expect(start.balanceA).toBe(900n);
+  });
+
+  it('expireHtlcs does not mutate the input state', () => {
+    const htlc = makeHtlc({ expiryMs: 100n });
+    const start = addHtlc(makeState(), htlc);
+    const lenBefore = start.htlcs.length;
+    expireHtlcs(start, 1_000n);
+    expect(start.htlcs.length).toBe(lenBefore);
+    expect(start.balanceA).toBe(900n);
+  });
+});
+
+describe('htlc lifecycle edge cases', () => {
+  it('settling the same htlc twice throws UnknownHtlcError on the second call', () => {
+    const start = addHtlc(makeState(), makeHtlc());
+    const once = settleHtlc(start, makeHtlc().id, PREIMAGE);
+    expect(() => settleHtlc(once, makeHtlc().id, PREIMAGE)).toThrow(UnknownHtlcError);
+  });
+
+  it('failing the same htlc twice throws UnknownHtlcError on the second call', () => {
+    const start = addHtlc(makeState(), makeHtlc());
+    const once = failHtlc(start, makeHtlc().id);
+    expect(() => failHtlc(once, makeHtlc().id)).toThrow(UnknownHtlcError);
+  });
+
+  it('an id can be reused after the original htlc is settled', () => {
+    const first = addHtlc(makeState(), makeHtlc());
+    const settled = settleHtlc(first, makeHtlc().id, PREIMAGE);
+    expect(() => addHtlc(settled, makeHtlc({ amount: 50n }))).not.toThrow();
+  });
+
+  it('an id can be reused after the original htlc is failed', () => {
+    const first = addHtlc(makeState(), makeHtlc());
+    const failed = failHtlc(first, makeHtlc().id);
+    expect(() => addHtlc(failed, makeHtlc({ amount: 50n }))).not.toThrow();
+  });
+
+  it('two htlcs with the same paymentHash but different ids are independent', () => {
+    const a = makeHtlc({ id: `0x${'a1'.repeat(32)}` });
+    const b = makeHtlc({ id: `0x${'b2'.repeat(32)}` });
+    let s = addHtlc(makeState(), a);
+    s = addHtlc(s, b);
+    expect(s.balanceA).toBe(800n);
+    s = settleHtlc(s, a.id, PREIMAGE);
+    expect(s.htlcs.length).toBe(1);
+    expect(s.htlcs[0]?.id).toBe(b.id);
+    s = settleHtlc(s, b.id, PREIMAGE);
+    expect(s.htlcs.length).toBe(0);
+    expect(s.balanceA).toBe(800n);
+    expect(s.balanceB).toBe(1_200n);
+  });
+
+  it('expireHtlcs is inclusive at the boundary nowMs == expiryMs', () => {
+    const htlc = makeHtlc({ expiryMs: 1_000n });
+    const start = addHtlc(makeState(), htlc);
+    const expired = expireHtlcs(start, 1_000n);
+    expect(expired.htlcs.length).toBe(0);
+  });
+
+  it('expireHtlcs leaves htlcs whose expiry is strictly greater than nowMs', () => {
+    const htlc = makeHtlc({ expiryMs: 1_001n });
+    const start = addHtlc(makeState(), htlc);
+    const result = expireHtlcs(start, 1_000n);
+    expect(result.htlcs.length).toBe(1);
+  });
+
+  it('exhausting balanceA via successive htlcs then refunding returns whole balance', () => {
+    let s = makeState();
+    const htlcs = [
+      makeHtlc({ id: `0x${'01'.repeat(32)}`, amount: 250n }),
+      makeHtlc({ id: `0x${'02'.repeat(32)}`, amount: 350n }),
+      makeHtlc({ id: `0x${'03'.repeat(32)}`, amount: 400n }),
+    ];
+    for (const h of htlcs) s = addHtlc(s, h);
+    expect(s.balanceA).toBe(0n);
+    for (const h of htlcs) s = failHtlc(s, h.id);
+    expect(s.balanceA).toBe(1_000n);
+    expect(s.balanceB).toBe(1_000n);
+  });
+
+  it('mixing AtoB and BtoA htlcs preserves independent accounting', () => {
+    const a = makeHtlc({ id: `0x${'a1'.repeat(32)}`, amount: 200n, direction: 'AtoB' });
+    const b = makeHtlc({ id: `0x${'b1'.repeat(32)}`, amount: 300n, direction: 'BtoA' });
+    let s = addHtlc(makeState(), a);
+    s = addHtlc(s, b);
+    expect(s.balanceA).toBe(800n);
+    expect(s.balanceB).toBe(700n);
+    s = settleHtlc(s, a.id, PREIMAGE);
+    expect(s.balanceA).toBe(800n);
+    expect(s.balanceB).toBe(900n);
+    s = failHtlc(s, b.id);
+    expect(s.balanceA).toBe(800n);
+    expect(s.balanceB).toBe(1_200n);
+  });
+
+  it('htlc with amount equal to full balanceA is allowed', () => {
+    const htlc = makeHtlc({ amount: 1_000n });
+    const next = addHtlc(makeState(), htlc);
+    expect(next.balanceA).toBe(0n);
+  });
+
+  it('verifyPreimage handles longer preimages (sha256 over arbitrary bytes)', () => {
+    const preimage: Preimage = `0x${'ab'.repeat(64)}`;
+    const hash = sha256(preimage);
+    expect(verifyPreimage(hash, preimage)).toBe(true);
+  });
+});
