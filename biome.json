@@ -19,7 +19,8 @@
       "**/lib/openzeppelin-contracts/**",
       "**/cache/**",
       "**/broadcast/**",
-      "**/*.sol"
+      "**/*.sol",
+      "**/test/fixtures/**"
     ]
   },
   "formatter": {

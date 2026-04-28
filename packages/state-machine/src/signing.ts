@@ -16,6 +16,7 @@ import {
   htlcExpirySeconds,
   htlcMerkleRoot,
 } from '@tainnel/protocol';
+import { hashTypedData, recoverTypedDataAddress } from 'viem';
 
 export interface ChannelStateTypedData {
   readonly domain: Eip712Domain;
@@ -145,4 +146,88 @@ export function buildCooperativeCloseTypedData(
       signedAt: close.signedAt,
     },
   };
+}
+
+async function recoveredMatches(
+  data: Parameters<typeof recoverTypedDataAddress>[0],
+  expectedSigner: Address,
+): Promise<boolean> {
+  const recovered = await recoverTypedDataAddress(data);
+  return recovered.toLowerCase() === expectedSigner.toLowerCase();
+}
+
+export function hashChannelState(
+  state: ChannelState,
+  chainId: ChainId,
+  verifyingContract: Address,
+): Hex {
+  return hashTypedData(buildChannelStateTypedData(state, chainId, verifyingContract));
+}
+
+export function verifyChannelStateSignature(
+  state: ChannelState,
+  signature: Hex,
+  expectedSigner: Address,
+  chainId: ChainId,
+  verifyingContract: Address,
+): Promise<boolean> {
+  return recoveredMatches(
+    { ...buildChannelStateTypedData(state, chainId, verifyingContract), signature },
+    expectedSigner,
+  );
+}
+
+export function hashHtlc(htlc: Htlc, chainId: ChainId, verifyingContract: Address): Hex {
+  return hashTypedData(buildHtlcTypedData(htlc, chainId, verifyingContract));
+}
+
+export function verifyHtlcSignature(
+  htlc: Htlc,
+  signature: Hex,
+  expectedSigner: Address,
+  chainId: ChainId,
+  verifyingContract: Address,
+): Promise<boolean> {
+  return recoveredMatches(
+    { ...buildHtlcTypedData(htlc, chainId, verifyingContract), signature },
+    expectedSigner,
+  );
+}
+
+export function hashUpdate(update: Update, chainId: ChainId, verifyingContract: Address): Hex {
+  return hashTypedData(buildUpdateTypedData(update, chainId, verifyingContract));
+}
+
+export function verifyUpdateSignature(
+  update: Update,
+  signature: Hex,
+  expectedSigner: Address,
+  chainId: ChainId,
+  verifyingContract: Address,
+): Promise<boolean> {
+  return recoveredMatches(
+    { ...buildUpdateTypedData(update, chainId, verifyingContract), signature },
+    expectedSigner,
+  );
+}
+
+export function hashCooperativeClose(
+  close: CooperativeClose,
+  chainId: ChainId,
+  verifyingContract: Address,
+): Hex {
+  return hashTypedData(buildCooperativeCloseTypedData(close, chainId, verifyingContract));
+}
+
+export function verifyCooperativeCloseSignature(
+  close: CooperativeClose,
+  signature: Hex,
+  expectedSigner: Address,
+  chainId: ChainId,
+  verifyingContract: Address,
+): Promise<boolean> {
+  return recoveredMatches(
+    { ...buildCooperativeCloseTypedData(close, chainId, verifyingContract), signature },
+    expectedSigner,
+  );
 }

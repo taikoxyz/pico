@@ -3,6 +3,7 @@ import {
   type ChannelState,
   type CooperativeClose,
   EMPTY_HTLCS_ROOT,
+  type Hex,
   type Htlc,
   TAIKO_HOODI_CHAIN_ID,
   type Update,
@@ -16,6 +17,14 @@ import {
   buildCooperativeCloseTypedData,
   buildHtlcTypedData,
   buildUpdateTypedData,
+  hashChannelState,
+  hashCooperativeClose,
+  hashHtlc,
+  hashUpdate,
+  verifyChannelStateSignature,
+  verifyCooperativeCloseSignature,
+  verifyHtlcSignature,
+  verifyUpdateSignature,
 } from './signing.js';
 
 const PK_A = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const;
@@ -129,5 +138,103 @@ describe('htlcMerkleRoot — determinism and edge cases', () => {
     const signature = await accountA.signTypedData(data);
     const recovered = await recoverTypedDataAddress({ ...data, signature });
     expect(recovered.toLowerCase()).toBe(accountA.address.toLowerCase());
+  });
+});
+
+describe('hash + verify helpers', () => {
+  const state = makeState(1n);
+
+  it('hashChannelState matches viem hashTypedData over build output', async () => {
+    const digest = hashChannelState(state, chainId, verifyingContract);
+    expect(digest).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  it('verifyChannelStateSignature accepts a valid signature', async () => {
+    const data = buildChannelStateTypedData(state, chainId, verifyingContract);
+    const signature = (await accountA.signTypedData(data)) as Hex;
+    expect(
+      await verifyChannelStateSignature(
+        state,
+        signature,
+        accountA.address,
+        chainId,
+        verifyingContract,
+      ),
+    ).toBe(true);
+  });
+
+  it('verifyChannelStateSignature rejects the wrong signer', async () => {
+    const data = buildChannelStateTypedData(state, chainId, verifyingContract);
+    const signature = (await accountA.signTypedData(data)) as Hex;
+    expect(
+      await verifyChannelStateSignature(
+        state,
+        signature,
+        accountB.address,
+        chainId,
+        verifyingContract,
+      ),
+    ).toBe(false);
+  });
+
+  it('hashHtlc + verifyHtlcSignature round-trip', async () => {
+    const htlc = makeHtlc('1', 500_000n);
+    const data = buildHtlcTypedData(htlc, chainId, verifyingContract);
+    const signature = (await accountB.signTypedData(data)) as Hex;
+    expect(hashHtlc(htlc, chainId, verifyingContract)).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(
+      await verifyHtlcSignature(htlc, signature, accountB.address, chainId, verifyingContract),
+    ).toBe(true);
+    expect(
+      await verifyHtlcSignature(htlc, signature, accountA.address, chainId, verifyingContract),
+    ).toBe(false);
+  });
+
+  it('hashUpdate + verifyUpdateSignature round-trip', async () => {
+    const update: Update = {
+      channelId,
+      fromVersion: 1n,
+      toVersion: 2n,
+      nextState: makeState(2n),
+    };
+    const data = buildUpdateTypedData(update, chainId, verifyingContract);
+    const signature = (await accountA.signTypedData(data)) as Hex;
+    expect(hashUpdate(update, chainId, verifyingContract)).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(
+      await verifyUpdateSignature(update, signature, accountA.address, chainId, verifyingContract),
+    ).toBe(true);
+    expect(
+      await verifyUpdateSignature(update, signature, accountB.address, chainId, verifyingContract),
+    ).toBe(false);
+  });
+
+  it('hashCooperativeClose + verifyCooperativeCloseSignature round-trip', async () => {
+    const close: CooperativeClose = {
+      channelId,
+      finalBalanceA: 1_500_000n,
+      finalBalanceB: 1_500_000n,
+      signedAt: 1_800_000_000n,
+    };
+    const data = buildCooperativeCloseTypedData(close, chainId, verifyingContract);
+    const signature = (await accountB.signTypedData(data)) as Hex;
+    expect(hashCooperativeClose(close, chainId, verifyingContract)).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(
+      await verifyCooperativeCloseSignature(
+        close,
+        signature,
+        accountB.address,
+        chainId,
+        verifyingContract,
+      ),
+    ).toBe(true);
+    expect(
+      await verifyCooperativeCloseSignature(
+        close,
+        signature,
+        accountA.address,
+        chainId,
+        verifyingContract,
+      ),
+    ).toBe(false);
   });
 });

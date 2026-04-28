@@ -1,8 +1,7 @@
 # P3 — State machine
 
-**Status:** 🟡 partial — `validateUpdate`/`applyUpdate`/`computeBalance` are real;
-HTLC math is partial; `signing.ts` only builds typed data, doesn't hash; no `htlcsRoot`
-implementation
+**Status:** ✅ done — signing hashes + verifies, HTLC math is finished, oracle
+fixture is the canonical TS↔Solidity parity gate, coverage at 100%
 **Blocks:** P4, P5, P6
 **Effort:** ~1 week
 **Parallelizable with:** P2 (contracts) once P1 is locked
@@ -21,51 +20,51 @@ itself.**
 ## Implementation tasks
 
 ### `signing.ts` — make it actually sign + hash
-- [ ] `[agent]` Implement `hashChannelState(state, chainId, verifyingContract,
+- [x] `[agent]` Implement `hashChannelState(state, chainId, verifyingContract,
       htlcsRoot): Hex` returning the EIP-712 digest using viem's `hashTypedData`.
-- [ ] `[agent]` Add `verifyChannelStateSignature(state, signature, expectedSigner,
+- [x] `[agent]` Add `verifyChannelStateSignature(state, signature, expectedSigner,
       chainId, verifyingContract): boolean` using viem's `recoverTypedDataAddress`.
-- [ ] `[agent]` Implement matching helpers for `Update`, `Htlc`, and
+- [x] `[agent]` Implement matching helpers for `Update`, `Htlc`, and
       `CooperativeClose`.
 
 ### `htlc.ts` — finish the math
-- [ ] `[agent]` Implement `computeHtlcsRoot(htlcs)` matching D1.3 exactly. Sort
+- [x] `[agent]` Implement `computeHtlcsRoot(htlcs)` matching D1.3 exactly. Sort
       HTLCs by `id` (lexicographic on the bytes32), abi-encode each as
       `(bytes32 id, uint256 amount, bytes32 paymentHash, uint64 expiry, uint8 direction)`,
       concat, single `keccak256`.
-- [ ] `[agent]` Add `verifyPreimage(paymentHash, preimage)` using D1.2's hash
+- [x] `[agent]` Add `verifyPreimage(paymentHash, preimage)` using D1.2's hash
       function. Tested against contract output.
-- [ ] `[agent]` Add `expireHtlcs` already exists; add property test that an
+- [x] `[agent]` Add `expireHtlcs` already exists; add property test that an
       expired HTLC's amount returns to the sender.
-- [ ] `[agent]` Strict invariants: an HTLC with `amount == 0` is rejected; HTLC
+- [x] `[agent]` Strict invariants: an HTLC with `amount == 0` is rejected; HTLC
       `id` must be unique within a state; settling a non-existent id throws.
 
 ### `replay.ts` — already correct, expand tests
-- [ ] `[agent]` Add property test: `ensureMonotonicVersion` rejects equal,
+- [x] `[agent]` Add property test: `ensureMonotonicVersion` rejects equal,
       smaller, and zero values.
 
 ### `channel.ts` — already correct, harden
-- [ ] `[agent]` Add invariant: `applyUpdate(prev, validUpdate).balanceA +
+- [x] `[agent]` Add invariant: `applyUpdate(prev, validUpdate).balanceA +
       .balanceB + sum(htlc amounts) === prev.balanceA + prev.balanceB +
       sum(prev.htlc amounts)` for any random valid update.
-- [ ] `[agent]` Reject updates that try to flip `finalized: false → true` while
+- [x] `[agent]` Reject updates that try to flip `finalized: false → true` while
       HTLCs are still pending.
 
 ### Property tests with `fast-check`
-- [ ] `[agent]` `applyUpdate` preserves total balance under any monotonic version
+- [x] `[agent]` `applyUpdate` preserves total balance under any monotonic version
       bump. (Already exists; expand.)
-- [ ] `[agent]` `addHtlc → settleHtlc(preimage)` round-trips: balance ends up
+- [x] `[agent]` `addHtlc → settleHtlc(preimage)` round-trips: balance ends up
       transferred to the receiving side, no funds lost.
-- [ ] `[agent]` `addHtlc → failHtlc` round-trips: balance returns to sender.
-- [ ] `[agent]` `expireHtlcs(now)` is idempotent — calling twice with same `now`
+- [x] `[agent]` `addHtlc → failHtlc` round-trips: balance returns to sender.
+- [x] `[agent]` `expireHtlcs(now)` is idempotent — calling twice with same `now`
       produces same state.
-- [ ] `[agent]` Replay attack: feeding any state where `version <= current` to
+- [x] `[agent]` Replay attack: feeding any state where `version <= current` to
       `applyUpdate` always throws `StaleVersionError`.
-- [ ] `[agent]` Sorted-keccak HTLC root: shuffling the input array before
+- [x] `[agent]` Sorted-keccak HTLC root: shuffling the input array before
       computing the root produces the same hash.
 
 ### Coverage gate
-- [ ] `[agent]` `pnpm --filter @tainnel/state-machine test --coverage` reports
+- [x] `[agent]` `pnpm --filter @tainnel/state-machine test --coverage` reports
       ≥ 95% on lines and branches. Wire into CI.
 
 ## Cross-package consistency check
@@ -82,8 +81,8 @@ Add a fixture file at `packages/state-machine/test/fixtures/oracle.json` contain
 side. The forge fuzz tests in P2 must read this same fixture and assert byte-for-byte
 equality.
 
-- [ ] `[agent]` Generate `oracle.json`
-- [ ] `[agent]` Wire forge tests to consume it via `vm.readJson`
+- [x] `[agent]` Generate `oracle.json`
+- [x] `[agent]` Wire forge tests to consume it via `vm.readJson`
 
 ## `[review]` gates
 

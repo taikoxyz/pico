@@ -17,14 +17,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "clean": "rm -rf dist .turbo"
+    "test": "vitest run --coverage",
+    "gen:oracle": "GEN_ORACLE=1 vitest run src/oracle.test.ts",
+    "clean": "rm -rf dist .turbo coverage"
   },
   "dependencies": {
     "@tainnel/protocol": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
     "fast-check": "^3.23.1",
     "typescript": "^5.5.4",
     "vitest": "^2.1.8"

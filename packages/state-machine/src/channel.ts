@@ -23,6 +23,12 @@ export function validateUpdate(prev: ChannelState, update: Update): void {
     throw new StateMachineError('channel already finalized', 'FINALIZED');
   }
   ensureMonotonicVersion(prev.version, update.toVersion);
+  if (update.nextState.finalized && !prev.finalized && update.nextState.htlcs.length > 0) {
+    throw new StateMachineError(
+      'cannot finalize while htlcs are pending',
+      'FINALIZE_WITH_PENDING_HTLCS',
+    );
+  }
   const before = computeBalance(prev);
   const after = computeBalance(update.nextState);
   if (before.totalA + before.totalB !== after.totalA + after.totalB) {

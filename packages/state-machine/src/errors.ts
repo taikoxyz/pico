@@ -28,3 +28,10 @@ export class UnknownHtlcError extends StateMachineError {
     this.name = 'UnknownHtlcError';
   }
 }
+
+export class InvalidPreimageError extends StateMachineError {
+  constructor(id: string) {
+    super(`invalid preimage for htlc ${id}`, 'INVALID_PREIMAGE');
+    this.name = 'InvalidPreimageError';
+  }
+}
