@@ -483,6 +483,10 @@ describe('ChannelClient.close — cooperative', () => {
       close: () => harness.hubTransport.close(),
     });
     const channel = await harness.client.open({ amount: 1_000n });
+    // simulate storage corruption: drop the seeded initial state so the
+    // unilateral fallback has nothing to post.
+    await harness.storage.delete(channel.id);
+    await harness.storage.saveChannel(channel);
     await expect(harness.client.close(channel.id)).rejects.toBeInstanceOf(CloseRejectedError);
     await harness.cleanup();
   });

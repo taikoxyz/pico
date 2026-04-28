@@ -219,9 +219,13 @@ export class WebSocketTransport implements Transport {
     this.reconnectAttempts++;
     await new Promise((r) => setTimeout(r, delay));
     if (this.closed) return;
-    this.connectPromise = this.openSocket().catch(() => {
-      // failed reconnect — will retry on next handleClose tick
+    const reconnect = this.openSocket();
+    reconnect.catch(() => {
+      if (this.connectPromise === reconnect) {
+        this.connectPromise = undefined;
+      }
     });
+    this.connectPromise = reconnect;
   }
 
   private computeBackoffMs(): number {

@@ -180,10 +180,10 @@ export function createMockHub(opts: MockHubOptions): MockHub {
           paymentHash: ph,
           amount: BigInt(payload.htlc.amount ?? '0'),
         });
+        if (opts.autoSettlePayments === false) {
+          return undefined;
+        }
         if (!preimage) {
-          if (opts.autoSettlePayments === false) {
-            return undefined;
-          }
           return {
             id: msg.id,
             kind: 'payment.fail',

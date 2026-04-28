@@ -28,9 +28,9 @@ agent must stop before pressing the button.
 |-----|-----------------------------|----------------------|------------|------------|-------------------------------------------------------|
 | P0  | Bootstrap monorepo          | mixed                | 🟢 done    | —          | merged in `chore: bootstrap monorepo skeleton`        |
 | P1  | Protocol freeze             | `[human]` heavy      | 🟢 done    | P0         | merged in `feat(protocol): freeze v1 wire format`     |
-| P2  | Contracts                   | `[agent]`+`[review]` | 🟡 partial | P1         | deployed + verified on Taiko mainnet; awaits line-by-line review, smoke channel, and owner-key rotation |
-| P3  | State machine               | `[agent]`            | 🟡 partial | P1         | [03-state-machine.md](./docs/plans/03-state-machine.md) |
-| P4  | SDK                         | `[agent]`            | 🔵 not started | P3     | [04-sdk.md](./docs/plans/04-sdk.md)                    |
+| P2  | Contracts                   | `[agent]`+`[review]` | 🟡 partial | P1         | code 🟢 (117 tests, 100% coverage, deployed + verified, line-by-line review done, dispute() bug fixed via UUPS); awaits two mainnet ops gates (smoke channel, owner-key rotation) — P10 prereqs, not P5 blockers |
+| P3  | State machine               | `[agent]`            | 🟢 done    | P1         | 109 tests, 100% coverage; consumed by SDK — [03-state-machine.md](./docs/plans/03-state-machine.md) |
+| P4  | SDK                         | `[agent]`            | 🟢 done    | P3         | 105+ tests, 92% coverage; ChannelClient, IndexedDB, BrowserWallet, real-WS mock hub — [04-sdk.md](./docs/plans/04-sdk.md) |
 | P5  | Hub                         | `[agent]`+`[review]` | 🔵 not started | P3, P4 | [05-hub.md](./docs/plans/05-hub.md)                    |
 | P6  | Watchtower                  | `[agent]`+`[review]` | 🔵 not started | P3     | [06-watchtower.md](./docs/plans/06-watchtower.md)      |
 | P7  | Wallet UI                   | `[agent]`+`[review]` | 🔵 not started | P4     | [07-wallet-ui.md](./docs/plans/07-wallet-ui.md)        |
@@ -42,24 +42,44 @@ agent must stop before pressing the button.
 
 ### Parallelism opportunities
 
-- **P2 and P3 can run in parallel** once P1 freezes the wire format. Different agents.
-- **P6 (watchtower) can run in parallel with P5 (hub)** — both depend on P3 only.
-- **P7 (wallet UI)** can start once P4 is real enough to mock against.
+P2/P3/P4 are all complete (P2 code-complete; only mainnet ops gates remain).
+The next fan-out is:
+
+- **P5 (hub) ‖ P6 (watchtower)** — P6 depends on P3 only and does not need
+  the hub running, so it can start at the same time as P5.
+- **P7 (wallet UI)** — can start as soon as P5's WebSocket protocol is real
+  enough to point a wallet at; until then, P4's `@tainnel/test-utils`
+  real-WS mock hub is a sufficient stand-in.
 
 ---
 
 ## What to work on next
 
-1. **P2 (contracts)**: deployed + verified on Taiko mainnet. Three things still
-   gate P2 → 🟢, all `[human]`:
-   - **Line-by-line `[review]`** of `PaymentChannel.sol` + `Adjudicator.sol`.
-   - **Open a smoke channel** (≤ MIN_CHANNEL_AMOUNT) and confirm `ChannelOpened`
-     on Taikoscan.
-   - **Rotate the owner key.** Current owner of both proxies is the deployer
-     (`0x327fa3...c458`) whose private key was pasted into a Claude session —
-     treat as compromised. `transferOwnership` from a clean key.
-2. **P3 (state machine)** is unblocked and parallelizable with the P2 follow-ups.
-3. Don't start P5/P6/P7 until P3 has at least the signing + HTLC root computation merged.
+P0–P4 are complete from an engineering standpoint. **The next engineering
+milestone is P5 (hub).** P6 and P7 can be picked up in parallel — see the
+section above.
+
+1. **P5 (hub)** — unblocked. State machine, SDK, and the SDK↔hub WebSocket
+   wire contract (`subscribe`, `pay` / `payment.settle` / `payment.fail`,
+   `close.request` / `close.counter` / `close.reject`) are all locked. The
+   real-WS mock hub at `packages/test-utils/src/mock-hub.ts` is the
+   reference behaviour the production hub should match.
+2. **P6 (watchtower)** — unblocked, parallel with P5.
+3. **P7 (wallet UI)** — can start once P5's WS server is reachable; before
+   that, point it at the mock hub from P4.
+
+### Outstanding mainnet ops gates (P10 prereqs, not P5 blockers)
+
+The contracts code is hub-ready, but two `[human]` gates must close before
+real users deposit USDC on mainnet. They do **not** block hub
+implementation — that work can target Hoodi testnet or a local fork.
+
+- **Smoke channel.** Open a ≤ MIN_CHANNEL_AMOUNT channel on mainnet and
+  confirm `ChannelOpened` on Taikoscan. Currently blocked by the deployer
+  (`0x327fa3...c458`) holding 0 USDC.
+- **Owner-key rotation.** The deployer key is the current owner of both
+  proxies and was pasted into a Claude session — treat as compromised.
+  `transferOwnership` from a clean key before any real user funds.
 
 ---
 

@@ -154,15 +154,28 @@ export class ChannelClient {
       openedAt: receipt.blockTimestamp,
       disputeWindowMs: this.opts.disputeWindowMs ?? DEFAULT_DISPUTE_WINDOW_MS,
     };
-    await this.opts.storage.saveChannel(channel);
 
-    // sanity: ensure either side of channel is us
     if (
       channel.userA.toLowerCase() !== me.toLowerCase() &&
       channel.userB.toLowerCase() !== me.toLowerCase()
     ) {
       throw new UnknownChannelError(`channel ${channel.id} does not include wallet ${me}`);
     }
+
+    await this.opts.storage.saveChannel(channel);
+    const initialState: SignedState = {
+      state: {
+        channelId: channel.id,
+        version: 0n,
+        balanceA: receipt.amountA,
+        balanceB: receipt.amountB,
+        htlcs: [],
+        finalized: false,
+      },
+      sigA: emptySig(),
+      sigB: emptySig(),
+    };
+    await this.opts.storage.saveState(channel.id, initialState);
 
     await this.opts.transport.connect();
     await requestReply(
