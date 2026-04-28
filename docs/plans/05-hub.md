@@ -16,7 +16,7 @@
 - **Tradeoff:** sqlite is one binary, no separate process; perfect for a single-hub
   dogfood. Postgres pays off only when you scale to multiple hub instances, which
   isn't on the roadmap.
-- Decision: ☐ sqlite + litestream ☐ Postgres ☐ sqlite without backup
+- Decision: ☑ sqlite + litestream ☐ Postgres ☐ sqlite without backup
 
 ### D5.2 WebSocket auth
 - **Default:** every WS message from a client carries a fresh signed envelope
@@ -25,21 +25,21 @@
   known channel party.
 - **Tradeoff:** session tokens are simpler but require expiry/rotation. Per-message
   auth is stateless and survives reconnection; we already have signing infra.
-- Decision: ☐ per-message signed envelope ☐ session token
+- Decision: ☑ per-message signed envelope ☐ session token
 
 ### D5.3 Hub key management
 - **Default:** hot key on the server; balance kept low (only what's needed for
   one channel-fund's worth of inbound liquidity + gas). Earnings periodically swept
   to a cold address.
 - **For dogfood:** acceptable. See [`09-ops.md`](./09-ops.md) for sweep automation.
-- Decision: ☐ hot wallet (default) ☐ remote signer (e.g., AWS KMS) — overkill for v1
+- Decision: ☑ hot wallet (default) ☐ remote signer (e.g., AWS KMS) — overkill for v1
 
 ### D5.4 Channel acceptance policy
 - **Default:** any address can request to open a channel; hub auto-accepts if its
   USDC liquidity allows. Caps: max 100 USDC per counterparty, max 10 channels total
   for v1.
 - **Why it matters:** prevents a single user from draining hub liquidity.
-- Decision: ☐ accept default ☐ allowlist ☐ unlimited
+- Decision: ☑ accept default ☐ allowlist ☐ unlimited
 
 ## Implementation tasks
 
