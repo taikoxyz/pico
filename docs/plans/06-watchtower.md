@@ -128,5 +128,5 @@ expectations:
 
 - Coverage ≥ 70% lines
 - Anvil dispute-drill test passes
-- Watchtower runs against Hoodi for ≥ 24h without crashing
+- Watchtower runs against Taiko mainnet for ≥ 24h without crashing
 - Branch merged with `feat(watchtower): implement detector, responder, scheduler`

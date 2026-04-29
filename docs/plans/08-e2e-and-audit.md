@@ -160,5 +160,5 @@ you do this yourself, even if an agent has linted/scanned everything first.
 - All scenarios pass
 - 1M-run forge fuzz green
 - All `[review]` checkboxes have been physically clicked by you
-- A 24h soak on Hoodi against the deployed contracts behaves cleanly
+- A 24h soak on a Taiko mainnet fork against the deployed contracts behaves cleanly
 - Branch merged with `feat(e2e): full lifecycle scenarios + internal audit`
