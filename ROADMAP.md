@@ -80,6 +80,7 @@ scan them in one place. Each has a default; accepting defaults across the board 
 | Phase | Decision | Default | Where |
 |---|---|---|---|
 | P4  | `Signer` hot key file format | scrypt-derived key + XSalsa20-Poly1305 sealed file at `$XDG_CONFIG_HOME/tainnel/key.enc`, perms 0600 | [04](./docs/plans/04-sdk.md#decisions) |
+| P4  | Preimage origin / payment model | Pattern A (invoice / receiver-generates) as default; Pattern B (keysend / sender-generates) behind a `--keysend` flag | [04](./docs/plans/04-sdk.md#decisions) |
 | P5  | Hub DB in production | sqlite + litestream | [05](./docs/plans/05-hub.md#decisions) |
 | P5  | Hub WebSocket auth | signed message per request | [05](./docs/plans/05-hub.md#decisions) |
 | P6  | Watchtower deployment mode | self-hosted only | [06](./docs/plans/06-watchtower.md#decisions) |

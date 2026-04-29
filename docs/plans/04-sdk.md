@@ -57,6 +57,7 @@ outline lives at the bottom of `docs/plans/07-agent-runtime.md`.
     signUpdate(u, chainId, verifyingContract): Promise<Hex>;
     signCooperativeClose(cc, chainId, verifyingContract): Promise<Hex>;
     signHtlc(htlc, chainId, verifyingContract): Promise<Hex>;
+    signInvoice(invoice, chainId): Promise<Hex>;
   }
   ```
   Hashing for these typed-data structs lives in `@tainnel/state-machine` (P3); the
@@ -65,6 +66,59 @@ outline lives at the bottom of `docs/plans/07-agent-runtime.md`.
   KMS, EIP-7702 delegation — implement the same interface. The SDK and CLI never call
   a private key directly; everything goes through `Signer`.
 - Decision: ☐ accept default Signer interface and v1 backend ☐ alternative shape
+
+### D4.5 Payment model (preimage origin)
+
+The HTLC preimage `P` (32 random bytes; `paymentHash = sha256(P)`) is the cryptographic
+hinge of every payment: only the holder of `P` can settle the HTLC, and revealing `P`
+is the act that propagates the payment back through the route. Two patterns exist in
+the wild; v1 ships **both**, with invoice-mode as the default.
+
+- **Pattern A (default) — invoice / receiver-generates `P`.**
+  Bob's agent generates `P` from a CSPRNG, computes `H`, persists `{P, H, amount,
+  expiry, ...}` in the SDK invoice store, hands Alice an invoice envelope (see below).
+  Alice runs `tainnel pay --invoice <invoice>`. The HTLC locks against `H`. Bob's
+  `tainnel listen` recognizes `H` from the invoice store, looks up `P`, settles. The
+  preimage propagates upstream and ends up in Alice's `PaymentResult` as the
+  cryptographic receipt of payment. This maps cleanly onto the canonical paid-API
+  flow: `GET /quote → 402 + invoice → tainnel pay → P → GET /resource Authorization:
+  tainnel-receipt <P>`.
+- **Pattern B (opt-in `--keysend`) — sender-generates `P`.**
+  Alice generates `P` herself and includes a side payload encrypted to Bob's public
+  key alongside the HTLC offer. The hub forwards the HTLC and the (still-encrypted)
+  payload; Bob decrypts, learns `P`, settles. Useful for tipping or pushing payments
+  to agents that don't expose an invoice endpoint. No semantic binding between `P`
+  and a specific service — `P` is just a number to Bob unless Alice puts service
+  context in the encrypted payload.
+
+The receiver's `tainnel listen` must support both. On HTLC arrival, look up `H` in
+the invoice store first; if not found and the offer carries a keysend payload,
+decrypt it and use that `P`; otherwise reject with a typed error.
+
+#### Invoice envelope (v1 format)
+
+Lives in the SDK as a JSON object signed by the recipient. Not stored on chain;
+purely a coordination artifact between Alice and Bob.
+
+```ts
+interface Invoice {
+  paymentHash: Hex;        // sha256(P), 0x-prefixed bytes32
+  amount: bigint;          // base units of the channel token (USDC = 6 decimals)
+  recipient: Address;      // Bob's address — same as the channel party
+  expiryMs: bigint;        // wall-clock expiry; SDK rejects invoices past this
+  hubHint?: string;        // optional preferred hub URL (not binding)
+  memo?: string;           // optional UTF-8, ≤ 256 bytes; included in HTLC for receipts
+  nonce: Hex;              // 16 random bytes; lets recipient dedupe replays
+  signature: Hex;          // EIP-712 sig by recipient over (chainId, paymentHash, amount, recipient, expiryMs, memo?, nonce)
+}
+```
+
+The signature lets Alice (and the hub) verify the invoice came from the address
+that's about to receive funds. The Invoice typed-data schema is added to
+`@tainnel/protocol` alongside the existing channel schemas.
+
+- Decision: ☐ Pattern A as default + Pattern B behind `--keysend` (recommended)
+  ☐ Pattern A only ☐ Pattern B only
 
 ## Implementation tasks
 
@@ -110,16 +164,48 @@ outline lives at the bottom of `docs/plans/07-agent-runtime.md`.
 - [ ] `[agent]` Establish a WebSocket session with the hub; send a `subscribe`
       message; await ack.
 
+### `ChannelClient.createInvoice(args)` (new — Pattern A receiver side)
+- [ ] `[agent]` Generate preimage `P` (32 bytes from `crypto.randomBytes` /
+      `crypto.getRandomValues`), compute `paymentHash = sha256(P)`.
+- [ ] `[agent]` Build `Invoice` envelope per D4.5; sign with `Signer.signInvoice`.
+- [ ] `[agent]` Persist `{P, paymentHash, amount, expiryMs, recipient, memo, nonce}`
+      in the SDK invoice store (`storage` bucket: `invoices/`). Listen-mode reads
+      from this store on inbound HTLC arrival.
+- [ ] `[agent]` Return the signed `Invoice` to the caller. The agent author serves
+      it from their HTTP endpoint (or hands it to Alice over Nostr DM, whatever).
+
 ### `ChannelClient.pay(request)`
-- [ ] `[agent]` Generate preimage (32 random bytes), hash it, build an `Htlc`.
+- [ ] `[agent]` Two call shapes:
+      1. **Pattern A (default):** `pay({invoice})`. Validate signature, expiry, and
+         recipient. Build an `Htlc` locked against `invoice.paymentHash` for
+         `invoice.amount + hub-quoted fee`.
+      2. **Pattern B (`--keysend`):** `pay({to, amount, keysend: true, payload?})`.
+         Generate preimage `P` locally, hash it, build the HTLC, and attach a side
+         payload `{P, payload?}` encrypted to `to`'s public key (NaCl/libsodium
+         sealed box).
 - [ ] `[agent]` Apply locally via `state-machine.addHtlc`; sign new state.
 - [ ] `[agent]` **Persist before send** (D4.3).
 - [ ] `[agent]` Send `pay` message to hub with state + sig + paymentHash + amount +
-      recipient.
-- [ ] `[agent]` Await `payment.settle` from hub with the preimage; verify it matches
-      `paymentHash`; apply `settleHtlc` locally; sign settled state; persist.
+      recipient + optional `keysendPayload`.
+- [ ] `[agent]` Await `payment.settle` from hub with the preimage; verify
+      `sha256(preimage) == paymentHash`; apply `settleHtlc` locally; sign settled
+      state; persist. Return `{preimage, settledAtMs, channelId}` — the preimage is
+      the cryptographic receipt the agent author shows back to the recipient's
+      service to authenticate (e.g., `Authorization: tainnel-receipt <preimage>`).
 - [ ] `[agent]` Timeout handling: if hub doesn't settle within
       `htlc.expiry - safetyMargin`, fail locally and broadcast a `failHtlc` update.
+
+### Listen-mode receive flow (consumed by `tainnel listen` from P7)
+- [ ] `[agent]` On inbound HTLC offer, look up `paymentHash` in the invoice store
+      first.
+      - **Hit (Pattern A):** retrieve `P`; verify HTLC amount/expiry vs invoice;
+        sign settle, persist, ack hub with the preimage. Mark invoice consumed
+        (idempotent on duplicate arrival of same `paymentHash`).
+      - **Miss + offer carries `keysendPayload`:** decrypt with the receiver's key;
+        extract `P`; verify `sha256(P) == paymentHash`; sign settle and ack with
+        `P`. Save `{P, paymentHash, amount, memo}` to a "received-keysend" log.
+      - **Miss + no keysend payload:** reject with `UnknownPaymentHashError`; let
+        the HTLC expire upstream so Alice's funds bounce back.
 
 ### `ChannelClient.close(id, opts)`
 - [ ] `[agent]` Cooperative path: send `close.request` to hub with our latest
@@ -136,6 +222,13 @@ outline lives at the bottom of `docs/plans/07-agent-runtime.md`.
 ### Tests
 - [ ] `[agent]` Unit tests with a mock `Transport` (in-memory pipe), mock wallet
       adapter, mock storage. Cover open/pay/close happy paths.
+- [ ] `[agent]` **Invoice flow tests:** `createInvoice` → invoice signature verifies
+      against recipient address; expired invoice rejected by `pay({invoice})`; mutated
+      invoice (any field flipped) rejected; replay (same `paymentHash` arriving
+      twice) is idempotent.
+- [ ] `[agent]` **Keysend flow tests:** `pay({to, amount, keysend: true})` builds a
+      sealed-box payload with the right recipient pubkey; listen-mode decrypts and
+      settles.
 - [ ] `[agent]` Persistence-survives-crash test: simulate a crash between sign-and-
       send; reload; assert state machine is sane and we can recover.
 

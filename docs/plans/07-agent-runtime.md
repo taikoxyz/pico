@@ -85,12 +85,40 @@ backend, no `tainnel listen` mode, no key management commands.
       `client.close()` with the chosen path. Print final tx hash.
 
 ### Payment commands
-- [ ] `[agent]` `tainnel pay --to <addr> --amount <usdc> [--via <hub>] [--memo <s>]`
-      — call `client.pay({to, amount, memo})`. Print payment id + state on each
-      transition (HTLC sent → preimage revealed → settled). Exit non-zero on failure
-      and print typed error reason.
-- [ ] `[agent]` `--json` flag prints one JSON object per state transition, one per
+
+Two payment models are supported per `docs/plans/04-sdk.md` D4.5:
+
+- **Invoice mode (default; Pattern A).** Receiver issues a signed invoice; sender pays
+  it. The preimage doubles as a payment receipt that the receiver's service can
+  verify (`Authorization: tainnel-receipt <preimage>`).
+- **Keysend mode (`--keysend`; Pattern B).** Sender generates the preimage and pushes
+  it inside an encrypted payload. Useful for tipping or pushing payments without
+  coordinating an invoice up front.
+
+#### `tainnel invoice` (receiver side)
+- [ ] `[agent]` `tainnel invoice create --amount <usdc> [--memo <s>] [--expiry <s>]
+      [--hub-hint <url>]` — call `client.createInvoice(...)`. Prints the signed
+      invoice as JSON (or base64 envelope behind a `--encoding` flag for HTTP-friendly
+      transport). Persists `{P, paymentHash, ...}` in the SDK invoice store.
+- [ ] `[agent]` `tainnel invoice list [--unpaid|--paid] [--json]` — list invoices in
+      the local store with status (issued / paid / expired / consumed).
+- [ ] `[agent]` `tainnel invoice show <paymentHash>` — print one invoice. Behind a
+      separate `--reveal-preimage` flag, print `P` so an operator can debug, but
+      gate that behind a fresh passphrase prompt.
+
+#### `tainnel pay` (sender side)
+- [ ] `[agent]` `tainnel pay --invoice <invoice-string> [--via <hub>] [--json]`
+      — Pattern A. Validate signature + expiry, pay the invoice. Print one JSON
+      object per state transition (HTLC sent → preimage revealed → settled), and on
+      success exit with the preimage on a final `{settled: true, preimage: "0x...",
+      receipt: "..."}` line.
+- [ ] `[agent]` `tainnel pay --to <addr> --amount <usdc> --keysend [--memo <s>]
+      [--via <hub>] [--json]` — Pattern B. Sender generates `P`; encrypted payload
+      goes to the recipient. Mutually exclusive with `--invoice`; reject combos.
+- [ ] `[agent]` `--json` mode emits one JSON object per state transition, one per
       line. Lets a non-TS agent parse without writing a viem stack.
+- [ ] `[agent]` Refuse to pay if the invoice's `recipient` field doesn't match the
+      address derivable from the channel's expected counterparty (sanity check).
 
 ### `tainnel listen` (new daemon-mode subcommand)
 - [ ] `[agent]` `tainnel listen [--hub <url>] [--channel <id>...]` — start a long-
@@ -150,10 +178,16 @@ pnpm install
 pnpm tainnel keys init
 pnpm tainnel channel open --hub https://hub.example.com --amount 25
 
-# pay
-pnpm tainnel pay --to 0xRecipient --amount 0.05 --json
+# Pattern A: invoice flow (default for paid APIs)
+#   step 1 — receiver creates an invoice and serves it from their HTTP API
+INVOICE=$(pnpm tainnel invoice create --amount 0.05 --memo "service foo")
+#   step 2 — sender pays the invoice and gets the preimage as a receipt
+pnpm tainnel pay --invoice "$INVOICE" --json
 
-# receive (run in the background)
+# Pattern B: keysend (push payment, no prior coordination)
+pnpm tainnel pay --to 0xRecipient --amount 0.05 --keysend --json
+
+# receive (run in the background; both modes settle through this)
 pnpm tainnel listen --hub https://hub.example.com &
 ```
 

@@ -220,62 +220,78 @@
 
 <h2>Happy path — Alice pays Bob</h2>
 
-<p>Alice's agent decides to call Bob's API. It runs:</p>
-<pre><code>tainnel pay --to 0xBob --amount 0.05 --via https://hub.example</code></pre>
+<p>Alice's agent decides to call Bob's API. The first thing it does is <em>not</em> open a channel; it asks Bob's service for a price. Bob's agent answers with an <strong>invoice</strong> — a small signed JSON envelope that includes a payment hash <code>H</code>, the amount, an expiry, and Bob's address as the intended recipient. Bob has just generated a random preimage <code>P</code>, computed <code>H = sha256(P)</code>, and stashed <code>P</code> in his local invoice store; the world only sees <code>H</code>. The invoice is the contract: "pay something hashing to <code>H</code> within the expiry, and you get the receipt that proves I was paid."</p>
+
+<p>Alice now runs:</p>
+<pre><code>tainnel pay --invoice "$INVOICE" --json</code></pre>
 
 <p>What happens next is a chain of signed messages, all of it off-chain.</p>
 
 <figure>
-<svg viewBox="0 0 700 460" width="100%" style="max-width: 700px">
+<svg viewBox="0 0 700 540" width="100%" style="max-width: 700px">
   <!-- Actor lifelines -->
   <text class="actor" x="80" y="30" text-anchor="middle">Alice CLI</text>
   <text class="actor" x="280" y="30" text-anchor="middle">Hub</text>
   <text class="actor" x="480" y="30" text-anchor="middle">Bob (tainnel listen)</text>
   <text class="actor" x="640" y="30" text-anchor="middle">Chain</text>
-  <line class="lifeline" x1="80" y1="40" x2="80" y2="440" />
-  <line class="lifeline" x1="280" y1="40" x2="280" y2="440" />
-  <line class="lifeline" x1="480" y1="40" x2="480" y2="440" />
-  <line class="lifeline" x1="640" y1="40" x2="640" y2="440" />
+  <line class="lifeline" x1="80" y1="40" x2="80" y2="520" />
+  <line class="lifeline" x1="280" y1="40" x2="280" y2="520" />
+  <line class="lifeline" x1="480" y1="40" x2="480" y2="520" />
+  <line class="lifeline" x1="640" y1="40" x2="640" y2="520" />
 
-  <!-- Step 1: SDK builds HTLC + signs -->
-  <text class="label" x="80" y="70" text-anchor="middle">build HTLC</text>
-  <text class="label" x="80" y="84" text-anchor="middle">+ sign state v=N+1</text>
+  <!-- Phase 0: Bob generates preimage + invoice (out of band, before HTLC) -->
+  <text class="label" x="480" y="62" text-anchor="middle">P = random 32 bytes · H = sha256(P)</text>
+  <text class="label" x="480" y="76" text-anchor="middle">store {P, H, ...} · sign Invoice envelope</text>
+
+  <!-- Phase 0b: Alice fetches invoice over HTTP / DM (not through hub) -->
+  <line class="arrow" x1="100" y1="100" x2="460" y2="100" stroke-dasharray="4 4" marker-end="url(#arrow)" />
+  <text class="label" x="280" y="92" text-anchor="middle">GET https://bob.example/quote?service=foo</text>
+  <line class="arrow" x1="460" y1="120" x2="100" y2="120" stroke-dasharray="4 4" marker-end="url(#arrow)" />
+  <text class="label" x="280" y="112" text-anchor="middle">402 · invoice {H, amount=0.05, expiry, recipient=Bob, sigBob}</text>
+
+  <!-- Step 1: Alice's SDK builds HTLC + signs (knows H from invoice, NOT P) -->
+  <text class="label" x="80" y="148" text-anchor="middle">verify invoice sig · build HTLC</text>
+  <text class="label" x="80" y="162" text-anchor="middle">+ sign state v=N+1</text>
 
   <!-- Step 2: Alice -> Hub: HTLC + state -->
-  <line class="arrow" x1="90" y1="100" x2="270" y2="100" marker-end="url(#arrow)" />
-  <text class="label" x="180" y="92" text-anchor="middle">HTLC(0.0501, hash=H, exp=T) + sigA</text>
+  <line class="arrow" x1="90" y1="180" x2="270" y2="180" marker-end="url(#arrow)" />
+  <text class="label" x="180" y="172" text-anchor="middle">HTLC(0.0501, hash=H, exp=T) + sigA</text>
 
   <!-- Step 3: Hub validates and forwards -->
-  <text class="label" x="280" y="125" text-anchor="middle">validate · check liquidity · keep 0.0001 fee</text>
-  <line class="arrow" x1="290" y1="150" x2="470" y2="150" marker-end="url(#arrow)" />
-  <text class="label" x="380" y="142" text-anchor="middle">HTLC(0.05, hash=H, exp=T-buf)</text>
+  <text class="label" x="280" y="205" text-anchor="middle">validate · check liquidity · keep 0.0001 fee</text>
+  <line class="arrow" x1="290" y1="230" x2="470" y2="230" marker-end="url(#arrow)" />
+  <text class="label" x="380" y="222" text-anchor="middle">HTLC(0.05, hash=H, exp=T-buf)</text>
 
-  <!-- Step 4: Bob reveals preimage -->
-  <text class="label" x="480" y="175" text-anchor="middle">accept · reveal preimage</text>
-  <line class="arrow-good" x1="470" y1="200" x2="290" y2="200" marker-end="url(#arrow-good)" />
-  <text class="label" x="380" y="192" text-anchor="middle">preimage P (hash(P)=H)</text>
+  <!-- Step 4: Bob looks up H in invoice store, finds P, reveals -->
+  <text class="label" x="480" y="255" text-anchor="middle">lookup H in invoice store</text>
+  <text class="label" x="480" y="269" text-anchor="middle">→ found P · sign settle · ack</text>
+  <line class="arrow-good" x1="470" y1="290" x2="290" y2="290" marker-end="url(#arrow-good)" />
+  <text class="label" x="380" y="282" text-anchor="middle">preimage P (sha256(P)=H)</text>
 
-  <!-- Step 5: Hub credits Bob, propagates to Alice -->
-  <line class="arrow-good" x1="270" y1="240" x2="90" y2="240" marker-end="url(#arrow-good)" />
-  <text class="label" x="180" y="232" text-anchor="middle">preimage P + new state v=N+1</text>
+  <!-- Step 5: Hub propagates P upstream -->
+  <line class="arrow-good" x1="270" y1="320" x2="90" y2="320" marker-end="url(#arrow-good)" />
+  <text class="label" x="180" y="312" text-anchor="middle">preimage P + new state v=N+1</text>
 
   <!-- Step 6: Both sides counter-sign -->
-  <text class="label" x="80" y="270" text-anchor="middle">verify P · sign settle</text>
-  <text class="label" x="280" y="270" text-anchor="middle">sign settle</text>
-  <text class="label" x="480" y="270" text-anchor="middle">sign settle</text>
+  <text class="label" x="80" y="350" text-anchor="middle">verify sha256(P)=H · sign settle</text>
+  <text class="label" x="280" y="350" text-anchor="middle">sign settle</text>
+  <text class="label" x="480" y="350" text-anchor="middle">channel state advanced</text>
 
   <!-- Step 7: Final state mutual -->
-  <line class="arrow" x1="90" y1="295" x2="270" y2="295" marker-end="url(#arrow)" />
-  <text class="label" x="180" y="287" text-anchor="middle">state v=N+1 (settled) + sigA</text>
-  <line class="arrow" x1="270" y1="320" x2="90" y2="320" marker-end="url(#arrow)" />
-  <text class="label" x="180" y="312" text-anchor="middle">state v=N+1 (settled) + sigHub</text>
+  <line class="arrow" x1="90" y1="375" x2="270" y2="375" marker-end="url(#arrow)" />
+  <text class="label" x="180" y="367" text-anchor="middle">state v=N+1 (settled) + sigA</text>
+  <line class="arrow" x1="270" y1="400" x2="90" y2="400" marker-end="url(#arrow)" />
+  <text class="label" x="180" y="392" text-anchor="middle">state v=N+1 (settled) + sigHub</text>
 
-  <line class="arrow" x1="290" y1="340" x2="470" y2="340" marker-end="url(#arrow)" />
-  <text class="label" x="380" y="332" text-anchor="middle">state (Hub-Bob) settled</text>
+  <!-- Step 8: Receipt -->
+  <line class="arrow" x1="100" y1="430" x2="460" y2="430" stroke-dasharray="4 4" marker-end="url(#arrow)" />
+  <text class="label" x="280" y="422" text-anchor="middle">GET https://bob.example/foo · Authorization: tainnel-receipt P</text>
+  <line class="arrow" x1="460" y1="450" x2="100" y2="450" stroke-dasharray="4 4" marker-end="url(#arrow)" />
+  <text class="label" x="280" y="442" text-anchor="middle">200 OK · service delivered (sha256(P) matches stored H)</text>
 
   <!-- Final note -->
-  <rect class="pill pill-good" x="160" y="380" width="380" height="40" rx="8"/>
-  <text class="pill-text" x="350" y="405" text-anchor="middle">Channel balances advance · 0 transactions on-chain</text>
+  <rect class="pill pill-good" x="120" y="475" width="460" height="40" rx="8"/>
+  <text class="pill-text" x="350" y="500" text-anchor="middle">Channel balances advance · 0 transactions on-chain</text>
 
   <!-- markers -->
   <defs>
@@ -290,10 +306,25 @@
     </marker>
   </defs>
 </svg>
-<figcaption>The happy path. Six round-trips, all signatures, nothing on-chain. The whole flow takes hundreds of milliseconds.</figcaption>
+<figcaption>The full happy path. Dashed arrows are out-of-band HTTP between Alice and Bob (the invoice fetch and the receipted service request); solid arrows are the on-channel HTLC flow through the hub. The preimage <code>P</code> is generated by Bob, never travels until Bob settles, and ends up as Alice's payment receipt.</figcaption>
 </figure>
 
 <p>The trick that makes this safe is the <strong>HTLC</strong> — Hash-Time-Locked Contract. Alice doesn't just send the hub her money; she locks an amount behind a hash <code>H</code>. Whoever can show the preimage <code>P</code> with <code>hash(P)=H</code> before time <code>T</code> claims it. Otherwise the lock expires and the funds bounce back to Alice. The hub forwards a <em>matching</em> HTLC to Bob — same hash, slightly shorter expiry, slightly smaller amount. When Bob reveals <code>P</code> to claim from the hub, the hub then reveals the same <code>P</code> to Alice to claim the upstream lock. Neither hop can cheat: the only way the hub gets paid is by passing the preimage along, which is the only way Bob gets paid in the first place.</p>
+
+<h3>Where does the preimage <code>P</code> come from?</h3>
+<p>From <strong>Bob</strong>. Before Alice ever talks to a hub, Bob's agent generates a fresh 32-byte random preimage <code>P</code>, computes <code>H = sha256(P)</code>, persists <code>{P, H, amount, expiry, recipient, memo, signature}</code> in the SDK invoice store, and hands Alice a signed <strong>invoice</strong> envelope. Alice gets <code>H</code> in the invoice; she never gets <code>P</code> until the payment lands.</p>
+<p>This is the v1 default — Pattern A, "invoice mode" — and it's what every paid-API flow looks like:</p>
+<pre><code>GET https://bob.example/quote?service=foo
+→ 402 Payment Required {invoice: {H, amount, expiry, recipient, sigBob}}
+
+tainnel pay --invoice "$INVOICE" --json
+→ {settled: true, preimage: P}
+
+GET https://bob.example/foo
+Authorization: tainnel-receipt P
+→ 200 OK { ...the actual service... }</code></pre>
+<p>The trust property: only Bob can settle an invoice (only Bob holds <code>P</code>), and the preimage that comes back at the end is a <strong>cryptographic receipt</strong> Alice can show Bob's API server to authenticate the request — Bob's server just checks <code>sha256(P) == H</code> against the stored invoice and serves the resource. The HTLC pair on the channel and the HTTP receipt loop are two halves of the same transaction.</p>
+<p>tainnel also supports a second mode for cases where there's no invoice ahead of time — tipping, an agent pushing a payment to another agent it discovered on a directory, etc. With <code>tainnel pay --keysend --to 0xBob --amount 0.05</code>, <strong>Alice</strong> generates <code>P</code>, hashes it, and includes a sealed-box payload encrypted to Bob's public key alongside the HTLC. Bob's listen mode decrypts the payload, learns <code>P</code>, and settles. Same channel mechanics, no invoice round-trip; the price is that there's no automatic semantic binding to a service request — the keysend payload can carry context, but it's a free-form blob, not a signed invoice. v1 ships this behind a flag because the invoice flow is what fits paid agent APIs cleanly.</p>
 
 <h3>Where does the hub's fee come from?</h3>
 <p>From the <em>spread</em> between the two HTLCs. If Alice wants Bob to receive 0.05 USDC, she signs an upstream HTLC to the hub for <code>0.05 + fee</code> (the diagram shows 0.0501 — a 0.10% fee plus a flat dust unit, which is the v1 default in <code>apps/hub/src/fee-policy.ts</code>). The hub forwards a downstream HTLC to Bob for exactly 0.05. When the preimage reveals at the end of the round-trip, the hub claims 0.0501 from Alice's channel and pays 0.05 into Bob's channel; the 0.0001 difference is the routing fee that stays with the hub. No separate fee transfer, no extra transaction — just the asymmetric pair of HTLCs.</p>
