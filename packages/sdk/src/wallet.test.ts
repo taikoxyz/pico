@@ -10,7 +10,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { taiko } from 'viem/chains';
 import { describe, expect, it } from 'vitest';
 import { WalletError } from './errors.js';
-import { ViemWalletAdapter } from './wallet.js';
+import { PrivateKeyWalletAdapter, ViemWalletAdapter } from './wallet.js';
 
 const PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const;
 const account = privateKeyToAccount(PK);
@@ -273,5 +273,87 @@ describe('BrowserWalletAdapter', () => {
     const { BrowserWalletAdapter } = await import('./wallet.js');
     const adapter = new BrowserWalletAdapter({ provider });
     await expect(adapter.signMessage('msg')).rejects.toBeInstanceOf(WalletError);
+  });
+});
+
+describe('PrivateKeyWalletAdapter', () => {
+  it('getAddress returns the address derived from the private key', async () => {
+    const adapter = new PrivateKeyWalletAdapter({ privateKey: PK });
+    expect((await adapter.getAddress()).toLowerCase()).toBe(account.address.toLowerCase());
+  });
+
+  it('signTypedData produces a signature recoverable to the signer', async () => {
+    const adapter = new PrivateKeyWalletAdapter({ privateKey: PK });
+    const state = makeState();
+    const domain = buildDomain(TAIKO_HOODI_CHAIN_ID, verifyingContract);
+    const sig = (await adapter.signTypedData({
+      domain: { chainId: domain.chainId, verifyingContract },
+      types: CHANNEL_STATE_TYPES,
+      primaryType: 'ChannelState',
+      message: {
+        channelId: state.channelId,
+        version: state.version,
+        balanceA: state.balanceA,
+        balanceB: state.balanceB,
+        htlcsRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        finalized: state.finalized,
+      },
+    })) as Hex;
+    const ok = await verifyChannelStateSignature(
+      state,
+      sig,
+      account.address,
+      TAIKO_HOODI_CHAIN_ID,
+      verifyingContract,
+    );
+    expect(ok).toBe(true);
+  });
+
+  it('signTypedData matches ViemWalletAdapter for the same key + payload', async () => {
+    const wc = createWalletClient({ account, chain: taiko, transport: http() });
+    const viemAdapter = new ViemWalletAdapter({ walletClient: wc });
+    const pkAdapter = new PrivateKeyWalletAdapter({ privateKey: PK });
+    const state = makeState();
+    const args = {
+      domain: { chainId: TAIKO_HOODI_CHAIN_ID, verifyingContract },
+      types: CHANNEL_STATE_TYPES,
+      primaryType: 'ChannelState',
+      message: {
+        channelId: state.channelId,
+        version: state.version,
+        balanceA: state.balanceA,
+        balanceB: state.balanceB,
+        htlcsRoot: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        finalized: state.finalized,
+      },
+    } as const;
+    const sigViem = await viemAdapter.signTypedData(args);
+    const sigPk = await pkAdapter.signTypedData(args);
+    expect(sigPk).toBe(sigViem);
+  });
+
+  it('signMessage produces a signature recoverable to the signer', async () => {
+    const adapter = new PrivateKeyWalletAdapter({ privateKey: PK });
+    const message = 'hello tainnel';
+    const sig = (await adapter.signMessage(message)) as Hex;
+    const recovered = await recoverMessageAddress({ message, signature: sig });
+    expect(recovered.toLowerCase()).toBe(account.address.toLowerCase());
+  });
+
+  it('throws WalletError when the private key is malformed', () => {
+    expect(() => new PrivateKeyWalletAdapter({ privateKey: '0xnothex' as Hex })).toThrow(
+      WalletError,
+    );
+    expect(() => new PrivateKeyWalletAdapter({ privateKey: '0xab' as Hex })).toThrow(WalletError);
+  });
+
+  it('does not log the private key in error messages', () => {
+    const sentinel = `0x${'de'.repeat(32)}gg` as Hex; // wrong length, contains a recognizable substring
+    try {
+      new PrivateKeyWalletAdapter({ privateKey: sentinel });
+      expect.fail('expected throw');
+    } catch (err) {
+      expect((err as Error).message).not.toContain('de'.repeat(32));
+    }
   });
 });

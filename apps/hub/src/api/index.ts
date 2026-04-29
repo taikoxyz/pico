@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Address, ChannelId, Hex } from '@tainnel/protocol';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { privateKeyToAccount } from 'viem/accounts';
 import type { ChannelPool } from '../channel-pool.js';
 import type { Repositories } from '../db/index.js';
 import type { Logger } from '../logger.js';
@@ -15,6 +16,7 @@ export interface ApiDeps {
   readonly chainId: import('@tainnel/protocol').ChainId;
   readonly verifyingContract: Address;
   readonly operatorToken: string;
+  readonly version: string;
   readonly logger: Logger;
   readonly chainProbe?: () => Promise<boolean>;
 }
@@ -43,6 +45,8 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     logger: deps.logger,
   });
 
+  const hubAddress = privateKeyToAccount(deps.hubPrivateKey).address;
+
   const requireBearer = (req: FastifyRequest, reply: FastifyReply): boolean => {
     const auth = req.headers.authorization ?? '';
     if (!auth.startsWith('Bearer ') || auth.slice('Bearer '.length) !== deps.operatorToken) {
@@ -70,7 +74,14 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
         chainReady = false;
       }
     }
-    return { status: dbReady ? 'ok' : 'degraded', dbReady, chainReady };
+    return {
+      status: dbReady ? 'ok' : 'degraded',
+      dbReady,
+      chainReady,
+      address: hubAddress,
+      chainId: deps.chainId,
+      version: deps.version,
+    };
   });
 
   app.get('/v1/channels', async (req, reply) => {

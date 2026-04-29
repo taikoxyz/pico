@@ -415,10 +415,12 @@ export class ChannelClient {
     if (!latest) {
       throw new CloseRejectedError('cannot unilaterally close: no signed state on disk');
     }
+    const me = await this.opts.wallet.getAddress();
     await this.opts.chain.closeUnilateral({
       contract: this.opts.contract,
       channelId: channel.id,
       state: latest,
+      closerSide: isUserA(channel, me) ? 'A' : 'B',
     });
   }
 

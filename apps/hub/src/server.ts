@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerRoutes } from './api/index.js';
@@ -105,6 +108,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Bui
     chainId: config.chainId,
     verifyingContract: config.contractAddress,
     operatorToken: config.operatorToken,
+    version: readPackageVersion(),
     logger,
     ...(cw ? { chainProbe: () => cw.pingChain() } : {}),
   });
@@ -144,6 +148,19 @@ export async function start(): Promise<BuildServerResult> {
   const built = await buildServer();
   await built.app.listen({ port: built.config.port, host: '0.0.0.0' });
   return built;
+}
+
+function readPackageVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    // src/server.ts at runtime lives in dist/, so package.json is one level up.
+    const pkgPath = join(here, '..', 'package.json');
+    const raw = readFileSync(pkgPath, 'utf8');
+    const pkg = JSON.parse(raw) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {

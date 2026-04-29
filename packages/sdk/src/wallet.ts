@@ -1,5 +1,6 @@
 import type { Address, Hex } from '@tainnel/protocol';
 import type { Account, WalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { WalletError } from './errors.js';
 
 export interface SignTypedDataArgs {
@@ -73,6 +74,51 @@ export class ViemWalletAdapter implements WalletAdapter {
   private resolveAccount(): Account | Address | undefined {
     if (this.account) return this.account;
     return this.walletClient.account;
+  }
+}
+
+export interface PrivateKeyWalletAdapterOptions {
+  readonly privateKey: Hex;
+}
+
+export class PrivateKeyWalletAdapter implements WalletAdapter {
+  readonly privateKey: Hex;
+  private readonly account: Account;
+
+  constructor(opts: PrivateKeyWalletAdapterOptions) {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(opts.privateKey)) {
+      throw new WalletError('private key must be 0x + 64 hex chars', 'INVALID_PRIVATE_KEY');
+    }
+    this.privateKey = opts.privateKey;
+    this.account = privateKeyToAccount(opts.privateKey);
+  }
+
+  async getAddress(): Promise<Address> {
+    return this.account.address;
+  }
+
+  async signTypedData(args: SignTypedDataArgs): Promise<Hex> {
+    if (!this.account.signTypedData) {
+      throw new WalletError('account does not support signTypedData', 'SIGN_TYPED_DATA_FAILED');
+    }
+    return this.account.signTypedData({
+      domain: {
+        name: 'tainnel',
+        version: '1',
+        chainId: args.domain.chainId,
+        verifyingContract: args.domain.verifyingContract,
+      },
+      types: args.types as Parameters<NonNullable<Account['signTypedData']>>[0]['types'],
+      primaryType: args.primaryType,
+      message: args.message,
+    } as Parameters<NonNullable<Account['signTypedData']>>[0]);
+  }
+
+  async signMessage(message: string): Promise<Hex> {
+    if (!this.account.signMessage) {
+      throw new WalletError('account does not support signMessage', 'SIGN_MESSAGE_FAILED');
+    }
+    return this.account.signMessage({ message });
   }
 }
 

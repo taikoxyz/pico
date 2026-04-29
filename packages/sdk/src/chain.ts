@@ -29,6 +29,10 @@ export interface CloseUnilateralTxArgs {
   readonly contract: Address;
   readonly channelId: ChannelId;
   readonly state: SignedState;
+  /** Which side of the channel is the closing party. The other side's sig
+   * is the on-chain `sigCounterparty` argument; the closer's sig is implicit
+   * via msg.sender. */
+  readonly closerSide?: 'A' | 'B';
 }
 
 export interface CloseReceipt {

@@ -44,10 +44,22 @@ importers:
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
+      viem:
+        specifier: ^2.21.0
+        version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)
+      ws:
+        specifier: ^8.18.0
+        version: 8.20.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
     devDependencies:
+      '@tainnel/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.17
+      '@vitest/coverage-v8':
+        specifier: ^2.1.8
+        version: 2.1.9(vitest@2.1.9(@types/node@22.19.17))
       tsx:
         specifier: ^4.19.2
         version: 4.21.0

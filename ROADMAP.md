@@ -34,7 +34,7 @@ agent must stop before pressing the button.
 | P4  | SDK                         | `[agent]`            | 🟢 done    | P3         | 105+ tests, 92% coverage; ChannelClient, IndexedDB, BrowserWallet, real-WS mock hub — [04-sdk.md](./docs/plans/04-sdk.md) |
 | P5  | Hub                         | `[agent]`+`[review]` | 🟡 partial | P3, P4 | first cut: 26 tests pass, sqlite + WS protocol matches SDK + chain-watcher + dispute handler. Deferred: signed-envelope auth, anvil integration, coverage gate — [05-hub.md](./docs/plans/05-hub.md) |
 | P6  | Watchtower                  | `[agent]`+`[review]` | 🟢 done    | P3     | 35 tests pass, full pipeline (storage + reorg-aware watcher + responder + scheduler + /health,/metrics) — [06-watchtower.md](./docs/plans/06-watchtower.md) |
-| P7  | CLI                         | `[agent]`+`[review]` | 🟡 partial | P4     | scaffold (`apps/cli/`) exists; SDK wiring + E2E pending — [07-cli.md](./docs/plans/07-cli.md) |
+| P7  | CLI                         | `[agent]`+`[review]` | 🟢 done    | P4     | 99 tests pass at 96.94% lines; `channel open/list/close`, `pay`, `hub status` wired end-to-end; E2E open→pay→close green vs mock hub. `ViemChainAdapter` + `PrivateKeyWalletAdapter` shipped in SDK. Manual mainnet smoke moved to P10 prereqs — [07-cli.md](./docs/plans/07-cli.md) |
 | P8  | E2E + internal audit        | mixed                | 🔵 not started | P5, P6, P7 | [08-e2e-and-audit.md](./docs/plans/08-e2e-and-audit.md) |
 | P9  | Ops & infra                 | `[human]` heavy      | ⚪ planning | P8        | [09-ops.md](./docs/plans/09-ops.md)                    |
 | P10 | Mainnet dogfood launch      | `[human]` heavy      | ⚪ planning | P9        | [10-launch.md](./docs/plans/10-launch.md)              |
@@ -44,24 +44,22 @@ agent must stop before pressing the button.
 ### Parallelism opportunities
 
 P2/P3/P4 are complete (P2 code-complete; only mainnet ops gates remain). P6
-is 🟢 done. P5 has a working first cut covering the SDK wire contract end to
-end. The remaining fan-out is:
+and P7 are 🟢 done. P5 has a working first cut covering the SDK wire contract
+end to end. The remaining fan-out is:
 
 - **P5 follow-ups** (signed-envelope auth, anvil-backed integration,
-  coverage gate) can land independently from P7.
-- **P7 (CLI)** — can start now. `apps/cli/` already has the commander.js
-  scaffold + command stubs (`channel open/list/close`, `pay`, `hub status`)
-  and depends on `@tainnel/sdk`. The remaining work is wiring those stubs to
-  the SDK and adding a `PrivateKeyWalletAdapter` to the SDK so the CLI can
-  sign on the Node side. Runs end-to-end against the P4 mock hub today;
-  switch the `--hub` flag once P5 follow-ups land.
+  coverage gate) can land independently. Anvil-backed integration also gates
+  the `ViemChainAdapter`'s anvil tests.
+- **Mainnet/Hoodi smoke for the CLI** (P10 prereq, see below) — Daniel
+  runs `tainnel channel open` against a deployed hub once the deployer key
+  has USDC and Hoodi contracts deploy.
 
 ---
 
 ## What to work on next
 
-P0–P4 are complete from an engineering standpoint. P6 (watchtower) is 🟢
-done and P5 (hub) has a working first cut.
+P0–P4, P6, and P7 are complete from an engineering standpoint. P5 (hub)
+has a working first cut.
 
 1. **P5 follow-ups** — to flip from 🟡 partial to 🟢 done:
    - Signed-envelope WebSocket auth (D5.2). The wire handler accepts a bare
@@ -69,18 +67,19 @@ done and P5 (hub) has a working first cut.
      verification. The `seen_nonces` table is already in place.
    - Anvil-backed integration: replace the chain mock in
      `apps/hub/test/integration.test.ts` with a real anvil run plus the
-     deployed contracts (this also gates P10's dispute drill). The current
-     test mocks the chain and is marked `// TODO P10`.
+     deployed contracts (this also gates P10's dispute drill, AND the
+     `ViemChainAdapter`'s anvil-backed test). The current test mocks the
+     chain and is marked `// TODO P10`.
    - Coverage report: `pnpm --filter @tainnel/hub test --coverage`. The
      vitest threshold of ≥70% is set; current numeric coverage is unmeasured.
-2. **P7 (CLI)** — unblocked. The `apps/cli/` scaffold + command stubs
-   already exist; fill them in against the SDK and add
-   `PrivateKeyWalletAdapter` to the SDK. Point it at the hub's `WS /v1/ws`
-   (or, for pure offline work, the SDK's existing `startMockHub`).
+2. **P8 (E2E + internal audit)** — now unblocked. P5 has a first cut, P6
+   is done, P7 is done. The CLI's E2E test already exercises the
+   open→pay→close happy path; broaden coverage to dispute paths once P5's
+   anvil work lands.
 
 ### Outstanding mainnet ops gates (P10 prereqs, not P5 blockers)
 
-The contracts code is hub-ready, but two `[human]` gates must close before
+The contracts code is hub-ready, but three `[human]` gates must close before
 real users deposit USDC on mainnet. They do **not** block hub
 implementation — that work can target Hoodi testnet or a local fork.
 
@@ -90,6 +89,11 @@ implementation — that work can target Hoodi testnet or a local fork.
 - **Owner-key rotation.** The deployer key is the current owner of both
   proxies and was pasted into a Claude session — treat as compromised.
   `transferOwnership` from a clean key before any real user funds.
+- **Manual CLI smoke.** Run `tainnel channel open --hub
+  <mainnet-hub-url> --amount 1` (≤ MIN_CHANNEL_AMOUNT) on mainnet,
+  end-to-end pay to a second key, then cooperative close. Confirms the
+  `ViemChainAdapter` + USDC auto-approve path against real contracts.
+  Blocked by deployer USDC balance + hub deployment.
 
 ---
 
@@ -105,7 +109,6 @@ scan them in one place. Each has a default; accepting defaults across the board 
 | P5 | Hub WebSocket auth | signed message per request | [05](./docs/plans/05-hub.md#decisions) |
 | P6 | Watchtower deployment mode | self-hosted only | [06](./docs/plans/06-watchtower.md#decisions) |
 | P6 | Penalty trigger threshold | 50% of dispute window | [06](./docs/plans/06-watchtower.md#decisions) |
-| P7 | CLI keystore handling | `TAINNEL_PRIVATE_KEY` env var | [07](./docs/plans/07-cli.md#decisions) |
 | P9 | Hosting platform | Fly.io | [09](./docs/plans/09-ops.md#decisions) |
 | P9 | Watchtower placement | separate region from hub | [09](./docs/plans/09-ops.md#decisions) |
 | P9 | Alert destination | Discord webhook | [09](./docs/plans/09-ops.md#decisions) |

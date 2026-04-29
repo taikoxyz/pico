@@ -220,11 +220,19 @@ describe('hub integration', () => {
     await ws.close();
   });
 
-  it('GET /health returns ok', async () => {
+  it('GET /health returns ok with hub address, chainId, version', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string };
+    const body = (await res.json()) as {
+      status: string;
+      address: string;
+      chainId: number;
+      version: string;
+    };
     expect(body.status).toBe('ok');
+    expect(body.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    expect(typeof body.chainId).toBe('number');
+    expect(typeof body.version).toBe('string');
   });
 
   it('GET /v1/channels requires bearer auth', async () => {
