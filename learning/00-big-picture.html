@@ -243,10 +243,10 @@
 
   <!-- Step 2: Alice -> Hub: HTLC + state -->
   <line class="arrow" x1="90" y1="100" x2="270" y2="100" marker-end="url(#arrow)" />
-  <text class="label" x="180" y="92" text-anchor="middle">HTLC(0.05, hash=H, exp=T) + sigA</text>
+  <text class="label" x="180" y="92" text-anchor="middle">HTLC(0.0501, hash=H, exp=T) + sigA</text>
 
   <!-- Step 3: Hub validates and forwards -->
-  <text class="label" x="280" y="125" text-anchor="middle">validate · check liquidity</text>
+  <text class="label" x="280" y="125" text-anchor="middle">validate · check liquidity · keep 0.0001 fee</text>
   <line class="arrow" x1="290" y1="150" x2="470" y2="150" marker-end="url(#arrow)" />
   <text class="label" x="380" y="142" text-anchor="middle">HTLC(0.05, hash=H, exp=T-buf)</text>
 
@@ -293,9 +293,13 @@
 <figcaption>The happy path. Six round-trips, all signatures, nothing on-chain. The whole flow takes hundreds of milliseconds.</figcaption>
 </figure>
 
-<p>The trick that makes this safe is the <strong>HTLC</strong> — Hash-Time-Locked Contract. Alice doesn't just send the hub her money; she locks 0.05 USDC behind a hash <code>H</code>. Whoever can show the preimage <code>P</code> with <code>hash(P)=H</code> before time <code>T</code> claims it. Otherwise the lock expires and the funds bounce back to Alice. The hub forwards a <em>matching</em> HTLC to Bob, slightly shorter expiry, same hash. When Bob reveals <code>P</code> to claim from the hub, the hub then reveals the same <code>P</code> to Alice to claim the upstream lock. Neither hop can cheat: the only way the hub gets paid is by passing the preimage along, which is the only way Bob gets paid in the first place.</p>
+<p>The trick that makes this safe is the <strong>HTLC</strong> — Hash-Time-Locked Contract. Alice doesn't just send the hub her money; she locks an amount behind a hash <code>H</code>. Whoever can show the preimage <code>P</code> with <code>hash(P)=H</code> before time <code>T</code> claims it. Otherwise the lock expires and the funds bounce back to Alice. The hub forwards a <em>matching</em> HTLC to Bob — same hash, slightly shorter expiry, slightly smaller amount. When Bob reveals <code>P</code> to claim from the hub, the hub then reveals the same <code>P</code> to Alice to claim the upstream lock. Neither hop can cheat: the only way the hub gets paid is by passing the preimage along, which is the only way Bob gets paid in the first place.</p>
 
-<div class="good"><strong>Why this matters:</strong> if the hub vanishes mid-payment, Alice's HTLC simply expires and the locked funds return to her. The hub cannot capture money it didn't forward. This is what people mean by <em>trust-minimized routing</em>.</div>
+<h3>Where does the hub's fee come from?</h3>
+<p>From the <em>spread</em> between the two HTLCs. If Alice wants Bob to receive 0.05 USDC, she signs an upstream HTLC to the hub for <code>0.05 + fee</code> (the diagram shows 0.0501 — a 0.10% fee plus a flat dust unit, which is the v1 default in <code>apps/hub/src/fee-policy.ts</code>). The hub forwards a downstream HTLC to Bob for exactly 0.05. When the preimage reveals at the end of the round-trip, the hub claims 0.0501 from Alice's channel and pays 0.05 into Bob's channel; the 0.0001 difference is the routing fee that stays with the hub. No separate fee transfer, no extra transaction — just the asymmetric pair of HTLCs.</p>
+<p>Before each payment the SDK quotes the hub's fee policy and builds the upstream HTLC accordingly, so Alice's CLI knows the total she's locking. The default is bps + flat (<code>DEFAULT_HUB_FEE_BPS = 10n</code>, <code>DEFAULT_HUB_FEE_FLAT = 1n</code> in <code>packages/protocol</code>); a hub can run any policy it wants by swapping the <code>FeePolicy</code> implementation. Hubs compete on fees the same way Lightning LSPs do.</p>
+
+<div class="good"><strong>Why this matters:</strong> if the hub vanishes mid-payment, Alice's HTLC simply expires and the locked funds — fee included — return to her. The hub cannot capture money it didn't forward. This is what people mean by <em>trust-minimized routing</em>.</div>
 
 <h2>Sad path — the hub goes silent</h2>
 
