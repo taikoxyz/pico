@@ -39,7 +39,7 @@ P10 is the final cutover; P9 is everything you have to do to be ready for it.
   Phase 2 once stable.
 - Decision: ☐ Fly.io subdomain ☐ custom domain
 - If custom: domain registrar of choice, DNS at Cloudflare, Fly TLS auto-
-  provisioned. Record domain in the hub config and (Phase 2) the wallet UI build env.
+  provisioned. Record domain in the hub config.
 
 ### D9.4 Hub key management
 - **Default:** hot wallet (private key) stored as Fly.io secret on the hub
@@ -162,11 +162,11 @@ P10 is the final cutover; P9 is everything you have to do to be ready for it.
 - You verify the watchtower is on different infra from the hub. Open both
   Fly.io dashboards in adjacent tabs and confirm different regions.
 - You verify the cold wallet's address matches what's set in `COLD_WALLET_ADDRESS`.
-- You walk through the `key-compromise.md` runbook on Hoodi as a fire drill.
+- You walk through the `key-compromise.md` runbook on a Taiko mainnet fork as a fire drill.
 
 ## Done when
 
-- Hub running on Hoodi production infra for ≥ 24h with no manual intervention
+- Hub running on Taiko mainnet production infra for ≥ 24h with no manual intervention
 - Watchtower running on separate infra, observed catching at least one
   on-chain event end-to-end
 - Grafana dashboard populated; alert test fired and received in Discord
