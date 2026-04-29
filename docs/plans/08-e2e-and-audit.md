@@ -142,12 +142,10 @@ you do this yourself, even if an agent has linted/scanned everything first.
       typed error rather than a malformed key, and the raw private key is wiped from
       memory after signing.
 
-## Performance and stress
-- [ ] `[agent]` Hub stress test: 10 concurrent payments through one channel
-      pair, observe latency p50/p95/p99 and throughput. Should handle ≥ 50/s
-      end-to-end on a 1 vCPU box.
+## Correctness fuzzing
 - [ ] `[agent]` `forge test --fuzz-runs 1000000` for the contract invariant
-      tests. Run overnight.
+      tests. Run overnight. This is a correctness gate for funds safety, not a
+      speed/scale target.
 
 ## CI gates
 - [ ] `[agent]` Add an `e2e` job to `.github/workflows/ci.yml` that runs the

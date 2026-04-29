@@ -165,24 +165,25 @@
   <tr><td>FileStorage · IndexedDBStorage</td><td>Node and browser defaults. Atomic-rename pattern in Node.</td></tr>
 </table>
 
-<h2>Tests</h2>
+<h2>Verification model</h2>
 <table>
   <tr><th>File</th><th>Covers</th></tr>
-  <tr><td>packages/sdk/src/index.test.ts</td><td>Currently a single smoke test: <code>MemoryStorage</code> round-trips a stored channel.</td></tr>
+  <tr><td>packages/sdk/src/client.mockhub.test.ts</td><td>Channel open, payment, settlement, and event behavior against the in-process mock hub.</td></tr>
+  <tr><td>packages/sdk/src/client.close.test.ts</td><td>Cooperative and unilateral close paths, finalization, and balance reads.</td></tr>
+  <tr><td>packages/sdk/src/client.crash.test.ts</td><td>Persistence-survives-crash behavior around signed state updates.</td></tr>
+  <tr><td>packages/sdk/src/transport.test.ts</td><td>WebSocket request/response, reconnect, heartbeat, and close behavior.</td></tr>
+  <tr><td>packages/sdk/src/storage*.test.ts</td><td>Memory, file, and IndexedDB storage semantics.</td></tr>
+  <tr><td>packages/sdk/src/signer.test.ts</td><td>Signer interface behavior and EIP-712 signing paths.</td></tr>
+  <tr><td>packages/sdk/src/invoice.test.ts / keysend.test.ts</td><td>Invoice verification and encrypted keysend payload handling.</td></tr>
 </table>
-<p>Real tests required by the plan: unit tests with a mock <code>Transport</code> (in-memory pipe), mock <code>Signer</code>, mock storage, covering <code>open</code>/<code>pay</code>/<code>close</code> happy paths; and a persistence-survives-crash test that signs, simulates a crash before send, reloads, and asserts recovery.</p>
 
-<h2>Gaps vs production-ready</h2>
-<p>Sourced from <code>docs/plans/04-sdk.md</code>. The SDK is not started — interfaces only; every method on <code>ChannelClient</code>, <code>WebSocketTransport</code>, and <code>pay()</code> currently throws <code>not implemented</code>.</p>
+<h2>Design constraints</h2>
 <ul>
-  <li>Define the <code>Signer</code> interface in <code>packages/sdk/src/signer.ts</code> with <code>address()</code>, <code>signChannelState</code>, <code>signUpdate</code>, <code>signCooperativeClose</code>, <code>signHtlc</code>.</li>
-  <li>Provide an <code>InMemorySigner</code> (test-only) re-exported from <code>@tainnel/test-utils</code>, never from the public SDK entry point.</li>
-  <li>Real <code>WebSocketTransport</code> implementation: backoff per D4.2, JSON framing <code>{id, kind, payload}</code>, request/response <code>Map</code>, heartbeat ping every 30 seconds, reconnect after two missed pings, state replay on reconnect.</li>
-  <li><code>FileStorage</code> with the atomic-rename pattern; <code>IndexedDBStorage</code> as a tiny wrapper (no Dexie, no idb).</li>
-  <li>Real <code>ChannelClient.open</code> / <code>.pay</code> / <code>.close</code> implementations, including the persist-before-send line in <code>pay()</code> and the 60-second cooperative-to-unilateral fallback in <code>close()</code>.</li>
-  <li>Persistence-survives-crash test: sign, crash-before-send, reload, assert recovery.</li>
-  <li>Quickstart in <code>packages/sdk/README.md</code> targeting the CLI / agent-script audience (not a browser), runnable against the <code>@tainnel/test-utils</code> mock hub. Cross-link to apps/cli for authors who do not want to write TS.</li>
-  <li>Coverage gate: <code>pnpm --filter @tainnel/sdk test --coverage</code> ≥ 80% lines.</li>
+  <li><strong>Persist before send:</strong> once a signature exists, the corresponding state must reach durable storage before the signature leaves the process.</li>
+  <li><strong>Signer abstraction:</strong> the SDK never owns key custody policy; it calls a <code>Signer</code> interface that can be backed by a local key, CLI key file, KMS, or future signer backend.</li>
+  <li><strong>Storage abstraction:</strong> Node uses atomic file writes, browsers use IndexedDB, and tests use memory, all behind the same channel/invoice/state contract.</li>
+  <li><strong>Transport abstraction:</strong> the client speaks hub messages through a request/response WebSocket transport with reconnect hooks, while the protocol shapes stay independent of the socket implementation.</li>
+  <li><strong>Two payment modes:</strong> invoice mode binds a receiver-generated preimage to an invoice; keysend encrypts the sender-generated preimage to the receiver.</li>
 </ul>
 
 <div class="next">

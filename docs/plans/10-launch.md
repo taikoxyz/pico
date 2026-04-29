@@ -1,169 +1,139 @@
-# P10 — Mainnet dogfood launch
+# P10 — Mainnet real-money E2E test readiness
 
 **Status:** ⚪ planning only
-**Blocks:** —
-**Effort:** 3–5 days of active work + 2 weeks of soak
+**Blocks:** P9
+**Effort:** 1–2 days of active execution after P1–P9 are green
 
-This is the cutover. Everything before this was infrastructure; this phase moves real
-USDC and creates real consequences for bugs.
+This is the first controlled Taiko mainnet run with real USDC. It is not a public
+launch, not a production readiness declaration, and not a speed/scale exercise. The
+goal is to prove one low-value end-to-end flow across the deployed contracts, hub,
+watchtower, SDK, and CLI, with enough monitoring and runbooks in place to stop safely
+if anything behaves incorrectly.
 
-**Before starting P10**, all P1–P9 sub-plans must be 🟢. No exceptions, no shortcuts.
-Re-read [`docs/plans/08-e2e-and-audit.md`](./08-e2e-and-audit.md) Done-when list and
-verify each box yourself.
+**Before starting P10**, all P1–P9 sub-plans must be 🟢. No exceptions. Re-read
+[`docs/plans/08-e2e-and-audit.md`](./08-e2e-and-audit.md) and verify each correctness
+and review gate yourself.
 
 ## Decisions
 
-### D10.1 Per-user channel cap
-- **Default:** 100 USDC. Each dogfood user can hold at most one channel,
-  capped at 100 USDC.
-- **Tradeoff:** higher cap means a real-feeling network but a larger blast
-  radius if something goes wrong. 100 USDC is enough for "buy 100 API calls
-  at 1¢ each" demos and small enough that a worst-case loss won't ruin your
-  weekend.
+### D10.1 Test channel cap
+- **Default:** 100 USDC maximum in any single test channel.
+- **Tradeoff:** higher caps make the test feel closer to normal use but increase the
+  blast radius. 100 USDC is enough to exercise routing and dispute flows while keeping
+  the first real-money run deliberately small.
 - Decision: ☐ 50 USDC ☐ 100 USDC ☐ 250 USDC
 
-### D10.2 Initial hub liquidity
-- **Default:** 1000 USDC inbound + 1000 USDC outbound capacity floor (i.e.,
-  hub deposits 1000 USDC across opened channels). Caps at 1500 USDC by D9.4.
+### D10.2 Initial hub liquidity ceiling
+- **Default:** fund the hub with enough USDC for the planned test channels, capped at
+  1000 USDC total. Do not exceed the P9 hot-wallet ceiling.
 - Decision: ☐ 500 USDC ☐ 1000 USDC ☐ 2000 USDC
 
-### D10.3 Number of dogfood users
-- **Default:** 3–5 trusted people (technical friends, contributors, AI
-  agents you operate). They are explicitly told this is dogfood and may
-  experience bugs.
-- Decision: ☐ just you ☐ 3 ☐ 5 ☐ open invite to a small Discord
+### D10.3 Test participants
+- **Default:** two wallets/agents you control: Alice sends, Bob receives via
+  `tainnel listen`. Add trusted external operators only after the single-operator flow
+  passes.
+- Decision: ☐ just you ☐ you + one trusted operator ☐ 3–5 trusted operators
 
-### D10.4 How channels are opened on mainnet
-- **Default:** users / agents open their own channels using `tainnel channel open
-  --hub <url> --amount <usdc>` from the CLI. Hub auto-accepts up to D10.1. The
-  deployer (cold wallet) does not open channels on behalf of others.
-- Decision: ☐ self-serve via CLI (default) ☐ Daniel manually opens for each user
+### D10.4 How channels are opened
+- **Default:** self-serve from the CLI with `tainnel channel open --hub <url>
+  --amount <usdc>`. The cold wallet does not open user channels on behalf of others.
+- Decision: ☐ self-serve via CLI ☐ manually open for each participant
 
-### D10.5 Soak duration
-- **Default:** 14 days of observed normal operation before declaring the
-  project "production ready". Soak ends successfully if every gate at the
-  bottom of this file is green.
-- Decision: ☐ 7 days ☐ 14 days ☐ 30 days
-
-### D10.6 Kill criteria (when to abort)
-- **Default:** any of these immediately rolls back to "all channels
-  cooperative-close, hub paused":
+### D10.5 Abort criteria
+- **Default:** immediately stop, cooperative-close all open channels if possible, and
+  write an incident note if any of these happen:
   - Funds lost in any amount
-  - Watchtower fails to penalize a known-stale state during a drill
-  - More than 3 hub crashes in 24h
-  - Dispute window passed with our state not posted (any reason)
+  - Watchtower fails to penalize the deliberate stale-state drill
+  - Hub or watchtower crashes during a payment or dispute
+  - Dispute window passes without the latest state posted
+  - Any mainnet transaction uses an unexpected contract or token address
 - Decision: ☐ accept default ☐ stricter ☐ looser
 
-## Pre-flight checklist (do these in order, no skipping)
+## Pre-flight checklist
 
-### One week before launch
-- [ ] `[review]` Re-read every `[review]` gate from P1–P9 (and P11). Re-click them.
-- [ ] `[human]` Tag the release: `git tag v0.1.0 -m 'dogfood launch candidate'`.
-- [ ] `[human]` Announce internally to the dogfood crew: "we're launching
-      $DATE on Taiko mainnet, here's what to expect".
-- [ ] `[human]` Confirm cold wallet has ≥ 0.1 ETH (deploy gas) + D10.2 USDC
-      (initial hub liquidity) + 0.1 ETH each for hub & watchtower hot wallets.
-- [ ] `[agent]` Confirm `packages/protocol/src/constants.ts` already records the
-      mainnet contract addresses (P2 already deployed and verified).
+- [ ] `[review]` Confirm P1–P9 are green in `ROADMAP.md`.
+- [ ] `[review]` Re-read every P2/P8 security review gate and confirm nothing is
+      still unchecked.
+- [ ] `[human]` Confirm `packages/protocol/src/constants.ts` records the Taiko
+      mainnet PaymentChannel, Adjudicator, and USDC addresses you intend to use.
+- [ ] `[human]` Confirm owner keys have been rotated away from any key that touched
+      an LLM context.
+- [ ] `[human]` Confirm the cold wallet, hub hot wallet, and watchtower hot wallet
+      have only the ETH/USDC needed for the test caps.
+- [ ] `[human]` Confirm hub and watchtower are deployed from the intended commit,
+      in separate regions, with monitoring and alert delivery already tested.
+- [ ] `[human]` Confirm `docs/runbooks/` covers hub-down, watchtower-down, dispute
+      incident, key compromise, and backup restore.
 
-### Day of: contract deployment
-- [ ] `[human]` From the **cold wallet**, deploy contracts to Taiko mainnet:
+## First controlled mainnet flow
+
+- [ ] `[human]` From a clean checkout or published CLI, run:
       ```bash
-      cd packages/contracts
-      forge script script/Deploy.s.sol \
-        --rpc-url taiko_mainnet \
-        --broadcast \
-        --verify \
-        --legacy
+      tainnel hub status <mainnet hub URL>
       ```
-- [ ] `[human]` Verify both contracts on Taikoscan show source code (P2 already
-      did this for the current deployment; re-confirm if redeploying).
-- [ ] `[human]` Record addresses in:
-      - `packages/protocol/src/constants.ts` `CONTRACT_ADDRESSES[167000]`
-      - your password manager / project tracking
-- [ ] `[agent]` Confirm USDC token address in `constants.ts` is the canonical
-      Taiko mainnet USDC.
-- [ ] `[agent]` Bump version to `0.1.0` and commit.
-
-### Day of: services rollout
-- [ ] `[human]` `flyctl deploy` hub against mainnet config (set RPC URL,
-      contract addresses, real USDC token). **Health check first**, then
-      monitoring dashboards.
-- [ ] `[human]` `flyctl deploy` watchtower against mainnet config.
-- [ ] `[human]` Publish the CLI: tag `v0.1.0`, run `pnpm changeset publish` (or
-      whatever the chosen release flow is) so dogfood agents can `pnpm install -g
-      @tainnel/cli` (or run via `pnpm tainnel` from a clone).
-- [ ] `[human]` Smoke test: from a clean machine, run `pnpm tainnel hub status
-      <mainnet hub URL>`. Confirm 200 OK and the right chain id.
-
-### Day of: hub bootstrap
-- [ ] `[human]` From cold wallet, send the hub's hot wallet:
-      - 0.5 ETH for gas
-      - D10.2 USDC for initial liquidity
-- [ ] `[human]` Open one channel between **yourself** and the hub for D10.1
-      USDC. This is the smoke test. Verify:
-      - `ChannelOpened` event in Taikoscan
-      - hub `/v1/channels` lists it
-      - watchtower logs reflect the new channel under watch
-- [ ] `[human]` Send 1 USDC payment to your own second address through the
-      hub. Confirm settlement.
-
-### Onboard the dogfood crew
-- [ ] `[human]` Send each user / agent operator a 1-pager (template lives in
-      `learning/00-big-picture.html`) explaining:
+      Confirm the response reports Taiko mainnet and the expected contract addresses.
+- [ ] `[human]` Alice opens a low-value channel to the hub:
+      ```bash
+      tainnel channel open --hub <mainnet hub URL> --amount <small test amount>
       ```
-      pnpm install -g @tainnel/cli  # or clone + pnpm install
-      tainnel keys init
-      tainnel channel open --hub <mainnet hub URL> --amount <≤ D10.1>
-      tainnel pay --to <other agent's address> --amount 0.05
-      # receivers also run: tainnel listen --hub <mainnet hub URL>
+      Record the channel id and `ChannelOpened` transaction.
+- [ ] `[human]` Bob opens a low-value channel to the same hub and starts:
+      ```bash
+      tainnel listen --hub <mainnet hub URL> --log-format json
       ```
-- [ ] `[human]` Confirm each onboard with a test payment to your own address.
+- [ ] `[human]` Bob creates an invoice:
+      ```bash
+      tainnel invoice create --amount <small payment amount> --memo "mainnet e2e test"
+      ```
+- [ ] `[human]` Alice pays the invoice:
+      ```bash
+      tainnel pay --invoice "$INVOICE" --via <mainnet hub URL> --json
+      ```
+      Confirm Alice receives the preimage receipt, Bob settles the inbound HTLC, and
+      both local channel states advance.
+- [ ] `[human]` Cooperative-close both channels and confirm final balances on
+      Taikoscan match the expected post-payment balances.
 
-## Soak period (D10.5 days)
+## Dispute drill
 
-- [ ] `[human]` Daily: skim Grafana dashboards. Confirm no alerts in Discord.
-- [ ] `[human]` Day 3: run a dispute drill. From a test wallet on mainnet,
-      open a channel, do a payment, then submit `closeUnilateral` with the
-      pre-payment state. Verify the watchtower penalizes within the window.
-      If it doesn't, **kill the launch** per D10.6.
-- [ ] `[human]` Day 7: midpoint review. Open `docs/launch-log.md`, summarize
-      issues seen.
-- [ ] `[human]` Day 14: final review. Decide go/no-go on declaring 🟢.
+- [ ] `[human]` Open a fresh low-value drill channel.
+- [ ] `[human]` Create at least one signed state update so there is an older state
+      and a newer state.
+- [ ] `[human]` Submit `closeUnilateral` with the older signed state.
+- [ ] `[human]` Confirm the watchtower observes the stale close and submits the newer
+      state before the dispute window closes.
+- [ ] `[human]` Finalize and confirm the honest party receives the expected funds.
+- [ ] `[human]` If any step misses the expected state transition, apply D10.5.
 
-## Done when ("dogfood production ready")
+## Done when
 
-- [ ] Mainnet contracts deployed + verified
-- [ ] Mainnet hub + watchtower running for ≥ 14 days
-- [ ] At least 10 successful payments through the hub by users other than
-      yourself
-- [ ] Mainnet dispute drill succeeded
-- [ ] No funds lost
-- [ ] No P0 incidents (one P1 acceptable per D10.6)
-- [ ] `docs/launch-log.md` summarizing soak observations
-- [ ] Open issues filed for Phase 2 (DVM integration, ETH support,
-      multi-watchtower, fee market)
-- [ ] `ROADMAP.md` updated to "v0.1.0 dogfood live" with date
+- [ ] One low-value mainnet channel open succeeds against the expected deployed
+      contracts.
+- [ ] One invoice-mode agent-to-agent payment succeeds with real USDC.
+- [ ] Receiver-side `tainnel listen` reveals the correct preimage and persists the
+      settled state.
+- [ ] Cooperative close finalizes with expected balances.
+- [ ] Mainnet stale-state dispute drill succeeds within the dispute window.
+- [ ] Monitoring records the payment/dispute flow and no unexpected alerts fire.
+- [ ] `docs/mainnet-e2e-test-log.md` is written with dates, addresses, tx hashes,
+      channel ids, observed logs, and follow-up issues.
+- [ ] `ROADMAP.md` is updated with the real-money E2E test result.
 
-## After launch — Phase 2 follow-ups
+## After the first test
 
-If you want this beyond dogfood — public launch with real users / agents — Phase 2
-adds:
+If the first controlled real-money test is clean, file new follow-up plans for the
+next scope increase. Likely candidates:
 
-- React **wallet UI** for humans (the original P7 scope, parked).
-- **ERC-8004** agent-identity registration on Ethereum mainnet.
-- **EIP-7702 / 4337** smart-account on-chain delegation, once Pectra is live on
-  Taiko (Q1 2026 per Taiko's roadmap; verify activation).
-- **TEE / KMS Signer backends** (AWS Nitro Enclave, Turnkey, AWS/GCP KMS)
-  implementing the v1 `Signer` interface.
-- External audit, bug bounty.
-- ETH (non-USDC) support.
-- DVM (Nostr) payment flow demo using the existing `dvm-adapter` scaffold.
-- Multi-hub failover; multi-hop routing only if a real reason emerges.
-- Formal threat-model writeup.
+- Longer private soak with trusted operators.
+- React wallet UI for humans.
+- ERC-8004 agent identity.
+- EIP-7702 / 4337 smart-account delegation after Taiko support is verified.
+- TEE / KMS Signer backends.
+- External audit or outside reviewer.
+- ETH support.
+- DVM payment flow using the existing `dvm-adapter` scaffold.
+- Multi-hub failover; multi-hop routing only if a real need emerges.
 
 The project does **not** intend to add MCP or x402 integrations in-tree. If those
 ecosystems want to consume the system, they can write a thin external adapter on top
 of `apps/cli` or the SDK.
-
-File new sub-plans (`docs/plans/12-…md`, etc.) when starting any of the above.

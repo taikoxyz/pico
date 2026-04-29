@@ -76,7 +76,7 @@
 
 <p>The hub is the always-on intermediary that makes the topology of this network feasible. Every other actor in the system is, in principle, transient: an agent might pay once and never again, a watchtower might be self-hosted and only run when its operator's laptop is awake, a CLI is born and dies inside a single call. The hub is none of those things. It is a Fastify HTTP server with a native WebSocket plugin, fronted by a SQLite database, that stays online so that other actors do not have to. Its source lives at <code>apps/hub/</code> and its pieces are exactly what you would expect: <code>server.ts</code> for HTTP and WebSocket transport, an <code>api/</code> directory of endpoint handlers, <code>channel-pool.ts</code> tracking every open channel, <code>chain-watcher.ts</code> reading on-chain events, <code>dispute-handler.ts</code> assembling penalty calldata, <code>fee-policy.ts</code> computing what the hub charges per hop, <code>router.ts</code> deciding whether and how to forward a payment, <code>liquidity.ts</code> tracking inbound and outbound capacity per channel, and a <code>db/</code> directory with raw SQL migrations and small repos (no ORM).</p>
 
-<p>Of these, <code>fee-policy.ts</code> is the only file with real implementation today; the rest are skeletons annotated with the gaps below. <code>router.ts</code> is the most subtle file in the codebase, because it carries the expiry-buffer arithmetic that determines whether a forwarded HTLC is safe to take on.</p>
+<p><code>router.ts</code> is the most subtle file in the hub package because it carries the expiry-buffer arithmetic that determines whether a forwarded HTLC is safe to take on. The surrounding modules split responsibilities cleanly: channel pool for local state, liquidity for reservations, chain watcher for on-chain events, dispute handler for counter-states, and API routes for REST/WebSocket entrypoints.</p>
 
 <h2>Why it exists</h2>
 
@@ -196,25 +196,21 @@
   </tbody>
 </table>
 
-<h2>Tests</h2>
+<h2>Verification model</h2>
 
-<p>Today only <code>apps/hub/src/fee-policy.test.ts</code> exists. Required before mainnet dogfood: a full integration suite running against an anvil fork that registers a channel, routes a payment end to end, posts a stale state from a fake hub identity, and verifies the dispute handler reacts in time. Coverage target is ≥ 70%, but the integration tests carry more weight than the unit number.</p>
+<p>The hub needs both small unit tests and whole-flow integration tests because its interesting behavior is coordination: a valid payment touches channel state, routing, liquidity reservation, WebSocket messages, database persistence, and chain-event response. Unit tests are useful for deterministic fee policy, route math, nonce replay checks, and typed failure modes. Integration scenarios should run against an anvil fork so channel registration, end-to-end payment routing, stale-state observation, and dispute submission all exercise the same message shapes used by the SDK and CLI.</p>
 
-<h2>Gaps before mainnet</h2>
+<h2>Design constraints</h2>
 
-<p>Tracked in <code>docs/plans/05-hub.md</code>. Roughly:</p>
+<p>The hub is an LSP-like counterparty, not a trusted custodian. It can route quickly because it holds channels with users, but it must never be able to create money, ignore signed state ordering, or escape the dispute rules enforced by the contracts.</p>
 
 <ul>
-  <li>Migrations: <code>001_initial.sql</code> with tables for <code>channels</code>, <code>signed_states</code>, <code>htlcs</code>, <code>payments</code>, <code>seen_nonces</code>.</li>
-  <li><code>SqliteDatabase</code> implementation backed by <code>better-sqlite3</code>; a <code>PostgresDatabase</code> using <code>pg</code> with the same query interface (so the hub can be repointed without touching call sites).</li>
-  <li><code>channel-pool</code>: persist on register; one async mutex per channel so concurrent updates serialize cleanly.</li>
-  <li><code>router.route(req)</code>: expiry-buffer math, idempotency on retried sends, typed failure modes (<code>InsufficientLiquidity</code>, <code>ChannelClosed</code>, <code>DownstreamTimeout</code>, etc.) so the SDK can react.</li>
-  <li><code>liquidity.reserveOutbound</code>, <code>liquidity.releaseReservation</code>, and a hydration step that rebuilds these on startup from the DB.</li>
-  <li><code>chain-watcher</code>: subscribe to <code>ChannelOpened</code>, <code>ChannelClosingUnilateral</code>, <code>DisputeRaised</code>, <code>ChannelFinalized</code>; tolerate reorgs by waiting 3 confirmations.</li>
-  <li><code>dispute-handler</code>: build and submit <code>dispute()</code> with the hub's hot wallet; bookkeeping for which channels are mid-dispute.</li>
-  <li>WS auth: verify a signed envelope on every message, with a 24-hour TTL nonce cache to defeat replay.</li>
-  <li>Prometheus metrics, structured logs via pino, graceful shutdown that drains in-flight HTLCs before exiting.</li>
-  <li>Integration tests with anvil; coverage ≥ 70%.</li>
+  <li><strong>Durable latest state:</strong> every signed state the hub might rely on in a dispute must be persisted before the hub acknowledges the transition.</li>
+  <li><strong>Per-channel serialization:</strong> concurrent updates for the same channel must pass through one ordered lane so versions cannot fork locally.</li>
+  <li><strong>Expiry buffer:</strong> the upstream HTLC expiry must exceed the downstream expiry by enough time for the hub to settle or fail safely.</li>
+  <li><strong>Idempotent payment handling:</strong> retried messages should return the same outcome instead of creating duplicate HTLCs.</li>
+  <li><strong>Signed request auth:</strong> WebSocket messages are authenticated by signatures and nonce replay protection, not by long-lived bearer tokens.</li>
+  <li><strong>Chain watcher as truth source:</strong> on-chain close/dispute/finalize events override stale local assumptions.</li>
 </ul>
 
 <div class="next">

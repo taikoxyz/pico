@@ -177,7 +177,7 @@
   <tr><td>channel open</td><td>Open a new channel with a hub. <code>--hub URL --amount USDC</code>. Prints channel id + tx hash.</td></tr>
   <tr><td>channel list</td><td>Read storage; print channels (table or <code>--json</code>).</td></tr>
   <tr><td>channel close</td><td>Cooperative or unilateral close. Prints final tx hash.</td></tr>
-  <tr><td>pay</td><td>Send a payment. <code>--to ADDR --amount USDC [--via HUB --memo S --json]</code>. Streams JSON state transitions.</td></tr>
+  <tr><td>pay</td><td>Send a payment via <code>--invoice</code> or via <code>--keysend --to ADDR --amount USDC --recipient-pubkey HEX</code>. Streams JSON state transitions.</td></tr>
   <tr><td>listen</td><td>Daemon-mode receiver. <code>--hub URL [--channel ID...]</code>. Long-running.</td></tr>
   <tr><td>hub status</td><td>Hit <code>GET /v1/health</code> and print the result.</td></tr>
   <tr><td>dev anvil-fork</td><td>Spawn an anvil that forks Taiko mainnet at a pinned block; deploy contracts via forge.</td></tr>
@@ -189,30 +189,26 @@
 pnpm tainnel keys init
 pnpm tainnel channel open --hub https://hub.example.com --amount 25
 
-# pay (sender)
-pnpm tainnel pay --to 0xRecipient --amount 0.05 --json
+# pay (sender, invoice mode)
+pnpm tainnel pay --invoice "$INVOICE" --json
+
+# pay (sender, keysend mode)
+pnpm tainnel pay --to 0xRecipient --amount 0.05 --keysend --recipient-pubkey 0x... --json
 
 # receive (run in the background)
 pnpm tainnel listen --hub https://hub.example.com &
 </code></pre>
 
-<h2>Tests</h2>
-<p>Unit tests live under <code>apps/cli/test/</code> and cover argument parsing and error paths for each command. The integration test (planned) wires together <code>tainnel dev anvil-fork</code>, <code>tainnel dev mock-hub</code>, a long-running <code>tainnel listen</code>, and a <code>tainnel pay</code> from a separate process. It asserts that the listen process exits cleanly on SIGINT and that the on-disk channel state reflects the post-payment version. A persistence-survives-crash test kills <code>tainnel listen</code> mid-payment, restarts it, and checks that the in-flight HTLC resolves correctly without a lost preimage. Coverage gate: ≥ 70% lines on <code>apps/cli</code>.</p>
+<h2>Verification model</h2>
+<p>Unit tests cover command parsing, output formats, key-file behavior, signer resolution, config paths, invoice envelopes, hub status, and error paths. The integration test wires two CLI-facing clients through the mock hub: Bob creates an invoice and listens, Alice pays it, and the SDK settles the HTLC using the same message shapes the real hub consumes. Run with <code>pnpm --filter @tainnel/cli test</code>.</p>
 
-<h2>Gaps vs production-ready</h2>
-<p>From <a href="../docs/plans/07-agent-runtime.md">docs/plans/07-agent-runtime.md</a>:</p>
+<h2>Design constraints</h2>
 <ul>
-  <li>Implement <code>keys init</code>/<code>import</code>/<code>show</code> with the libsodium-based file format.</li>
-  <li>Wire <code>channel open</code>/<code>list</code>/<code>close</code> and <code>pay</code> commands to the SDK.</li>
-  <li>Implement <code>tainnel listen</code> subcommand with the receiver flow described above.</li>
-  <li>Implement <code>hub status</code>, <code>dev anvil-fork</code>, <code>dev mock-hub</code>.</li>
-  <li>Unit and integration tests; coverage ≥ 70%.</li>
-</ul>
-
-<p>Two human <code>[review]</code> gates before mainnet dogfood:</p>
-<ul>
-  <li>Read <code>apps/cli/src/cmd/listen.ts</code> and confirm the persist-before-ack ordering is real, not just commented.</li>
-  <li>Read <code>apps/cli/src/signer/hot-key-file.ts</code> and confirm permissions <code>0600</code> on write, scrypt parameters match the spec, wrong-passphrase paths return a typed error rather than a malformed key, and the raw private key is wiped from memory after every signing call.</li>
+  <li><strong>CLI as agent surface:</strong> any-language agents can shell out to <code>tainnel pay --json</code> instead of linking a TypeScript SDK.</li>
+  <li><strong>One binary, two modes:</strong> one-shot commands send payments and manage channels; <code>tainnel listen</code> is the long-running receiver process.</li>
+  <li><strong>Passphrase key files:</strong> the default signer backend keeps a local encrypted key on disk; raw private keys are for test/CI paths.</li>
+  <li><strong>Machine-readable output:</strong> JSON mode emits parseable transition records so non-TS agents can react to settlement, receipts, and errors.</li>
+  <li><strong>Dev loops stay local:</strong> <code>dev mock-hub</code> and <code>dev anvil-fork</code> give agent authors a local path before touching live services.</li>
 </ul>
 
 <div class="next">

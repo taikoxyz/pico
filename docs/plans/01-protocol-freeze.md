@@ -37,14 +37,15 @@ defaults is fine.
 - Decision: ☑ `sha256` ☐ `keccak256`
 
 ### D1.3 HTLC root algorithm (how the set of in-flight HTLCs gets hashed into a state)
-- **Default:** sorted-then-`keccak256`-concat (i.e., sort HTLCs by `id`, abi-encode
-  each, concat, hash once).
-- **Tradeoff:** simple > Merkle for v1 because we expect ≤ 5 in-flight HTLCs per
-  channel. A Merkle tree is only useful if we ever need to prove a single HTLC's
-  inclusion on-chain without the others, which we don't in the dogfood scope.
+- **Default:** sorted-keccak Merkle root. Sort HTLCs by `id`, hash each ABI-encoded
+  lock into a leaf, duplicate the final leaf on odd-width levels, concatenate pairs,
+  and `keccak256` each level until one root remains.
+- **Tradeoff:** a Merkle root is slightly more complex than a single concat hash, but
+  it gives the Solidity and TypeScript implementations a standard set-commitment
+  shape and leaves room for future inclusion proofs without changing the wire format.
 - **Why it matters now:** identical algorithm must run in Solidity (`HTLC.rootOf`)
   and TypeScript (`@tainnel/state-machine`).
-- Decision: ☐ sorted-keccak ☑ Merkle (more complex, defer)
+- Decision: ☑ sorted-keccak Merkle ☐ single concat hash
 
 ### D1.4 Minimum channel amount
 - **Default:** 1 USDC (1_000_000 = 1 USDC at 6 decimals)

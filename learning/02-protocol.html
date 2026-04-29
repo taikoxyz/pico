@@ -232,12 +232,10 @@
 
 <p>The fact that this package has nothing to mock or stub is deliberate. Logic-free packages do not regress; only their consumers do. If a contract field is renamed or reordered, the type checker in every consuming package fails immediately.</p>
 
-<h2>Gaps vs production-ready</h2>
-<div class="good"><strong>Status: done.</strong> Per <code>docs/plans/01-protocol-freeze.md</code>, the plan is complete; this package is the v1 reference. It shipped in <code>feat(protocol): freeze v1 wire format</code> and is treated as locked.</div>
+<h2>Design constraints</h2>
+<p>The protocol package is the v1 reference for names, fields, constants, and EIP-712 schemas. Future changes require a wire-format version bump because the EIP-712 domain version is part of every digest the chain verifies — bumping <code>"1"</code> to <code>"2"</code> invalidates every previously-signed message under the old domain. That is the intended migration path.</p>
 
-<p>There are no concrete TODOs against this package. Future changes require a wire-format version bump because the EIP-712 domain version is part of every digest the chain verifies — bumping <code>"1"</code> to <code>"2"</code> invalidates every previously-signed message under the old domain. That is the intended migration path, not a gap.</p>
-
-<p>The one item to be mindful of: the contract addresses baked into <code>CONTRACT_ADDRESSES[167000]</code> point at proxies whose owner is currently the deployer key, which is treated as compromised (see <a href="./01-contracts.html">01 contracts</a> for the full story). The protocol package is correct; the deployment behind it has an open security task. The two are tracked separately on purpose.</p>
+<p>Deployment facts, such as the addresses in <code>CONTRACT_ADDRESSES[167000]</code>, are deliberately separated from protocol shape. A consumer can rely on the type and schema definitions while operational questions about a specific deployment stay with the roadmap and runbooks.</p>
 
 <div class="next">
   <div>
