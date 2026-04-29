@@ -341,6 +341,9 @@ export class ChannelClient {
       sigB: iAmA ? msg.signedStateBeforeHtlc.sigB : hexToSignature(mySig),
     };
     await this.opts.storage.saveState(channel.id, signedState);
+    if (direction === 'incoming-invoice' && record) {
+      await this.opts.storage.markInvoiceConsumed(msg.htlc.paymentHash, Date.now());
+    }
     await this.opts.transport.send({
       id: newRequestId('settle'),
       kind: 'htlcSettle',
@@ -349,9 +352,6 @@ export class ChannelClient {
       preimage,
       signedState,
     });
-    if (direction === 'incoming-invoice' && record) {
-      await this.opts.storage.markInvoiceConsumed(msg.htlc.paymentHash, Date.now());
-    }
     this.emitter.emit('htlc:settled', {
       channelId: channel.id,
       htlc: msg.htlc,

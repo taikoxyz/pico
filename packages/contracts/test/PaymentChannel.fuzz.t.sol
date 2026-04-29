@@ -45,12 +45,7 @@ contract PaymentChannelFuzzTest is Fixtures {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id,
-            version: 1,
-            balanceA: finalA,
-            balanceB: finalB,
-            htlcsRoot: bytes32(0),
-            finalized: true
+            channelId: id, version: 1, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: true
         });
         bytes memory sigA = _signState(alicePk, s);
         bytes memory sigB = _signState(bobPk, s);
@@ -74,12 +69,7 @@ contract PaymentChannelFuzzTest is Fixtures {
         bytes32 id = channel.openChannel(bob, address(token), amountA, amountB);
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id,
-            version: 1,
-            balanceA: attackerA,
-            balanceB: 0,
-            htlcsRoot: bytes32(0),
-            finalized: true
+            channelId: id, version: 1, balanceA: attackerA, balanceB: 0, htlcsRoot: bytes32(0), finalized: true
         });
         bytes memory sigA = _signState(alicePk, s);
         bytes memory sigB = _signState(bobPk, s);

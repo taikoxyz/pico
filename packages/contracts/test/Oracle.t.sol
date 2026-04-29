@@ -43,31 +43,27 @@ contract OracleTest is Test {
     }
 
     function setUp() public {
-        string memory path =
-            string.concat(vm.projectRoot(), "/../state-machine/test/fixtures/oracle.json");
+        string memory path = string.concat(vm.projectRoot(), "/../state-machine/test/fixtures/oracle.json");
         json = vm.readFile(path);
 
         uint256 chainId = json.readUint(".domain.chainId");
         address verifyingContract = json.readAddress(".domain.verifyingContract");
         domainSeparator = keccak256(
             abi.encode(
-                EIP712_DOMAIN_TYPEHASH,
-                keccak256(bytes("tainnel")),
-                keccak256(bytes("1")),
-                chainId,
-                verifyingContract
+                EIP712_DOMAIN_TYPEHASH, keccak256(bytes("tainnel")), keccak256(bytes("1")), chainId, verifyingContract
             )
         );
     }
 
-    function _hashState(bytes32 channelId, uint64 version, uint256 balA, uint256 balB, bytes32 htlcsRoot, bool finalized)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(
-            abi.encode(CHANNEL_STATE_TYPEHASH, channelId, version, balA, balB, htlcsRoot, finalized)
-        );
+    function _hashState(
+        bytes32 channelId,
+        uint64 version,
+        uint256 balA,
+        uint256 balB,
+        bytes32 htlcsRoot,
+        bool finalized
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(CHANNEL_STATE_TYPEHASH, channelId, version, balA, balB, htlcsRoot, finalized));
     }
 
     function _eip712(bytes32 structHash) internal view returns (bytes32) {
@@ -138,8 +134,7 @@ contract OracleTest is Test {
             uint64 expirySec = _u64(json.readString(string.concat(base, ".input.expiryMs"))) / 1000;
             uint8 direction = _direction(dirStr);
 
-            bytes32 structHash =
-                keccak256(abi.encode(HTLC_TYPEHASH, id, amount, paymentHash, expirySec, direction));
+            bytes32 structHash = keccak256(abi.encode(HTLC_TYPEHASH, id, amount, paymentHash, expirySec, direction));
             assertEq(_eip712(structHash), expectedDigest, "Htlc digest mismatch");
         }
     }
@@ -164,8 +159,7 @@ contract OracleTest is Test {
             bytes32 nsRoot = HTLC.rootOf(locks);
 
             bytes32 nextHash = _hashState(nsChannelId, nsVersion, nsBalA, nsBalB, nsRoot, nsFinalized);
-            bytes32 structHash =
-                keccak256(abi.encode(UPDATE_TYPEHASH, channelId, fromVersion, toVersion, nextHash));
+            bytes32 structHash = keccak256(abi.encode(UPDATE_TYPEHASH, channelId, fromVersion, toVersion, nextHash));
             assertEq(_eip712(structHash), expectedDigest, "Update digest mismatch");
         }
     }
@@ -196,8 +190,7 @@ contract OracleTest is Test {
             uint256 finalB = _u256(json.readString(string.concat(base, ".input.finalBalanceB")));
             uint64 signedAt = _u64(json.readString(string.concat(base, ".input.signedAt")));
 
-            bytes32 structHash =
-                keccak256(abi.encode(COOPERATIVE_CLOSE_TYPEHASH, channelId, finalA, finalB, signedAt));
+            bytes32 structHash = keccak256(abi.encode(COOPERATIVE_CLOSE_TYPEHASH, channelId, finalA, finalB, signedAt));
             assertEq(_eip712(structHash), expectedDigest, "CooperativeClose digest mismatch");
         }
     }

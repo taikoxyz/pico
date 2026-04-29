@@ -78,12 +78,7 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id,
-            version: 1,
-            balanceA: finalA,
-            balanceB: finalB,
-            htlcsRoot: bytes32(0),
-            finalized: true
+            channelId: id, version: 1, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: true
         });
         bytes memory sigA = _sign(alicePk, s);
         bytes memory sigB = _sign(bobPk, s);
@@ -112,12 +107,7 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id,
-            version: version,
-            balanceA: finalA,
-            balanceB: finalB,
-            htlcsRoot: bytes32(0),
-            finalized: false
+            channelId: id, version: version, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: false
         });
         bytes memory sigB = _sign(bobPk, s);
         vm.prank(alice);
@@ -141,12 +131,7 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id,
-            version: vNew,
-            balanceA: finalA,
-            balanceB: finalB,
-            htlcsRoot: bytes32(0),
-            finalized: false
+            channelId: id, version: vNew, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: false
         });
         // Closer must sign the disputed state (the handler always closes via alice).
         uint256 closerPk = ch.closer == alice ? alicePk : bobPk;
