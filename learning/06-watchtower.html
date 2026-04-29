@@ -74,7 +74,7 @@
 
 <h2>What it is</h2>
 
-<p>The watchtower is a small Node service whose only job is to sit between the chain and the channel database, watch for unilateral closes, and submit a penalty transaction if the close uses an obsolete state. It lives at <code>apps/watchtower/</code> and consists of five files: <code>watcher.ts</code> for the high-level loop, <code>detector.ts</code> for "is this close stale and is it worth penalizing", <code>responder.ts</code> for actually building and submitting the penalty calldata, <code>storage.ts</code> for the encrypted state-backup persistence (a <code>SqliteBackupStore</code>), and the usual <code>config.ts</code> and <code>logger.ts</code>. Of these, only <code>detector.ts</code> contains real logic at the moment; the rest are skeletons covered by the gap list below.</p>
+<p>The watchtower is a small Node service whose only job is to sit between the chain and the channel database, watch for unilateral closes, and submit a penalty transaction if the close uses an obsolete state. It lives at <code>apps/watchtower/</code> and consists of focused modules: <code>watcher.ts</code> for the high-level loop, <code>detector.ts</code> for "is this close stale and is it worth penalizing", <code>responder.ts</code> for building and submitting penalty calldata, <code>storage.ts</code> for encrypted state-backup persistence, plus <code>config.ts</code> and <code>logger.ts</code>.</p>
 
 <p>Architecturally the watchtower is the simplest of the long-running components. It does not hold funds, it does not forward payments, it does not maintain channels. It does one thing: when it sees a closure on chain, it reads the channel's signed-state log from disk, picks the freshest state it has, and races to submit it before the dispute window closes.</p>
 
@@ -173,24 +173,20 @@
   </tbody>
 </table>
 
-<h2>Tests</h2>
+<h2>Verification model</h2>
 
-<p>Today only <code>apps/watchtower/src/detector.test.ts</code> exists. Required before mainnet dogfood: an integration test against anvil that opens a channel, has a fake hub post an old state, lets the watchtower observe it and submit a dispute, and asserts that <code>finalize</code> ends with the honest party paid in full. A second integration test should cover the listen-mode-plus-watchtower recovery story: the user is offline during the fraud, the watchtower handles it alone, the user comes back online, and the agent's local state DB ends consistent with the on-chain finalization.</p>
+<p>The watchtower is verified in two layers. Unit tests cover stale-version detection: given a latest known signed state and an observed unilateral close version, the detector decides whether a penalty is needed. Integration scenarios should add the chain: open a channel on an anvil fork, submit an older state, let the watchtower observe it, submit the newer evidence, and finalize with the honest party paid correctly. A recovery scenario also matters: the user is offline during fraud, the watchtower handles it, and the user's local state catches up later from chain history.</p>
 
-<h2>Gaps before mainnet</h2>
+<h2>Design constraints</h2>
 
-<p>Tracked in <code>docs/plans/06-watchtower.md</code>. Roughly:</p>
+<p>The watchtower is deliberately smaller than the hub. It does not route payments or invent state; it only remembers signed states, watches chain events, and submits evidence when an on-chain close is older than the latest state it has seen.</p>
 
 <ul>
-  <li><code>watcher.ts</code>: subscribe via <code>viem.watchContractEvent</code>; filter to channels we care about; reorg tolerance (3 confirmations); reconnect on RPC drop with exponential backoff; emit <code>LOG_WATCHTOWER_RPC_DOWN</code> every 5 minutes while disconnected.</li>
-  <li><code>detector.ts</code>: hydrate latest known state from DB on startup; <code>evaluateClosing</code> returns <code>{action: noop | penalize, evidence, submitBy}</code>.</li>
-  <li><code>responder.ts</code>: <code>submitPenalty</code> builds dispute / penalty calldata via viem, estimates gas, signs with the watchtower private key, submits, retries with bumped gas if not mined within 60 seconds, idempotent on duplicate calls.</li>
-  <li>Storage: <code>SqliteBackupStore</code> reading and writing the shared SQLite file; a <code>watchtower_observations</code> table for what we have seen.</li>
-  <li>Scheduler: every 60 seconds scan for events past their <code>submitBy</code>; run on startup to catch up on anything missed during downtime.</li>
-  <li>HTTP <code>/health</code> endpoint, Prometheus metrics, structured logs via pino.</li>
-  <li>Integration test against anvil: open channel, hub posts old state, watchtower observes, submits dispute, finalize gives funds to honest party.</li>
-  <li>Listen-mode plus watchtower recovery integration test: hub cheats while user offline, user runs listen later, assert agent state DB ends consistent with on-chain finalization.</li>
-  <li>Coverage ≥ 70%.</li>
+  <li><strong>Latest-state only:</strong> the watchtower submits the newest signed state it has observed; it must not synthesize or sign a replacement state.</li>
+  <li><strong>Independent failure domain:</strong> it runs separately from the hub so a hub outage or compromise does not also silence dispute response.</li>
+  <li><strong>Idempotent response:</strong> duplicate events and retries should not create conflicting transactions or repeated bookkeeping.</li>
+  <li><strong>Reorg tolerance:</strong> event handling waits for confirmations and can replay recent history after an RPC disconnect.</li>
+  <li><strong>Observable failure:</strong> missed RPC, late evidence, and failed penalty submissions must be logged and exported as metrics because silence is dangerous.</li>
 </ul>
 
 <div class="next">

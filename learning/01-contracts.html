@@ -259,18 +259,17 @@
 </table>
 <p>Run with <code>pnpm --filter @tainnel/contracts test</code> (which invokes <code>forge test</code>).</p>
 
-<p>What's <em>not</em> covered yet: there is no end-to-end mainnet integration test. The 104 tests run against a forge in-memory EVM. The repo's <a href="./08-e2e.html">e2e harness</a> stitches the contracts to the rest of the stack on an anvil fork, but a real Taiko mainnet smoke channel — open, pay, close — has not been opened yet.</p>
+<p>The contract tests are intentionally narrow and deterministic: they prove the on-chain rules for escrow, signature recovery, HTLC hashing, dispute versioning, replay rejection, and finalization. Whole-stack behavior is covered conceptually in the <a href="./08-e2e.html">e2e</a> page, where these contracts are treated as one component in a larger system.</p>
 
-<h2>Gaps vs production-ready</h2>
-<p>From <code>docs/plans/02-contracts.md</code>:</p>
-<div class="danger"><strong>Compromised owner key.</strong> The current owner of both proxies is the deployer at <code>0x327fa3...c458</code>. That private key was previously pasted into a Claude session and is treated as compromised. The contracts must be transferred to a clean key via <code>transferOwnership</code> before any third party deposits funds. Until that happens, the deployer can upgrade either proxy at will.</div>
+<h2>Design constraints</h2>
+<p>The contracts are upgradeable UUPS proxies, so the owner key is part of the trust boundary: it can authorize implementation upgrades, but it cannot bypass the state-channel accounting rules inside a finalized implementation. Operational custody of that owner key is tracked outside the learning material.</p>
 <ul>
-  <li>Line-by-line review of <code>PaymentChannel.sol</code> and <code>Adjudicator.sol</code> is still pending. The prior partial review caught the <code>dispute()</code> signature bug that motivated the in-place upgrade, so the value of finishing it is concrete, not theoretical.</li>
-  <li>A smoke channel on Taiko mainnet has not been opened. Doing so requires funding the deployer with a small amount of USDC and walking through open → pay → cooperative close end-to-end against the live contracts.</li>
-  <li>Owner key rotation: <code>transferOwnership</code> on both proxies, from a freshly generated key whose mnemonic has never touched an LLM context. Any production rollout blocks on this.</li>
+  <li><strong>UUPS upgradeability</strong> keeps fixes possible without migrating every channel, but it makes owner-key custody security-critical.</li>
+  <li><strong>Reentrancy guards</strong> protect token-transfer paths, and state transitions are written so external calls happen after accounting decisions.</li>
+  <li><strong>EIP-712 domain pinning</strong> binds signatures to the Taiko chain id and verifying contract, preventing cross-chain or cross-contract replay.</li>
+  <li><strong>Deterministic <code>channelId</code> derivation</strong> lets off-chain code and chain events agree on the same channel identity.</li>
+  <li><strong>100% slashing on proven stale state</strong> makes cheating expensive enough for the low-value v1 trust model.</li>
 </ul>
-
-<p>Everything else — UUPS upgradeability, reentrancy guards, EIP-712 domain pinning, balance conservation, deterministic <code>channelId</code> derivation, 100% slashing — is already in place and exercised by tests.</p>
 
 <div class="next">
   <div>

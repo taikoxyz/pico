@@ -83,7 +83,7 @@
 <h2>Key concepts</h2>
 <p>A <strong>ChannelState</strong> is a snapshot: <code>(channelId, version, balanceA, balanceB, htlcs[], finalized)</code>. Versions only ever go up. An <strong>Update</strong> carries <code>fromVersion</code>, <code>toVersion</code>, and a <code>nextState</code> — never a delta. The library's job is to say yes or no to a transition, then return the new state if yes. An <strong>HTLC</strong> is a conditional payment held inside the state: amount, paymentHash, expiry, direction. While an HTLC is pending, its amount is debited from the sender's balance but not yet credited to the receiver — the funds live in the HTLC slot. Settling reveals a preimage and credits the receiver. Failing returns the funds to the sender. Expiring is the same as failing, just driven by time.</p>
 
-<p>The <strong>htlcsRoot</strong> is a single <code>bytes32</code> commitment to the entire pending-HTLC set, computed by sorting the HTLCs by id, abi-encoding each, concatenating, and taking a single keccak. It is what gets folded into the EIP-712 digest of a state, so a signature over a state implicitly commits to the exact HTLC set. Sorted-keccak (rather than a binary Merkle tree) keeps the root cheap to compute on-chain — the contract has at most five HTLCs to handle in v1.</p>
+<p>The <strong>htlcsRoot</strong> is a single <code>bytes32</code> commitment to the entire pending-HTLC set. It is computed by sorting HTLCs by id, hashing each ABI-encoded HTLC into a leaf, duplicating the final leaf on odd-width levels, and repeatedly concatenating + keccak-hashing pairs until one root remains. That root is folded into the EIP-712 digest of a state, so a signature over a state implicitly commits to the exact HTLC set.</p>
 
 <h2>How it works</h2>
 <p>The flow is short and rectangular. Given a current state at version <code>N</code> and an incoming update, <code>validateUpdate</code> checks four things in order: the channel id matches, the channel is not already finalized, the new version is strictly greater than <code>N</code> (via <code>ensureMonotonicVersion</code>, which throws <code>StaleVersionError</code>), and the total balance — on-channel balances plus the sum of pending HTLC amounts — is preserved. If any check fails, an error is thrown and nothing else happens. If all four pass, <code>applyUpdate</code> simply returns the proposed <code>nextState</code>. The function is pure: no mutation, no side effects.</p>
@@ -137,9 +137,9 @@
 <figcaption>Top: a transition either passes validation and produces the next state, or throws. Bottom: the same digest function exists in both TypeScript and Solidity, and the two must agree exactly.</figcaption>
 </figure>
 
-<p>HTLC operations sit on top of the same pattern. <code>addHtlc</code> debits the sender's balance and pushes an entry into the array, refusing duplicate ids and insufficient balances. <code>settleHtlc</code> finds the entry, removes it, and credits the receiver. <code>failHtlc</code> removes it and refunds the sender. <code>expireHtlcs(state, now)</code> walks the list and fails everything past its expiry. None of these functions mutate; each returns a new state. The <code>signing.ts</code> module builds EIP-712 typed-data structures (<code>buildChannelStateTypedData</code>, <code>buildUpdateTypedData</code>, <code>buildHtlcTypedData</code>, <code>buildCooperativeCloseTypedData</code>) so that whichever <a href="./04-sdk.html">Signer</a> the caller plugs in produces a digest the contract will accept.</p>
+<p>HTLC operations sit on top of the same pattern. <code>addHtlc</code> debits the sender's balance and pushes an entry into the array, refusing duplicate ids and insufficient balances. <code>settleHtlc</code> finds the entry, removes it, verifies the preimage, and credits the receiver. <code>failHtlc</code> removes it and refunds the sender. <code>expireHtlcs(state, now)</code> walks the list and fails everything past its expiry. None of these functions mutate; each returns a new state.</p>
 
-<div class="danger"><strong>What's not here yet:</strong> <code>signing.ts</code> currently only builds typed data. The <code>hashChannelState</code>, <code>verifyChannelStateSignature</code>, and matching helpers for <code>Update</code>/<code>Htlc</code>/<code>CooperativeClose</code> are not implemented. <code>computeHtlcsRoot</code> exists upstream in <code>@tainnel/protocol</code> as <code>htlcMerkleRoot</code>; the spec-compliant sorted-keccak path still needs cross-validation against the contract.</div>
+<p>The <code>signing.ts</code> module builds EIP-712 typed-data structures and exposes hash / verification helpers for <code>ChannelState</code>, <code>Update</code>, <code>Htlc</code>, and <code>CooperativeClose</code>. <code>computeHtlcsRoot</code> delegates to the shared protocol HTLC root implementation, so the off-chain digest commits to the same HTLC set the contract verifies.</p>
 
 <h2>Public surface</h2>
 <table>
@@ -151,33 +151,34 @@
   <tr><td>settleHtlc</td><td>Removes the HTLC and credits the receiver.</td></tr>
   <tr><td>failHtlc</td><td>Removes the HTLC and refunds the sender.</td></tr>
   <tr><td>expireHtlcs</td><td>Fails every HTLC whose <code>expiryMs</code> has passed.</td></tr>
+  <tr><td>computeHtlcsRoot</td><td>Computes the canonical root for the pending HTLC set.</td></tr>
   <tr><td>buildChannelStateTypedData</td><td>EIP-712 envelope ready to hand to a Signer.</td></tr>
   <tr><td>buildUpdateTypedData</td><td>Same, for an <code>Update</code>.</td></tr>
   <tr><td>buildHtlcTypedData</td><td>Same, for a single <code>Htlc</code>.</td></tr>
   <tr><td>buildCooperativeCloseTypedData</td><td>Same, for a <code>CooperativeClose</code>.</td></tr>
+  <tr><td>hashChannelState / hashUpdate / hashHtlc / hashCooperativeClose</td><td>Return the EIP-712 digest for the corresponding message.</td></tr>
+  <tr><td>verifyChannelStateSignature / verifyUpdateSignature / verifyHtlcSignature / verifyCooperativeCloseSignature</td><td>Recover and compare the signer for the corresponding EIP-712 message.</td></tr>
   <tr><td>ensureMonotonicVersion</td><td>Throws <code>StaleVersionError</code> if <code>next &lt;= current</code>.</td></tr>
   <tr><td>StateMachineError &amp; subclasses</td><td>Typed errors: stale version, balance mismatch, unknown HTLC, duplicate HTLC.</td></tr>
 </table>
 
-<h2>Tests</h2>
-<p>Roughly ten test cases live in two files. Run them with <code>pnpm --filter @tainnel/state-machine test</code>.</p>
+<h2>Verification model</h2>
+<p>The package is tested as pure logic: state transitions, replay rejection, HTLC add/settle/fail/expire flows, preimage verification, invoice helpers, EIP-712 hashing, signature recovery, and oracle fixtures. Run with <code>pnpm --filter @tainnel/state-machine test</code>.</p>
 <table>
   <tr><th>File</th><th>Covers</th></tr>
   <tr><td>packages/state-machine/src/channel.test.ts</td><td>state transition logic — stale versions, balance preservation, a fast-check property test that <code>applyUpdate</code> conserves total balance under random monotonic version bumps.</td></tr>
-  <tr><td>packages/state-machine/src/signing.test.ts</td><td>EIP-712 typed-data construction and round-trip recovery via viem's <code>recoverTypedDataAddress</code>; <code>htlcMerkleRoot</code> determinism (insertion-order independence).</td></tr>
+  <tr><td>packages/state-machine/src/htlc.test.ts</td><td>HTLC accounting, duplicate-id rejection, preimage settlement, failure refunds, and expiry behavior.</td></tr>
+  <tr><td>packages/state-machine/src/signing.test.ts</td><td>EIP-712 typed-data construction, digests, signature recovery, and HTLC root determinism.</td></tr>
+  <tr><td>packages/state-machine/test/oracle.test.ts</td><td>Cross-package fixture round-trips for roots and typed-data digests.</td></tr>
 </table>
 
-<h2>Gaps vs production-ready</h2>
-<p>Sourced from <code>docs/plans/03-state-machine.md</code>. This is the v1 critical path: P4 SDK, P5 Hub, P6 Watchtower, and P7 Agent runtime are all blocked on these landing.</p>
+<h2>Design constraints</h2>
 <ul>
-  <li>Implement <code>hashChannelState</code>, <code>hashUpdate</code>, <code>hashHtlc</code>, <code>hashCooperativeClose</code> using viem's <code>hashTypedData</code>.</li>
-  <li>Implement <code>verifyChannelStateSignature</code>, <code>verifyUpdateSignature</code>, <code>verifyCooperativeCloseSignature</code> via viem's <code>recoverTypedDataAddress</code>.</li>
-  <li>Implement <code>computeHtlcsRoot</code> matching D1.3 exactly: sort by id (lexicographic on bytes32), abi-encode each as <code>(id, amount, paymentHash, expiry, direction)</code>, concat, single keccak256.</li>
-  <li>Implement <code>verifyPreimage</code> using sha256 (D1.2), tested against contract output.</li>
-  <li>Generate <code>packages/state-machine/test/fixtures/oracle.json</code> with ~50 random inputs and their expected hashes/roots; have forge fuzz tests cross-validate via <code>vm.readJson</code>.</li>
-  <li>Property tests with <code>fast-check</code>: monotonic version, balance conservation, idempotent <code>applyUpdate</code>, <code>addHtlc → settleHtlc</code> round-trip, <code>addHtlc → failHtlc</code> round-trip, replay rejection, sorted-keccak shuffle invariance.</li>
-  <li>Strict invariants: reject <code>amount == 0</code> HTLCs, reject duplicate HTLC ids, reject <code>finalized: false → true</code> while HTLCs are pending.</li>
-  <li>Coverage gate: <code>pnpm --filter @tainnel/state-machine test --coverage</code> ≥ 95% lines and branches, wired into CI.</li>
+  <li>Every transition is pure and returns a fresh state; callers own persistence and network ordering.</li>
+  <li>Versions only move forward, and <code>fromVersion</code> must match the previous state exactly.</li>
+  <li>Total funds are conserved across on-channel balances plus pending HTLC amounts.</li>
+  <li>Finalization is rejected while HTLCs are pending.</li>
+  <li>Signatures commit to chain id, verifying contract, balances, finalized flag, version, and the complete pending-HTLC root.</li>
 </ul>
 
 <div class="next">

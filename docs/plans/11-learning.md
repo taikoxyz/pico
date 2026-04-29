@@ -1,15 +1,15 @@
 # P11 — Learning materials
 
 **Status:** 🟡 in progress — initial set drafted in this re-scope session
-**Blocks:** P10 (`Done when` requires the learning materials to be coherent and
-current with the code)
+**Blocks:** —
 **Effort:** ~3–4 days, parallelizable with all other phases
-**Depends on:** nothing — sourcing factual content from the audits captured during the
-v1 re-scope session is enough to write every page without reading more code
+**Depends on:** nothing — source content comes from the code, protocol docs, and
+technical plans, but readiness tracking stays in `ROADMAP.md` and `docs/plans/`.
 
 ## Why this exists as its own phase
 
-The user wants to deeply understand every component before mainnet dogfood. Without
+The user wants to deeply understand every component before the mainnet real-money
+test. Without
 purpose-built, self-contained tutorials, the only way in is reading source plus the
 plans in `docs/plans/`. That's enough for an engineer; not enough for a
 "hand-this-to-an-AI-agent-or-a-non-Solidity-friend" onboarding experience. This phase
@@ -58,9 +58,10 @@ Every component page (`01–08`) follows the same skeleton:
 4. **How it works** — sequence diagram (inline SVG) + 1–2 paragraphs.
 5. **Public surface** — table of key types / functions with file paths and line ranges
    (sourced from the audits captured during the v1 re-scope session).
-6. **Tests** — what's covered today, what isn't, where the test files live.
-7. **Gaps vs. production-ready** — concrete list of TODOs from the corresponding
-   `docs/plans/*.md`.
+6. **Verification model** — what tests, invariants, or review concepts prove the
+   design works, without turning the page into a status checklist.
+7. **Design constraints** — the technical boundaries, tradeoffs, and invariants that
+   shape the component.
 8. **Read next** — link to the next logical component page.
 
 ## Implementation tasks
@@ -116,8 +117,8 @@ Every component page (`01–08`) follows the same skeleton:
 - You read `learning/00-big-picture.html`. The story should be self-consistent with
   the component pages it links to (no contradictions).
 - You spot-check at least one component page you did not write. Confirm: it can be
-  read alone, the diagram is clear, the gap list matches the corresponding
-  `docs/plans/*.md`.
+  read alone, the diagram is clear, and it contains design/technical details only,
+  not readiness tracking copied from `ROADMAP.md`.
 
 ## Done when
 
@@ -125,6 +126,6 @@ Every component page (`01–08`) follows the same skeleton:
 - Cross-page links resolve when opened from disk (no `file://` 404s).
 - The `00-big-picture.html` story matches the actual code paths described on the
   component pages.
-- Every page's "Gaps vs. production-ready" section matches the corresponding plan
-  file.
+- No page contains a readiness/gap checklist; current status and remaining work live
+  only in `ROADMAP.md` and `docs/plans/`.
 - Branch merged with `docs(learning): per-component HTML tutorials + big picture`

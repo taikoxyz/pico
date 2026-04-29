@@ -74,7 +74,7 @@
 <p>The <code>e2e/</code> folder contains tests that drive the entire system at once: contracts running on an anvil fork of Taiko mainnet, a real <code>apps/hub</code> instance and an <code>apps/watchtower</code> instance running in-process, the SDK and the CLI talking to them, and assertions checking on-chain state alongside off-chain state. Where <a href="./03-state-machine.html">P3</a> through <a href="./07-agent-runtime.html">P7</a> verify each surface in isolation, P8 is the only place where they're verified together. It's also where the human security review happens — the sit-down-with-coffee read-through of the most safety-critical files.</p>
 
 <h2>Why it exists</h2>
-<p>Channel-state systems fail in the seams. Each component can be perfectly correct in its own tests and still produce silent fund loss when wired together — for example, when the SDK persists a state at version <code>N+1</code> but the hub's router expected <code>N</code> for an in-flight HTLC, or when the watchtower observes a stale-state submission but its evidence is signed under a different chain id. The only way to catch those bugs before mainnet is to drive the whole stack against a real EVM (anvil forking Taiko mainnet) with deterministic fixtures and time-warps. P8 is the gate that says: every scenario you can write down, the system handles correctly.</p>
+<p>Channel-state systems fail in the seams. Each component can be perfectly correct in its own tests and still produce silent fund loss when wired together — for example, when the SDK persists a state at version <code>N+1</code> but the hub's router expected <code>N</code> for an in-flight HTLC, or when the watchtower observes a stale-state submission but its evidence is signed under a different chain id. The way to catch those bugs is to drive the whole stack against a real EVM (anvil forking Taiko mainnet) with deterministic fixtures and time-warps, then assert that every component ends with the same state.</p>
 
 <h2>Key concepts</h2>
 <ul>
@@ -175,7 +175,7 @@ pnpm test                              # turbo runs e2e + every package
 pnpm --filter @tainnel/e2e test        # e2e scenarios alone</code></pre>
 
 <h3>Internal security review checklist</h3>
-<p>The human gates that block <a href="../docs/plans/10-launch.md">P10</a> launch:</p>
+<p>The manual review focuses on trust boundaries and ordering rules that automated scenarios can miss:</p>
 <ul>
   <li><a href="./01-contracts.html">PaymentChannel.sol</a> + Adjudicator.sol read line by line. Reentrancy guards, integer arithmetic, <code>block.timestamp</code> tolerance, signature-domain coverage.</li>
   <li><a href="./03-state-machine.html">state-machine</a> <code>channel.ts</code>, <code>htlc.ts</code>, <code>signing.ts</code>. Confirm <code>htlcsRoot</code> matches the contract byte-for-byte (the oracle fixture from P3 already enforces this; you re-read for sanity).</li>
@@ -189,18 +189,16 @@ pnpm --filter @tainnel/e2e test        # e2e scenarios alone</code></pre>
 
 <p>Optional automated pass: <code>slither .</code> on the contracts; triage findings.</p>
 
-<h2>Tests today vs. tests required</h2>
-<p>Today: <code>e2e/src/scenarios.test.ts</code> has a smoke test plus four placeholders, three of which are <code>describe.skip</code>'d. Required for P10: every scenario in the table above runs and passes; <code>forge test --fuzz-runs 1000000</code> on contract invariants is green overnight; the GitHub Actions <code>e2e</code> job blocks merge on scenario failure or coverage drop.</p>
+<h2>Verification model</h2>
+<p>The e2e suite is the place where local correctness becomes system correctness. It should run contracts on an anvil fork, start the hub and watchtower in process, drive the CLI/SDK as real clients, and assert both on-chain and off-chain state after each scenario. Contract invariant fuzzing belongs beside these scenarios as a funds-safety check: it shakes the on-chain state machine while the e2e tests prove the components agree about normal and adversarial flows.</p>
 
-<h2>Gaps vs production-ready</h2>
-<p>From <a href="../docs/plans/08-e2e-and-audit.md">docs/plans/08-e2e-and-audit.md</a>:</p>
+<h2>Design constraints</h2>
 <ul>
-  <li>Build <code>e2e/src/harness.ts</code>: anvil fork bootstrapper + forge deploy + in-process hub + in-process watchtower + clean shutdown.</li>
-  <li>Wire all 8 scenarios; replace the <code>describe.skip</code>'d placeholders.</li>
-  <li>Performance stress test: 50 payments/second through one channel pair on a 1 vCPU box.</li>
-  <li>1M-run forge fuzz green overnight.</li>
-  <li>Security review checklist physically clicked by you (the human gate).</li>
-  <li>CI <code>e2e</code> job in <code>.github/workflows/ci.yml</code>; merge blocked on scenario failure or coverage drop below thresholds.</li>
+  <li><strong>Forked chain, not mocks:</strong> the harness uses an anvil fork so contract calls, events, timestamps, and finalization behave like an EVM.</li>
+  <li><strong>Real process boundaries:</strong> the CLI, hub, watchtower, SDK, and contracts communicate over their actual public surfaces.</li>
+  <li><strong>Deterministic fixtures:</strong> keys, contract addresses, block numbers, and time warps must be reproducible so failures can be replayed.</li>
+  <li><strong>Adversarial scenarios:</strong> hub-down, receiver-offline, replay, unilateral close, and stale-state dispute flows are as important as the happy path.</li>
+  <li><strong>Human review remains separate:</strong> tests find executable regressions; line-by-line review looks for trust-boundary mistakes the scenarios may not cover.</li>
 </ul>
 
 <div class="next">

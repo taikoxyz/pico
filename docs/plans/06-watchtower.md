@@ -1,7 +1,7 @@
 # P6 — Watchtower
 
-**Status:** 🔵 not started — `watcher`, `detector`, `responder`, `storage` are
-shells; `detector` has the only real logic
+**Status:** 🟡 partial — stale-version detection exists; chain watching, backup
+hydration, idempotent penalty submission, health/metrics, and recovery behavior remain
 **Blocks:** P8, P10
 **Effort:** 4–6 days
 **Depends on:** P3 (state machine), P2 (deployed contracts)

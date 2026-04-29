@@ -1,8 +1,8 @@
 # P5 — Hub
 
-**Status:** 🔵 not started — module shells exist (`channel-pool`, `router`,
-`liquidity`, `fee-policy`, `chain-watcher`, `dispute-handler`, `api`) but only
-`fee-policy.ts` has real logic
+**Status:** 🟡 partial — service shell, DB open/close, health/metrics, channel pool,
+and fee policy exist; router, durable payment persistence, WebSocket payment flow,
+chain-event handling, and dispute response remain
 **Blocks:** P8, P10
 **Effort:** ~1.5 weeks (the longest sub-project)
 **Depends on:** P3 (state machine), P4 (SDK message shapes), P2 (deployed contracts on
