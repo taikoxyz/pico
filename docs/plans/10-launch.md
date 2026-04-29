@@ -34,10 +34,10 @@ verify each box yourself.
 - Decision: ☐ just you ☐ 3 ☐ 5 ☐ open invite to a small Discord
 
 ### D10.4 How channels are opened on mainnet
-- **Default:** users open their own channels using the wallet UI. Hub
-  auto-accepts up to D10.1. The deployer (cold wallet) does not open
-  channels on behalf of others.
-- Decision: ☐ self-serve (default) ☐ Daniel manually opens for each user
+- **Default:** users / agents open their own channels using `tainnel channel open
+  --hub <url> --amount <usdc>` from the CLI. Hub auto-accepts up to D10.1. The
+  deployer (cold wallet) does not open channels on behalf of others.
+- Decision: ☐ self-serve via CLI (default) ☐ Daniel manually opens for each user
 
 ### D10.5 Soak duration
 - **Default:** 14 days of observed normal operation before declaring the
@@ -57,14 +57,14 @@ verify each box yourself.
 ## Pre-flight checklist (do these in order, no skipping)
 
 ### One week before launch
-- [ ] `[review]` Re-read every `[review]` gate from P1–P9. Re-click them.
+- [ ] `[review]` Re-read every `[review]` gate from P1–P9 (and P11). Re-click them.
 - [ ] `[human]` Tag the release: `git tag v0.1.0 -m 'dogfood launch candidate'`.
 - [ ] `[human]` Announce internally to the dogfood crew: "we're launching
       $DATE on Taiko mainnet, here's what to expect".
 - [ ] `[human]` Confirm cold wallet has ≥ 0.1 ETH (deploy gas) + D10.2 USDC
       (initial hub liquidity) + 0.1 ETH each for hub & watchtower hot wallets.
-- [ ] `[agent]` Update `apps/wallet-ui/.env.production` with mainnet chain id
-      and a placeholder for the soon-to-be-deployed contract address.
+- [ ] `[agent]` Confirm `packages/protocol/src/constants.ts` already records the
+      mainnet contract addresses (P2 already deployed and verified).
 
 ### Day of: contract deployment
 - [ ] `[human]` From the **cold wallet**, deploy contracts to Taiko mainnet:
@@ -76,12 +76,12 @@ verify each box yourself.
         --verify \
         --legacy
       ```
-- [ ] `[human]` Verify both contracts on Taikoscan show source code.
+- [ ] `[human]` Verify both contracts on Taikoscan show source code (P2 already
+      did this for the current deployment; re-confirm if redeploying).
 - [ ] `[human]` Record addresses in:
       - `packages/protocol/src/constants.ts` `CONTRACT_ADDRESSES[167000]`
-      - `apps/wallet-ui/.env.production`
       - your password manager / project tracking
-- [ ] `[agent]` Update USDC token address in `constants.ts` to the canonical
+- [ ] `[agent]` Confirm USDC token address in `constants.ts` is the canonical
       Taiko mainnet USDC.
 - [ ] `[agent]` Bump version to `0.1.0` and commit.
 
@@ -90,10 +90,11 @@ verify each box yourself.
       contract addresses, real USDC token). **Health check first**, then
       monitoring dashboards.
 - [ ] `[human]` `flyctl deploy` watchtower against mainnet config.
-- [ ] `[human]` Deploy wallet UI to production hosting (Cloudflare Pages
-      production branch).
-- [ ] `[human]` Smoke test: open `https://wallet.tainnel.dev` (or whatever your
-      domain is), connect wallet, confirm it sees Taiko mainnet.
+- [ ] `[human]` Publish the CLI: tag `v0.1.0`, run `pnpm changeset publish` (or
+      whatever the chosen release flow is) so dogfood agents can `pnpm install -g
+      @tainnel/cli` (or run via `pnpm tainnel` from a clone).
+- [ ] `[human]` Smoke test: from a clean machine, run `pnpm tainnel hub status
+      <mainnet hub URL>`. Confirm 200 OK and the right chain id.
 
 ### Day of: hub bootstrap
 - [ ] `[human]` From cold wallet, send the hub's hot wallet:
@@ -108,9 +109,16 @@ verify each box yourself.
       hub. Confirm settlement.
 
 ### Onboard the dogfood crew
-- [ ] `[human]` Send each user the wallet UI URL + a 1-pager explaining:
-      "open a channel up to D10.1 USDC, pay each other, report bugs."
-- [ ] `[human]` Confirm each onboard with a test payment.
+- [ ] `[human]` Send each user / agent operator a 1-pager (template lives in
+      `learning/00-big-picture.html`) explaining:
+      ```
+      pnpm install -g @tainnel/cli  # or clone + pnpm install
+      tainnel keys init
+      tainnel channel open --hub <mainnet hub URL> --amount <≤ D10.1>
+      tainnel pay --to <other agent's address> --amount 0.05
+      # receivers also run: tainnel listen --hub <mainnet hub URL>
+      ```
+- [ ] `[human]` Confirm each onboard with a test payment to your own address.
 
 ## Soak period (D10.5 days)
 
@@ -137,9 +145,25 @@ verify each box yourself.
       multi-watchtower, fee market)
 - [ ] `ROADMAP.md` updated to "v0.1.0 dogfood live" with date
 
-## After launch
+## After launch — Phase 2 follow-ups
 
-If you want this beyond dogfood — public launch with real users — Phase 2
-adds: external audit, bug bounty, ETH alongside USDC, DVM payment flow demo,
-multi-hub failover, formal threat-model writeup. None of that is in this
-roadmap. File new sub-plans when you're ready.
+If you want this beyond dogfood — public launch with real users / agents — Phase 2
+adds:
+
+- React **wallet UI** for humans (the original P7 scope, parked).
+- **ERC-8004** agent-identity registration on Ethereum mainnet.
+- **EIP-7702 / 4337** smart-account on-chain delegation, once Pectra is live on
+  Taiko (Q1 2026 per Taiko's roadmap; verify activation).
+- **TEE / KMS Signer backends** (AWS Nitro Enclave, Turnkey, AWS/GCP KMS)
+  implementing the v1 `Signer` interface.
+- External audit, bug bounty.
+- ETH (non-USDC) support.
+- DVM (Nostr) payment flow demo using the existing `dvm-adapter` scaffold.
+- Multi-hub failover; multi-hop routing only if a real reason emerges.
+- Formal threat-model writeup.
+
+The project does **not** intend to add MCP or x402 integrations in-tree. If those
+ecosystems want to consume the system, they can write a thin external adapter on top
+of `apps/cli` or the SDK.
+
+File new sub-plans (`docs/plans/12-…md`, etc.) when starting any of the above.

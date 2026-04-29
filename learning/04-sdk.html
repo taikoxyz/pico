@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 04 sdk</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./03-state-machine.html">⤺ 03 state machine</a> · 04 sdk</span>
+  <span><a href="./05-hub.html">next · 05 hub ⤳</a></span>
+</nav>
+
+<h1>The <span class="accent">SDK</span></h1>
+<p class="subtitle">The library every agent calls. ChannelClient, Signer, transport, storage.</p>
+
+<h2>What it is</h2>
+<p>The <strong>SDK</strong> is the package <code>packages/sdk</code>. It is the concrete library that agent authors actually instantiate when they want to open a channel, send a payment, or accept inbound HTLCs. Everything below it — the wire format in <a href="./02-protocol.html">protocol</a>, the rule book in <a href="./03-state-machine.html">state-machine</a> — is pure data and pure functions. The SDK is the first layer that touches the outside world: it opens WebSockets, writes files, generates randomness, and orchestrates the back-and-forth that turns an intent like "pay Bob 0.05 USDC" into a sequence of signed messages and on-disk records.</p>
+
+<p>The library is built around one class, <code>ChannelClient</code>, plus three pluggable interfaces it composes: a <code>Signer</code> for key custody, a <code>Transport</code> for hub messaging, and a <code>ChannelStorage</code> for durable per-channel state. Everything is dependency-injected. There is no global, no implicit network, no implicit disk; the same client construction works in a Node script, in a test harness, and (eventually) in a browser.</p>
+
+<h2>Why it exists</h2>
+<p>The state-machine package can tell you whether a state transition is valid, but it cannot send the corresponding signature anywhere. Someone has to actually do the network calls, hold the latest signed state on disk, persist <em>before</em> sending so a crash mid-flight does not strand a payment, and reconnect with state replay when a hub session drops. That orchestration logic is the SDK's job, and it is the same regardless of whether the consumer is a CLI, a long-running daemon, or a future wallet UI. Putting it in one place keeps the surface that agent authors learn small, and keeps the safety-critical persist-before-send rule in exactly one function.</p>
+
+<div class="note"><strong>Audience for v1:</strong> agent authors writing a Node/TS script, or the <a href="./07-agent-runtime.html">apps/cli</a> which uses this SDK as the canonical agent runtime. The wallet-UI consumer is deferred to Phase 2; the quickstart docs target a CLI / agent-script audience, not a browser.</div>
+
+<h2>Key concepts</h2>
+<p>A <strong>Signer</strong> abstracts every EIP-712 signature the channel needs. The interface is intentionally small — <code>address()</code>, <code>signChannelState</code>, <code>signUpdate</code>, <code>signCooperativeClose</code>, <code>signHtlc</code> — and ECDSA-output. Hashing for those typed-data structs lives in the state-machine package; the Signer is purely a key-custody adapter. The v1 backend is an encrypted hot key file (passphrase-derived scrypt key, sealed with XSalsa20-Poly1305, permissions 0600, implementation lives in apps/cli). Future backends — KMS, Turnkey, Nitro Enclave, EIP-7702 delegation — implement the same interface; the SDK never calls a private key directly.</p>
+
+<p>A <strong>Transport</strong> is a request/response message pipe. The v1 implementation is <code>WebSocketTransport</code>: every message is JSON <code>{id, kind, payload}</code>, the transport keeps a <code>Map&lt;id, deferred&gt;</code> for request/response pairs, heartbeats every 30 seconds, and reconnects with exponential backoff (200ms → 30s, infinite, jittered). On reconnect it pushes the latest signed state per channel so the hub can replay any in-flight HTLC. <code>NostrRelayTransport</code> is a Phase-2 stub that compiles but throws.</p>
+
+<p>A <strong>ChannelStorage</strong> persists channels and their latest signed states. <code>MemoryStorage</code> is for tests. <code>IndexedDBStorage</code> is the browser default. <code>FileStorage</code> is the Node default and uses the atomic-rename pattern (<code>write tmp → rename</code>) with one JSON file per channel under <code>${root}/channels/${id}.json</code>. The decision matrix (D4.1) is: browser → IndexedDB, Node → file.</p>
+
+<h2>How it works</h2>
+<p>The architecture is layered. At the bottom sit the pure layers: state-machine and protocol. The SDK wraps three pluggable concerns around them. <code>ChannelClient</code> is the orchestration glue on top. Above the client sit the actual consumers — the CLI's <code>tainnel pay</code> and <code>tainnel listen</code> subcommands, and (on the operator side) the hub. Most agent authors never instantiate <code>ChannelClient</code> directly; they shell out to the CLI, which does so for them. But the surface is exactly the same in either case.</p>
+
+<figure>
+<svg viewBox="0 0 700 400" width="100%" style="max-width: 700px">
+  <text class="actor" x="350" y="22" text-anchor="middle">consumers</text>
+  <rect class="pill pill-accent" x="80" y="38" width="240" height="40" rx="8"/>
+  <text class="pill-text" x="200" y="63" text-anchor="middle">apps/cli — tainnel pay / listen</text>
+  <rect class="pill pill-accent" x="380" y="38" width="240" height="40" rx="8"/>
+  <text class="pill-text" x="500" y="63" text-anchor="middle">apps/hub</text>
+
+  <line class="arrow" x1="200" y1="78" x2="200" y2="105" marker-end="url(#sdk-arrow)" />
+  <line class="arrow" x1="500" y1="78" x2="500" y2="105" marker-end="url(#sdk-arrow)" />
+
+  <rect class="pill" x="80" y="105" width="540" height="50" rx="8"/>
+  <text class="pill-text" x="350" y="128" text-anchor="middle">ChannelClient</text>
+  <text class="label" x="350" y="146" text-anchor="middle">open · pay · close · list · getBalance · on('htlc:incoming')</text>
+
+  <rect class="pill" x="60" y="180" width="580" height="115" rx="8"/>
+  <text class="actor" x="350" y="205" text-anchor="middle">@tainnel/sdk</text>
+
+  <rect class="pill pill-good" x="85" y="220" width="170" height="60" rx="6"/>
+  <text class="pill-text" x="170" y="246" text-anchor="middle">Signer</text>
+  <text class="label" x="170" y="264" text-anchor="middle">address · signState</text>
+  <text class="label" x="170" y="278" text-anchor="middle">signUpdate · signHtlc</text>
+
+  <rect class="pill pill-good" x="265" y="220" width="170" height="60" rx="6"/>
+  <text class="pill-text" x="350" y="246" text-anchor="middle">Transport</text>
+  <text class="label" x="350" y="264" text-anchor="middle">WebSocket · backoff</text>
+  <text class="label" x="350" y="278" text-anchor="middle">{id, kind, payload}</text>
+
+  <rect class="pill pill-good" x="445" y="220" width="170" height="60" rx="6"/>
+  <text class="pill-text" x="530" y="246" text-anchor="middle">ChannelStorage</text>
+  <text class="label" x="530" y="264" text-anchor="middle">File · IndexedDB</text>
+  <text class="label" x="530" y="278" text-anchor="middle">atomic rename</text>
+
+  <line class="arrow" x1="350" y1="295" x2="350" y2="318" marker-end="url(#sdk-arrow)" />
+
+  <rect class="pill" x="60" y="318" width="280" height="40" rx="8"/>
+  <text class="pill-text" x="200" y="343" text-anchor="middle">@tainnel/state-machine</text>
+
+  <rect class="pill" x="360" y="318" width="280" height="40" rx="8"/>
+  <text class="pill-text" x="500" y="343" text-anchor="middle">@tainnel/protocol</text>
+
+  <text class="label" x="350" y="385" text-anchor="middle">pure · deterministic · I/O-free</text>
+
+  <defs>
+    <marker id="sdk-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink)" />
+    </marker>
+  </defs>
+</svg>
+<figcaption>The SDK wraps three pluggable concerns — Signer, Transport, Storage — around the pure state-machine and protocol layers. ChannelClient orchestrates them. CLI and hub are the v1 consumers; agent authors usually shell out to the CLI rather than constructing a client directly.</figcaption>
+</figure>
+
+<p>The flow inside <code>pay()</code> is the most safety-critical sequence in the SDK. The client generates a 32-byte preimage, hashes it, builds an <code>Htlc</code>, applies it locally with <code>state-machine.addHtlc</code>, and asks the Signer to sign the resulting state. The next step is the rule that anchors everything else: <strong>persist before send</strong>. The new signed state is written to disk before the signature ever leaves the process. If the SDK crashes between sign and send, on restart the persisted state is what the SDK believes; if the hub already received the signature, it can re-deliver and the SDK matches it. If the SDK signed but didn't persist and didn't send, the signature is lost and the world is consistent. The dangerous middle case — signed and sent but not persisted — is the one this rule eliminates. After persistence, the client sends the <code>pay</code> message, awaits a <code>payment.settle</code> with the preimage, verifies it matches the paymentHash, applies <code>settleHtlc</code> locally, signs the settled state, and persists again.</p>
+
+<div class="danger"><strong>Why persist-before-send matters:</strong> if the hub gets a signature but the local store doesn't have the corresponding state, the hub can later post that state on-chain and the client cannot challenge with anything newer.</div>
+
+<p><code>open()</code> and <code>close()</code> follow the same shape. Open submits an <code>openChannel</code> tx via viem, awaits the <code>ChannelOpened</code> event, persists the channel as <code>open</code>, and subscribes to the hub WebSocket. Close has two paths: cooperative (send <code>close.request</code>, await counter-signed close-state, submit <code>closeCooperative</code>), with a 60-second timeout that falls back to <code>closeUnilateral</code> against the latest signed state on disk. The CLI's <code>tainnel listen</code> is a long-running consumer that holds a session open and emits <code>htlc:incoming</code> / <code>htlc:settled</code> events; the SDK must allow constructing a <code>ChannelClient</code> without an open channel so the daemon can subscribe based purely on storage state.</p>
+
+<h2>Public surface</h2>
+<table>
+  <tr><th>Export</th><th>What it is</th></tr>
+  <tr><td>ChannelClient</td><td>The class. Constructed with <code>{ signer, transport, storage }</code>.</td></tr>
+  <tr><td>client.open</td><td><code>open({ counterparty, amount, token? })</code> → <code>Channel</code>. Submits openChannel tx, awaits event, subscribes.</td></tr>
+  <tr><td>client.pay</td><td><code>pay({ to, amount, memo? })</code> → <code>PaymentResult</code>. Generates preimage, persist-before-send, awaits settle.</td></tr>
+  <tr><td>client.close</td><td><code>close(channelId, { cooperative? })</code>. Cooperative path with 60s fallback to unilateral.</td></tr>
+  <tr><td>client.list</td><td>Returns the persisted set of channels.</td></tr>
+  <tr><td>client.getBalance</td><td><code>(balanceUs, balanceCounterparty, pendingHtlcsTotal)</code>.</td></tr>
+  <tr><td>client.on</td><td><code>'htlc:incoming'</code>, <code>'htlc:settled'</code>, <code>'error'</code> events for listen-mode consumers.</td></tr>
+  <tr><td>Signer</td><td>The interface in <code>signer.ts</code>. v1 backend = encrypted hot key file in apps/cli.</td></tr>
+  <tr><td>Transport · WebSocketTransport</td><td>JSON framing, request/response Map, heartbeat, jittered backoff, state replay on reconnect.</td></tr>
+  <tr><td>NostrRelayTransport</td><td>Phase-2 stub. Interface compiles; methods throw.</td></tr>
+  <tr><td>ChannelStorage · MemoryStorage</td><td>In-memory implementation. Test-only.</td></tr>
+  <tr><td>FileStorage · IndexedDBStorage</td><td>Node and browser defaults. Atomic-rename pattern in Node.</td></tr>
+</table>
+
+<h2>Tests</h2>
+<table>
+  <tr><th>File</th><th>Covers</th></tr>
+  <tr><td>packages/sdk/src/index.test.ts</td><td>Currently a single smoke test: <code>MemoryStorage</code> round-trips a stored channel.</td></tr>
+</table>
+<p>Real tests required by the plan: unit tests with a mock <code>Transport</code> (in-memory pipe), mock <code>Signer</code>, mock storage, covering <code>open</code>/<code>pay</code>/<code>close</code> happy paths; and a persistence-survives-crash test that signs, simulates a crash before send, reloads, and asserts recovery.</p>
+
+<h2>Gaps vs production-ready</h2>
+<p>Sourced from <code>docs/plans/04-sdk.md</code>. The SDK is not started — interfaces only; every method on <code>ChannelClient</code>, <code>WebSocketTransport</code>, and <code>pay()</code> currently throws <code>not implemented</code>.</p>
+<ul>
+  <li>Define the <code>Signer</code> interface in <code>packages/sdk/src/signer.ts</code> with <code>address()</code>, <code>signChannelState</code>, <code>signUpdate</code>, <code>signCooperativeClose</code>, <code>signHtlc</code>.</li>
+  <li>Provide an <code>InMemorySigner</code> (test-only) re-exported from <code>@tainnel/test-utils</code>, never from the public SDK entry point.</li>
+  <li>Real <code>WebSocketTransport</code> implementation: backoff per D4.2, JSON framing <code>{id, kind, payload}</code>, request/response <code>Map</code>, heartbeat ping every 30 seconds, reconnect after two missed pings, state replay on reconnect.</li>
+  <li><code>FileStorage</code> with the atomic-rename pattern; <code>IndexedDBStorage</code> as a tiny wrapper (no Dexie, no idb).</li>
+  <li>Real <code>ChannelClient.open</code> / <code>.pay</code> / <code>.close</code> implementations, including the persist-before-send line in <code>pay()</code> and the 60-second cooperative-to-unilateral fallback in <code>close()</code>.</li>
+  <li>Persistence-survives-crash test: sign, crash-before-send, reload, assert recovery.</li>
+  <li>Quickstart in <code>packages/sdk/README.md</code> targeting the CLI / agent-script audience (not a browser), runnable against the <code>@tainnel/test-utils</code> mock hub. Cross-link to apps/cli for authors who do not want to write TS.</li>
+  <li>Coverage gate: <code>pnpm --filter @tainnel/sdk test --coverage</code> ≥ 80% lines.</li>
+</ul>
+
+<div class="next">
+  <div>
+    <span class="nlabel">read next</span>
+    <strong>05 · Hub</strong> — the long-running operator the SDK opens WebSockets to.
+  </div>
+  <a href="./05-hub.html">→</a>
+</div>
+
+<div class="footer">tainnel · learning · 04 sdk</div>
+
+</div>
+</body>
+</html>

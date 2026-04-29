@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 06 watchtower</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .arrow-bad { stroke: var(--bad); stroke-width: 1.5; fill: none; }
+  svg .arrow-good { stroke: var(--good); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./05-hub.html">⤺ 05 hub</a> · 06 watchtower</span>
+  <span><a href="./07-agent-runtime.html">next · 07 agent runtime ⤳</a></span>
+</nav>
+
+<h1>The <span class="accent">Watchtower</span></h1>
+<p class="subtitle">The bodyguard. Catches stale-state submissions and slashes the cheater.</p>
+
+<h2>What it is</h2>
+
+<p>The watchtower is a small Node service whose only job is to sit between the chain and the channel database, watch for unilateral closes, and submit a penalty transaction if the close uses an obsolete state. It lives at <code>apps/watchtower/</code> and consists of five files: <code>watcher.ts</code> for the high-level loop, <code>detector.ts</code> for "is this close stale and is it worth penalizing", <code>responder.ts</code> for actually building and submitting the penalty calldata, <code>storage.ts</code> for the encrypted state-backup persistence (a <code>SqliteBackupStore</code>), and the usual <code>config.ts</code> and <code>logger.ts</code>. Of these, only <code>detector.ts</code> contains real logic at the moment; the rest are skeletons covered by the gap list below.</p>
+
+<p>Architecturally the watchtower is the simplest of the long-running components. It does not hold funds, it does not forward payments, it does not maintain channels. It does one thing: when it sees a closure on chain, it reads the channel's signed-state log from disk, picks the freshest state it has, and races to submit it before the dispute window closes.</p>
+
+<h2>Why it exists</h2>
+
+<p>The whole point of the dispute window in <code>PaymentChannel.sol</code> is to give honest parties a chance to overrule a stale unilateral close. But "honest party present and online" is not something a payments network can take for granted. Real users are sometimes asleep, real laptops sometimes die, real CLIs sometimes get killed by an OS update. Worse, the dispute window is finite — by default 24 hours — and missing the window means the cheater's stale state stands and the cheater walks off with money they didn't earn.</p>
+
+<p>The watchtower exists so that the user does not have to be online for the system to remain safe. It is, in effect, a stand-in observer that wakes up on every relevant chain event and answers a single question: "is this the most recent state we know of, or do I have something newer signed by both sides?". If newer, it slashes.</p>
+
+<div class="note"><strong>Trust model:</strong> a watchtower <em>cannot</em> steal funds (it never custodies any), but it <em>can</em> fail to post a penalty in time, either by going offline itself or by being the wrong infrastructure on the wrong network at the wrong moment. The mitigation is redundancy. The hub runs one. Sophisticated users may run their own. Nothing in the protocol depends on a single watchtower being honest.</div>
+
+<h2>Key concepts</h2>
+
+<h3>Decisions D6.1 through D6.4</h3>
+
+<ul>
+  <li><strong>D6.1 Self-hosted only in v1.</strong> A "watchtower-as-a-service" mode where third parties run watchtowers on others' behalf is Phase 2. v1 watchtowers protect the operator that runs them.</li>
+  <li><strong>D6.2 Penalty trigger at 50% of the dispute window.</strong> With a 24-hour window, the watchtower acts at <em>T</em> = 12 hours — leaving a 12-hour buffer for chain congestion, gas-price spikes, RPC outages, and reorgs. Acting earlier risks acting on a still-finalizing reorg; acting later risks missing the deadline.</li>
+  <li><strong>D6.3 Shared SQLite database.</strong> The watchtower reads the same database file the SDK writes to. They run on the same machine. This is a drastic simplification: no replication, no message bus, no extra protocol — the SDK signs a state, writes it to disk, and the watchtower sees it on its next poll.</li>
+  <li><strong>D6.4 Hub-side watchtower covers all hub channels; users may additionally run their own.</strong> The hub-side watchtower MUST be hosted on different infrastructure from the hub itself — different region, ideally different cloud provider — so a single outage cannot take down both.</li>
+</ul>
+
+<h3>Pairing with <code>tainnel listen</code></h3>
+
+<p>An agent that runs <code>tainnel listen</code> as a long-lived process MAY subscribe to the same chain events that the watchtower watches; the SDK gives it everything it needs to do so. But the watchtower remains the canonical penalty submitter, because users should not need to keep their CLI alive 24/7 just to stay safe. If a user is offline during fraud, recovery is straightforward: they restart listen-mode, the SDK reads chain history, sees that the watchtower already penalized the cheater and that the channel was finalized in their favor, and proceeds. There is no remediation step left to perform.</p>
+
+<h3>Functions to call on chain</h3>
+
+<ul>
+  <li><strong><code>submitPenaltyProof(channelId, penaltyState, signature)</code></strong> — the canonical watchtower call. Slashes 100% of the channel deposit if the proof is valid (state signed by the closer with a version higher than the one the closer posted).</li>
+  <li><strong><code>dispute(channelId, state, sigCloser)</code></strong> — alternative path: submit a fresher co-signed state without invoking the penalty. Less common; <code>submitPenaltyProof</code> is preferred because it strictly dominates from the honest party's perspective.</li>
+  <li><strong><code>finalize(channelId)</code></strong> — call once the dispute deadline passes to release funds to whichever side the contract has decided is honest.</li>
+</ul>
+
+<h3>Events to monitor</h3>
+
+<p>Four event types from <code>PaymentChannel.sol</code>: <code>ChannelOpened</code> (so the watchtower knows about new channels worth watching), <code>ChannelClosingUnilateral</code> (the trigger), <code>DisputeRaised</code> (someone else got there first), and <code>ChannelFinalized</code> (we can stop watching this one).</p>
+
+<h2>How it works</h2>
+
+<p>Concretely: the hub goes evil and posts a stale state at <em>T</em> = 0. The chain emits <code>ChannelClosingUnilateral</code> with the posted version. The watchtower sees the event on its next poll, checks the version against what it has on disk, and if its disk has something fresher it queues a penalty submission. At <em>T</em> = 12h, half the window, the responder builds the calldata, signs with the watchtower's private key, estimates gas, submits, and retries with bumped gas every 60 seconds if the transaction does not mine. By <em>T</em> = 24h the dispute window has closed; whether the watchtower or the user themselves calls <code>finalize</code> next is irrelevant — the contract knows the channel was penalized, and pays out 100% of the pot to the honest party.</p>
+
+<figure>
+<svg viewBox="0 0 700 220" width="100%" style="max-width: 700px">
+  <line class="lifeline" x1="40" y1="120" x2="660" y2="120" stroke-dasharray="0" stroke="#1d1d1b" stroke-width="1.2"/>
+
+  <line class="arrow" x1="80" y1="116" x2="80" y2="124" />
+  <text class="label" x="80" y="140" text-anchor="middle">T = 0</text>
+
+  <line class="arrow" x1="350" y1="116" x2="350" y2="124" />
+  <text class="label" x="350" y="140" text-anchor="middle">T = 12h</text>
+
+  <line class="arrow" x1="620" y1="116" x2="620" y2="124" />
+  <text class="label" x="620" y="140" text-anchor="middle">T = 24h</text>
+
+  <rect class="pill pill-bad" x="20" y="60" width="160" height="40" rx="6"/>
+  <text class="pill-text" x="100" y="78" text-anchor="middle">hub posts</text>
+  <text class="pill-text" x="100" y="93" text-anchor="middle">stale state v=2</text>
+
+  <text class="label" x="100" y="50" text-anchor="middle">ChannelClosingUnilateral</text>
+
+  <rect class="pill pill-good" x="270" y="60" width="160" height="40" rx="6"/>
+  <text class="pill-text" x="350" y="78" text-anchor="middle">watchtower posts</text>
+  <text class="pill-text" x="350" y="93" text-anchor="middle">submitPenaltyProof v=5</text>
+
+  <text class="label" x="350" y="50" text-anchor="middle">50% threshold reached</text>
+
+  <rect class="pill" x="540" y="60" width="160" height="40" rx="6"/>
+  <text class="pill-text" x="620" y="78" text-anchor="middle">dispute window</text>
+  <text class="pill-text" x="620" y="93" text-anchor="middle">closes</text>
+
+  <rect class="pill pill-good" x="500" y="160" width="200" height="40" rx="6"/>
+  <text class="pill-text" x="600" y="178" text-anchor="middle">finalize(channelId)</text>
+  <text class="pill-text" x="600" y="193" text-anchor="middle">100% → honest party</text>
+
+  <line class="arrow-good" x1="600" y1="160" x2="620" y2="124" />
+</svg>
+<figcaption>The timeline: hub publishes a stale state at T=0; the watchtower posts a fresher signed state at T=12h, halfway through the window; after T=24h, anyone can call finalize and the contract pays the full balance to the honest party.</figcaption>
+</figure>
+
+<p>The contract logic is mechanical and not specific to the watchtower: the closer (the hub) signed a state at version 2; the watchtower presents another state at version 5 also signed by the closer. Five is greater than two, the signature recovers to the closer's address, the EIP-712 domain matches, and so the penalty is recorded. Any fresher state would do; the watchtower happens to have <em>the</em> freshest one because it has been writing every signed state to its shared SQLite as it goes.</p>
+
+<h2>Public surface</h2>
+
+<table>
+  <thead>
+    <tr><th>Surface</th><th>What it does</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>watcher.ts</td><td>Top-level loop: subscribes via viem.watchContractEvent, dispatches to detector, schedules responses.</td></tr>
+    <tr><td>detector.ts</td><td>evaluateClosing(observed) returns {action: noop | penalize, evidence, submitBy}.</td></tr>
+    <tr><td>responder.ts</td><td>submitPenalty(evidence): build calldata, sign, submit, retry on stuck tx.</td></tr>
+    <tr><td>storage.ts</td><td>SqliteBackupStore: read latest signed states; persist watchtower observations.</td></tr>
+    <tr><td>GET /health</td><td>Heartbeat, last observed block, current pending submissions.</td></tr>
+    <tr><td>GET /metrics</td><td>Prometheus exposition.</td></tr>
+  </tbody>
+</table>
+
+<h2>Tests</h2>
+
+<p>Today only <code>apps/watchtower/src/detector.test.ts</code> exists. Required before mainnet dogfood: an integration test against anvil that opens a channel, has a fake hub post an old state, lets the watchtower observe it and submit a dispute, and asserts that <code>finalize</code> ends with the honest party paid in full. A second integration test should cover the listen-mode-plus-watchtower recovery story: the user is offline during the fraud, the watchtower handles it alone, the user comes back online, and the agent's local state DB ends consistent with the on-chain finalization.</p>
+
+<h2>Gaps before mainnet</h2>
+
+<p>Tracked in <code>docs/plans/06-watchtower.md</code>. Roughly:</p>
+
+<ul>
+  <li><code>watcher.ts</code>: subscribe via <code>viem.watchContractEvent</code>; filter to channels we care about; reorg tolerance (3 confirmations); reconnect on RPC drop with exponential backoff; emit <code>LOG_WATCHTOWER_RPC_DOWN</code> every 5 minutes while disconnected.</li>
+  <li><code>detector.ts</code>: hydrate latest known state from DB on startup; <code>evaluateClosing</code> returns <code>{action: noop | penalize, evidence, submitBy}</code>.</li>
+  <li><code>responder.ts</code>: <code>submitPenalty</code> builds dispute / penalty calldata via viem, estimates gas, signs with the watchtower private key, submits, retries with bumped gas if not mined within 60 seconds, idempotent on duplicate calls.</li>
+  <li>Storage: <code>SqliteBackupStore</code> reading and writing the shared SQLite file; a <code>watchtower_observations</code> table for what we have seen.</li>
+  <li>Scheduler: every 60 seconds scan for events past their <code>submitBy</code>; run on startup to catch up on anything missed during downtime.</li>
+  <li>HTTP <code>/health</code> endpoint, Prometheus metrics, structured logs via pino.</li>
+  <li>Integration test against anvil: open channel, hub posts old state, watchtower observes, submits dispute, finalize gives funds to honest party.</li>
+  <li>Listen-mode plus watchtower recovery integration test: hub cheats while user offline, user runs listen later, assert agent state DB ends consistent with on-chain finalization.</li>
+  <li>Coverage ≥ 70%.</li>
+</ul>
+
+<div class="next">
+  <div>
+    <span class="nlabel">read next</span>
+    <strong>07 · Agent runtime</strong> — the CLI and SDK as used by an autonomous agent.
+  </div>
+  <a href="./07-agent-runtime.html">→</a>
+</div>
+
+<div class="footer">tainnel · learning · 06 watchtower</div>
+
+</div>
+</body>
+</html>

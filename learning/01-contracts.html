@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 01 contracts</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./00-big-picture.html">⤺ 00 big picture</a> · 01 contracts</span>
+  <span><a href="./02-protocol.html">next · 02 protocol ⤳</a></span>
+</nav>
+
+<h1>The on-chain <span class="accent">contracts</span></h1>
+<p class="subtitle">The trustless core. Solidity 0.8.26 on Taiko mainnet.</p>
+
+<h2>What it is</h2>
+<p>The <code>packages/contracts/</code> directory holds every line of Solidity that tainnel runs on-chain. It is small on purpose: two real contracts plus a small library, deployed behind UUPS proxies on Taiko mainnet (chainId 167000). Together they are the only thing standing between an honest user and an evil counterparty. Every off-chain signature, every state update, every HTLC eventually resolves back to a check these contracts perform — or it never gets enforced at all. If you only read one package in the repo, read this one.</p>
+
+<h2>Why it exists</h2>
+<p>State channels move payments off-chain by replacing on-chain transactions with co-signed messages. That is cheap and fast, but only if there is a credible threat that an off-chain message will be enforceable on-chain when someone refuses to cooperate. The contracts are that threat. They custody the deposited USDC, they verify EIP-712 signatures, they run a 24-hour <strong>dispute window</strong> during which a fresher state can override a stale one, and they implement the slashing rule that makes cheating strictly worse than honesty. Without this layer, the entire off-chain protocol would be a polite suggestion.</p>
+
+<h2>Key concepts</h2>
+<p>Skim these from the <a href="./index.html">glossary</a> first if anything looks unfamiliar: <em>channel</em>, <em>state</em>, <em>cooperative close</em>, <em>unilateral close</em>, <em>dispute window</em>, <em>HTLC</em>, <em>watchtower</em>, <em>EIP-712</em>. Two more to keep in mind for this page:</p>
+<ul>
+  <li><strong>UUPS proxy</strong> — Universal Upgradeable Proxy Standard. The address you call is a thin proxy; the implementation lives at a separate address and can be swapped via <code>_authorizeUpgrade</code> (gated by <code>onlyOwner</code>). It exists so a bug found in v1 can be patched without forcing every user to migrate to a new channel address.</li>
+  <li><strong>Adjudicator</strong> — a <em>pure</em> verifier contract. It holds no funds, has no state to mutate, and exposes only typed-data hashing and signature recovery helpers. Splitting it out of <code>PaymentChannel</code> means we can audit signature logic in isolation and reuse it from off-chain code that wants exactly the same digests the chain will check.</li>
+</ul>
+
+<h2>How it works</h2>
+<p>A channel's life is described by a single <code>status</code> enum on its <code>Channel</code> record. Every external function on <code>PaymentChannel.sol</code> moves that enum forward, and never backward. Funds only leave the contract when <code>status</code> reaches <code>Closed</code>.</p>
+
+<figure>
+<svg viewBox="0 0 700 360" width="100%" style="max-width: 700px">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink)" />
+    </marker>
+  </defs>
+
+  <rect class="pill" x="40" y="30" width="140" height="46" rx="10"/>
+  <text class="pill-text" x="110" y="58" text-anchor="middle">None</text>
+
+  <rect class="pill pill-accent" x="280" y="30" width="140" height="46" rx="10"/>
+  <text class="pill-text" x="350" y="58" text-anchor="middle">Open</text>
+
+  <rect class="pill pill-bad" x="280" y="160" width="200" height="60" rx="10"/>
+  <text class="pill-text" x="380" y="184" text-anchor="middle">ClosingUnilateral</text>
+  <text class="label" x="380" y="202" text-anchor="middle">disputeDeadline armed</text>
+
+  <rect class="pill pill-good" x="520" y="30" width="140" height="46" rx="10"/>
+  <text class="pill-text" x="590" y="58" text-anchor="middle">Closed</text>
+
+  <line class="arrow" x1="180" y1="53" x2="278" y2="53" marker-end="url(#ar)" />
+  <text class="label" x="229" y="44" text-anchor="middle">openChannel</text>
+
+  <line class="arrow" x1="420" y1="53" x2="518" y2="53" marker-end="url(#ar)" />
+  <text class="label" x="469" y="44" text-anchor="middle">closeCooperative</text>
+
+  <line class="arrow" x1="350" y1="78" x2="350" y2="158" marker-end="url(#ar)" />
+  <text class="label" x="232" y="120" text-anchor="middle">closeUnilateral</text>
+  <text class="label" x="232" y="134" text-anchor="middle">(arms 24h window)</text>
+
+  <path class="arrow" d="M 280 200 C 220 230, 220 160, 278 188" fill="none" marker-end="url(#ar)" />
+  <text class="label" x="180" y="204" text-anchor="middle">dispute</text>
+  <text class="label" x="180" y="218" text-anchor="middle">version bumps</text>
+
+  <path class="arrow" d="M 480 200 C 540 230, 540 160, 482 188" fill="none" marker-end="url(#ar)" />
+  <text class="label" x="600" y="204" text-anchor="middle">submitPenaltyProof</text>
+  <text class="label" x="600" y="218" text-anchor="middle">penalized = true</text>
+
+  <path class="arrow" d="M 480 190 C 580 170, 620 110, 590 80" fill="none" marker-end="url(#ar)" />
+  <text class="label" x="610" y="148" text-anchor="middle">finalize</text>
+  <text class="label" x="610" y="162" text-anchor="middle">(after deadline)</text>
+
+  <text class="label" x="350" y="270" text-anchor="middle">Constants:</text>
+  <text class="label" x="350" y="288" text-anchor="middle">DISPUTE_WINDOW = 24 hours · MIN_CHANNEL_AMOUNT = 10 USDC</text>
+  <text class="label" x="350" y="306" text-anchor="middle">htlcsRoot must be bytes32(0) on every close path in v1</text>
+  <text class="label" x="350" y="324" text-anchor="middle">channelId = keccak256(userA, userB, token, block.timestamp, openNonce)</text>
+</svg>
+<figcaption>The channel status machine. Funds only leave when status reaches Closed. ClosingUnilateral can re-enter itself any number of times via dispute and submitPenaltyProof until the deadline expires.</figcaption>
+</figure>
+
+<p>The cooperative path is one transaction: both parties sign a final <code>CooperativeClose</code> struct, anyone submits it, the adjudicator verifies both signatures over EIP-712 typed data, and the contract pays out and marks the channel <code>Closed</code>. The unilateral path is the interesting one. <code>closeUnilateral</code> requires only the counterparty's signature on the latest state — the closer's signature is implicit because they are the <code>msg.sender</code>. Submitting moves <code>status</code> to <code>ClosingUnilateral</code> and arms a 24-hour <code>disputeDeadline</code>. Anyone with a fresher co-signed state can call <code>dispute</code> within that window to bump <code>postedVersion</code>. If the closer was actually cheating, a watchtower (or anyone holding a signed update from the cheater) calls <code>submitPenaltyProof</code>, which sets <code>penalized=true</code>. After the deadline anyone calls <code>finalize</code>: if penalized, the entire pot — both sides' deposits — pays out to the honest counterparty. The cheater forfeits their stake.</p>
+
+<p>HTLCs are absent from this picture deliberately. v1 contracts require <code>htlcsRoot == bytes32(0)</code> on every close path, which means in-flight HTLCs must drain off-chain before a channel can be settled. The off-chain protocol holds open HTLCs; the contracts only ever see their root committed inside a state hash, which simplifies on-chain code substantially.</p>
+
+<h2>Public surface</h2>
+<table>
+  <tr><th>Symbol</th><th>File</th><th>Notes</th></tr>
+  <tr>
+    <td>initialize</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>UUPS init. Sets owner and Adjudicator address.</td>
+  </tr>
+  <tr>
+    <td>setTokenAllowed</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>Owner-only allowlist toggle. Emits <code>TokenAllowed</code>.</td>
+  </tr>
+  <tr>
+    <td>channels</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>View. Returns the full <code>Channel</code> struct for a given <code>channelId</code>.</td>
+  </tr>
+  <tr>
+    <td>openChannel</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>nonReentrant. Pulls <code>amountA</code> from <code>msg.sender</code>, <code>amountB</code> from <code>userB</code>. Returns <code>channelId</code>.</td>
+  </tr>
+  <tr>
+    <td>closeCooperative</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>Mutual close. Verifies <code>sigA</code> + <code>sigB</code> over <code>CooperativeClose</code>. Pays out and marks <code>Closed</code>.</td>
+  </tr>
+  <tr>
+    <td>closeUnilateral</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>Single-signature close. Posts state, arms the 24h <code>disputeDeadline</code>.</td>
+  </tr>
+  <tr>
+    <td>dispute</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>Replaces posted state with a fresher co-signed one. Only <code>postedVersion</code> may bump.</td>
+  </tr>
+  <tr>
+    <td>submitPenaltyProof</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>Watchtower's slash function. Proves the closer signed a newer state than they posted; sets <code>penalized=true</code>.</td>
+  </tr>
+  <tr>
+    <td>finalize</td>
+    <td>packages/contracts/src/PaymentChannel.sol</td>
+    <td>Permissionless. After deadline, pays the pot. 100% to honest party if penalized.</td>
+  </tr>
+  <tr>
+    <td>hashChannelState · hashHtlc · hashUpdate · hashCooperativeClose</td>
+    <td>packages/contracts/src/Adjudicator.sol</td>
+    <td>Pure EIP-712 struct hashes. Same digests off-chain code computes.</td>
+  </tr>
+  <tr>
+    <td>recoverStateSigner · recoverUpdateSigner · recoverCooperativeCloseSigner · recoverHtlcSigner</td>
+    <td>packages/contracts/src/Adjudicator.sol</td>
+    <td>ECDSA recovery. Returns <code>address(0)</code> on malformed signature (no revert).</td>
+  </tr>
+  <tr>
+    <td>verifyDualSig · verifyDualCooperativeClose</td>
+    <td>packages/contracts/src/Adjudicator.sol</td>
+    <td>Convenience for recovering and matching two signatures against expected signers.</td>
+  </tr>
+  <tr>
+    <td>HTLC.hashLock · HTLC.verifyPreimage · HTLC.rootOf</td>
+    <td>packages/contracts/src/HTLC.sol</td>
+    <td>Internal library. <code>verifyPreimage</code> is sha256; <code>rootOf</code> is a sorted-keccak Merkle root.</td>
+  </tr>
+  <tr>
+    <td>IPaymentChannel · IWatchtower</td>
+    <td>packages/contracts/src/interfaces/</td>
+    <td>Public ABIs consumed by the SDK, hub, and watchtower.</td>
+  </tr>
+</table>
+
+<p>Events emitted: <code>TokenAllowed</code>, <code>ChannelOpened</code>, <code>ChannelClosedCooperative</code>, <code>ChannelClosingUnilateral</code>, <code>DisputeRaised</code>, <code>ChannelFinalized</code>, <code>PenaltyApplied</code>. The watchtower (<a href="./06-watchtower.html">06</a>) subscribes to the unilateral / dispute / penalty events to know when to react.</p>
+
+<p>The <code>Channel</code> struct fields, in order: <code>userA</code>, <code>userB</code>, <code>token</code>, <code>amountA</code>, <code>amountB</code>, <code>openedAt</code> (uint64), <code>disputeDeadline</code> (uint64), <code>postedVersion</code>, <code>postedBalanceA</code>, <code>postedBalanceB</code>, <code>penalized</code> (bool), <code>status</code>, <code>closer</code>. The EIP-712 domain on the Adjudicator is <code>name="tainnel"</code>, <code>version="1"</code>; that exact pair is what the off-chain <a href="./02-protocol.html">protocol</a> package commits to.</p>
+
+<h3>Deployments</h3>
+<table>
+  <tr><th>Contract</th><th>Address (Taiko mainnet, chainId 167000)</th></tr>
+  <tr><td>Adjudicator (proxy)</td><td>0x775904054b4A97b3925f1Dd60aE61fBc81567dB9</td></tr>
+  <tr><td>PaymentChannel (proxy)</td><td>0x07B32f52523Fdf0780821595422DccEF31FA2335</td></tr>
+</table>
+<p>The v1 implementation behind <code>PaymentChannel</code> went through one in-place upgrade to fix a signature-verification bug in <code>dispute</code> caught during a manual review. Because both contracts are UUPS, the address users hold open channels against is unchanged; only the implementation pointer moved.</p>
+
+<h2>Tests</h2>
+<p>104 forge tests across six files under <code>packages/contracts/test/</code>:</p>
+<table>
+  <tr><th>File</th><th>What it covers</th></tr>
+  <tr>
+    <td>PaymentChannel.t.sol</td>
+    <td>54 unit tests across <code>openChannel</code>, <code>closeCooperative</code>, <code>closeUnilateral</code>, <code>dispute</code>, <code>submitPenaltyProof</code>, <code>finalize</code>, <code>setTokenAllowed</code>, initialization, upgrade, and reentrancy.</td>
+  </tr>
+  <tr>
+    <td>PaymentChannel.fuzz.t.sol</td>
+    <td>5 fuzz tests on amounts, balance splits, and dispute version bumps.</td>
+  </tr>
+  <tr>
+    <td>PaymentChannel.invariant.t.sol</td>
+    <td>3 invariants: total balance conservation, contract balance bounds, and progress logging.</td>
+  </tr>
+  <tr>
+    <td>PaymentChannel.replay.t.sol</td>
+    <td>4 replay / regression tests pinned to specific past bugs.</td>
+  </tr>
+  <tr>
+    <td>Adjudicator.t.sol</td>
+    <td>22 tests on hashing, recovery, and dual-signature verification.</td>
+  </tr>
+  <tr>
+    <td>HTLC.t.sol</td>
+    <td>17 tests on <code>hashLock</code>, <code>verifyPreimage</code>, and <code>rootOf</code> including fuzz.</td>
+  </tr>
+</table>
+<p>Run with <code>pnpm --filter @tainnel/contracts test</code> (which invokes <code>forge test</code>).</p>
+
+<p>What's <em>not</em> covered yet: there is no end-to-end mainnet integration test. The 104 tests run against a forge in-memory EVM. The repo's <a href="./08-e2e.html">e2e harness</a> stitches the contracts to the rest of the stack on an anvil fork, but a real Taiko mainnet smoke channel — open, pay, close — has not been opened yet.</p>
+
+<h2>Gaps vs production-ready</h2>
+<p>From <code>docs/plans/02-contracts.md</code>:</p>
+<div class="danger"><strong>Compromised owner key.</strong> The current owner of both proxies is the deployer at <code>0x327fa3...c458</code>. That private key was previously pasted into a Claude session and is treated as compromised. The contracts must be transferred to a clean key via <code>transferOwnership</code> before any third party deposits funds. Until that happens, the deployer can upgrade either proxy at will.</div>
+<ul>
+  <li>Line-by-line review of <code>PaymentChannel.sol</code> and <code>Adjudicator.sol</code> is still pending. The prior partial review caught the <code>dispute()</code> signature bug that motivated the in-place upgrade, so the value of finishing it is concrete, not theoretical.</li>
+  <li>A smoke channel on Taiko mainnet has not been opened. Doing so requires funding the deployer with a small amount of USDC and walking through open → pay → cooperative close end-to-end against the live contracts.</li>
+  <li>Owner key rotation: <code>transferOwnership</code> on both proxies, from a freshly generated key whose mnemonic has never touched an LLM context. Any production rollout blocks on this.</li>
+</ul>
+
+<p>Everything else — UUPS upgradeability, reentrancy guards, EIP-712 domain pinning, balance conservation, deterministic <code>channelId</code> derivation, 100% slashing — is already in place and exercised by tests.</p>
+
+<div class="next">
+  <div>
+    <span class="nlabel">read next</span>
+    <strong>02 · Protocol</strong> — the wire format every package shares with these contracts.
+  </div>
+  <a href="./02-protocol.html">→</a>
+</div>
+
+<div class="footer">tainnel · learning · 01 contracts</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 05 hub</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .arrow-bad { stroke: var(--bad); stroke-width: 1.5; fill: none; }
+  svg .arrow-good { stroke: var(--good); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./04-sdk.html">⤺ 04 sdk</a> · 05 hub</span>
+  <span><a href="./06-watchtower.html">next · 06 watchtower ⤳</a></span>
+</nav>
+
+<h1>The <span class="accent">Hub</span></h1>
+<p class="subtitle">The router. Holds channels with everyone, forwards HTLCs, watches the chain.</p>
+
+<h2>What it is</h2>
+
+<p>The hub is the always-on intermediary that makes the topology of this network feasible. Every other actor in the system is, in principle, transient: an agent might pay once and never again, a watchtower might be self-hosted and only run when its operator's laptop is awake, a CLI is born and dies inside a single call. The hub is none of those things. It is a Fastify HTTP server with a native WebSocket plugin, fronted by a SQLite database, that stays online so that other actors do not have to. Its source lives at <code>apps/hub/</code> and its pieces are exactly what you would expect: <code>server.ts</code> for HTTP and WebSocket transport, an <code>api/</code> directory of endpoint handlers, <code>channel-pool.ts</code> tracking every open channel, <code>chain-watcher.ts</code> reading on-chain events, <code>dispute-handler.ts</code> assembling penalty calldata, <code>fee-policy.ts</code> computing what the hub charges per hop, <code>router.ts</code> deciding whether and how to forward a payment, <code>liquidity.ts</code> tracking inbound and outbound capacity per channel, and a <code>db/</code> directory with raw SQL migrations and small repos (no ORM).</p>
+
+<p>Of these, <code>fee-policy.ts</code> is the only file with real implementation today; the rest are skeletons annotated with the gaps below. <code>router.ts</code> is the most subtle file in the codebase, because it carries the expiry-buffer arithmetic that determines whether a forwarded HTLC is safe to take on.</p>
+
+<h2>Why it exists</h2>
+
+<p>Lightning's LSP (Liquidity Service Provider) model is the design we are copying, almost gesture for gesture. Without a hub, a network of <em>n</em> agents that all want to be able to pay each other would need on the order of <em>n²</em> channels: every pair would have to fund and rebalance their own escrow. With one hub in the middle, every agent only ever needs one channel — to the hub — and the hub fronts the rest. Any agent in the network can pay any other, in one logical hop, by going through the hub.</p>
+
+<p>The hub is therefore in a competitive market position rather than a privileged one. Its product is liquidity, fees, and uptime. If it goes offline, agents close their channels and find another. If it charges too much, a competing hub takes its volume. The trust model below makes this work: the hub never holds funds it can run away with, only liquidity it can refuse to deploy.</p>
+
+<h2>Key concepts</h2>
+
+<h3>What a hub <em>cannot</em> do</h3>
+
+<p>The hub is not a bank. It is closer to a postal service that gets paid per envelope delivered. The contracts and the off-chain state machine pin down its capabilities tightly.</p>
+
+<ul>
+  <li><strong>It cannot steal funds.</strong> Every state update is signed by the user. The hub holding a stack of the user's signed states does not let it move money against the user's will, because moving money requires the user to sign a <em>newer</em> state that authorizes it.</li>
+  <li><strong>It cannot forge balances.</strong> The Adjudicator on-chain only accepts states with valid EIP-712 signatures from <em>both</em> parties. The hub cannot synthesize a signature it does not have.</li>
+  <li><strong>It cannot bypass HTLC mechanics.</strong> Inbound and outbound HTLCs in a routed payment are linked by the same hash. The only way the hub gets paid upstream is by revealing the preimage downstream. Either both legs settle or both expire.</li>
+</ul>
+
+<h3>What a hub <em>can</em> do (failure modes you must plan for)</h3>
+
+<ul>
+  <li><strong>Refuse service.</strong> The hub may decline to forward a payment for any reason; the upstream HTLC will then expire harmlessly.</li>
+  <li><strong>Stall.</strong> A hub that goes offline mid-payment leaves an HTLC dangling. After the timeout the upstream side reclaims. The user's eventual remedy is unilateral close.</li>
+  <li><strong>Try to publish a stale state.</strong> In a unilateral close, the hub might pick a snapshot of the channel where it owned more of the pot. This is the attack the watchtower exists to defend against (see <a href="./06-watchtower.html">next page</a>).</li>
+</ul>
+
+<h3>Decisions D5.1 through D5.4</h3>
+
+<p>Four operational decisions shape the hub's shape:</p>
+<ul>
+  <li><strong>D5.1 SQLite + litestream → R2 backup.</strong> One hub, one process, one file. Simpler than Postgres, and litestream gives continuous off-site replication.</li>
+  <li><strong>D5.2 Per-message signed envelope auth.</strong> The hub does not maintain login sessions. Each WebSocket message carries its own signature and a nonce; this means a reconnect costs nothing.</li>
+  <li><strong>D5.3 Hot wallet for hub on-chain operations, with a balance cap and periodic sweeps to a cold address.</strong> The wallet only ever needs enough to post dispute and finalize transactions.</li>
+  <li><strong>D5.4 Channel acceptance policy.</strong> v1 auto-accepts up to 100 USDC per counterparty and limits the hub to 10 channels total. This is a throttle, not a ceiling for v2.</li>
+</ul>
+
+<h2>How it works</h2>
+
+<p>The interesting code path is the routed payment. Alice's CLI is connected to the hub over a WebSocket. Bob's CLI is connected over a different WebSocket — long-lived, because Bob is running <code>tainnel listen</code>. Both have an open channel with the hub. Alice tells the hub "pay 0.05 USDC to Bob, here is an HTLC locked under hash H, expiring at T". Several things must happen, in this order, all of them inside the hub:</p>
+
+<figure>
+<svg viewBox="0 0 700 420" width="100%" style="max-width: 700px">
+  <text class="actor" x="80" y="28" text-anchor="middle">Alice CLI</text>
+  <text class="actor" x="350" y="28" text-anchor="middle">Hub</text>
+  <text class="actor" x="620" y="28" text-anchor="middle">Bob (listen)</text>
+
+  <line class="lifeline" x1="80" y1="36" x2="80" y2="380" />
+  <line class="lifeline" x1="620" y1="36" x2="620" y2="380" />
+
+  <rect class="pill" x="180" y="50" width="340" height="280" rx="8"/>
+  <text class="label" x="350" y="68" text-anchor="middle">apps/hub</text>
+
+  <rect class="pill pill-accent" x="200" y="80" width="140" height="34" rx="6"/>
+  <text class="pill-text" x="270" y="102" text-anchor="middle">auth (envelope)</text>
+
+  <rect class="pill" x="360" y="80" width="140" height="34" rx="6"/>
+  <text class="pill-text" x="430" y="102" text-anchor="middle">channel-pool</text>
+
+  <rect class="pill pill-accent" x="280" y="130" width="140" height="40" rx="6"/>
+  <text class="pill-text" x="350" y="155" text-anchor="middle">router</text>
+
+  <rect class="pill" x="200" y="190" width="140" height="34" rx="6"/>
+  <text class="pill-text" x="270" y="212" text-anchor="middle">liquidity</text>
+
+  <rect class="pill" x="360" y="190" width="140" height="34" rx="6"/>
+  <text class="pill-text" x="430" y="212" text-anchor="middle">fee-policy</text>
+
+  <rect class="pill" x="200" y="240" width="140" height="34" rx="6"/>
+  <text class="pill-text" x="270" y="262" text-anchor="middle">chain-watcher</text>
+
+  <rect class="pill" x="360" y="240" width="140" height="34" rx="6"/>
+  <text class="pill-text" x="430" y="262" text-anchor="middle">dispute-handler</text>
+
+  <rect class="pill" x="200" y="290" width="300" height="28" rx="6"/>
+  <text class="pill-text" x="350" y="309" text-anchor="middle">sqlite (channels · states · htlcs)</text>
+
+  <line class="arrow" x1="90" y1="100" x2="195" y2="100" />
+  <text class="label" x="142" y="92" text-anchor="middle">HTLC + sigA</text>
+
+  <line class="arrow-good" x1="505" y1="155" x2="610" y2="155" />
+  <text class="label" x="558" y="148" text-anchor="middle">forward HTLC</text>
+
+  <line class="arrow-good" x1="610" y1="200" x2="505" y2="200" />
+  <text class="label" x="558" y="192" text-anchor="middle">preimage P</text>
+
+  <line class="arrow-good" x1="195" y1="250" x2="90" y2="250" />
+  <text class="label" x="142" y="242" text-anchor="middle">preimage P</text>
+
+  <rect class="pill pill-good" x="180" y="345" width="340" height="28" rx="6"/>
+  <text class="pill-text" x="350" y="364" text-anchor="middle">PaymentChannel.sol  ←  chain-watcher subscribes</text>
+</svg>
+<figcaption>Inside the hub: an inbound HTLC walks through auth, channel-pool, router, liquidity and fee-policy before being forwarded; the response carries the preimage back the same way.</figcaption>
+</figure>
+
+<p>The router checks that both channels (Alice→Hub and Hub→Bob) are open and healthy in the channel-pool. It computes the outbound amount minus the hub's fee using <code>fee-policy</code>. It calls <code>liquidity.reserveOutbound</code> on the Hub→Bob channel, which atomically subtracts capacity so two simultaneous payments cannot both promise the same coin. It then sets the outbound HTLC's expiry to the inbound expiry minus a safety buffer — this is the expiry-buffer arithmetic that makes <code>router.ts</code> the most fragile file in the codebase. Too small a buffer and the hub risks paying downstream while losing the upstream race. Too large and many otherwise valid payments are rejected.</p>
+
+<p>The hub forwards the HTLC to Bob, waits for Bob's preimage, and on success propagates the preimage back to Alice. Both channels then progress one version forward. If Bob never responds, the outbound HTLC eventually expires; the hub releases the reservation via <code>liquidity.releaseReservation</code> and reports failure to Alice, whose own HTLC is also allowed to expire.</p>
+
+<p>Meanwhile, <code>chain-watcher</code> is running its own loop, calling <code>viem.watchContractEvent</code> against <code>PaymentChannel.sol</code> for the four event types the contract emits. When a <code>ChannelClosingUnilateral</code> arrives, the dispute handler is invoked: it compares the version posted on chain to the version it has in SQLite, and if its own state is fresher it builds a <code>dispute()</code> transaction, signs it with the hub's hot wallet, and submits it before the dispute window closes.</p>
+
+<div class="note"><strong>Wire protocol vs. agent surface.</strong> The hub speaks the v1 wire protocol. Agents in v1 do not implement that protocol directly — they shell out to <code>tainnel pay</code>, which uses the SDK, which uses this WebSocket. Non-TS agents reach the hub by going through the CLI, not by reimplementing the protocol.</div>
+
+<h2>Public surface</h2>
+
+<table>
+  <thead>
+    <tr><th>Endpoint</th><th>What it does</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>GET /v1/health</td><td>DB ping, chain RPC reachability check, version, channel count.</td></tr>
+    <tr><td>GET /v1/metrics</td><td>Prometheus exposition over plain HTTP.</td></tr>
+    <tr><td>GET /v1/channels</td><td>List open channels (operator auth required).</td></tr>
+    <tr><td>POST /v1/channels/open</td><td>Open a channel with the caller; returns channelId and tx hash.</td></tr>
+    <tr><td>POST /v1/payments</td><td>Short-lived WebSocket suitable for one-shot pays from a CLI.</td></tr>
+    <tr><td>WS /v1/ws</td><td>Long-lived bidirectional session: state updates, payment.send / payment.settle, dispute notifications. Used by <code>tainnel listen</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2>Tests</h2>
+
+<p>Today only <code>apps/hub/src/fee-policy.test.ts</code> exists. Required before mainnet dogfood: a full integration suite running against an anvil fork that registers a channel, routes a payment end to end, posts a stale state from a fake hub identity, and verifies the dispute handler reacts in time. Coverage target is ≥ 70%, but the integration tests carry more weight than the unit number.</p>
+
+<h2>Gaps before mainnet</h2>
+
+<p>Tracked in <code>docs/plans/05-hub.md</code>. Roughly:</p>
+
+<ul>
+  <li>Migrations: <code>001_initial.sql</code> with tables for <code>channels</code>, <code>signed_states</code>, <code>htlcs</code>, <code>payments</code>, <code>seen_nonces</code>.</li>
+  <li><code>SqliteDatabase</code> implementation backed by <code>better-sqlite3</code>; a <code>PostgresDatabase</code> using <code>pg</code> with the same query interface (so the hub can be repointed without touching call sites).</li>
+  <li><code>channel-pool</code>: persist on register; one async mutex per channel so concurrent updates serialize cleanly.</li>
+  <li><code>router.route(req)</code>: expiry-buffer math, idempotency on retried sends, typed failure modes (<code>InsufficientLiquidity</code>, <code>ChannelClosed</code>, <code>DownstreamTimeout</code>, etc.) so the SDK can react.</li>
+  <li><code>liquidity.reserveOutbound</code>, <code>liquidity.releaseReservation</code>, and a hydration step that rebuilds these on startup from the DB.</li>
+  <li><code>chain-watcher</code>: subscribe to <code>ChannelOpened</code>, <code>ChannelClosingUnilateral</code>, <code>DisputeRaised</code>, <code>ChannelFinalized</code>; tolerate reorgs by waiting 3 confirmations.</li>
+  <li><code>dispute-handler</code>: build and submit <code>dispute()</code> with the hub's hot wallet; bookkeeping for which channels are mid-dispute.</li>
+  <li>WS auth: verify a signed envelope on every message, with a 24-hour TTL nonce cache to defeat replay.</li>
+  <li>Prometheus metrics, structured logs via pino, graceful shutdown that drains in-flight HTLCs before exiting.</li>
+  <li>Integration tests with anvil; coverage ≥ 70%.</li>
+</ul>
+
+<div class="next">
+  <div>
+    <span class="nlabel">read next</span>
+    <strong>06 · Watchtower</strong> — the bodyguard that catches a cheating hub.
+  </div>
+  <a href="./06-watchtower.html">→</a>
+</div>
+
+<div class="footer">tainnel · learning · 05 hub</div>
+
+</div>
+</body>
+</html>

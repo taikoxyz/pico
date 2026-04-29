@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 08 end-to-end</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./07-agent-runtime.html">⤺ 07 agent runtime</a> · 08 end-to-end</span>
+  <span><a href="./index.html">↺ index</a></span>
+</nav>
+
+<h1>End-to-<span class="accent">end</span></h1>
+<p class="subtitle">Whole-stack scenarios. The proof everything fits together.</p>
+
+<h2>What is it</h2>
+<p>The <code>e2e/</code> folder contains tests that drive the entire system at once: contracts running on an anvil fork of Taiko mainnet, a real <code>apps/hub</code> instance and an <code>apps/watchtower</code> instance running in-process, the SDK and the CLI talking to them, and assertions checking on-chain state alongside off-chain state. Where <a href="./03-state-machine.html">P3</a> through <a href="./07-agent-runtime.html">P7</a> verify each surface in isolation, P8 is the only place where they're verified together. It's also where the human security review happens — the sit-down-with-coffee read-through of the most safety-critical files.</p>
+
+<h2>Why it exists</h2>
+<p>Channel-state systems fail in the seams. Each component can be perfectly correct in its own tests and still produce silent fund loss when wired together — for example, when the SDK persists a state at version <code>N+1</code> but the hub's router expected <code>N</code> for an in-flight HTLC, or when the watchtower observes a stale-state submission but its evidence is signed under a different chain id. The only way to catch those bugs before mainnet is to drive the whole stack against a real EVM (anvil forking Taiko mainnet) with deterministic fixtures and time-warps. P8 is the gate that says: every scenario you can write down, the system handles correctly.</p>
+
+<h2>Key concepts</h2>
+<ul>
+  <li><strong>Anvil fork</strong> — a local EVM that mirrors Taiko mainnet state at a pinned block. Lets the tests deploy real contracts and time-warp without touching the real chain.</li>
+  <li><strong>Test harness</strong> — <code>e2e/src/harness.ts</code>: spins up anvil, deploys contracts via <code>forge script</code>, starts in-process hub and watchtower, hands handles to the test, tears everything down on <code>afterAll</code>.</li>
+  <li><strong>Time-warp</strong> — using anvil's <code>evm_increaseTime</code> RPC to advance past the 24-hour dispute window in seconds. Without it, dispute scenarios would be untestable.</li>
+  <li><strong>Internal review</strong> — distinct from the e2e tests: a checklist of files a human reads top-to-bottom looking for bugs the tests can't surface. No external audit in v1 (D8.1); no bug bounty (D8.2).</li>
+</ul>
+
+<h2>How it works</h2>
+
+<figure>
+<svg viewBox="0 0 700 360" width="100%" style="max-width: 700px">
+  <!-- bottom: anvil fork -->
+  <rect class="pill" x="40" y="290" width="620" height="40" rx="6"/>
+  <text class="pill-text" x="350" y="315" text-anchor="middle">anvil — Taiko mainnet fork at pinned block</text>
+
+  <!-- contracts -->
+  <rect class="pill pill-accent" x="220" y="230" width="260" height="40" rx="6"/>
+  <text class="pill-text" x="350" y="255" text-anchor="middle">PaymentChannel + Adjudicator (forge script)</text>
+  <line class="arrow" x1="350" y1="270" x2="350" y2="288" />
+
+  <!-- hub + watchtower -->
+  <rect class="pill" x="80" y="160" width="240" height="50" rx="6"/>
+  <text class="pill-text" x="200" y="182" text-anchor="middle">apps/hub (in-process)</text>
+  <text class="label" x="200" y="200" text-anchor="middle">REST + WS · sqlite memory · chain-watcher</text>
+
+  <rect class="pill pill-good" x="380" y="160" width="240" height="50" rx="6"/>
+  <text class="pill-text" x="500" y="182" text-anchor="middle">apps/watchtower (in-process)</text>
+  <text class="label" x="500" y="200" text-anchor="middle">detector · responder · scheduler</text>
+
+  <line class="arrow" x1="200" y1="210" x2="290" y2="228" />
+  <line class="arrow" x1="500" y1="210" x2="410" y2="228" />
+
+  <!-- SDK -->
+  <rect class="pill" x="200" y="100" width="300" height="36" rx="6"/>
+  <text class="pill-text" x="350" y="123" text-anchor="middle">@tainnel/sdk + @tainnel/state-machine</text>
+  <line class="arrow" x1="270" y1="136" x2="170" y2="158" />
+  <line class="arrow" x1="430" y1="136" x2="430" y2="158" />
+
+  <!-- CLI processes -->
+  <rect class="pill pill-accent" x="60" y="30" width="200" height="50" rx="6"/>
+  <text class="pill-text" x="160" y="52" text-anchor="middle">tainnel pay (Alice)</text>
+  <text class="label" x="160" y="70" text-anchor="middle">forked process</text>
+
+  <rect class="pill pill-accent" x="440" y="30" width="200" height="50" rx="6"/>
+  <text class="pill-text" x="540" y="52" text-anchor="middle">tainnel listen (Bob)</text>
+  <text class="label" x="540" y="70" text-anchor="middle">forked process</text>
+
+  <line class="arrow" x1="200" y1="80" x2="280" y2="98" />
+  <line class="arrow" x1="500" y1="80" x2="420" y2="98" />
+</svg>
+<figcaption>The e2e stack. The harness orchestrates every layer in one Node process (plus forked CLI children) so tests can drive the whole thing deterministically.</figcaption>
+</figure>
+
+<p>A typical scenario starts the harness, opens channels via the SDK, drives a payment, and asserts both off-chain state and on-chain state. The dispute scenarios additionally simulate fraud — the test deliberately tells the hub to post an old signed state — and then assert the watchtower observed it, submitted a counter-state with the latest version, and the contract correctly slashed the cheater after the dispute window. Time is controlled via anvil's RPC, so a 24-hour window passes in milliseconds.</p>
+
+<h2>Public surface — the v1 scenarios</h2>
+<table>
+  <tr><th>Scenario</th><th>What it proves</th></tr>
+  <tr>
+    <td>agent-pay-agent</td>
+    <td>Two CLI processes (Alice + <code>tainnel listen</code> Bob); a 5-USDC payment via the hub; cooperative close; final on-chain balances match expected.</td>
+  </tr>
+  <tr>
+    <td>unilateral-no-dispute</td>
+    <td>Alice opens, sends a payment, hub goes silent, Alice posts <code>closeUnilateral</code>, time-warp past 24h, <code>finalize</code> distributes correctly.</td>
+  </tr>
+  <tr>
+    <td>watchtower-dispute</td>
+    <td>5 payments executed; hub posts state v=3 (stale); watchtower posts <code>submitPenaltyProof</code> with v=5; <code>finalize</code> pays Alice 100% (penalty slash).</td>
+  </tr>
+  <tr>
+    <td>receiver-offline-then-resume</td>
+    <td>Mid-payment, kill Bob's <code>tainnel listen</code>; restart it; reads the journal, reconnects, picks up the in-flight HTLC, reveals preimage, both sides settle. No double-spend, no lost preimage.</td>
+  </tr>
+  <tr>
+    <td>signer-key-rotation</td>
+    <td>Alice generates a new key; cooperative-close existing channel; reopen with new key; pay; on-chain <code>ChannelOpened</code> shows the new address.</td>
+  </tr>
+  <tr>
+    <td>hub-down-recovery</td>
+    <td>Mid-payment, kill the hub; restart; SDK reconnects, replays state, the in-flight HTLC resolves correctly.</td>
+  </tr>
+  <tr>
+    <td>replay-attack</td>
+    <td>Capture an old signed state; submit it after a newer state has been recorded; assert the contract rejects.</td>
+  </tr>
+  <tr>
+    <td>stale-state-invariant</td>
+    <td><code>forge invariant</code>: across any random sequence of open/payment/close/dispute, total channel balance is conserved and the latest accepted version is monotonically non-decreasing.</td>
+  </tr>
+</table>
+
+<h3>How to run</h3>
+<pre><code># at repo root
+pnpm test                              # turbo runs e2e + every package
+pnpm --filter @tainnel/e2e test        # e2e scenarios alone</code></pre>
+
+<h3>Internal security review checklist</h3>
+<p>The human gates that block <a href="../docs/plans/10-launch.md">P10</a> launch:</p>
+<ul>
+  <li><a href="./01-contracts.html">PaymentChannel.sol</a> + Adjudicator.sol read line by line. Reentrancy guards, integer arithmetic, <code>block.timestamp</code> tolerance, signature-domain coverage.</li>
+  <li><a href="./03-state-machine.html">state-machine</a> <code>channel.ts</code>, <code>htlc.ts</code>, <code>signing.ts</code>. Confirm <code>htlcsRoot</code> matches the contract byte-for-byte (the oracle fixture from P3 already enforces this; you re-read for sanity).</li>
+  <li><a href="./05-hub.html">router.ts</a>: expiry-buffer math (upstream HTLC expiry must be strictly greater than downstream by at least <code>EXPIRY_BUFFER_SECONDS</code>).</li>
+  <li><a href="./05-hub.html">dispute-handler.ts</a>: always submits the latest known state; bounded gas-bump retries; logs loudly if local state is older than the disputed state.</li>
+  <li><a href="./06-watchtower.html">responder.ts</a>: same dispute logic but cold-key; never tries to sign a state it hasn't observed.</li>
+  <li><a href="./04-sdk.html">SDK <code>client.ts</code></a> <code>pay()</code>: persist-before-send is real, not a comment.</li>
+  <li><a href="./07-agent-runtime.html">CLI <code>cmd/listen.ts</code></a>: the persist-before-ack ordering.</li>
+  <li><a href="./07-agent-runtime.html">CLI <code>signer/hot-key-file.ts</code></a>: file permissions <code>0600</code>, scrypt parameters meet spec, wrong-passphrase returns typed error, raw private key wiped after signing.</li>
+</ul>
+
+<p>Optional automated pass: <code>slither .</code> on the contracts; triage findings.</p>
+
+<h2>Tests today vs. tests required</h2>
+<p>Today: <code>e2e/src/scenarios.test.ts</code> has a smoke test plus four placeholders, three of which are <code>describe.skip</code>'d. Required for P10: every scenario in the table above runs and passes; <code>forge test --fuzz-runs 1000000</code> on contract invariants is green overnight; the GitHub Actions <code>e2e</code> job blocks merge on scenario failure or coverage drop.</p>
+
+<h2>Gaps vs production-ready</h2>
+<p>From <a href="../docs/plans/08-e2e-and-audit.md">docs/plans/08-e2e-and-audit.md</a>:</p>
+<ul>
+  <li>Build <code>e2e/src/harness.ts</code>: anvil fork bootstrapper + forge deploy + in-process hub + in-process watchtower + clean shutdown.</li>
+  <li>Wire all 8 scenarios; replace the <code>describe.skip</code>'d placeholders.</li>
+  <li>Performance stress test: 50 payments/second through one channel pair on a 1 vCPU box.</li>
+  <li>1M-run forge fuzz green overnight.</li>
+  <li>Security review checklist physically clicked by you (the human gate).</li>
+  <li>CI <code>e2e</code> job in <code>.github/workflows/ci.yml</code>; merge blocked on scenario failure or coverage drop below thresholds.</li>
+</ul>
+
+<div class="next">
+  <div>
+    <span class="nlabel">that's the tour</span>
+    <strong>back to the index</strong> — revisit any component, or start over with the big picture story.
+  </div>
+  <a href="./index.html">⤴</a>
+</div>
+
+<div class="footer">tainnel · learning · 08 end-to-end</div>
+
+</div>
+</body>
+</html>

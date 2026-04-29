@@ -2,9 +2,28 @@
 
 **Status:** 🔵 not started (interfaces only — `client.ts`, `transport.ts`, `wallet.ts`,
 `storage.ts`, `payment.ts` are all method stubs that throw `not implemented`)
-**Blocks:** P5 (hub WebSocket protocol depends on SDK message shapes), P7 (wallet UI)
+**Blocks:** P5 (hub WebSocket protocol depends on SDK message shapes), P7 (CLI agent
+runtime)
 **Effort:** ~1 week
 **Depends on:** P3 (state machine real, esp. `signing.ts`)
+
+## v1 SDK consumers
+
+The SDK is consumed in v1 by:
+
+- **`apps/cli`** — the canonical agent runtime (P7). One-shot commands like
+  `tainnel pay`, plus the `tainnel listen` long-running daemon mode for receivers.
+  The CLI is the primary failure surface for the dogfood launch.
+- **`apps/hub`** — uses the same state-machine and protocol types but talks to the
+  network from the other side. It does not import `ChannelClient`, only the shared
+  primitives.
+- **`@tainnel/test-utils`** — drives mock hubs and harnessed scenarios for unit /
+  integration / e2e tests.
+
+The React wallet UI is **deferred to Phase 2** and the previous `apps/wallet-ui`
+skeleton has been removed from the tree; the SDK's quickstart docs and examples must
+target a CLI / agent-script audience, not a browser. The Phase 2 wallet UI starting
+outline lives at the bottom of `docs/plans/07-agent-runtime.md`.
 
 ## Decisions
 
@@ -24,6 +43,28 @@
   the corresponding state, the hub can later post that state on-chain and we can't
   challenge.
 - Decision: ☐ persist-before-send (recommended) ☐ async write-after-send
+
+### D4.4 `Signer` interface (new in v1 re-scope)
+- **Default:** define a small `Signer` interface inside the SDK that abstracts every
+  EIP-712 signature the channel needs. v1 ships exactly one backend: a
+  passphrase-encrypted hot key file (the implementation lives in P7's CLI, the
+  interface lives here in P4).
+- **Methods:**
+  ```ts
+  interface Signer {
+    address(): Promise<Address>;
+    signChannelState(state, chainId, verifyingContract, htlcsRoot): Promise<Hex>;
+    signUpdate(u, chainId, verifyingContract): Promise<Hex>;
+    signCooperativeClose(cc, chainId, verifyingContract): Promise<Hex>;
+    signHtlc(htlc, chainId, verifyingContract): Promise<Hex>;
+  }
+  ```
+  Hashing for these typed-data structs lives in `@tainnel/state-machine` (P3); the
+  Signer is purely a key-custody adapter.
+- **Documented escape hatch:** future backends — AWS Nitro Enclave, Turnkey, AWS/GCP
+  KMS, EIP-7702 delegation — implement the same interface. The SDK and CLI never call
+  a private key directly; everything goes through `Signer`.
+- Decision: ☐ accept default Signer interface and v1 backend ☐ alternative shape
 
 ## Implementation tasks
 
@@ -46,14 +87,21 @@
 - [ ] `[agent]` `FileStorage` (Node): atomic-rename pattern (`write tmp → rename`),
       JSON encoding. Per-channel file under `${root}/channels/${id}.json`.
 
-### Wallet adapter
-- [ ] `[agent]` `ViemWalletAdapter` wrapping a viem `WalletClient` from
-      `createWalletClient(...)`. Uses `signTypedData` directly.
-- [ ] `[agent]` `BrowserWalletAdapter` wrapping `window.ethereum` (EIP-1193) for
-      browsers that don't ship a connected wagmi client. The wallet UI will use
-      wagmi's hook output instead, but the SDK should be usable from a plain page.
-- [ ] `[agent]` Document in README that the wallet adapter must be the **same
-      address** as one of the channel's parties; otherwise sigs will fail.
+### Signer (v1 — keep flexible for Phase 2 backends)
+- [ ] `[agent]` Define `Signer` interface (D4.4) in `packages/sdk/src/signer.ts`.
+      All four `sign*` methods + `address()`. No `Signer` implementation lives in this
+      package; the v1 default backend ships in `apps/cli` (P7).
+- [ ] `[agent]` Provide an `InMemorySigner` (test-only) in
+      `packages/sdk/src/signer.test-only.ts` that takes a raw private key and uses
+      viem's `privateKeyToAccount` + `signTypedData` for hashes computed by
+      `@tainnel/state-machine`. Re-exported from `@tainnel/test-utils`, never from the
+      public SDK entry point.
+- [ ] `[agent]` Document the **same-address** invariant in the README: the address
+      from `Signer.address()` must match one of the channel's parties; otherwise
+      EIP-712 sig verification fails.
+- [ ] `[agent]` Phase-2 escape hatch note: backends targeting KMS, Turnkey, Nitro
+      Enclave, or EIP-7702 delegation implement the same `Signer` interface. No SDK
+      changes needed for those.
 
 ### `ChannelClient.open(args)`
 - [ ] `[agent]` Build the on-chain `openChannel` tx using viem; sign with the
@@ -94,12 +142,31 @@
 ## Quickstart example
 
 - [ ] `[agent]` `packages/sdk/README.md` quickstart should be runnable against a
-      mock hub from `@tainnel/test-utils`. Include:
+      mock hub from `@tainnel/test-utils`. Audience is **agent authors writing TS
+      from a Node script**, not a browser app. Include:
       ```ts
-      import { ChannelClient, MemoryStorage, ... } from '@tainnel/sdk';
-      // ... 20 lines that open, pay, close ...
+      import { ChannelClient, FileStorage, WebSocketTransport } from '@tainnel/sdk';
+      import { InMemorySigner } from '@tainnel/test-utils';
+      // ~20 lines that open, pay, close against a mock hub.
       ```
 - [ ] `[agent]` Add `examples/sdk-mock-flow.ts` exercising the quickstart end-to-end.
+- [ ] `[agent]` Cross-link from the README to `apps/cli` so agent authors who do not
+      want to write TS know they can shell out to `tainnel pay --json` instead.
+
+## Listen-mode contract (consumed by `tainnel listen`)
+
+The `tainnel listen` daemon (P7) is a top-level SDK consumer. The SDK MUST:
+
+- [ ] `[agent]` Allow a `ChannelClient` to be constructed without an open channel —
+      it should still be able to subscribe and accept inbound HTLCs based on storage
+      state.
+- [ ] `[agent]` `WebSocketTransport` must support reconnect with **state replay**:
+      when a session reconnects, the SDK pushes the latest signed state per channel
+      so the hub can replay any in-flight HTLC. Idempotent on duplicates.
+- [ ] `[agent]` Provide an event API (`client.on('htlc:incoming', ...)`,
+      `client.on('htlc:settled', ...)`, `client.on('error', ...)`) so the listen
+      command can structure its log output and exit codes around well-defined
+      transitions.
 
 ## `[review]` gates
 

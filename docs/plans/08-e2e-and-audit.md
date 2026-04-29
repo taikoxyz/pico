@@ -9,9 +9,9 @@
 
 P2–P7 each verify their own surface in isolation. P8 is the only place where
 the **whole stack** is exercised: contracts + state machine + SDK + hub +
-watchtower + wallet UI all running together against an anvil fork of Taiko.
-This is also where you, the human, sit down and read the most safety-critical
-code top-to-bottom.
+watchtower + agent runtime (CLI) all running together against an anvil fork of
+Taiko. This is also where you, the human, sit down and read the most
+safety-critical code top-to-bottom.
 
 ## Decisions
 
@@ -35,12 +35,29 @@ code top-to-bottom.
 - [ ] `[agent]` Deterministic key fixtures from `@tainnel/test-utils` (alice,
       bob, hub, watchtower).
 
-### Scenario: open → pay → cooperative close
-- [ ] `[agent]` Alice opens 100 USDC channel with hub.
-- [ ] `[agent]` Bob opens a 10 USDC channel with the same hub.
-- [ ] `[agent]` Alice pays Bob 5 USDC via the hub. Both channel states advance.
-- [ ] `[agent]` Alice cooperatively closes. Final balances on-chain match
-      expectation.
+### Scenario: agent-pay-agent (open → pay → cooperative close)
+- [ ] `[agent]` Spawn two CLI processes from `apps/cli`. Alice runs from a key file;
+      Bob runs `tainnel listen --hub <mock>`.
+- [ ] `[agent]` Alice opens a 100 USDC channel with the hub via `tainnel channel
+      open`. Bob opens a 10 USDC channel with the same hub.
+- [ ] `[agent]` Alice runs `tainnel pay --to <bob> --amount 5 --json`. Bob's listen
+      process accepts the inbound HTLC, reveals the preimage, both channel states
+      advance.
+- [ ] `[agent]` Alice cooperatively closes via `tainnel channel close <id>
+      --cooperative`. Final balances on-chain match expectation.
+
+### Scenario: receiver offline then resume
+- [ ] `[agent]` Alice and Bob hold open channels. Bob's `tainnel listen` is up.
+      Alice issues `tainnel pay`. **Mid-payment, kill Bob's listen process.**
+- [ ] `[agent]` Restart `tainnel listen`. Confirm it reads the journal, reconnects
+      to the hub, picks up the in-flight HTLC, reveals the preimage, and both
+      sides settle. No double-spend, no lost preimage.
+
+### Scenario: signer hot-key rotation
+- [ ] `[agent]` Alice generates a new key with `tainnel keys init --out new.enc`.
+- [ ] `[agent]` Cooperative-close the existing channel.
+- [ ] `[agent]` Re-open a channel signing with the new key. Pay Bob through the
+      new channel. Confirm the on-chain `ChannelOpened` shows the new address.
 
 ### Scenario: unilateral close → finalize (no dispute)
 - [ ] `[agent]` Alice opens, sends 1 payment. Hub goes silent.
@@ -112,6 +129,18 @@ you do this yourself, even if an agent has linted/scanned everything first.
 ### SDK
 - [ ] `[review]` Read `client.ts.pay()`. Confirm persist-before-send (D4.3) is
       not just a comment.
+- [ ] `[review]` Read `signer.ts` (the interface) and confirm the v1 hot-key-file
+      backend (in `apps/cli`) is the only one wired into the dogfood release.
+
+### Agent runtime (CLI)
+- [ ] `[review]` Read `apps/cli/src/cmd/listen.ts`. The signed-first / persist-first
+      / ack-to-hub ordering is the single most safety-critical line in the agent
+      runtime. A wrong order can leave us with a signed state in the wild that we do
+      not have on disk.
+- [ ] `[review]` Read `apps/cli/src/signer/hot-key-file.ts`. Confirm: scrypt params
+      meet the spec, file permissions are 0600, wrong-passphrase paths return a
+      typed error rather than a malformed key, and the raw private key is wiped from
+      memory after signing.
 
 ## Performance and stress
 - [ ] `[agent]` Hub stress test: 10 concurrent payments through one channel

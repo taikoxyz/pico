@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 03 state machine</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./02-protocol.html">⤺ 02 protocol</a> · 03 state machine</span>
+  <span><a href="./04-sdk.html">next · 04 sdk ⤳</a></span>
+</nav>
+
+<h1>State <span class="accent">machine</span></h1>
+<p class="subtitle">Pure functions. The off-chain rules every channel obeys.</p>
+
+<h2>What it is</h2>
+<p>The <strong>state machine</strong> is the package <code>packages/state-machine</code>. It is a tiny library of pure, deterministic, I/O-free TypeScript functions that describe how a channel evolves: how a new <a href="./index.html#glossary">state</a> is validated against the previous one, how an <a href="./index.html#glossary">HTLC</a> is added or settled or expired, how a typed-data digest is built from a state so it can be signed. There is no network here, no disk, no chain, no clock outside what callers pass in. Hand the same inputs to the same function on a phone, on a hub, in a watchtower job, or inside a fuzz test, and you get the same bytes back. That property is the entire reason this package exists.</p>
+
+<h2>Why it exists</h2>
+<p>A state channel works because two parties keep agreeing, off-chain, on a single ledger of who owns what. The on-chain contract ultimately enforces that ledger, but only when something goes wrong. Between disputes, the rules of motion live entirely off-chain. If the SDK and the hub disagreed by even one bit on what a valid update looks like — or on the digest a counterparty signed — payments would either get stuck or, worse, slip through unsigned. This package is the single source of truth that every off-chain actor must agree with.</p>
+
+<p>It is also the <em>oracle</em> for the on-chain side. Every hash that the contract computes in Solidity must match, byte for byte, what this TypeScript code computes in Node or in a browser. Otherwise a state signed off-chain will fail to verify on-chain at exactly the moment a victim needs it most: during a dispute. That cross-package equivalence is so important the docs treat it as an explicit acceptance criterion.</p>
+
+<div class="note"><strong>Mental model:</strong> the contract is the on-chain mirror of this package. Same inputs, same outputs, same digests. Two implementations of one specification — one in Solidity for the chain, one in TypeScript for everywhere else.</div>
+
+<h2>Key concepts</h2>
+<p>A <strong>ChannelState</strong> is a snapshot: <code>(channelId, version, balanceA, balanceB, htlcs[], finalized)</code>. Versions only ever go up. An <strong>Update</strong> carries <code>fromVersion</code>, <code>toVersion</code>, and a <code>nextState</code> — never a delta. The library's job is to say yes or no to a transition, then return the new state if yes. An <strong>HTLC</strong> is a conditional payment held inside the state: amount, paymentHash, expiry, direction. While an HTLC is pending, its amount is debited from the sender's balance but not yet credited to the receiver — the funds live in the HTLC slot. Settling reveals a preimage and credits the receiver. Failing returns the funds to the sender. Expiring is the same as failing, just driven by time.</p>
+
+<p>The <strong>htlcsRoot</strong> is a single <code>bytes32</code> commitment to the entire pending-HTLC set, computed by sorting the HTLCs by id, abi-encoding each, concatenating, and taking a single keccak. It is what gets folded into the EIP-712 digest of a state, so a signature over a state implicitly commits to the exact HTLC set. Sorted-keccak (rather than a binary Merkle tree) keeps the root cheap to compute on-chain — the contract has at most five HTLCs to handle in v1.</p>
+
+<h2>How it works</h2>
+<p>The flow is short and rectangular. Given a current state at version <code>N</code> and an incoming update, <code>validateUpdate</code> checks four things in order: the channel id matches, the channel is not already finalized, the new version is strictly greater than <code>N</code> (via <code>ensureMonotonicVersion</code>, which throws <code>StaleVersionError</code>), and the total balance — on-channel balances plus the sum of pending HTLC amounts — is preserved. If any check fails, an error is thrown and nothing else happens. If all four pass, <code>applyUpdate</code> simply returns the proposed <code>nextState</code>. The function is pure: no mutation, no side effects.</p>
+
+<figure>
+<svg viewBox="0 0 700 340" width="100%" style="max-width: 700px">
+  <text class="actor" x="350" y="22" text-anchor="middle">channel state transition</text>
+
+  <rect class="pill" x="20" y="50" width="190" height="60" rx="8"/>
+  <text class="pill-text" x="115" y="76" text-anchor="middle">ChannelState (v=N)</text>
+  <text class="label" x="115" y="94" text-anchor="middle">balanceA, balanceB, htlcs[]</text>
+
+  <line class="arrow" x1="210" y1="80" x2="265" y2="80" marker-end="url(#sm-arrow)" />
+
+  <rect class="pill pill-accent" x="265" y="50" width="180" height="60" rx="8"/>
+  <text class="pill-text" x="355" y="76" text-anchor="middle">validateUpdate(prev, update)</text>
+  <text class="label" x="355" y="94" text-anchor="middle">id · finalized · version · balance</text>
+
+  <line class="arrow" x1="445" y1="80" x2="500" y2="80" marker-end="url(#sm-arrow)" />
+
+  <rect class="pill pill-good" x="500" y="50" width="180" height="60" rx="8"/>
+  <text class="pill-text" x="590" y="76" text-anchor="middle">applyUpdate</text>
+  <text class="label" x="590" y="94" text-anchor="middle">returns nextState (v=N+1)</text>
+
+  <rect class="pill pill-bad" x="265" y="135" width="180" height="40" rx="8"/>
+  <text class="pill-text" x="355" y="160" text-anchor="middle">throw StaleVersion / Mismatch</text>
+  <line class="arrow" x1="355" y1="110" x2="355" y2="135" marker-end="url(#sm-arrow)" />
+  <text class="label" x="450" y="128" text-anchor="middle">on fail</text>
+
+  <text class="actor" x="350" y="215" text-anchor="middle">cross-package oracle relationship</text>
+
+  <rect class="pill" x="60" y="240" width="240" height="60" rx="8"/>
+  <text class="pill-text" x="180" y="266" text-anchor="middle">@tainnel/state-machine</text>
+  <text class="label" x="180" y="284" text-anchor="middle">signing.ts · hash + sign (TS)</text>
+
+  <line class="arrow" x1="300" y1="270" x2="400" y2="270" marker-end="url(#sm-arrow)" stroke-dasharray="4 4" />
+  <line class="arrow" x1="400" y1="270" x2="300" y2="270" marker-end="url(#sm-arrow)" stroke-dasharray="4 4" />
+  <text class="label" x="350" y="262" text-anchor="middle">byte-for-byte</text>
+  <text class="label" x="350" y="284" text-anchor="middle">equivalent</text>
+
+  <rect class="pill" x="400" y="240" width="240" height="60" rx="8"/>
+  <text class="pill-text" x="520" y="266" text-anchor="middle">Adjudicator.sol</text>
+  <text class="label" x="520" y="284" text-anchor="middle">on-chain mirror (Solidity)</text>
+
+  <defs>
+    <marker id="sm-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink)" />
+    </marker>
+  </defs>
+</svg>
+<figcaption>Top: a transition either passes validation and produces the next state, or throws. Bottom: the same digest function exists in both TypeScript and Solidity, and the two must agree exactly.</figcaption>
+</figure>
+
+<p>HTLC operations sit on top of the same pattern. <code>addHtlc</code> debits the sender's balance and pushes an entry into the array, refusing duplicate ids and insufficient balances. <code>settleHtlc</code> finds the entry, removes it, and credits the receiver. <code>failHtlc</code> removes it and refunds the sender. <code>expireHtlcs(state, now)</code> walks the list and fails everything past its expiry. None of these functions mutate; each returns a new state. The <code>signing.ts</code> module builds EIP-712 typed-data structures (<code>buildChannelStateTypedData</code>, <code>buildUpdateTypedData</code>, <code>buildHtlcTypedData</code>, <code>buildCooperativeCloseTypedData</code>) so that whichever <a href="./04-sdk.html">Signer</a> the caller plugs in produces a digest the contract will accept.</p>
+
+<div class="danger"><strong>What's not here yet:</strong> <code>signing.ts</code> currently only builds typed data. The <code>hashChannelState</code>, <code>verifyChannelStateSignature</code>, and matching helpers for <code>Update</code>/<code>Htlc</code>/<code>CooperativeClose</code> are not implemented. <code>computeHtlcsRoot</code> exists upstream in <code>@tainnel/protocol</code> as <code>htlcMerkleRoot</code>; the spec-compliant sorted-keccak path still needs cross-validation against the contract.</div>
+
+<h2>Public surface</h2>
+<table>
+  <tr><th>Export</th><th>What it does</th></tr>
+  <tr><td>validateUpdate</td><td>Throws if the update violates id, finality, version, or balance rules.</td></tr>
+  <tr><td>applyUpdate</td><td>Validates then returns the new state. Pure.</td></tr>
+  <tr><td>computeBalance</td><td>Returns <code>(totalA, totalB)</code> = on-channel balance + each side's outbound HTLC amounts.</td></tr>
+  <tr><td>addHtlc</td><td>Debits the sender, appends an HTLC, rejects duplicate ids.</td></tr>
+  <tr><td>settleHtlc</td><td>Removes the HTLC and credits the receiver.</td></tr>
+  <tr><td>failHtlc</td><td>Removes the HTLC and refunds the sender.</td></tr>
+  <tr><td>expireHtlcs</td><td>Fails every HTLC whose <code>expiryMs</code> has passed.</td></tr>
+  <tr><td>buildChannelStateTypedData</td><td>EIP-712 envelope ready to hand to a Signer.</td></tr>
+  <tr><td>buildUpdateTypedData</td><td>Same, for an <code>Update</code>.</td></tr>
+  <tr><td>buildHtlcTypedData</td><td>Same, for a single <code>Htlc</code>.</td></tr>
+  <tr><td>buildCooperativeCloseTypedData</td><td>Same, for a <code>CooperativeClose</code>.</td></tr>
+  <tr><td>ensureMonotonicVersion</td><td>Throws <code>StaleVersionError</code> if <code>next &lt;= current</code>.</td></tr>
+  <tr><td>StateMachineError &amp; subclasses</td><td>Typed errors: stale version, balance mismatch, unknown HTLC, duplicate HTLC.</td></tr>
+</table>
+
+<h2>Tests</h2>
+<p>Roughly ten test cases live in two files. Run them with <code>pnpm --filter @tainnel/state-machine test</code>.</p>
+<table>
+  <tr><th>File</th><th>Covers</th></tr>
+  <tr><td>packages/state-machine/src/channel.test.ts</td><td>state transition logic — stale versions, balance preservation, a fast-check property test that <code>applyUpdate</code> conserves total balance under random monotonic version bumps.</td></tr>
+  <tr><td>packages/state-machine/src/signing.test.ts</td><td>EIP-712 typed-data construction and round-trip recovery via viem's <code>recoverTypedDataAddress</code>; <code>htlcMerkleRoot</code> determinism (insertion-order independence).</td></tr>
+</table>
+
+<h2>Gaps vs production-ready</h2>
+<p>Sourced from <code>docs/plans/03-state-machine.md</code>. This is the v1 critical path: P4 SDK, P5 Hub, P6 Watchtower, and P7 Agent runtime are all blocked on these landing.</p>
+<ul>
+  <li>Implement <code>hashChannelState</code>, <code>hashUpdate</code>, <code>hashHtlc</code>, <code>hashCooperativeClose</code> using viem's <code>hashTypedData</code>.</li>
+  <li>Implement <code>verifyChannelStateSignature</code>, <code>verifyUpdateSignature</code>, <code>verifyCooperativeCloseSignature</code> via viem's <code>recoverTypedDataAddress</code>.</li>
+  <li>Implement <code>computeHtlcsRoot</code> matching D1.3 exactly: sort by id (lexicographic on bytes32), abi-encode each as <code>(id, amount, paymentHash, expiry, direction)</code>, concat, single keccak256.</li>
+  <li>Implement <code>verifyPreimage</code> using sha256 (D1.2), tested against contract output.</li>
+  <li>Generate <code>packages/state-machine/test/fixtures/oracle.json</code> with ~50 random inputs and their expected hashes/roots; have forge fuzz tests cross-validate via <code>vm.readJson</code>.</li>
+  <li>Property tests with <code>fast-check</code>: monotonic version, balance conservation, idempotent <code>applyUpdate</code>, <code>addHtlc → settleHtlc</code> round-trip, <code>addHtlc → failHtlc</code> round-trip, replay rejection, sorted-keccak shuffle invariance.</li>
+  <li>Strict invariants: reject <code>amount == 0</code> HTLCs, reject duplicate HTLC ids, reject <code>finalized: false → true</code> while HTLCs are pending.</li>
+  <li>Coverage gate: <code>pnpm --filter @tainnel/state-machine test --coverage</code> ≥ 95% lines and branches, wired into CI.</li>
+</ul>
+
+<div class="next">
+  <div>
+    <span class="nlabel">read next</span>
+    <strong>04 · SDK</strong> — the library every agent calls, built on top of these pure functions.
+  </div>
+  <a href="./04-sdk.html">→</a>
+</div>
+
+<div class="footer">tainnel · learning · 03 state machine</div>
+
+</div>
+</body>
+</html>
