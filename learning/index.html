@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · learning · index</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 14px;
+    margin-bottom: 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 {
+    font-size: 38px;
+    line-height: 1.15;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.01em;
+  }
+  h1 .accent { color: var(--accent); }
+  .subtitle {
+    font-style: italic;
+    color: var(--ink-soft);
+    margin: 0 0 36px 0;
+    font-size: 18px;
+  }
+  h2 {
+    font-size: 22px;
+    margin: 48px 0 12px;
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-size: 18px;
+    margin: 28px 0 8px;
+  }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 13.5px;
+    line-height: 1.55;
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 18px;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; }
+  .toc {
+    list-style: none;
+    padding: 0;
+    margin: 18px 0 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .toc li {
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 16px;
+    background: var(--paper);
+  }
+  .toc li:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .toc a {
+    border: none;
+    color: var(--ink);
+    display: block;
+  }
+  .toc-num {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .toc-title { font-weight: 600; }
+  .toc-blurb {
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    font-style: italic;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 18px 0 30px;
+    font-size: 15.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  th {
+    background: var(--paper-warm);
+    font-weight: 600;
+    border-bottom: 1px solid var(--rule);
+  }
+  td:first-child {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    width: 32%;
+    white-space: nowrap;
+    color: var(--accent);
+  }
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 18px;
+    margin: 18px 0;
+    font-size: 15.5px;
+  }
+  .footer {
+    margin-top: 80px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span>tainnel · learning</span>
+  <span><a href="../README.md">⤺ repo readme</a></span>
+</nav>
+
+<h1>tainnel <span class="accent">learning</span></h1>
+<p class="subtitle">A component-by-component tour of a 1-hop state channel network for AI&nbsp;agents on Taiko&nbsp;L2.</p>
+
+<p><strong>tainnel</strong> is a payments system designed for AI agents to pay each other for work — API calls, model inference, data, anything that can be priced per request. It uses <em>state channels</em>: a 2-of-2 escrow contract on Taiko, with all the actual payments happening off-chain via signed messages. On-chain you only ever see the channel <em>opening</em>, the channel <em>closing</em>, and (rarely) a <em>dispute</em>.</p>
+
+<p>This folder is the friendly tour: open <a href="./00-big-picture.html">00-big-picture.html</a> first if you want intuition before structure, or click through the components in order if you'd rather build the picture from the bottom up. Every page is a single self-contained file — no JavaScript, no internet required.</p>
+
+<h2>Reading order</h2>
+<ol class="toc">
+  <li><a href="./00-big-picture.html">
+    <span class="toc-num">00 · story</span>
+    <span class="toc-title">Big picture</span>
+    <div class="toc-blurb">Alice pays Bob via the hub; the hub cheats; the watchtower wins. The whole flow as a story.</div>
+  </a></li>
+  <li><a href="./01-contracts.html">
+    <span class="toc-num">01 · packages/contracts</span>
+    <span class="toc-title">Contracts</span>
+    <div class="toc-blurb">PaymentChannel.sol, Adjudicator.sol, HTLC.sol — the trustless core on Taiko mainnet.</div>
+  </a></li>
+  <li><a href="./02-protocol.html">
+    <span class="toc-num">02 · packages/protocol</span>
+    <span class="toc-title">Protocol</span>
+    <div class="toc-blurb">The wire format. EIP-712 schemas, constants, type definitions every package shares.</div>
+  </a></li>
+  <li><a href="./03-state-machine.html">
+    <span class="toc-num">03 · packages/state-machine</span>
+    <span class="toc-title">State machine</span>
+    <div class="toc-blurb">Pure functions: validateUpdate, applyUpdate, signing, htlcsRoot. The brains.</div>
+  </a></li>
+  <li><a href="./04-sdk.html">
+    <span class="toc-num">04 · packages/sdk</span>
+    <span class="toc-title">SDK</span>
+    <div class="toc-blurb">ChannelClient, the Signer interface, transport, storage. The library agents call.</div>
+  </a></li>
+  <li><a href="./05-hub.html">
+    <span class="toc-num">05 · apps/hub</span>
+    <span class="toc-title">Hub</span>
+    <div class="toc-blurb">The router. Holds channels with everyone, forwards HTLCs, watches the chain.</div>
+  </a></li>
+  <li><a href="./06-watchtower.html">
+    <span class="toc-num">06 · apps/watchtower</span>
+    <span class="toc-title">Watchtower</span>
+    <div class="toc-blurb">The bodyguard. Catches stale-state submissions and slashes the cheater.</div>
+  </a></li>
+  <li><a href="./07-agent-runtime.html">
+    <span class="toc-num">07 · apps/cli</span>
+    <span class="toc-title">Agent runtime</span>
+    <div class="toc-blurb">The CLI. tainnel pay, tainnel listen, the encrypted hot key file. The v1 agent surface.</div>
+  </a></li>
+  <li><a href="./08-e2e.html">
+    <span class="toc-num">08 · e2e/</span>
+    <span class="toc-title">End-to-end tests</span>
+    <div class="toc-blurb">Whole-stack scenarios run against an anvil fork. The proof everything fits together.</div>
+  </a></li>
+</ol>
+
+<h2>Where to start</h2>
+<p>Pick the entry that matches what you want to do today.</p>
+<table>
+  <tr><th>If you want to…</th><th>Open this</th></tr>
+  <tr>
+    <td>Get intuition before any code</td>
+    <td><a href="./00-big-picture.html">00-big-picture.html</a></td>
+  </tr>
+  <tr>
+    <td>Understand the on-chain trust core</td>
+    <td><a href="./01-contracts.html">01-contracts.html</a></td>
+  </tr>
+  <tr>
+    <td>Read off-chain mechanics carefully</td>
+    <td><a href="./03-state-machine.html">03-state-machine.html</a></td>
+  </tr>
+  <tr>
+    <td>Build an agent that pays through the network</td>
+    <td><a href="./07-agent-runtime.html">07-agent-runtime.html</a></td>
+  </tr>
+  <tr>
+    <td>Run a hub or watchtower</td>
+    <td><a href="./05-hub.html">05-hub.html</a> · <a href="./06-watchtower.html">06-watchtower.html</a></td>
+  </tr>
+  <tr>
+    <td>Verify the whole thing works</td>
+    <td><a href="./08-e2e.html">08-e2e.html</a></td>
+  </tr>
+</table>
+
+<h2 id="glossary">Glossary</h2>
+<p>Linked from every component page. Skim these once and the rest of the tour reads cleanly.</p>
+<table>
+  <tr><th>Term</th><th>Meaning</th></tr>
+  <tr>
+    <td>channel</td>
+    <td>A 2-of-2 escrow on-chain between two parties (typically agent + hub). Funds are deposited once on open; balances move off-chain via signed updates.</td>
+  </tr>
+  <tr>
+    <td>state</td>
+    <td>A snapshot of a channel: <code>(balanceA, balanceB, htlcs[], version)</code>, signed by both parties. Versions only go up.</td>
+  </tr>
+  <tr>
+    <td>cooperative close</td>
+    <td>Both parties sign a final state and settle in one tx. The happy path.</td>
+  </tr>
+  <tr>
+    <td>unilateral close</td>
+    <td>One party (e.g., the hub disappeared) posts the latest state they have on-chain. Opens a <em>dispute window</em>.</td>
+  </tr>
+  <tr>
+    <td>dispute window</td>
+    <td>A fixed delay (24h in v1) before a unilaterally-posted state becomes final, giving the counterparty time to challenge with a newer signed state.</td>
+  </tr>
+  <tr>
+    <td>HTLC</td>
+    <td>Hash-Time-Locked Contract — a conditional payment: "$X is locked. Whoever reveals the preimage of hash H before time T claims it; otherwise it refunds."</td>
+  </tr>
+  <tr>
+    <td>watchtower</td>
+    <td>A bot that watches the chain for fraudulent old-state submissions and posts a counter-state before the dispute window closes.</td>
+  </tr>
+  <tr>
+    <td>EIP-712</td>
+    <td>Ethereum's typed-data signing standard. Channel states are signed as EIP-712 typed data so the digest a contract verifies matches what was signed off-chain.</td>
+  </tr>
+  <tr>
+    <td>1-hop routing</td>
+    <td>Payments flow <code>agent → hub → recipient</code> via two paired HTLCs. No multi-hop, no graph gossip.</td>
+  </tr>
+  <tr>
+    <td>hub</td>
+    <td>A long-running operator that holds channels with many users and routes payments. Analogous to a Lightning LSP.</td>
+  </tr>
+  <tr>
+    <td>hot wallet</td>
+    <td>A private key on a server. Convenient, capped at low balance.</td>
+  </tr>
+  <tr>
+    <td>Signer interface</td>
+    <td>The SDK abstraction over key custody. v1 backend = encrypted hot key file. Future backends: KMS, Turnkey, Nitro Enclave, EIP-7702 delegation.</td>
+  </tr>
+  <tr>
+    <td><code>tainnel listen</code></td>
+    <td>A long-running CLI subcommand for receivers. Holds a WebSocket session to the hub, accepts inbound HTLCs, reveals preimages.</td>
+  </tr>
+  <tr>
+    <td>encrypted hot key file</td>
+    <td>The on-disk key store the v1 Signer reads. Passphrase-derived (scrypt) key, sealed with XSalsa20-Poly1305. Permissions 0600.</td>
+  </tr>
+  <tr>
+    <td>litestream</td>
+    <td>A tool that continuously streams a SQLite DB to S3-compatible storage for backup and point-in-time restore.</td>
+  </tr>
+</table>
+
+<h2>What v1 deliberately does <em>not</em> include</h2>
+<p>For honesty: the dogfood scope is narrow on purpose. The wallet UI for humans, ERC-8004 agent-identity registration, EIP-7702 / 4337 delegation, TEE / KMS Signer backends, multi-hop routing, ETH (non-USDC) support, and the DVM / Nostr discovery layer are all <strong>Phase 2</strong>. The project explicitly does not associate with MCP or x402; if those ecosystems want to consume tainnel, an external adapter can wrap the CLI.</p>
+
+<div class="note">If you came here to learn before working on the codebase, follow the reading order. If you came here because you'll be running the system, jump to <a href="./07-agent-runtime.html">07-agent-runtime.html</a> and treat the rest as reference.</div>
+
+<div class="footer">tainnel · learning · v0.1 · self-contained · open offline</div>
+
+</div>
+</body>
+</html>

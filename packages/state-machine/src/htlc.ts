@@ -1,7 +1,11 @@
 import type { ChannelState, Htlc, Preimage } from '@tainnel/protocol';
 import { StateMachineError, UnknownHtlcError } from './errors.js';
+import { verifyPreimage } from './preimage.js';
 
 export function addHtlc(state: ChannelState, htlc: Htlc): ChannelState {
+  if (htlc.amount <= 0n) {
+    throw new StateMachineError('htlc amount must be positive', 'ZERO_AMOUNT');
+  }
   if (state.htlcs.some((existing) => existing.id === htlc.id)) {
     throw new StateMachineError('duplicate htlc id', 'DUPLICATE_HTLC');
   }
@@ -25,9 +29,12 @@ export function addHtlc(state: ChannelState, htlc: Htlc): ChannelState {
   };
 }
 
-export function settleHtlc(state: ChannelState, id: string, _preimage: Preimage): ChannelState {
+export function settleHtlc(state: ChannelState, id: string, preimage: Preimage): ChannelState {
   const htlc = state.htlcs.find((h) => h.id === id);
   if (!htlc) throw new UnknownHtlcError(id);
+  if (!verifyPreimage(htlc.paymentHash, preimage)) {
+    throw new StateMachineError('preimage does not match payment hash', 'BAD_PREIMAGE');
+  }
   const remaining = state.htlcs.filter((h) => h.id !== id);
   if (htlc.direction === 'AtoB') {
     return { ...state, balanceB: state.balanceB + htlc.amount, htlcs: remaining };

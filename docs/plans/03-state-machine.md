@@ -1,18 +1,21 @@
 # P3 — State machine
 
-**Status:** 🟡 partial — `validateUpdate`/`applyUpdate`/`computeBalance` are real;
-HTLC math is partial; `signing.ts` only builds typed data, doesn't hash; no `htlcsRoot`
-implementation
-**Blocks:** P4, P5, P6
+**Status:** 🟡 partial — **this is the v1 critical path**.
+`validateUpdate` / `applyUpdate` / `computeBalance` are real;
+HTLC math is partial; `signing.ts` builds typed data but does not hash or verify;
+`htlcsRoot` is not implemented; the cross-package oracle fixture has not been generated.
+Until these land, **P4 (SDK), P5 (Hub), P6 (Watchtower), and P7 (Agent runtime) cannot
+proceed against real code.**
+**Blocks:** P4, P5, P6, P7
 **Effort:** ~1 week
-**Parallelizable with:** P2 (contracts) once P1 is locked
+**Parallelizable with:** P2 (contracts) follow-ups once P1 is locked
 
 ## Why this is the safest sub-project to fully agent-drive
 
 Pure functions, deterministic inputs, no I/O, no chain. The acceptance criterion is a
 test suite — if the suite is property-based and high-coverage, you can hand it to an
 agent and barely re-read the diff. **The only `[review]` gate is the test suite
-itself.**
+itself, plus the `oracle.json` round-trip test.**
 
 ## Decisions
 
@@ -92,9 +95,26 @@ equality.
 - You read the `oracle.json` round-trip test top-to-bottom (this is the linchpin
   between off-chain and on-chain)
 
+## Used by downstream phases
+
+These callers will start consuming the completed `state-machine` exports the moment
+this phase lands. Mention this in the PR description so reviewers know what is
+suddenly unblocked:
+
+- **P4 SDK** — uses the `hash*` and `verify*` helpers from `signing.ts` to build the
+  `Signer` interface contract and the `pay()` / `close()` flows.
+- **P5 Hub** — the `router.ts` expiry math relies on `applyUpdate` invariants and
+  `htlcsRoot` byte-equivalence with the contract.
+- **P6 Watchtower** — `responder.ts` needs `verifyChannelStateSignature` to check that
+  a posted state's signature is genuine before submitting a counter-state.
+- **P7 Agent runtime (CLI)** — the `tainnel listen` daemon validates inbound HTLCs
+  with `validateUpdate` + `verifyHtlcSignature`.
+
 ## Done when
 
 - Coverage ≥ 95%
 - All property tests run with `numRuns: 200`
 - `oracle.json` cross-validated by both TS and forge tests
+- A unit test imports each `hash*` helper and asserts the digest against a known
+  fixture (smoke check that nothing was renamed away from the contract's expectations)
 - Branch merged with `feat(state-machine): finalize signing, htlc math, property tests`

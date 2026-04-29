@@ -1,8 +1,2 @@
-export interface MockHubHandle {
-  readonly url: string;
-  stop(): Promise<void>;
-}
-
-export async function startMockHub(_opts?: { port?: number }): Promise<MockHubHandle> {
-  throw new Error('not implemented');
-}
+export type { MockHubHandle, MockHubOptions, PendingHtlc } from '@tainnel/sdk/_test';
+export { startMockHub } from '@tainnel/sdk/_test';

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 07 agent runtime</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./06-watchtower.html">⤺ 06 watchtower</a> · 07 agent runtime</span>
+  <span><a href="./08-e2e.html">next · 08 end-to-end ⤳</a></span>
+</nav>
+
+<h1>Agent <span class="accent">runtime</span></h1>
+<p class="subtitle">The CLI. The v1 surface every AI agent reaches for first.</p>
+
+<h2>What is it</h2>
+<p>The <code>tainnel</code> CLI in <code>apps/cli</code> is the canonical interface for v1. It bundles every operation an agent (or its operator) needs into one binary: generate an encrypted hot key, open and close channels, send payments, and run a long-lived listen mode that accepts incoming HTLCs. There is no separate daemon, no MCP server, no React wallet UI in v1. An any-language agent shells out to <code>tainnel pay --json</code> and parses one JSON object per state transition; a receiver runs <code>tainnel listen</code> in the background.</p>
+
+<h2>Why it exists</h2>
+<p>State channels structurally need a process that holds a hot key, signs frequent off-chain messages, and (for receivers) keeps a connection open to the hub so it can accept inbound HTLCs and reveal preimages. The simplest design that satisfies all of that without locking the project into one ecosystem is a CLI with a <code>listen</code> subcommand — the same architecture Lightning's <code>lnd</code> + <code>lncli</code> uses, just slimmed to one binary. CLI-as-agent-surface gives every language ubiquitous access (any agent framework can shell out), avoids coupling to MCP or x402, and keeps the trust boundary clean: the key never leaves the local process.</p>
+
+<div class="note">The React wallet UI was deleted from the tree as part of the v1 re-scope. Its outline is preserved in <a href="../docs/plans/07-agent-runtime.md">docs/plans/07-agent-runtime.md</a> for a future Phase 2 starting point. v1 is agents only.</div>
+
+<h2>Key concepts</h2>
+<ul>
+  <li><strong>Signer interface</strong> — the SDK abstraction (defined in <a href="./04-sdk.html">P4</a>) over key custody. v1 ships exactly one backend, lives in this CLI: encrypted hot key file. Future backends — Nitro Enclave, Turnkey, KMS, EIP-7702 delegation — implement the same interface.</li>
+  <li><strong>Encrypted hot key file</strong> — passphrase-derived key (scrypt, N=2¹⁷, r=8, p=1) seals the raw private key with XSalsa20-Poly1305 (libsodium <code>crypto_secretbox</code>). Default path <code>$XDG_CONFIG_HOME/tainnel/key.enc</code>, permissions <code>0600</code> enforced at write.</li>
+  <li><strong><code>tainnel listen</code> mode</strong> — long-running daemon; holds a WebSocket session to the hub, accepts inbound HTLCs, reveals preimages, optionally watches chain events. Same binary as the rest of the CLI; just a different subcommand.</li>
+  <li><strong>JSON output</strong> — every transitional command supports <code>--json</code>, printing one JSON object per state transition on its own line. Lets a Python or Rust agent parse without writing a viem stack.</li>
+</ul>
+
+<h2>How it works</h2>
+
+<figure>
+<svg viewBox="0 0 700 440" width="100%" style="max-width: 700px">
+  <!-- Root -->
+  <rect class="pill" x="280" y="20" width="140" height="40" rx="8"/>
+  <text class="pill-text" x="350" y="45" text-anchor="middle">tainnel</text>
+
+  <!-- Branches -->
+  <line class="arrow" x1="350" y1="60" x2="80" y2="100" />
+  <line class="arrow" x1="350" y1="60" x2="240" y2="100" />
+  <line class="arrow" x1="350" y1="60" x2="350" y2="100" />
+  <line class="arrow" x1="350" y1="60" x2="460" y2="100" />
+  <line class="arrow" x1="350" y1="60" x2="580" y2="100" />
+
+  <!-- keys -->
+  <rect class="pill pill-accent" x="20" y="100" width="120" height="36" rx="6"/>
+  <text class="pill-text" x="80" y="123" text-anchor="middle">keys</text>
+  <rect class="pill" x="20" y="160" width="60" height="28" rx="5"/>
+  <text class="pill-text" x="50" y="178" text-anchor="middle" font-size="11">init</text>
+  <rect class="pill" x="85" y="160" width="60" height="28" rx="5"/>
+  <text class="pill-text" x="115" y="178" text-anchor="middle" font-size="11">import</text>
+  <rect class="pill" x="20" y="195" width="60" height="28" rx="5"/>
+  <text class="pill-text" x="50" y="213" text-anchor="middle" font-size="11">show</text>
+
+  <!-- channel -->
+  <rect class="pill" x="180" y="100" width="120" height="36" rx="6"/>
+  <text class="pill-text" x="240" y="123" text-anchor="middle">channel</text>
+  <rect class="pill" x="180" y="160" width="60" height="28" rx="5"/>
+  <text class="pill-text" x="210" y="178" text-anchor="middle" font-size="11">open</text>
+  <rect class="pill" x="245" y="160" width="60" height="28" rx="5"/>
+  <text class="pill-text" x="275" y="178" text-anchor="middle" font-size="11">list</text>
+  <rect class="pill" x="180" y="195" width="120" height="28" rx="5"/>
+  <text class="pill-text" x="240" y="213" text-anchor="middle" font-size="11">close</text>
+
+  <!-- pay -->
+  <rect class="pill pill-accent" x="295" y="100" width="110" height="36" rx="6"/>
+  <text class="pill-text" x="350" y="123" text-anchor="middle">pay</text>
+  <text class="label" x="350" y="155" text-anchor="middle">--to ADDR --amount USDC</text>
+  <text class="label" x="350" y="170" text-anchor="middle">--via HUB [--json]</text>
+
+  <!-- listen -->
+  <rect class="pill pill-accent" x="410" y="100" width="100" height="36" rx="6"/>
+  <text class="pill-text" x="460" y="123" text-anchor="middle">listen</text>
+  <text class="label" x="460" y="155" text-anchor="middle">long-running</text>
+  <text class="label" x="460" y="170" text-anchor="middle">accepts inbound</text>
+
+  <!-- hub -->
+  <rect class="pill" x="520" y="100" width="60" height="36" rx="6"/>
+  <text class="pill-text" x="550" y="123" text-anchor="middle">hub</text>
+  <rect class="pill" x="520" y="160" width="60" height="28" rx="5"/>
+  <text class="pill-text" x="550" y="178" text-anchor="middle" font-size="11">status</text>
+
+  <!-- dev -->
+  <rect class="pill" x="600" y="100" width="60" height="36" rx="6"/>
+  <text class="pill-text" x="630" y="123" text-anchor="middle">dev</text>
+  <rect class="pill" x="585" y="160" width="90" height="28" rx="5"/>
+  <text class="pill-text" x="630" y="178" text-anchor="middle" font-size="11">anvil-fork</text>
+  <rect class="pill" x="585" y="195" width="90" height="28" rx="5"/>
+  <text class="pill-text" x="630" y="213" text-anchor="middle" font-size="11">mock-hub</text>
+
+  <!-- Process model -->
+  <rect class="pill pill-good" x="20" y="280" width="320" height="60" rx="8"/>
+  <text class="pill-text" x="180" y="305" text-anchor="middle">sender flow</text>
+  <text class="label" x="180" y="325" text-anchor="middle">spawn → unlock key → SDK → pay → exit</text>
+
+  <rect class="pill pill-good" x="360" y="280" width="320" height="60" rx="8"/>
+  <text class="pill-text" x="520" y="305" text-anchor="middle">receiver flow</text>
+  <text class="label" x="520" y="325" text-anchor="middle">spawn listen → unlock once → loop on HTLCs</text>
+
+  <text class="label" x="350" y="380" text-anchor="middle">key file at $XDG_CONFIG_HOME/tainnel/key.enc · scrypt + XSalsa20-Poly1305 · 0600</text>
+  <text class="label" x="350" y="400" text-anchor="middle">accent boxes are the v1 critical surface — keys init, pay, listen</text>
+</svg>
+<figcaption>The command tree. Five top-level groups; the three accent-colored leaves are what every agent uses every day.</figcaption>
+</figure>
+
+<p>The sender path is straightforward: <code>tainnel pay</code> spawns, prompts for the passphrase (or reads it from <code>TAINNEL_PASSPHRASE</code> in CI), unlocks the encrypted key in memory, builds a <code>ChannelClient</code> from the SDK, calls <code>client.pay(...)</code>, prints one JSON line per state transition, and exits when the payment settles.</p>
+
+<p>The receiver path is the long-lived branch and is where the safety-critical logic lives. <code>tainnel listen</code> decrypts the key once at startup, connects the WebSocket to the hub, and enters a loop. For each inbound HTLC offer the hub forwards: validate with the state-machine, generate (if originating) or reveal (if forwarding) the preimage, sign the counter-state, <strong>persist before sending the ack</strong>, then ack. On disconnect/reconnect, a per-channel resume cursor in the SDK storage makes the loop idempotent — replays do not double-spend. SIGINT triggers a graceful drain: finish the in-flight HTLC if possible, persist the journal, close the WebSocket, exit zero.</p>
+
+<div class="danger"><strong>The single most safety-critical line in the agent runtime</strong> is the ordering between "persist counter-state to storage" and "ack to hub." Persist first, ack second. If you ack first and crash before persist, your local state lags one version behind what the hub has — and what an evil hub could later post on chain. Reviewer attention focuses on this in <a href="./08-e2e.html">P8</a>.</div>
+
+<h2>Public surface</h2>
+<table>
+  <tr><th>Command</th><th>What it does</th></tr>
+  <tr><td>keys init</td><td>Generate fresh secp256k1 key, prompt passphrase, write encrypted file.</td></tr>
+  <tr><td>keys import</td><td>Import existing private key (hex) or BIP-39 mnemonic; passphrase-encrypt.</td></tr>
+  <tr><td>keys show</td><td>Print public address. Never decrypts unless an explicit <code>--reveal-private</code> flag is passed (with a fresh prompt).</td></tr>
+  <tr><td>channel open</td><td>Open a new channel with a hub. <code>--hub URL --amount USDC</code>. Prints channel id + tx hash.</td></tr>
+  <tr><td>channel list</td><td>Read storage; print channels (table or <code>--json</code>).</td></tr>
+  <tr><td>channel close</td><td>Cooperative or unilateral close. Prints final tx hash.</td></tr>
+  <tr><td>pay</td><td>Send a payment. <code>--to ADDR --amount USDC [--via HUB --memo S --json]</code>. Streams JSON state transitions.</td></tr>
+  <tr><td>listen</td><td>Daemon-mode receiver. <code>--hub URL [--channel ID...]</code>. Long-running.</td></tr>
+  <tr><td>hub status</td><td>Hit <code>GET /v1/health</code> and print the result.</td></tr>
+  <tr><td>dev anvil-fork</td><td>Spawn an anvil that forks Taiko mainnet at a pinned block; deploy contracts via forge.</td></tr>
+  <tr><td>dev mock-hub</td><td>Start an in-process mock hub from <code>@tainnel/test-utils</code> for local testing.</td></tr>
+</table>
+
+<h3>Quickstart</h3>
+<pre><code>pnpm install
+pnpm tainnel keys init
+pnpm tainnel channel open --hub https://hub.example.com --amount 25
+
+# pay (sender)
+pnpm tainnel pay --to 0xRecipient --amount 0.05 --json
+
+# receive (run in the background)
+pnpm tainnel listen --hub https://hub.example.com &
+</code></pre>
+
+<h2>Tests</h2>
+<p>Unit tests live under <code>apps/cli/test/</code> and cover argument parsing and error paths for each command. The integration test (planned) wires together <code>tainnel dev anvil-fork</code>, <code>tainnel dev mock-hub</code>, a long-running <code>tainnel listen</code>, and a <code>tainnel pay</code> from a separate process. It asserts that the listen process exits cleanly on SIGINT and that the on-disk channel state reflects the post-payment version. A persistence-survives-crash test kills <code>tainnel listen</code> mid-payment, restarts it, and checks that the in-flight HTLC resolves correctly without a lost preimage. Coverage gate: ≥ 70% lines on <code>apps/cli</code>.</p>
+
+<h2>Gaps vs production-ready</h2>
+<p>From <a href="../docs/plans/07-agent-runtime.md">docs/plans/07-agent-runtime.md</a>:</p>
+<ul>
+  <li>Implement <code>keys init</code>/<code>import</code>/<code>show</code> with the libsodium-based file format.</li>
+  <li>Wire <code>channel open</code>/<code>list</code>/<code>close</code> and <code>pay</code> commands to the SDK.</li>
+  <li>Implement <code>tainnel listen</code> subcommand with the receiver flow described above.</li>
+  <li>Implement <code>hub status</code>, <code>dev anvil-fork</code>, <code>dev mock-hub</code>.</li>
+  <li>Unit and integration tests; coverage ≥ 70%.</li>
+</ul>
+
+<p>Two human <code>[review]</code> gates before mainnet dogfood:</p>
+<ul>
+  <li>Read <code>apps/cli/src/cmd/listen.ts</code> and confirm the persist-before-ack ordering is real, not just commented.</li>
+  <li>Read <code>apps/cli/src/signer/hot-key-file.ts</code> and confirm permissions <code>0600</code> on write, scrypt parameters match the spec, wrong-passphrase paths return a typed error rather than a malformed key, and the raw private key is wiped from memory after every signing call.</li>
+</ul>
+
+<div class="next">
+  <div>
+    <span class="nlabel">read next</span>
+    <strong>08 · End-to-end</strong> — whole-stack scenarios that prove the runtime, hub, watchtower, and contracts agree.
+  </div>
+  <a href="./08-e2e.html">→</a>
+</div>
+
+<div class="footer">tainnel · learning · 07 agent runtime</div>
+
+</div>
+</body>
+</html>

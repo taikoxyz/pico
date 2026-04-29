@@ -36,9 +36,23 @@ shells; `detector` has the only real logic
 - **Default for dogfood:**
   - Hub operator runs a watchtower covering all channels the hub holds (i.e.,
     all of them).
-  - Each user *may* additionally run their own watchtower as a backup.
+  - Each user / agent *may* additionally run their own watchtower as a backup.
 - The hub-side watchtower MUST be on different infra from the hub itself
   (different region, ideally different cloud account) — see [09-ops.md](./09-ops.md).
+
+### Pairing with `tainnel listen` (P7)
+
+When an agent runs `tainnel listen` (P7), it MAY subscribe to the same chain events
+this watchtower listens to. The two are not mutually exclusive — an agent's listen
+mode is a convenience for the agent itself, while the watchtower is the canonical
+penalty submitter so users do not have to keep a CLI alive 24/7. Recovery
+expectations:
+
+- An agent that ran listen-mode while a fraud occurred will see `DisputeRaised` and
+  `PenaltyApplied` events from the watchtower; it logs them, does nothing on chain.
+- An agent that was offline during the fraud and starts listen-mode after the fact
+  will read the chain history, see that the watchtower already penalized, and reach
+  the same final balance as if it had been online.
 
 ## Implementation tasks
 
@@ -97,6 +111,10 @@ shells; `detector` has the only real logic
       - watchtower observes within window
       - watchtower submits dispute
       - state is replaced; finalize gives funds to honest party
+- [ ] `[agent]` **Listen-mode + watchtower recovery:** simulate "hub cheats while
+      user is offline; user runs `tainnel listen` later; watchtower has already
+      penalized". Assert the agent's state DB ends up consistent with the on-chain
+      finalization and no dangling in-flight HTLCs are left over.
 - [ ] `[agent]` Coverage ≥ 70%.
 
 ## `[review]` gates

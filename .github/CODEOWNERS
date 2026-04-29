@@ -1,0 +1,5 @@
+# Default owner for everything in this repo.
+# Combined with `require_code_owner_review: true` in
+# .github/rulesets/main.json, this auto-requests review from the listed
+# owner(s) on every PR and requires their approval before merge.
+*       @dantaik

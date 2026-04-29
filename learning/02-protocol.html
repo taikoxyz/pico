@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tainnel · 02 protocol</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+    --good: #2f6e3e;
+    --bad: #a52a2a;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 48px; display: flex; justify-content: space-between; align-items: baseline; }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 36px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+  pre { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 18px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; text-align: center; }
+  figcaption { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .danger { border-left: 3px solid var(--bad); background: #f7e4e0; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .good { border-left: 3px solid var(--good); background: #e2efe5; padding: 12px 18px; margin: 18px 0; font-size: 15.5px; }
+  .next { margin-top: 60px; padding: 18px; background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; }
+  .next .nlabel { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); display: block; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+  svg .actor { font-family: "JetBrains Mono", Menlo, monospace; font-size: 13px; fill: var(--ink); font-weight: 600; }
+  svg .lifeline { stroke: var(--rule); stroke-dasharray: 4 4; stroke-width: 1; }
+  svg .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  svg .label { font-family: "JetBrains Mono", Menlo, monospace; font-size: 11.5px; fill: var(--ink-soft); }
+  svg .pill { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+  svg .pill-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .pill-good { fill: #dfe9e0; stroke: var(--good); }
+  svg .pill-bad { fill: #f7e4e0; stroke: var(--bad); }
+  svg .pill-text { font-family: "Charter", Georgia, serif; font-size: 13px; fill: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span><a href="./01-contracts.html">⤺ 01 contracts</a> · 02 protocol</span>
+  <span><a href="./03-state-machine.html">next · 03 state machine ⤳</a></span>
+</nav>
+
+<h1>The wire <span class="accent">protocol</span></h1>
+<p class="subtitle">The wire format. Types, EIP-712 schemas, constants, frozen at P1.</p>
+
+<h2>What it is</h2>
+<p>The <code>packages/protocol/</code> package is a tiny TypeScript library with no runtime logic. It exports type definitions, EIP-712 schemas, network constants, and HTLC root helpers. Every other package in the monorepo imports it; the on-chain Solidity in <a href="./01-contracts.html">contracts</a> mirrors the same shapes manually so that the typed-data digests on both sides of the wire match byte-for-byte. If you ever wonder where the canonical definition of "what is a channel state" lives in tainnel, this is it.</p>
+
+<h2>Why it exists</h2>
+<p>State channel safety hinges on one promise: the digest a counterparty signs off-chain is the exact digest the contract recovers on-chain when something goes wrong. Drift the field order, swap a <code>uint64</code> for a <code>uint256</code>, or rename a struct, and signatures stop verifying — usually quietly, until the moment you actually need a dispute to resolve. Centralizing the wire format in a single zero-logic package is how we keep that promise. The state machine, SDK, hub, watchtower, and CLI all read the same constants from the same file. Anyone touching the wire format touches one place, sees one diff, and bumps one version.</p>
+<p>Three goals shape the package: (1) zero runtime logic — pure types and constants, no execution paths to test or break; (2) browser-safe — no Node-only dependencies, so the same module ships into a future wallet UI as cleanly as into a server; (3) single source of truth — every other package imports from here, and the Solidity in <code>Adjudicator.sol</code> is treated as a translation of the same definitions.</p>
+
+<h2>Key concepts</h2>
+<p>From the <a href="./index.html">glossary</a>: <em>state</em>, <em>HTLC</em>, <em>cooperative close</em>, <em>EIP-712</em>. Two further terms specific to this page:</p>
+<ul>
+  <li><strong>EIP-712 typed data</strong> — Ethereum's standard for signing structured messages. A <em>domain</em> (name, version, chainId, verifyingContract) plus a typed struct produces a deterministic 32-byte digest. Both signer and verifier independently compute the same digest from the same inputs; signatures recover to the original signer's address only if every byte of every field matches.</li>
+  <li><strong>HTLC root</strong> — a single <code>bytes32</code> committing to the set of currently-locked HTLCs in a channel. Computed as a sorted-keccak Merkle root over each HTLC's individual hash. The contract only sees the root inside a state hash; the individual HTLCs live off-chain.</li>
+</ul>
+
+<h2>How it works</h2>
+<p>The package is the bullseye in a small dependency target. Solidity, TypeScript, server, client — they all bend back to the same definitions here.</p>
+
+<figure>
+<svg viewBox="0 0 700 360" width="100%" style="max-width: 700px">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink)" />
+    </marker>
+  </defs>
+
+  <rect class="pill pill-accent" x="40" y="40" width="160" height="50" rx="8"/>
+  <text class="pill-text" x="120" y="62" text-anchor="middle">contracts</text>
+  <text class="label" x="120" y="80" text-anchor="middle">Solidity · same types</text>
+
+  <rect class="pill pill-accent" x="500" y="40" width="160" height="50" rx="8"/>
+  <text class="pill-text" x="580" y="62" text-anchor="middle">state-machine</text>
+  <text class="label" x="580" y="80" text-anchor="middle">pure validation</text>
+
+  <rect class="pill pill-accent" x="40" y="280" width="160" height="50" rx="8"/>
+  <text class="pill-text" x="120" y="302" text-anchor="middle">sdk</text>
+  <text class="label" x="120" y="320" text-anchor="middle">ChannelClient</text>
+
+  <rect class="pill pill-accent" x="500" y="280" width="160" height="50" rx="8"/>
+  <text class="pill-text" x="580" y="302" text-anchor="middle">hub</text>
+  <text class="label" x="580" y="320" text-anchor="middle">router · WS server</text>
+
+  <rect class="pill pill-accent" x="40" y="160" width="160" height="50" rx="8"/>
+  <text class="pill-text" x="120" y="182" text-anchor="middle">watchtower</text>
+  <text class="label" x="120" y="200" text-anchor="middle">chain-event watcher</text>
+
+  <rect class="pill pill-accent" x="500" y="160" width="160" height="50" rx="8"/>
+  <text class="pill-text" x="580" y="182" text-anchor="middle">cli</text>
+  <text class="label" x="580" y="200" text-anchor="middle">tainnel pay / listen</text>
+
+  <rect class="pill" x="270" y="150" width="160" height="70" rx="10"/>
+  <text class="pill-text" x="350" y="178" text-anchor="middle" font-weight="600">@tainnel/protocol</text>
+  <text class="label" x="350" y="196" text-anchor="middle">single source of truth</text>
+  <text class="label" x="350" y="210" text-anchor="middle">P1 frozen</text>
+
+  <line class="arrow" x1="200" y1="68" x2="278" y2="160" marker-end="url(#ar)" />
+  <line class="arrow" x1="500" y1="68" x2="422" y2="160" marker-end="url(#ar)" />
+  <line class="arrow" x1="200" y1="185" x2="268" y2="185" marker-end="url(#ar)" />
+  <line class="arrow" x1="500" y1="185" x2="432" y2="185" marker-end="url(#ar)" />
+  <line class="arrow" x1="200" y1="298" x2="278" y2="216" marker-end="url(#ar)" />
+  <line class="arrow" x1="500" y1="298" x2="422" y2="216" marker-end="url(#ar)" />
+
+  <text class="label" x="240" y="120" text-anchor="middle">imports</text>
+  <text class="label" x="460" y="120" text-anchor="middle">imports</text>
+  <text class="label" x="240" y="245" text-anchor="middle">imports</text>
+  <text class="label" x="460" y="245" text-anchor="middle">imports</text>
+</svg>
+<figcaption>Six consumers, one shared definition. The contracts package mirrors the same types in Solidity rather than importing them, but is treated as a downstream consumer for the purposes of versioning.</figcaption>
+</figure>
+
+<p>Mechanically the package is small: five TypeScript files. <code>types.ts</code> defines <code>ChannelState</code>, <code>Update</code>, <code>Htlc</code>, <code>CooperativeClose</code>, and their signed wrappers. <code>eip712.ts</code> declares the typed-data domain and per-struct field arrays in the exact order the Adjudicator hashes them. <code>constants.ts</code> exposes chain id, contract addresses, and value bounds. <code>htlc-root.ts</code> implements the sorted-keccak Merkle aggregation used to commit a set of in-flight HTLCs to a single <code>bytes32</code>. <code>events.ts</code> reserves Nostr event-kind numbers for the future Phase 2 DVM payment-discovery layer (defined here so the allocation is fixed in v1 wire format and cannot drift later).</p>
+
+<p>None of these files do anything at import time. The package is a contract — in the legal sense — between every other package in the repo. Importing a constant from <code>@tainnel/protocol</code> is the project-wide signal that you are agreeing to the v1 wire format and will not silently substitute a different shape.</p>
+
+<h3>EIP-712 schemas</h3>
+<p>The four typed-data structs every signer and verifier shares:</p>
+<table>
+  <tr><th>Struct</th><th>Fields</th></tr>
+  <tr>
+    <td>ChannelState</td>
+    <td><code>channelId</code>(bytes32), <code>version</code>(uint64), <code>balanceA</code>(uint256), <code>balanceB</code>(uint256), <code>htlcsRoot</code>(bytes32), <code>finalized</code>(bool)</td>
+  </tr>
+  <tr>
+    <td>Htlc</td>
+    <td><code>id</code>(bytes32), <code>amount</code>(uint256), <code>paymentHash</code>(bytes32), <code>expiry</code>(uint64), <code>direction</code>(uint8) — 0 means A→B, 1 means B→A</td>
+  </tr>
+  <tr>
+    <td>Update</td>
+    <td><code>fromVersion</code>(uint64), <code>toState</code>(ChannelState), <code>expiry</code>(uint64)</td>
+  </tr>
+  <tr>
+    <td>CooperativeClose</td>
+    <td><code>channelId</code>(bytes32), <code>version</code>(uint64), <code>finalBalanceA</code>(uint256), <code>finalBalanceB</code>(uint256), <code>token</code>(address)</td>
+  </tr>
+</table>
+<p>The EIP-712 domain is fixed: <code>name="tainnel"</code>, <code>version="1"</code>, <code>chainId=167000</code>, <code>verifyingContract</code> = the Adjudicator proxy address. Signing with any other domain produces a digest the on-chain Adjudicator will not accept, by construction.</p>
+
+<h2>Public surface</h2>
+<table>
+  <tr><th>Symbol</th><th>File</th><th>Notes</th></tr>
+  <tr>
+    <td>ChannelState · Htlc · Update · CooperativeClose</td>
+    <td>packages/protocol/src/types.ts</td>
+    <td>Plain TS interfaces. Field order matches Solidity.</td>
+  </tr>
+  <tr>
+    <td>SignedState · SignedUpdate · SignedHtlc · SignedCooperativeClose</td>
+    <td>packages/protocol/src/types.ts</td>
+    <td>Wrappers carrying a signature alongside the payload.</td>
+  </tr>
+  <tr>
+    <td>EIP712_DOMAIN · CHANNEL_STATE_TYPE · HTLC_TYPE · UPDATE_TYPE · COOPERATIVE_CLOSE_TYPE</td>
+    <td>packages/protocol/src/eip712.ts</td>
+    <td>Domain spec and typed-data field arrays consumed by viem / ethers signers.</td>
+  </tr>
+  <tr>
+    <td>TAIKO_MAINNET_CHAIN_ID</td>
+    <td>packages/protocol/src/constants.ts</td>
+    <td><code>167000</code>.</td>
+  </tr>
+  <tr>
+    <td>DISPUTE_WINDOW_SECONDS</td>
+    <td>packages/protocol/src/constants.ts</td>
+    <td><code>86400</code> (24 hours). Mirrors <code>DISPUTE_WINDOW</code> in <code>PaymentChannel.sol</code>.</td>
+  </tr>
+  <tr>
+    <td>MIN_CHANNEL_AMOUNT</td>
+    <td>packages/protocol/src/constants.ts</td>
+    <td><code>10_000_000</code> — 10 USDC at 6 decimals.</td>
+  </tr>
+  <tr>
+    <td>USDC_TOKENS</td>
+    <td>packages/protocol/src/constants.ts</td>
+    <td>Allowlisted USDC addresses keyed by chain id.</td>
+  </tr>
+  <tr>
+    <td>CONTRACT_ADDRESSES[167000]</td>
+    <td>packages/protocol/src/constants.ts</td>
+    <td>Adjudicator: <code>0x775904054b4A97b3925f1Dd60aE61fBc81567dB9</code>; PaymentChannel: <code>0x07B32f52523Fdf0780821595422DccEF31FA2335</code>.</td>
+  </tr>
+  <tr>
+    <td>htlcsRoot</td>
+    <td>packages/protocol/src/htlc-root.ts</td>
+    <td>sorted-keccak Merkle root over an array of HTLCs (matches <code>HTLC.rootOf</code> in Solidity).</td>
+  </tr>
+  <tr>
+    <td>NOSTR_EVENT_KINDS</td>
+    <td>packages/protocol/src/events.ts</td>
+    <td>Reserved kinds for Phase 2 DVM payment discovery. Not consumed in v1.</td>
+  </tr>
+</table>
+
+<p>Two design decisions encoded as constants here, both locked in P1:</p>
+<ul>
+  <li><strong>D1.2 — HTLC hash function = sha256.</strong> The preimage check in <code>HTLC.verifyPreimage</code> uses sha256 (not keccak256), matching Lightning convention so payment hashes can be reused across systems if desired.</li>
+  <li><strong>D1.3 — HTLC root = sorted-keccak Merkle.</strong> Pairs of leaves are sorted before hashing, eliminating proof-order ambiguity. The TS implementation in <code>htlc-root.ts</code> and the Solidity in <code>HTLC.sol</code> agree on this construction.</li>
+</ul>
+
+<h2>Tests</h2>
+<p>One test file: <code>packages/protocol/src/index.test.ts</code>. Because the package is pure types and constants, the only test is a smoke check that all expected exports compile and resolve. There is no logic to unit-test here; the actual signing and verification correctness is covered by the <a href="./03-state-machine.html">state-machine</a> tests on the off-chain side and the <a href="./01-contracts.html">contracts</a> tests on the on-chain side. Run with <code>pnpm --filter @tainnel/protocol test</code> (vitest).</p>
+
+<p>The fact that this package has nothing to mock or stub is deliberate. Logic-free packages do not regress; only their consumers do. If a contract field is renamed or reordered, the type checker in every consuming package fails immediately.</p>
+
+<h2>Gaps vs production-ready</h2>
+<div class="good"><strong>Status: done.</strong> Per <code>docs/plans/01-protocol-freeze.md</code>, the plan is complete; this package is the v1 reference. It shipped in <code>feat(protocol): freeze v1 wire format</code> and is treated as locked.</div>
+
+<p>There are no concrete TODOs against this package. Future changes require a wire-format version bump because the EIP-712 domain version is part of every digest the chain verifies — bumping <code>"1"</code> to <code>"2"</code> invalidates every previously-signed message under the old domain. That is the intended migration path, not a gap.</p>
+
+<p>The one item to be mindful of: the contract addresses baked into <code>CONTRACT_ADDRESSES[167000]</code> point at proxies whose owner is currently the deployer key, which is treated as compromised (see <a href="./01-contracts.html">01 contracts</a> for the full story). The protocol package is correct; the deployment behind it has an open security task. The two are tracked separately on purpose.</p>
+
+<div class="next">
+  <div>
+    <span class="nlabel">read next</span>
+    <strong>03 · State machine</strong> — pure functions that drive every state update and signature on top of these types.
+  </div>
+  <a href="./03-state-machine.html">→</a>
+</div>
+
+<div class="footer">tainnel · learning · 02 protocol</div>
+
+</div>
+</body>
+</html>

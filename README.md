@@ -1,10 +1,15 @@
 # tainnel
 
 > Trustless **1-hop state channel network for micro-payments on Taiko L2**.
+> v1 is an **AI-agent payments system**: the agent surface is the
+> [`tainnel` CLI](./apps/cli/), not a browser wallet.
 
-Inspired by Lightning's LSP model and optimized for AI service markets and Nostr Data
-Vending Machine (DVM) payment flows. Stablecoin (USDC) and ETH first-class. **No native
-token. No governance. No bridges.**
+Inspired by Lightning's LSP model. Stablecoin (USDC) first in v1. **No native token.
+No governance. No bridges. No MCP / x402 association.**
+
+> **New here?** Open [`learning/index.html`](./learning/index.html) for a tour of every
+> component before diving into source code. Start with `00-big-picture.html` if you
+> want intuition first.
 
 ## Why 1-hop
 
@@ -23,19 +28,19 @@ recipient`. Hubs compete on liquidity, fees, and uptime — exactly like LSPs.
 
 ```
 apps/
+  cli/          tainnel <cmd> CLI — the v1 agent runtime (pay, listen, channel ops)
   hub/          Long-running hub service (Fastify + ws + sqlite/postgres)
   watchtower/   Standalone fraud monitor that posts penalty txs
-  wallet-ui/    Reference web wallet (React + Vite + wagmi v2 + tailwind)
-  cli/          tainnel <cmd> CLI for ops & development
 packages/
   contracts/    Solidity 0.8.26 PaymentChannel + Adjudicator + HTLC (Foundry)
   protocol/     Shared TS types, EIP-712 schemas, constants, Nostr event kinds
   state-machine/ Pure-function channel state transitions (browser-safe)
-  sdk/          Client SDK (browser + Node, depends on viem)
-  dvm-adapter/  Nostr DVM payment integration helpers
+  sdk/          Client SDK with Signer interface (browser + Node, depends on viem)
+  dvm-adapter/  Nostr DVM payment helpers (Phase 2)
   test-utils/   Anvil/forge fixtures, mock hubs, deterministic keys
 e2e/            Cross-package end-to-end tests
-docs/           Protocol spec & threat model
+docs/           Protocol spec, threat model, and per-phase plans
+learning/       Per-component HTML tutorials — start at learning/index.html
 ```
 
 ## Quick start
@@ -48,6 +53,18 @@ pnpm test
 pnpm tainnel hello              # smoke check; prints all package versions
 forge build --root packages/contracts
 ```
+
+## Quick start for an AI agent (v1 target)
+
+```bash
+pnpm install
+pnpm tainnel keys init                                   # encrypted hot key
+pnpm tainnel channel open --hub https://hub.example --amount 25
+pnpm tainnel pay --to 0xRecipient --amount 0.05 --json   # one-shot payment
+pnpm tainnel listen --hub https://hub.example &          # receive payments
+```
+
+Any-language agents shell out to the CLI; non-TS callers parse the `--json` output.
 
 ## Toolchain
 
@@ -75,9 +92,14 @@ forge build --root packages/contracts
 
 ## Documentation
 
+- [`learning/index.html`](./learning/index.html) — per-component HTML tutorials,
+  offline-readable. Start here.
+- [`ROADMAP.md`](./ROADMAP.md) — phase status, what to work on next, open decisions,
+  Phase 2 follow-ups.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — components, trust assumptions, why 1-hop.
 - [`docs/protocol-spec.md`](./docs/protocol-spec.md) — formal protocol spec.
 - [`docs/threat-model.md`](./docs/threat-model.md) — adversaries and failure modes.
+- [`docs/plans/`](./docs/plans/) — detailed plan per phase (P1–P11).
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — coding standards & PR process.
 - [`SECURITY.md`](./SECURITY.md) — disclosure policy.
 

@@ -1,0 +1,52 @@
+import { type ChannelState, EMPTY_HTLCS_ROOT } from '@tainnel/protocol';
+import { decodeAbiParameters } from 'viem';
+import { describe, expect, it } from 'vitest';
+import { encodeChannelStateForOnChain } from './chain-adapter.js';
+import { channelStateSolidityStruct } from './contracts-abi.js';
+
+const baseState: ChannelState = {
+  channelId: '0x0000000000000000000000000000000000000000000000000000000000000001',
+  version: 5n,
+  balanceA: 100n,
+  balanceB: 50n,
+  htlcs: [],
+  finalized: true,
+};
+
+describe('encodeChannelStateForOnChain', () => {
+  it('encodes a ChannelState as a single ABI tuple', () => {
+    const encoded = encodeChannelStateForOnChain(baseState);
+    const [decoded] = decodeAbiParameters(
+      [{ type: 'tuple', components: [...channelStateSolidityStruct] }],
+      encoded,
+    );
+    expect(decoded).toEqual({
+      channelId: baseState.channelId,
+      version: baseState.version,
+      balanceA: baseState.balanceA,
+      balanceB: baseState.balanceB,
+      htlcsRoot: EMPTY_HTLCS_ROOT,
+      finalized: baseState.finalized,
+    });
+  });
+
+  it('uses the computed htlcsRoot for non-empty htlcs', () => {
+    const encoded = encodeChannelStateForOnChain({
+      ...baseState,
+      htlcs: [
+        {
+          id: '0x0000000000000000000000000000000000000000000000000000000000000abc',
+          direction: 'AtoB',
+          amount: 10n,
+          paymentHash: '0xabababababababababababababababababababababababababababababababab',
+          expiryMs: 1_800_000_000_000n,
+        },
+      ],
+    });
+    const [decoded] = decodeAbiParameters(
+      [{ type: 'tuple', components: [...channelStateSolidityStruct] }],
+      encoded,
+    );
+    expect((decoded as { htlcsRoot: string }).htlcsRoot).not.toBe(EMPTY_HTLCS_ROOT);
+  });
+});

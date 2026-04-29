@@ -5,8 +5,20 @@
 `fee-policy.ts` has real logic
 **Blocks:** P8, P10
 **Effort:** ~1.5 weeks (the longest sub-project)
-**Depends on:** P3 (state machine), P4 (SDK message shapes), P2 (deployed contracts on Hoodi)
-**Parallelizable with:** P6 (watchtower) and P7 (wallet UI)
+**Depends on:** P3 (state machine), P4 (SDK message shapes), P2 (deployed contracts on
+Taiko mainnet — already done)
+**Parallelizable with:** P6 (watchtower) and P7 (agent runtime / CLI)
+
+## Wire protocol vs. agent surface (v1 re-scope clarification)
+
+This phase delivers the hub's **wire protocol**: the REST + WebSocket endpoints that
+SDK clients (and therefore `apps/cli`) talk to. It is **not** the agent-facing surface
+in v1 — agents talk to the CLI, and the CLI talks to this hub via the SDK over the
+wire. Non-TS agents do not need to implement this protocol; they shell out to
+`tainnel pay --json` (P7).
+
+The hub's listing of REST + WS endpoints below is therefore the inter-process protocol
+that defines the network shape, not the API a Python or Rust agent reaches for first.
 
 ## Decisions
 
@@ -98,16 +110,21 @@
       compromised key or stale local DB).
 
 ### REST + WebSocket API (`src/api/`)
-- [ ] `[agent]` `GET /health` — already done; expand to include DB ping and chain
-      RPC reachability.
+- [ ] `[agent]` `GET /v1/health` — DB ping, chain RPC reachability, hub version,
+      open-channel count. Returns 200 only if all green; otherwise 503.
+- [ ] `[agent]` `GET /v1/metrics` — Prometheus exposition; counters/gauges from the
+      "Operational details" section below.
 - [ ] `[agent]` `GET /v1/channels` — list (already returns pool state; gate behind
       hub-operator auth).
 - [ ] `[agent]` `POST /v1/channels/open` — accept open request, return `channelId`
       and on-chain tx hash once mined.
-- [ ] `[agent]` `POST /v1/payments` — for clients without persistent WS (e.g., an
-      AI agent doing a one-shot pay). Internally creates a short-lived WS session.
+- [ ] `[agent]` `POST /v1/payments` — for clients without persistent WS (e.g., a
+      one-shot `tainnel pay` invocation). Internally creates a short-lived WS session.
 - [ ] `[agent]` `WS /v1/ws` — bidirectional channel for state updates,
-      payment.send, payment.settle, dispute notifications.
+      payment.send, payment.settle, dispute notifications. **Long-lived sessions**
+      from `tainnel listen` clients are first-class; ensure `pingInterval`,
+      connection limits, and per-connection memory caps accommodate one long-lived
+      session per channel without reconnect storms.
 
 ### Auth (D5.2 implementation)
 - [ ] `[agent]` Verify signed envelope on every WS message. Cache seen nonces in
@@ -132,6 +149,10 @@
   the expiry-buffer math is where bugs hide.
 - You read `dispute-handler.ts`. Stale-state detection bugs lose money.
 - You read the migrations file. Schema changes after launch are painful.
+- **Key custody review:** confirm the hub never receives, stores, or proxies a user's
+  private key. The hub holds *its own* hot key (D5.3) for on-chain ops; nothing else.
+  This should be obvious from the code but is worth stating explicitly because it is
+  the trust assumption from `ARCHITECTURE.md`.
 
 ## Done when
 

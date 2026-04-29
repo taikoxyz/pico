@@ -11,6 +11,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./signer.test-only": {
+      "types": "./dist/signer.test-only.d.ts",
+      "import": "./dist/signer.test-only.js"
+    },
+    "./_test": {
+      "types": "./dist/_test/index.d.ts",
+      "import": "./dist/_test/index.js"
     }
   },
   "files": ["dist", "src", "README.md"],
@@ -21,11 +29,19 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "@noble/hashes": "^1.5.0",
     "@tainnel/protocol": "workspace:*",
     "@tainnel/state-machine": "workspace:*",
-    "viem": "^2.21.0"
+    "@types/ws": "^8.5.13",
+    "tweetnacl": "^1.0.3",
+    "viem": "^2.21.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "@vitest/coverage-v8": "^2.1.8",
+    "fake-indexeddb": "^6.0.0",
+    "happy-dom": "^15.11.7",
     "typescript": "^5.5.4",
     "vitest": "^2.1.8"
   }
