@@ -21,11 +21,18 @@
     "@tainnel/protocol": "workspace:*",
     "@tainnel/sdk": "workspace:*",
     "@tainnel/state-machine": "workspace:*",
+    "@tainnel/test-utils": "workspace:*",
     "commander": "^12.1.0",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "prompts": "^2.4.2",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/prompts": "^2.4.9",
+    "@vitest/coverage-v8": "^2.1.8",
     "tsx": "^4.19.2",
     "typescript": "^5.5.4",
     "vitest": "^2.1.8"
