@@ -1,4 +1,7 @@
+export * from './chain.js';
+export * from './chain-viem.js';
 export * from './client.js';
+export * from './errors.js';
 export * from './payment.js';
 export * from './storage.js';
 export * from './transport.js';

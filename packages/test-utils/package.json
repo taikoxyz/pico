@@ -24,8 +24,19 @@
     "@tainnel/protocol": "workspace:*",
     "viem": "^2.21.0"
   },
+  "peerDependencies": {
+    "ws": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ws": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
     "typescript": "^5.5.4",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "ws": "^8.0.0"
   }
 }

@@ -1,18 +1,19 @@
 # tainnel
 
-> Trustless **1-hop state channel network for micro-payments on Taiko L2**.
+> Trustless **1-hop state channel network for autonomous-agent micro-payments on Taiko L2**.
 
-Inspired by Lightning's LSP model and optimized for AI service markets and Nostr Data
-Vending Machine (DVM) payment flows. Stablecoin (USDC) and ETH first-class. **No native
-token. No governance. No bridges.**
+Inspired by Lightning's LSP model. v1 targets autonomous agents and operators driving
+the system from the `tainnel` CLI or by importing `@tainnel/sdk` directly — no browser
+wallet, no WalletConnect. Stablecoin (USDC) first-class for v1; ETH support and Nostr
+DVM payments are Phase-2 follow-ups. **No native token. No governance. No bridges.**
 
 ## Why 1-hop
 
 Lightning's full multi-hop topology is overkill for the workloads tainnel targets:
 
 - AI agents paying agents
-- Clients paying DVMs
-- Streaming dust-sized payments to APIs
+- Streaming dust-sized payments to APIs and services
+- Autonomous bots paying for compute, data, or model calls
 
 Multi-hop adds liquidity-routing complexity, locked HTLCs, and onion-routing overhead
 without buying the marginal user anything when "1 hop through a hub" is plenty. tainnel
@@ -25,8 +26,7 @@ recipient`. Hubs compete on liquidity, fees, and uptime — exactly like LSPs.
 apps/
   hub/          Long-running hub service (Fastify + ws + sqlite/postgres)
   watchtower/   Standalone fraud monitor that posts penalty txs
-  wallet-ui/    Reference web wallet (React + Vite + wagmi v2 + tailwind)
-  cli/          tainnel <cmd> CLI for ops & development
+  cli/          tainnel <cmd> CLI — the v1 user surface for agents and operators
 packages/
   contracts/    Solidity 0.8.26 PaymentChannel + Adjudicator + HTLC (Foundry)
   protocol/     Shared TS types, EIP-712 schemas, constants, Nostr event kinds

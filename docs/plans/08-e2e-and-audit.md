@@ -9,7 +9,7 @@
 
 P2–P7 each verify their own surface in isolation. P8 is the only place where
 the **whole stack** is exercised: contracts + state machine + SDK + hub +
-watchtower + wallet UI all running together against an anvil fork of Taiko.
+watchtower + CLI all running together against an anvil fork of Taiko.
 This is also where you, the human, sit down and read the most safety-critical
 code top-to-bottom.
 

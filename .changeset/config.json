@@ -12,7 +12,6 @@
     "@tainnel/e2e",
     "@tainnel/hub",
     "@tainnel/test-utils",
-    "@tainnel/wallet-ui",
     "@tainnel/watchtower"
   ]
 }

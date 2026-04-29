@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "dev": "tsx src/index.ts",
     "clean": "rm -rf dist .turbo"
   },
@@ -22,10 +22,14 @@
     "@tainnel/sdk": "workspace:*",
     "@tainnel/state-machine": "workspace:*",
     "commander": "^12.1.0",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "viem": "^2.21.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@tainnel/test-utils": "workspace:*",
     "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^2.1.8",
     "tsx": "^4.19.2",
     "typescript": "^5.5.4",
     "vitest": "^2.1.8"
