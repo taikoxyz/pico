@@ -19,10 +19,19 @@ export function validateUpdate(prev: ChannelState, update: Update): void {
   if (update.channelId !== prev.channelId) {
     throw new StateMachineError('channel id mismatch', 'CHANNEL_ID_MISMATCH');
   }
+  if (update.fromVersion !== prev.version) {
+    throw new StateMachineError('fromVersion does not match prev', 'FROM_VERSION_MISMATCH');
+  }
   if (prev.finalized) {
     throw new StateMachineError('channel already finalized', 'FINALIZED');
   }
   ensureMonotonicVersion(prev.version, update.toVersion);
+  if (update.nextState.version !== update.toVersion) {
+    throw new StateMachineError('nextState.version must equal toVersion', 'VERSION_MISMATCH');
+  }
+  if (update.nextState.finalized && update.nextState.htlcs.length > 0) {
+    throw new StateMachineError('cannot finalize with pending htlcs', 'PENDING_HTLCS');
+  }
   const before = computeBalance(prev);
   const after = computeBalance(update.nextState);
   if (before.totalA + before.totalB !== after.totalA + after.totalB) {

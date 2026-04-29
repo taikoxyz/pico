@@ -1,0 +1,933 @@
+{
+  "domain": {
+    "chainId": 167009,
+    "verifyingContract": "0x1111111111111111111111111111111111111111"
+  },
+  "channelState": [
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "version": "1",
+        "balanceA": "10000",
+        "balanceB": "20000",
+        "htlcs": [
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000065",
+            "direction": "AtoB",
+            "amount": "101001",
+            "paymentHash": "0x6565656565656565656565656565656565656565656565656565656565656565",
+            "expiryMs": "102000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x5811ef210f3e9bb019f3cc10027c0b61ca84ec859aa023f4b7df2a0f1a69a6ed",
+      "htlcsRoot": "0x725811a7d0bff65ad7c934aa60edc2ad7e522b8d073a52a77f602aee2e8232da"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "version": "2",
+        "balanceA": "20000",
+        "balanceB": "40000",
+        "htlcs": [
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000000c9",
+            "direction": "AtoB",
+            "amount": "201001",
+            "paymentHash": "0xc9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9",
+            "expiryMs": "202000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000000ca",
+            "direction": "BtoA",
+            "amount": "202001",
+            "paymentHash": "0xcacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca",
+            "expiryMs": "203000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x00e66fddfa1abda9800dd4d3e8b739b139bee7e701d1a7b9150e5a59bf7b033a",
+      "htlcsRoot": "0x42e5b95347d8b3728af4558d05db885cb347960f4440abf01b7795d2d5f80210"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "version": "3",
+        "balanceA": "30000",
+        "balanceB": "60000",
+        "htlcs": [
+          {
+            "id": "0x000000000000000000000000000000000000000000000000000000000000012d",
+            "direction": "AtoB",
+            "amount": "301001",
+            "paymentHash": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d",
+            "expiryMs": "302000000000"
+          },
+          {
+            "id": "0x000000000000000000000000000000000000000000000000000000000000012e",
+            "direction": "BtoA",
+            "amount": "302001",
+            "paymentHash": "0x2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e",
+            "expiryMs": "303000000000"
+          },
+          {
+            "id": "0x000000000000000000000000000000000000000000000000000000000000012f",
+            "direction": "AtoB",
+            "amount": "303001",
+            "paymentHash": "0x2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f",
+            "expiryMs": "304000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x3e2ace2b0e3c33c12cbe4f65630e5af048c6a3312855d263436fc0716ed63845",
+      "htlcsRoot": "0x883f52f3e72307498baa1629e600c5006e3510c2992d595a4187b8399f2086a1"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "version": "4",
+        "balanceA": "40000",
+        "balanceB": "80000",
+        "htlcs": [
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000191",
+            "direction": "AtoB",
+            "amount": "401001",
+            "paymentHash": "0x9191919191919191919191919191919191919191919191919191919191919191",
+            "expiryMs": "402000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000192",
+            "direction": "BtoA",
+            "amount": "402001",
+            "paymentHash": "0x9292929292929292929292929292929292929292929292929292929292929292",
+            "expiryMs": "403000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000193",
+            "direction": "AtoB",
+            "amount": "403001",
+            "paymentHash": "0x9393939393939393939393939393939393939393939393939393939393939393",
+            "expiryMs": "404000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000194",
+            "direction": "BtoA",
+            "amount": "404001",
+            "paymentHash": "0x9494949494949494949494949494949494949494949494949494949494949494",
+            "expiryMs": "405000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x4ba62f4c347241dcf2cbf57e66321c7b25c2f52f0ccd2b71802854d1dabef00e",
+      "htlcsRoot": "0xae03bd60d31ed4aae548e380cb17288b89d94d6078707e79f10e7bf11d00bbb1"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000005",
+        "version": "5",
+        "balanceA": "50000",
+        "balanceB": "100000",
+        "htlcs": [
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000001f5",
+            "direction": "AtoB",
+            "amount": "501001",
+            "paymentHash": "0xf5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5",
+            "expiryMs": "502000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000001f6",
+            "direction": "BtoA",
+            "amount": "502001",
+            "paymentHash": "0xf6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+            "expiryMs": "503000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000001f7",
+            "direction": "AtoB",
+            "amount": "503001",
+            "paymentHash": "0xf7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7",
+            "expiryMs": "504000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000001f8",
+            "direction": "BtoA",
+            "amount": "504001",
+            "paymentHash": "0xf8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8",
+            "expiryMs": "505000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000001f9",
+            "direction": "AtoB",
+            "amount": "505001",
+            "paymentHash": "0xf9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9",
+            "expiryMs": "506000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x356db6e6bea4764012b0b4a9cf839da0ee200a948a054481086ec652c07ad0d6",
+      "htlcsRoot": "0x4eaa0d58892d6c7efe528f2ba96bf622c9cccfe41bd62daba1831ca045c5317a"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "version": "6",
+        "balanceA": "60000",
+        "balanceB": "120000",
+        "htlcs": [],
+        "finalized": false
+      },
+      "digest": "0xc10c700e1e154313f52965af3bea7e9d3cdda8620f284c3ab9575f6ffad6b92f",
+      "htlcsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "version": "7",
+        "balanceA": "70000",
+        "balanceB": "140000",
+        "htlcs": [
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000002bd",
+            "direction": "AtoB",
+            "amount": "701001",
+            "paymentHash": "0xbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd",
+            "expiryMs": "702000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0xe09070410f66a59aef94de884a5c7edd918689d84e8454bf2b7760d6feca30d9",
+      "htlcsRoot": "0xe7f1841c55aadb113c36833539d5ddccdcb9af9295f24c05fb95211d9eb5c3d6"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "version": "8",
+        "balanceA": "80000",
+        "balanceB": "160000",
+        "htlcs": [
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000321",
+            "direction": "AtoB",
+            "amount": "801001",
+            "paymentHash": "0x2121212121212121212121212121212121212121212121212121212121212121",
+            "expiryMs": "802000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000322",
+            "direction": "BtoA",
+            "amount": "802001",
+            "paymentHash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "expiryMs": "803000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x4a09f51bd88f4f5623256c407f4c21bd093c8d92b60d0f7f1ad689b4ba6645a1",
+      "htlcsRoot": "0xbda5d409cb2c029e92cb88826c4bfc511a9e621840b7ffbcc890621e59ea94a8"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000009",
+        "version": "9",
+        "balanceA": "90000",
+        "balanceB": "180000",
+        "htlcs": [
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000385",
+            "direction": "AtoB",
+            "amount": "901001",
+            "paymentHash": "0x8585858585858585858585858585858585858585858585858585858585858585",
+            "expiryMs": "902000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000386",
+            "direction": "BtoA",
+            "amount": "902001",
+            "paymentHash": "0x8686868686868686868686868686868686868686868686868686868686868686",
+            "expiryMs": "903000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000387",
+            "direction": "AtoB",
+            "amount": "903001",
+            "paymentHash": "0x8787878787878787878787878787878787878787878787878787878787878787",
+            "expiryMs": "904000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x4edc57e72a2d33890200703a5af9c7b2b5e896e1c210cbf606326aa466eea4ed",
+      "htlcsRoot": "0xc151a9f89501cde0c2c2c02dc18d0070011ef8dca12d07063efbae11309950b3"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "version": "10",
+        "balanceA": "100000",
+        "balanceB": "200000",
+        "htlcs": [
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000003e9",
+            "direction": "AtoB",
+            "amount": "1001001",
+            "paymentHash": "0xe9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9",
+            "expiryMs": "1002000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000003ea",
+            "direction": "BtoA",
+            "amount": "1002001",
+            "paymentHash": "0xeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaea",
+            "expiryMs": "1003000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000003eb",
+            "direction": "AtoB",
+            "amount": "1003001",
+            "paymentHash": "0xebebebebebebebebebebebebebebebebebebebebebebebebebebebebebebebeb",
+            "expiryMs": "1004000000000"
+          },
+          {
+            "id": "0x00000000000000000000000000000000000000000000000000000000000003ec",
+            "direction": "BtoA",
+            "amount": "1004001",
+            "paymentHash": "0xecececececececececececececececececececececececececececececececec",
+            "expiryMs": "1005000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0x7d6a0df20c83460b50e603e2429fd838a602b538e63e77fa9eed2ef9d4cf2df3",
+      "htlcsRoot": "0x9a8812d026c0ac9bc8089b67ca4bf2c764d19354261d9752208035c71f2282ed"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000b",
+        "version": "11",
+        "balanceA": "110000",
+        "balanceB": "220000",
+        "htlcs": [
+          {
+            "id": "0x000000000000000000000000000000000000000000000000000000000000044d",
+            "direction": "AtoB",
+            "amount": "1101001",
+            "paymentHash": "0x4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+            "expiryMs": "1102000000000"
+          },
+          {
+            "id": "0x000000000000000000000000000000000000000000000000000000000000044e",
+            "direction": "BtoA",
+            "amount": "1102001",
+            "paymentHash": "0x4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+            "expiryMs": "1103000000000"
+          },
+          {
+            "id": "0x000000000000000000000000000000000000000000000000000000000000044f",
+            "direction": "AtoB",
+            "amount": "1103001",
+            "paymentHash": "0x4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+            "expiryMs": "1104000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000450",
+            "direction": "BtoA",
+            "amount": "1104001",
+            "paymentHash": "0x5050505050505050505050505050505050505050505050505050505050505050",
+            "expiryMs": "1105000000000"
+          },
+          {
+            "id": "0x0000000000000000000000000000000000000000000000000000000000000451",
+            "direction": "AtoB",
+            "amount": "1105001",
+            "paymentHash": "0x5151515151515151515151515151515151515151515151515151515151515151",
+            "expiryMs": "1106000000000"
+          }
+        ],
+        "finalized": false
+      },
+      "digest": "0xcd4b917d68256fbe56babfaca0b5da49fb688db2eb205a375c2ce7c0777a1cbc",
+      "htlcsRoot": "0x7615b80ce7003c8ea6180eb362228ee7cbcc8a8631f15c8a12b855bac2ef94f6"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000c",
+        "version": "12",
+        "balanceA": "120000",
+        "balanceB": "240000",
+        "htlcs": [],
+        "finalized": true
+      },
+      "digest": "0x3827983accd18e5961814ad565e8dc5c33ff847e3dde48352550b373559016c3",
+      "htlcsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "htlc": [
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "direction": "BtoA",
+        "amount": "1001",
+        "paymentHash": "0x0101010101010101010101010101010101010101010101010101010101010101",
+        "expiryMs": "2000000000"
+      },
+      "digest": "0xba1d72c2bf8b81f8f85a887dbaf6d5cf49f6681dc65f34998a8cebe6c1bbf5a6"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "direction": "AtoB",
+        "amount": "2001",
+        "paymentHash": "0x0202020202020202020202020202020202020202020202020202020202020202",
+        "expiryMs": "3000000000"
+      },
+      "digest": "0xc7b3e81998b1a472584801a420c677707d2b20c0be2ab976315a33311b6160f8"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "direction": "BtoA",
+        "amount": "3001",
+        "paymentHash": "0x0303030303030303030303030303030303030303030303030303030303030303",
+        "expiryMs": "4000000000"
+      },
+      "digest": "0x0a4f07dbbad751b50784dfeabb67e685da3f3fc540bb14a7945df40cbd6588d3"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "direction": "AtoB",
+        "amount": "4001",
+        "paymentHash": "0x0404040404040404040404040404040404040404040404040404040404040404",
+        "expiryMs": "5000000000"
+      },
+      "digest": "0x9291783aec36a7da0578d7a2657860954ec7bba1e47f892d0075b837420a9583"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000005",
+        "direction": "BtoA",
+        "amount": "5001",
+        "paymentHash": "0x0505050505050505050505050505050505050505050505050505050505050505",
+        "expiryMs": "6000000000"
+      },
+      "digest": "0x890d4c2e3c145b4b8d776b910ae71f5f8d95a5eecf501b1fe08ac39a4b93f5e9"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "direction": "AtoB",
+        "amount": "6001",
+        "paymentHash": "0x0606060606060606060606060606060606060606060606060606060606060606",
+        "expiryMs": "7000000000"
+      },
+      "digest": "0xab4097198ff7a400be5b50005ddfd9a507a4e96168c46a404d10646466ca4032"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "direction": "BtoA",
+        "amount": "7001",
+        "paymentHash": "0x0707070707070707070707070707070707070707070707070707070707070707",
+        "expiryMs": "8000000000"
+      },
+      "digest": "0xa16509db94465294a009de6f0bde54219f74af648382759f0585ec8f8f90dd9d"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "direction": "AtoB",
+        "amount": "8001",
+        "paymentHash": "0x0808080808080808080808080808080808080808080808080808080808080808",
+        "expiryMs": "9000000000"
+      },
+      "digest": "0x61fbb16df50aab9deb6d7110dbe2812f3a00c7e0ff946b2e0e9247e133965533"
+    },
+    {
+      "input": {
+        "id": "0x0000000000000000000000000000000000000000000000000000000000000009",
+        "direction": "BtoA",
+        "amount": "9001",
+        "paymentHash": "0x0909090909090909090909090909090909090909090909090909090909090909",
+        "expiryMs": "10000000000"
+      },
+      "digest": "0x3e30502c05488db2791b7f9b19a94c640b48ed1ba4595677645f49f0d4b7b659"
+    },
+    {
+      "input": {
+        "id": "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "direction": "AtoB",
+        "amount": "10001",
+        "paymentHash": "0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+        "expiryMs": "11000000000"
+      },
+      "digest": "0x3d8226adacf1fd97490a90e40d0636dc50dbba54d279dc48225f9be6f916a384"
+    },
+    {
+      "input": {
+        "id": "0x000000000000000000000000000000000000000000000000000000000000000b",
+        "direction": "BtoA",
+        "amount": "11001",
+        "paymentHash": "0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+        "expiryMs": "12000000000"
+      },
+      "digest": "0xc361d9099ad5b34ac959bbed34d8a6f6cf8782ed62f8d67800a28fc51aa8554b"
+    },
+    {
+      "input": {
+        "id": "0x000000000000000000000000000000000000000000000000000000000000000c",
+        "direction": "AtoB",
+        "amount": "12001",
+        "paymentHash": "0x0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+        "expiryMs": "13000000000"
+      },
+      "digest": "0xdeca0bc309e146db23292a1984a33cdb091f23bb442784e1681c3c69044f6572"
+    }
+  ],
+  "update": [
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "fromVersion": "1",
+        "toVersion": "2",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "version": "2",
+          "balanceA": "20000",
+          "balanceB": "40000",
+          "htlcs": [
+            {
+              "id": "0x00000000000000000000000000000000000000000000000000000000000000c9",
+              "direction": "AtoB",
+              "amount": "201001",
+              "paymentHash": "0xc9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9",
+              "expiryMs": "202000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0x68ab7f39cfbed8b52e273de00cc5c63dbed68fc30678175fa82a90c5dab9ab49"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "fromVersion": "2",
+        "toVersion": "3",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "version": "3",
+          "balanceA": "30000",
+          "balanceB": "60000",
+          "htlcs": [
+            {
+              "id": "0x000000000000000000000000000000000000000000000000000000000000012d",
+              "direction": "AtoB",
+              "amount": "301001",
+              "paymentHash": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d",
+              "expiryMs": "302000000000"
+            },
+            {
+              "id": "0x000000000000000000000000000000000000000000000000000000000000012e",
+              "direction": "BtoA",
+              "amount": "302001",
+              "paymentHash": "0x2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e",
+              "expiryMs": "303000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0x7644a93851ac4474b82346a8cc91f2a1d6c20fb731d646e13d01045083163521"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "fromVersion": "3",
+        "toVersion": "4",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "version": "4",
+          "balanceA": "40000",
+          "balanceB": "80000",
+          "htlcs": [
+            {
+              "id": "0x0000000000000000000000000000000000000000000000000000000000000191",
+              "direction": "AtoB",
+              "amount": "401001",
+              "paymentHash": "0x9191919191919191919191919191919191919191919191919191919191919191",
+              "expiryMs": "402000000000"
+            },
+            {
+              "id": "0x0000000000000000000000000000000000000000000000000000000000000192",
+              "direction": "BtoA",
+              "amount": "402001",
+              "paymentHash": "0x9292929292929292929292929292929292929292929292929292929292929292",
+              "expiryMs": "403000000000"
+            },
+            {
+              "id": "0x0000000000000000000000000000000000000000000000000000000000000193",
+              "direction": "AtoB",
+              "amount": "403001",
+              "paymentHash": "0x9393939393939393939393939393939393939393939393939393939393939393",
+              "expiryMs": "404000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0xc8fa3e4d1d94586585ccdbaefc3ecaef181d8994c79b6292a7ff32d118cc1e16"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "fromVersion": "4",
+        "toVersion": "5",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000004",
+          "version": "5",
+          "balanceA": "50000",
+          "balanceB": "100000",
+          "htlcs": [],
+          "finalized": false
+        }
+      },
+      "digest": "0xe255218d6dabc2c64cfbfa4a075dd06bca702b6e3838a1bd14e49fba53d1cae8"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000005",
+        "fromVersion": "5",
+        "toVersion": "6",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000005",
+          "version": "6",
+          "balanceA": "60000",
+          "balanceB": "120000",
+          "htlcs": [
+            {
+              "id": "0x0000000000000000000000000000000000000000000000000000000000000259",
+              "direction": "AtoB",
+              "amount": "601001",
+              "paymentHash": "0x5959595959595959595959595959595959595959595959595959595959595959",
+              "expiryMs": "602000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0x05a7147cf670b155a3bc9282b14d5dbb4e5c74cba5691dd29f8f358262db2055"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "fromVersion": "6",
+        "toVersion": "7",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000006",
+          "version": "7",
+          "balanceA": "70000",
+          "balanceB": "140000",
+          "htlcs": [
+            {
+              "id": "0x00000000000000000000000000000000000000000000000000000000000002bd",
+              "direction": "AtoB",
+              "amount": "701001",
+              "paymentHash": "0xbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd",
+              "expiryMs": "702000000000"
+            },
+            {
+              "id": "0x00000000000000000000000000000000000000000000000000000000000002be",
+              "direction": "BtoA",
+              "amount": "702001",
+              "paymentHash": "0xbebebebebebebebebebebebebebebebebebebebebebebebebebebebebebebebe",
+              "expiryMs": "703000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0xb3034546be48d3e64a9ee68b0ef7954e5bbe2e1a046b284ebedb069c221cd8ca"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "fromVersion": "7",
+        "toVersion": "8",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000007",
+          "version": "8",
+          "balanceA": "80000",
+          "balanceB": "160000",
+          "htlcs": [
+            {
+              "id": "0x0000000000000000000000000000000000000000000000000000000000000321",
+              "direction": "AtoB",
+              "amount": "801001",
+              "paymentHash": "0x2121212121212121212121212121212121212121212121212121212121212121",
+              "expiryMs": "802000000000"
+            },
+            {
+              "id": "0x0000000000000000000000000000000000000000000000000000000000000322",
+              "direction": "BtoA",
+              "amount": "802001",
+              "paymentHash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+              "expiryMs": "803000000000"
+            },
+            {
+              "id": "0x0000000000000000000000000000000000000000000000000000000000000323",
+              "direction": "AtoB",
+              "amount": "803001",
+              "paymentHash": "0x2323232323232323232323232323232323232323232323232323232323232323",
+              "expiryMs": "804000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0x2ea353672809f1d4ddd5c1202b4794b893584d17ce2df8d7617518d0acb2be86"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "fromVersion": "8",
+        "toVersion": "9",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000008",
+          "version": "9",
+          "balanceA": "90000",
+          "balanceB": "180000",
+          "htlcs": [],
+          "finalized": false
+        }
+      },
+      "digest": "0x9c6c8285a7701591892626863d9c2342276b545e4e277c73aa7804453078db00"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000009",
+        "fromVersion": "9",
+        "toVersion": "10",
+        "nextState": {
+          "channelId": "0x0000000000000000000000000000000000000000000000000000000000000009",
+          "version": "10",
+          "balanceA": "100000",
+          "balanceB": "200000",
+          "htlcs": [
+            {
+              "id": "0x00000000000000000000000000000000000000000000000000000000000003e9",
+              "direction": "AtoB",
+              "amount": "1001001",
+              "paymentHash": "0xe9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9",
+              "expiryMs": "1002000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0x99b1abe8d6c6f99c021386fae34803bff1ef722195103496e9a9080da44c2853"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "fromVersion": "10",
+        "toVersion": "11",
+        "nextState": {
+          "channelId": "0x000000000000000000000000000000000000000000000000000000000000000a",
+          "version": "11",
+          "balanceA": "110000",
+          "balanceB": "220000",
+          "htlcs": [
+            {
+              "id": "0x000000000000000000000000000000000000000000000000000000000000044d",
+              "direction": "AtoB",
+              "amount": "1101001",
+              "paymentHash": "0x4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+              "expiryMs": "1102000000000"
+            },
+            {
+              "id": "0x000000000000000000000000000000000000000000000000000000000000044e",
+              "direction": "BtoA",
+              "amount": "1102001",
+              "paymentHash": "0x4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+              "expiryMs": "1103000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0x39a58f97389c7410d7799112a5144cb9e7171f727a81b657d6e40043b3c7c148"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000b",
+        "fromVersion": "11",
+        "toVersion": "12",
+        "nextState": {
+          "channelId": "0x000000000000000000000000000000000000000000000000000000000000000b",
+          "version": "12",
+          "balanceA": "120000",
+          "balanceB": "240000",
+          "htlcs": [
+            {
+              "id": "0x00000000000000000000000000000000000000000000000000000000000004b1",
+              "direction": "AtoB",
+              "amount": "1201001",
+              "paymentHash": "0xb1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+              "expiryMs": "1202000000000"
+            },
+            {
+              "id": "0x00000000000000000000000000000000000000000000000000000000000004b2",
+              "direction": "BtoA",
+              "amount": "1202001",
+              "paymentHash": "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+              "expiryMs": "1203000000000"
+            },
+            {
+              "id": "0x00000000000000000000000000000000000000000000000000000000000004b3",
+              "direction": "AtoB",
+              "amount": "1203001",
+              "paymentHash": "0xb3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3",
+              "expiryMs": "1204000000000"
+            }
+          ],
+          "finalized": false
+        }
+      },
+      "digest": "0x3b0b53dc66572f54c6c1161e85bd13051d82889fc6bcf9b155f99082419bc4d5"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000c",
+        "fromVersion": "12",
+        "toVersion": "13",
+        "nextState": {
+          "channelId": "0x000000000000000000000000000000000000000000000000000000000000000c",
+          "version": "13",
+          "balanceA": "130000",
+          "balanceB": "260000",
+          "htlcs": [],
+          "finalized": false
+        }
+      },
+      "digest": "0x1910c553457f75ab7db0e4068e1c563dd2a5f9eefbf763f0a7c8a9c196acd4c5"
+    }
+  ],
+  "cooperativeClose": [
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "finalBalanceA": "1000",
+        "finalBalanceB": "2000",
+        "signedAt": "1700000060"
+      },
+      "digest": "0x0020fc89b10541be8be757ba72f9f3a0f80692d213cd646370f6b688a8a8c453"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "finalBalanceA": "2000",
+        "finalBalanceB": "4000",
+        "signedAt": "1700000120"
+      },
+      "digest": "0xc7c3e2a193ec8a236d02aff3e89d0171547391532fe4a8e2d4f4b713c27ec80a"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "finalBalanceA": "3000",
+        "finalBalanceB": "6000",
+        "signedAt": "1700000180"
+      },
+      "digest": "0xdff364e4d7944d857f00eb5a9812685ffd5c56cd0b8fea7a86894bd832b635ea"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "finalBalanceA": "4000",
+        "finalBalanceB": "8000",
+        "signedAt": "1700000240"
+      },
+      "digest": "0x0790305520fb1714bf7929c6a97dd74b469293ecc9fb6a05eec29d78375f3b24"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000005",
+        "finalBalanceA": "5000",
+        "finalBalanceB": "10000",
+        "signedAt": "1700000300"
+      },
+      "digest": "0xae9189cfe8e2cd1f18020ebbbad31e4b68d5fe6f090429055f8c0a84aed692b2"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "finalBalanceA": "6000",
+        "finalBalanceB": "12000",
+        "signedAt": "1700000360"
+      },
+      "digest": "0x1c1cc0f417428397d57acd5eac1befb9dc6fbe795da6aef4c42dd5f7a59ebd3a"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "finalBalanceA": "7000",
+        "finalBalanceB": "14000",
+        "signedAt": "1700000420"
+      },
+      "digest": "0x43f6b7461964dab5acba5e5bfc69b40d85341fc4a1ca999f9dd29636fabbae6c"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "finalBalanceA": "8000",
+        "finalBalanceB": "16000",
+        "signedAt": "1700000480"
+      },
+      "digest": "0x5eb4e1fd0c88405d32971417ae63e20281d8a18a86db8f3f906115a1cd23cb74"
+    },
+    {
+      "input": {
+        "channelId": "0x0000000000000000000000000000000000000000000000000000000000000009",
+        "finalBalanceA": "9000",
+        "finalBalanceB": "18000",
+        "signedAt": "1700000540"
+      },
+      "digest": "0x39eaea6410daf6c54911418475e92ed68229ebaead412f4e70a71cddf8645cfa"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "finalBalanceA": "10000",
+        "finalBalanceB": "20000",
+        "signedAt": "1700000600"
+      },
+      "digest": "0x167ea339251310639621ffe0e8af05f90a5c22eb036d8f505410f1698e7134ac"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000b",
+        "finalBalanceA": "11000",
+        "finalBalanceB": "22000",
+        "signedAt": "1700000660"
+      },
+      "digest": "0x6e270d885d6a920cb96a0b07bedc2647c4dc6a823bb1b388b42aef3d18004bf9"
+    },
+    {
+      "input": {
+        "channelId": "0x000000000000000000000000000000000000000000000000000000000000000c",
+        "finalBalanceA": "12000",
+        "finalBalanceB": "24000",
+        "signedAt": "1700000720"
+      },
+      "digest": "0xbaa866ba54c4efc0773b6f3583e1b2a322bb8ab922f2558b76842035b1c59929"
+    }
+  ]
+}

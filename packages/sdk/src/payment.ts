@@ -1,18 +1,18 @@
-import type { Address, ChannelId } from '@tainnel/protocol';
+import type { Address, ChannelId, Hex, Invoice, Preimage } from '@tainnel/protocol';
 
 export interface PaymentRequest {
-  readonly to: Address;
-  readonly amount: bigint;
+  readonly to?: Address;
+  readonly amount?: bigint;
+  readonly invoice?: Invoice;
+  readonly keysend?: boolean;
+  readonly keysendPayload?: Record<string, unknown>;
+  readonly recipientEncryptionPubkey?: Hex;
   readonly viaHub?: string;
   readonly memo?: string;
 }
 
 export interface PaymentResult {
   readonly channelId: ChannelId;
-  readonly preimage: `0x${string}`;
+  readonly preimage: Preimage;
   readonly settledAtMs: number;
-}
-
-export async function pay(_request: PaymentRequest): Promise<PaymentResult> {
-  throw new Error('not implemented');
 }
