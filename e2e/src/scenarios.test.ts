@@ -1,4 +1,7 @@
-import { erc20Abi, parseAbi } from 'viem';
+import { encodeChannelStateForOnChain, signatureToHex } from '@tainnel/sdk';
+import { http, createWalletClient, erc20Abi, parseAbi } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   type AliceBundle,
@@ -10,6 +13,11 @@ import {
 
 const paymentChannelStatusAbi = parseAbi([
   'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
+]);
+
+const paymentChannelAttackAbi = parseAbi([
+  'function closeUnilateral(bytes32 channelId, bytes state, bytes sigCounterparty)',
+  'function dispute(bytes32 channelId, bytes state, bytes sigCloser)',
 ]);
 
 const ONE_USDC = 1_000_000n;
@@ -144,6 +152,69 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     await alice.client.close(channel.id, { cooperative: true });
     expect(await readUsdcBalance(h, h.alice.address)).toBe(100n * ONE_USDC);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(100n * ONE_USDC);
+  });
+
+  it('replay attack: dispute with same posted version reverts stale', async () => {
+    const channel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    h.hubServer.registerChannel(channel);
+
+    await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
+    const v2 = await alice.storage.loadLatestState(channel.id);
+    if (!v2) throw new Error('no v2 state');
+    expect(v2.state.version).toBe(2n);
+
+    await alice.client.close(channel.id, { cooperative: false });
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSING_UNILATERAL);
+
+    const aliceWallet = createWalletClient({
+      account: privateKeyToAccount(h.alice.privateKey),
+      chain: foundry,
+      transport: http(h.rpcUrl),
+    });
+    await expect(
+      aliceWallet.writeContract({
+        address: h.paymentChannel,
+        abi: paymentChannelAttackAbi,
+        functionName: 'dispute',
+        args: [channel.id, encodeChannelStateForOnChain(v2.state), signatureToHex(v2.sigA)],
+      }),
+    ).rejects.toThrow(/stale/i);
+
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSING_UNILATERAL);
+  });
+
+  it('replay attack: closeUnilateral on already-closed channel reverts !open', async () => {
+    const channel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    h.hubServer.registerChannel(channel);
+
+    await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
+    const v2 = await alice.storage.loadLatestState(channel.id);
+    if (!v2) throw new Error('no v2 state');
+
+    await alice.client.close(channel.id, { cooperative: true });
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
+
+    const aliceWallet = createWalletClient({
+      account: privateKeyToAccount(h.alice.privateKey),
+      chain: foundry,
+      transport: http(h.rpcUrl),
+    });
+    await expect(
+      aliceWallet.writeContract({
+        address: h.paymentChannel,
+        abi: paymentChannelAttackAbi,
+        functionName: 'closeUnilateral',
+        args: [channel.id, encodeChannelStateForOnChain(v2.state), signatureToHex(v2.sigB)],
+      }),
+    ).rejects.toThrow(/!open/);
+
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
   });
 
   it('unilateral close → time-warp 24h → finalize pays out posted balances', async () => {

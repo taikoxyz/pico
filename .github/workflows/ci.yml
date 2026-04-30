@@ -141,6 +141,11 @@ jobs:
       - name: Run E2E tests
         run: pnpm -F @tainnel/e2e test
 
+  # TODO (Phase 2C/2D): add an optional `e2e-fork` job gated on
+  # secrets.TAIKO_MAINNET_RPC_URL that runs scenarios needing a Taiko mainnet
+  # fork (HTLC, dispute, watchtower). The harness already supports fork mode
+  # via bootE2E({ forkUrl, forkBlockNumber }); no test requires it yet.
+
   ci:
     if: always()
     needs: [lint, typecheck, build, test-ts, test-solidity, e2e]

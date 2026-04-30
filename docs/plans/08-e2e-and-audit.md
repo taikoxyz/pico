@@ -1,10 +1,12 @@
 # P8 — E2E + internal audit
 
-**Status:** 🟢 **Phase 1 done** — 6 scenarios green in CI on vanilla anvil
-(`pnpm -F @tainnel/e2e test` → 6 passed, 3 deferred, ~1.7s). Phase 2 (HTLC,
-multi-hop, dispute, watchtower) and Phase 3 (audit) not started.
+**Status:** 🟡 **Phase 2 in progress** — Phase 1 done (6 scenarios) plus
+Phase 2A done (fork-mode harness + 2 replay-attack scenarios) → 8 scenarios
+green in CI (`pnpm -F @tainnel/e2e test` → 8 passed, 3 deferred, ~2s).
+Phase 2B (HTLC routing), 2C (dispute/watchtower), 2D (durability) and
+Phase 3 (audit) not started.
 **Blocks:** P9, P10
-**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (remaining scenarios + audit).
+**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (2A ✅, 2B ~3d, 2C ~2d, 2D ~3d).
 
 ## Why this exists as its own phase
 
@@ -152,12 +154,47 @@ Each test gets a fresh harness via `beforeEach` / `afterEach`. Helpers
 
 ---
 
-## Phase 2 — full lifecycle scenarios (deferred)
+## Phase 2 — full lifecycle scenarios
 
-Each scenario below reuses the Phase 1 harness (swap the test-only hub for the
-real `apps/hub` once it's ready). Status of all of these is **🔵 deferred until
-the underlying primitives land** — the gating components are noted per
-scenario.
+Sequenced into 4 milestones (2A done; 2B/2C/2D pending). Each scenario
+reuses the Phase 1 harness; for fork-mode scenarios, `bootE2E({ forkUrl,
+forkBlockNumber })` switches to anvil-forking-Taiko-mainnet (chainId
+167000) using the on-chain `PaymentChannel` / `Adjudicator` / bridged
+USDC addresses from `packages/protocol/src/constants.ts`.
+
+### 2A — Foundation + replay attack ✅
+
+- [x] `[agent]` Extended `e2e/src/harness.ts` with `BootE2EOptions
+      { forkUrl?, forkBlockNumber? }` and a fork-mode branch that:
+      starts anvil with `--fork-url`, sets chainId =
+      `TAIKO_MAINNET_CHAIN_ID`, skips contract deploys, uses bridged USDC
+      address, and funds alice/hub via `anvil_setBalance`. Vanilla mode
+      unchanged. New `mode: 'vanilla' | 'fork'` field on `E2EHandle`.
+- [x] `[agent]` Two replay-attack scenarios (see "Scenario: replay
+      attack" below). Both run in vanilla mode (no fork dependency).
+- [x] `[agent]` CI marker added in `.github/workflows/ci.yml` for a
+      future `e2e-fork` job; the existing `e2e` job already runs the
+      replay scenarios in vanilla mode.
+
+### 2B — 3-party HTLC routing (agent-pay-agent) 🔵 not started
+**Effort:** ~3 days, ~700 LOC.
+**Gates on:** real `apps/hub` HTLC routing + WS handlers (today the
+router/api are stubs). Scenario itself is SDK-driven (no CLI needed).
+Replaces `startMockHub` in the harness with the real hub server.
+
+### 2C — Dispute + watchtower penalty 🔵 not started
+**Effort:** ~2 days, ~600 LOC.
+**Gates on:** `apps/watchtower/src/{watcher,responder}.ts` + hub
+`chain-watcher.ts` / `dispute-handler.ts` (all stubs today).
+
+### 2D — Durability + recovery scenarios 🔵 not started (optional)
+**Effort:** ~3 days, ~700 LOC. Covers receiver-offline, hot-key rotation,
+hub-down recovery. Gates on hub DB hydration + CLI journal replay.
+
+---
+
+Each Phase 2 scenario below has a status (✅ done / 🔵 deferred). Gating
+components are noted for the deferred ones.
 
 ### Scenario: agent-pay-agent (open → pay → cooperative close, 3-party HTLC)
 **Gates on:** `apps/hub` router with HTLC forwarding; `apps/cli` `tainnel pay` /
@@ -200,9 +237,13 @@ hydration.
 - [ ] `[agent]` Mid-payment, kill the hub process. Restart it. Verify the SDK
       reconnects, replays state, in-flight HTLC resolves correctly.
 
-### Scenario: replay attack
-- [ ] `[agent]` Capture a signed state from earlier in the channel. Submit it
-      after a newer state is on-chain. Assert the contract rejects.
+### Scenario: replay attack ✅ (Phase 2A done)
+- [x] `[agent]` **Variant A**: open → payDirect → unilateral close v2 →
+      attempt `dispute` with same v2 + closer's sig → contract reverts
+      `stale` (`s.version > ch.postedVersion` fails).
+- [x] `[agent]` **Variant B**: open → payDirect → cooperative close v3 →
+      attempt `closeUnilateral` with the older v2 state → contract reverts
+      `!open` (`ch.status == Status.Open` fails).
 
 ### Scenario: stale-state invariant
 - [ ] `[agent]` `forge invariant` test: across any random sequence of
