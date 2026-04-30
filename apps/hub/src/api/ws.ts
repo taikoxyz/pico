@@ -60,13 +60,26 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     const channels = deps.channelPool
       .list()
       .filter((c) => c.userA.toLowerCase() === key || c.userB.toLowerCase() === key);
+    const pending = router.pendingForRecipient(msg.address);
     send(socket, {
       id: msg.id,
       kind: 'subscribeAck',
       sessionId: `hub-${msg.address}-${Date.now()}`,
       channels,
-      pendingHtlcs: [],
+      pendingHtlcs: pending.map((i) => ({
+        channelId: i.outgoingChannelId,
+        htlc: i.outgoingHtlc,
+      })),
     });
+    for (const item of pending) {
+      send(socket, {
+        id: `offer-${item.outgoingHtlcId}`,
+        kind: 'htlcOffer',
+        channelId: item.outgoingChannelId,
+        htlc: item.outgoingHtlc,
+        signedStateBeforeHtlc: item.outgoingHubSigned,
+      });
+    }
   }
 
   async function handlePay(
@@ -106,18 +119,6 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       return;
     }
 
-    const recipientSession = sessions.get(msg.recipient.toLowerCase());
-    if (!recipientSession) {
-      send(socket, {
-        id: `fail-${msg.htlc.id}`,
-        kind: 'paymentFailed',
-        channelId: msg.channelId,
-        htlcId: msg.htlc.id,
-        reason: 'recipient not subscribed',
-      });
-      return;
-    }
-
     const inflight: InflightHtlc = {
       incomingChannelId: incomingChannel.id,
       incomingHtlcId: msg.htlc.id,
@@ -125,11 +126,21 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       incomingSenderAddress: senderAddr,
       outgoingChannelId: routed.outgoingChannel.id,
       outgoingHtlcId: routed.outgoingHtlc.id,
+      outgoingHtlc: routed.outgoingHtlc,
       outgoingHubSigned: routed.outgoingHubSigned,
       recipient: msg.recipient,
     };
     router.recordInflight(inflight);
     deps.channelPool.recordState(routed.outgoingChannel.id, routed.outgoingHubSigned);
+
+    const recipientSession = sessions.get(msg.recipient.toLowerCase());
+    if (!recipientSession) {
+      deps.logger.info(
+        { htlcId: routed.outgoingHtlc.id, recipient: msg.recipient },
+        'recipient offline; HTLC queued for redelivery on subscribe',
+      );
+      return;
+    }
 
     send(recipientSession.socket, {
       id: `offer-${routed.outgoingHtlc.id}`,

@@ -91,13 +91,16 @@ export interface E2EHandle {
   stop(): Promise<void>;
 }
 
-async function startRealHub(args: {
-  hubPrivateKey: Hex;
-  rpcUrl: string;
-  chainId: ChainId;
-  paymentChannelAddress: Address;
-  adjudicatorAddress: Address;
-}): Promise<HubServerHandle> {
+export interface StartRealHubArgs {
+  readonly hubPrivateKey: Hex;
+  readonly rpcUrl: string;
+  readonly chainId: ChainId;
+  readonly paymentChannelAddress: Address;
+  readonly adjudicatorAddress: Address;
+  readonly port?: number;
+}
+
+export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHandle> {
   const env: NodeJS.ProcessEnv = {
     HUB_PRIVATE_KEY: args.hubPrivateKey,
     RPC_URL: args.rpcUrl,
@@ -107,10 +110,10 @@ async function startRealHub(args: {
     HUB_FEE_BPS: '0',
     HUB_FEE_FLAT: '0',
     LOG_LEVEL: 'silent',
-    PORT: '0',
+    PORT: String(args.port ?? 0),
   };
   const built: BuildServerResult = await buildServer(env);
-  const url = await built.app.listen({ port: 0, host: '127.0.0.1' });
+  const url = await built.app.listen({ port: args.port ?? 0, host: '127.0.0.1' });
   const wsUrl = `${url.replace(/^http/, 'ws')}/ws`;
   return {
     url: wsUrl,

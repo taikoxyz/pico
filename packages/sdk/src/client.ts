@@ -83,7 +83,9 @@ interface PendingPayment {
 export class ChannelClient {
   private readonly emitter = new TypedEventEmitter<SdkEventMap>();
   private readonly inflight = new Map<string, PendingPayment>();
+  private readonly subscribedChannelIds = new Set<ChannelId>();
   private inboundHandlerInstalled = false;
+  private reconnectHandlerInstalled = false;
   private myAddress: Address | undefined;
   private readonly hubFeeBps: bigint;
   private readonly hubFeeFlat: bigint;
@@ -215,6 +217,8 @@ export class ChannelClient {
   async ensureSubscribed(channelIds: readonly ChannelId[]): Promise<void> {
     if (!this.opts.transport.isConnected()) await this.opts.transport.connect();
     this.installInboundHandler();
+    this.installReconnectHandler();
+    for (const id of channelIds) this.subscribedChannelIds.add(id);
     const me = await this.address();
     const subscribeMsg: ClientToHubMessage = {
       id: newRequestId('sub'),
@@ -235,6 +239,20 @@ export class ChannelClient {
     if (this.inboundHandlerInstalled) return;
     this.inboundHandlerInstalled = true;
     this.opts.transport.onMessage((msg) => this.handleInbound(msg));
+  }
+
+  private installReconnectHandler(): void {
+    if (this.reconnectHandlerInstalled) return;
+    this.reconnectHandlerInstalled = true;
+    this.opts.transport.onReconnect(async () => {
+      const ids = Array.from(this.subscribedChannelIds);
+      if (ids.length === 0) return;
+      try {
+        await this.ensureSubscribed(ids);
+      } catch (err) {
+        this.emitter.emit('error', { error: err as Error, context: 'reconnect resubscribe' });
+      }
+    });
   }
 
   private async handleInbound(msg: HubToClientMessage): Promise<void> {

@@ -42,6 +42,7 @@ export interface InflightHtlc {
   readonly incomingSenderAddress: Address;
   readonly outgoingChannelId: ChannelId;
   readonly outgoingHtlcId: HtlcId;
+  readonly outgoingHtlc: Htlc;
   readonly outgoingHubSigned: SignedState;
   readonly recipient: Address;
 }
@@ -127,6 +128,13 @@ export class Router {
   recordInflight(item: InflightHtlc): void {
     this.inflightByIncomingId.set(item.incomingHtlcId, item);
     this.inflightByOutgoingId.set(item.outgoingHtlcId, item);
+  }
+
+  pendingForRecipient(recipient: Address): readonly InflightHtlc[] {
+    const lower = recipient.toLowerCase();
+    return Array.from(this.inflightByOutgoingId.values()).filter(
+      (i) => i.recipient.toLowerCase() === lower,
+    );
   }
 
   takeByOutgoingId(outgoingHtlcId: HtlcId): InflightHtlc | undefined {

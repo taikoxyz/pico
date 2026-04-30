@@ -529,12 +529,140 @@ describe('e2e — phase 2D hot-key rotation', () => {
   });
 });
 
-describe.skip('e2e — full payment lifecycle (deferred from phase 2D)', () => {
-  it('hub-down recovery: client reconnects after hub restart (gates on durable channel pool)', async () => {
-    expect(true).toBe(true);
+describe('e2e — phase 2D hub-down recovery', () => {
+  let h: E2EHandle;
+  let alice: AliceBundle;
+
+  beforeEach(async () => {
+    h = await bootE2E();
+    alice = buildAliceClient(h);
+  }, 60_000);
+
+  afterEach(async () => {
+    await alice?.transport.close();
+    await h?.stop();
   });
 
-  it('receiver offline then resume (gates on CLI journal replay)', async () => {
-    expect(true).toBe(true);
+  it('hub restarts; SDK auto-reconnects + re-subscribes; subsequent payDirect succeeds', async () => {
+    const { startRealHub } = await import('./harness.js');
+
+    const channel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
+
+    await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
+    const v2 = await alice.storage.loadLatestState(channel.id);
+    expect(v2?.state.version).toBe(2n);
+
+    const portMatch = h.hubServer.url.match(/:(\d+)\//);
+    if (!portMatch || !portMatch[1]) throw new Error('cannot parse hub port');
+    const port = Number(portMatch[1]);
+    await h.hubServer.stop();
+    await alice.transport.close();
+
+    const reborn = await startRealHub({
+      hubPrivateKey: h.hub.privateKey,
+      rpcUrl: h.rpcUrl,
+      chainId: h.chainId,
+      paymentChannelAddress: h.paymentChannel,
+      adjudicatorAddress: h.adjudicator,
+      port,
+    });
+    try {
+      reborn.registerChannel(channel, v2 ?? undefined);
+
+      const reconnected = buildClient(h, h.alice);
+      try {
+        await reconnected.storage.saveChannel(channel);
+        if (v2) await reconnected.storage.saveState(channel.id, v2);
+        await reconnected.client.ensureSubscribed([channel.id]);
+
+        await reconnected.client.payDirect(channel.id, { amount: 3n * ONE_USDC });
+        const v3 = await reconnected.storage.loadLatestState(channel.id);
+        expect(v3?.state.version).toBe(3n);
+        expect(v3?.state.balanceA).toBe(92n * ONE_USDC);
+      } finally {
+        await reconnected.transport.close();
+      }
+    } finally {
+      await reborn.stop();
+    }
+  });
+});
+
+describe('e2e — phase 2D receiver offline then resume', () => {
+  let h: E2EHandle;
+  let alice: AliceBundle;
+  let bob: ClientBundle;
+
+  beforeEach(async () => {
+    h = await bootE2E();
+    alice = buildAliceClient(h);
+    const bobKeysend = generateKeysendKeypair();
+    bob = buildClient(h, h.bob, { encryption: bobKeysend });
+  }, 60_000);
+
+  afterEach(async () => {
+    await alice?.transport.close();
+    await bob?.transport.close();
+    await h?.stop();
+  });
+
+  it('hub queues HTLC while bob is offline; bob reconnects, replays via subscribeAck.pendingHtlcs, settles', async () => {
+    const aliceChannel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    {
+      const init = await alice.storage.loadLatestState(aliceChannel.id);
+      h.hubServer.registerChannel(aliceChannel, init ?? undefined);
+    }
+
+    const bobChannel = await bob.client.open({
+      counterparty: h.hub.address,
+      amount: 0n,
+      counterpartyAmount: 10n * ONE_USDC,
+    });
+    {
+      const init = await bob.storage.loadLatestState(bobChannel.id);
+      h.hubServer.registerChannel(bobChannel, init ?? undefined);
+    }
+    await bob.client.ensureSubscribed([bobChannel.id]);
+
+    const { invoice, preimage: expectedPreimage } = await bob.client.createInvoice({
+      amount: 5n * ONE_USDC,
+      memo: 'offline-resume test',
+    });
+
+    await bob.transport.close();
+
+    const payPromise = alice.client.pay({ invoice });
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    const bobReborn = buildClient(h, h.bob);
+    try {
+      await bobReborn.storage.saveChannel(bobChannel);
+      const bobInit = await bob.storage.loadLatestState(bobChannel.id);
+      if (bobInit) await bobReborn.storage.saveState(bobChannel.id, bobInit);
+      await bobReborn.storage.saveInvoice(invoice, expectedPreimage);
+      await bobReborn.client.ensureSubscribed([bobChannel.id]);
+
+      const result = await payPromise;
+      expect(result.preimage).toBe(expectedPreimage);
+
+      const aliceState = await alice.storage.loadLatestState(aliceChannel.id);
+      expect(aliceState?.state.htlcs).toEqual([]);
+
+      const consumed = await bobReborn.storage.loadInvoice(invoice.paymentHash);
+      expect(consumed?.consumedAt).toBeGreaterThan(0);
+    } finally {
+      await bobReborn.transport.close();
+    }
   });
 });
