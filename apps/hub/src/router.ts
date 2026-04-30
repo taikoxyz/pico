@@ -154,7 +154,7 @@ export class Router {
     if (!incomingChannel) {
       throw new Error(`router: lost incoming channel ${incoming.incomingChannelId}`);
     }
-    this.deps.channelPool.recordState(incoming.outgoingChannelId, bobSettledOutgoingState);
+    await this.deps.channelPool.recordState(incoming.outgoingChannelId, bobSettledOutgoingState);
 
     const settled = settleHtlc(
       incoming.incomingSignedState.state,

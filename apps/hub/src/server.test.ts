@@ -1,0 +1,311 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type {
+  Channel,
+  ChannelState,
+  Hex,
+  PaymentHash,
+  Signature,
+  SignedState,
+} from '@tainnel/protocol';
+import { encodeHubMessage, hexToSignature, randomHtlcId, signatureToHex } from '@tainnel/sdk';
+import { buildChannelStateTypedData } from '@tainnel/state-machine';
+import { privateKeyToAccount } from 'viem/accounts';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import WebSocket from 'ws';
+import { type BuildServerResult, buildServer } from './server.js';
+
+const ALICE_PK = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
+const HUB_PK = '0x00000000000000000000000000000000000000000000000000000000000000bb' as const;
+const VERIFYING_CONTRACT = '0x0000000000000000000000000000000000000001' as const;
+
+const ZERO_SIG: Signature = { r: `0x${'00'.repeat(32)}`, s: `0x${'00'.repeat(32)}`, v: 27 };
+
+function bytes32(prefix: string): Hex {
+  return `0x${prefix}${'0'.repeat(64 - prefix.length)}` as Hex;
+}
+
+function makeChannel(
+  id: Hex,
+  userA: `0x${string}`,
+  userB: `0x${string}`,
+  status: Channel['status'] = 'open',
+): Channel {
+  return {
+    id,
+    chainId: 31337,
+    contract: VERIFYING_CONTRACT,
+    userA,
+    userB,
+    token: '0x0000000000000000000000000000000000000099',
+    status,
+    openedAt: 0n,
+    disputeWindowMs: 86_400_000,
+  };
+}
+
+async function aliceSign(state: ChannelState): Promise<Signature> {
+  const account = privateKeyToAccount(ALICE_PK);
+  const sig = await account.signTypedData(
+    buildChannelStateTypedData(state, 31337, VERIFYING_CONTRACT),
+  );
+  return hexToSignature(sig);
+}
+
+async function buildAliceState(
+  channel: Channel,
+  balanceA: bigint,
+  balanceB: bigint,
+  version = 1n,
+): Promise<SignedState> {
+  const state: ChannelState = {
+    channelId: channel.id,
+    version,
+    balanceA,
+    balanceB,
+    htlcs: [],
+    finalized: false,
+  };
+  return { state, sigA: await aliceSign(state), sigB: ZERO_SIG };
+}
+
+describe('buildServer integration', () => {
+  let tmp: string;
+  let built: BuildServerResult;
+  let baseUrl: string;
+  let wsUrl: string;
+
+  beforeEach(async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'hub-srv-'));
+    built = await buildServer({
+      DB_DRIVER: 'sqlite',
+      DB_URL: join(tmp, 'test.sqlite'),
+      HUB_PRIVATE_KEY: HUB_PK,
+      RPC_URL: 'http://127.0.0.1:1', // intentionally unreachable
+      CHAIN_ID: '31337',
+      PAYMENT_CHANNEL_ADDRESS: VERIFYING_CONTRACT,
+      ADJUDICATOR_ADDRESS: VERIFYING_CONTRACT,
+      HUB_FEE_BPS: '0',
+      HUB_FEE_FLAT: '0',
+      LOG_LEVEL: 'silent',
+      CHAIN_POLLING_INTERVAL_MS: '999999',
+    } as NodeJS.ProcessEnv);
+    baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
+    wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws`;
+  });
+
+  afterEach(async () => {
+    await built.app.close();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('reports degraded health when chain is unreachable', async () => {
+    const r = await fetch(`${baseUrl}/v1/health`);
+    const json = (await r.json()) as { status: string; checks: Record<string, string> };
+    expect(r.status).toBe(503);
+    expect(json.status).toBe('degraded');
+    expect(json.checks.db).toBe('ok');
+    expect(json.checks.chain).not.toBe('ok');
+  });
+
+  it('exposes Prometheus metrics', async () => {
+    const r = await fetch(`${baseUrl}/metrics`);
+    const text = await r.text();
+    expect(r.status).toBe(200);
+    expect(text).toMatch(/tainnel_hub_channels_total/);
+    expect(text).toMatch(/tainnel_hub_payments_total/);
+  });
+
+  it('GET /v1/channels lists registered channels', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('aa'), alice, hub);
+    const initial = await buildAliceState(ch, 100n, 0n);
+    await built.api.ws.registerChannel(ch, initial);
+
+    const r = await fetch(`${baseUrl}/v1/channels`);
+    const json = (await r.json()) as { channels: { id: Hex; status: string }[] };
+    expect(json.channels).toHaveLength(1);
+    expect(json.channels[0]?.id).toBe(ch.id);
+  });
+
+  it('POST /v1/channels/open registers the channel', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('bb'), alice, hub);
+    const r = await fetch(`${baseUrl}/v1/channels/open`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        channel: { ...ch, openedAt: ch.openedAt.toString() },
+      }),
+    });
+    const json = (await r.json()) as { channelId: Hex };
+    expect(r.status).toBe(200);
+    expect(json.channelId).toBe(ch.id);
+    expect(built.channelPool.get(ch.id)?.id).toBe(ch.id);
+  });
+
+  it('POST /v1/payments returns 501 (use WebSocket)', async () => {
+    const r = await fetch(`${baseUrl}/v1/payments`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(r.status).toBe(501);
+  });
+
+  it('WebSocket payDirect: round-trip sign + persist', async () => {
+    const alice = privateKeyToAccount(ALICE_PK);
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('cc'), alice.address, hub);
+    const initial = await buildAliceState(ch, 100n, 0n);
+    await built.api.ws.registerChannel(ch, initial);
+
+    const next: ChannelState = {
+      ...initial.state,
+      version: 2n,
+      balanceA: 95n,
+      balanceB: 5n,
+    };
+    const aliceSig = await aliceSign(next);
+    const signed: SignedState = { state: next, sigA: aliceSig, sigB: ZERO_SIG };
+
+    const ws = new WebSocket(wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+
+    const reply = new Promise<string>((resolve) => {
+      ws.on('message', (raw: Buffer) => resolve(raw.toString('utf8')));
+    });
+    ws.send(
+      encodeHubMessage({
+        id: 'req-1',
+        kind: 'payDirect',
+        channelId: ch.id,
+        signedState: signed,
+      }),
+    );
+    const responseRaw = await reply;
+    ws.close();
+
+    expect(responseRaw).toMatch(/payDirectAck/);
+    const stored = await built.repos.states.latest(ch.id);
+    expect(stored?.state.version).toBe(2n);
+    expect(stored?.state.balanceA).toBe(95n);
+
+    const sigHex = signatureToHex(stored?.sigB ?? ZERO_SIG);
+    expect(sigHex).not.toBe(signatureToHex(ZERO_SIG));
+  });
+
+  it('WebSocket pay against unknown channel sends an error', async () => {
+    const ws = new WebSocket(wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+    const reply = new Promise<string>((resolve) => {
+      ws.on('message', (raw: Buffer) => resolve(raw.toString('utf8')));
+    });
+    ws.send(
+      encodeHubMessage({
+        id: 'req-x',
+        kind: 'pay',
+        channelId: bytes32('ff'),
+        signedState: {
+          state: {
+            channelId: bytes32('ff'),
+            version: 1n,
+            balanceA: 0n,
+            balanceB: 0n,
+            htlcs: [],
+            finalized: false,
+          },
+          sigA: ZERO_SIG,
+          sigB: ZERO_SIG,
+        },
+        htlc: {
+          id: randomHtlcId(),
+          direction: 'AtoB',
+          amount: 1n,
+          paymentHash: bytes32('99') as PaymentHash,
+          expiryMs: 0n,
+        },
+        paymentHash: bytes32('99') as PaymentHash,
+        recipient: '0x00000000000000000000000000000000000000FF',
+        amount: 1n,
+      }),
+    );
+    const responseRaw = await reply;
+    ws.close();
+    expect(responseRaw).toMatch(/UNKNOWN_CHANNEL/);
+  });
+});
+
+describe('buildServer operator-token gate', () => {
+  const TOKEN = 'test-operator-secret';
+  let tmp: string;
+  let built: BuildServerResult;
+  let baseUrl: string;
+  let prevToken: string | undefined;
+
+  beforeEach(async () => {
+    prevToken = process.env.HUB_OPERATOR_TOKEN;
+    process.env.HUB_OPERATOR_TOKEN = TOKEN;
+    tmp = mkdtempSync(join(tmpdir(), 'hub-srv-auth-'));
+    built = await buildServer({
+      DB_DRIVER: 'sqlite',
+      DB_URL: join(tmp, 'test.sqlite'),
+      HUB_PRIVATE_KEY: HUB_PK,
+      RPC_URL: 'http://127.0.0.1:1',
+      CHAIN_ID: '31337',
+      PAYMENT_CHANNEL_ADDRESS: VERIFYING_CONTRACT,
+      ADJUDICATOR_ADDRESS: VERIFYING_CONTRACT,
+      HUB_FEE_BPS: '0',
+      HUB_FEE_FLAT: '0',
+      LOG_LEVEL: 'silent',
+      CHAIN_POLLING_INTERVAL_MS: '999999',
+      HUB_OPERATOR_TOKEN: TOKEN,
+    } as NodeJS.ProcessEnv);
+    baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
+  });
+
+  afterEach(async () => {
+    await built.app.close();
+    rmSync(tmp, { recursive: true, force: true });
+    if (prevToken === undefined) process.env.HUB_OPERATOR_TOKEN = undefined;
+    else process.env.HUB_OPERATOR_TOKEN = prevToken;
+  });
+
+  it('rejects POST /v1/channels/open without a bearer token', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('cc'), alice, hub);
+    const r = await fetch(`${baseUrl}/v1/channels/open`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ channel: { ...ch, openedAt: ch.openedAt.toString() } }),
+    });
+    expect(r.status).toBe(401);
+    expect(built.channelPool.get(ch.id)).toBeUndefined();
+  });
+
+  it('accepts POST /v1/channels/open with a valid bearer token', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('dd'), alice, hub);
+    const r = await fetch(`${baseUrl}/v1/channels/open`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${TOKEN}`,
+      },
+      body: JSON.stringify({ channel: { ...ch, openedAt: ch.openedAt.toString() } }),
+    });
+    expect(r.status).toBe(200);
+    expect(built.channelPool.get(ch.id)?.id).toBe(ch.id);
+  });
+});

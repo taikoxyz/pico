@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type BuildServerResult, buildServer } from '@tainnel/hub';
@@ -71,7 +72,7 @@ export interface E2EParty {
 
 export interface HubServerHandle {
   readonly url: string;
-  registerChannel(channel: Channel, initialState?: SignedState): void;
+  registerChannel(channel: Channel, initialState?: SignedState): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -101,6 +102,7 @@ export interface StartRealHubArgs {
 }
 
 export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHandle> {
+  const dbDir = mkdtempSync(join(tmpdir(), 'tainnel-hub-e2e-'));
   const env: NodeJS.ProcessEnv = {
     HUB_PRIVATE_KEY: args.hubPrivateKey,
     RPC_URL: args.rpcUrl,
@@ -111,17 +113,20 @@ export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHan
     HUB_FEE_FLAT: '0',
     LOG_LEVEL: 'silent',
     PORT: String(args.port ?? 0),
+    DB_DRIVER: 'sqlite',
+    DB_URL: join(dbDir, 'hub.sqlite'),
   };
   const built: BuildServerResult = await buildServer(env);
   const url = await built.app.listen({ port: args.port ?? 0, host: '127.0.0.1' });
   const wsUrl = `${url.replace(/^http/, 'ws')}/ws`;
   return {
     url: wsUrl,
-    registerChannel(channel: Channel, initialState?: SignedState): void {
-      built.api.ws.registerChannel(channel, initialState);
+    async registerChannel(channel: Channel, initialState?: SignedState): Promise<void> {
+      await built.api.ws.registerChannel(channel, initialState);
     },
     async stop(): Promise<void> {
       await built.app.close();
+      rmSync(dbDir, { recursive: true, force: true });
     },
   };
 }
