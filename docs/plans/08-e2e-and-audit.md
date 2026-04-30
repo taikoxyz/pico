@@ -1,10 +1,10 @@
 # P8 — E2E + internal audit
 
-**Status:** 🔵 not started — `e2e/src/scenarios.test.ts` has 4 placeholders, all
-real scenarios `describe.skip`'d
+**Status:** 🟢 **Phase 1 done** — 6 scenarios green in CI on vanilla anvil
+(`pnpm -F @tainnel/e2e test` → 6 passed, 3 deferred, ~1.7s). Phase 2 (HTLC,
+multi-hop, dispute, watchtower) and Phase 3 (audit) not started.
 **Blocks:** P9, P10
-**Effort:** Phase 1 ~5–9h (single 2-party scenario green in CI). Phase 2 ~1 week
-(remaining scenarios + audit).
+**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (remaining scenarios + audit).
 
 ## Why this exists as its own phase
 
@@ -42,12 +42,19 @@ primitives (hub router, watchtower, dispute handler, CLI) come online.
 - **Default:** **no** for v1. Revisit if scope expands.
 - Decision: ☑ no ☐ Immunefi ☐ self-managed page
 
-### D8.3 Phase 1 chain target
-- **Vanilla anvil** (chainId 31337), no Taiko fork. Phase 2 may move to a
-  Taiko-mainnet-fork harness for fee/precompile parity, but Phase 1 deliberately
-  removes that dependency to keep the test hermetic and fast.
-- USDC: deploy our own `MockERC20` ("USDC", 6 decimals) on each test boot.
-- Decision: ☑ vanilla anvil + own MockUSDC ☐ Taiko mainnet fork ☐ Taiko Hoodi testnet
+### D8.3 Chain target per phase
+- **Phase 1: vanilla anvil** (chainId 31337), no fork. Own `MockERC20`
+  ("USDC", 6 decimals) deployed each test boot. Hermetic, fast (~1.7s for
+  6 scenarios), no external RPC dependency.
+- **Phase 2: anvil forking Taiko mainnet** (chainId 167000, pinned block).
+  Reuses the Phase 1 harness; swaps the deploy step for `--fork-url
+  $TAIKO_MAINNET_RPC_URL --fork-block-number <pinned>` and points the SDK
+  at the existing on-chain `PaymentChannel` / `Adjudicator` / bridged USDC
+  addresses (already in `packages/protocol/src/constants.ts`). This gives
+  fee + precompile + state parity with mainnet without spending real funds.
+  **Real-money mainnet stays in P10**, not here.
+- Decision: ☑ Phase 1 vanilla anvil + own MockUSDC, ☑ Phase 2 anvil fork of
+  Taiko mainnet
 
 ---
 
@@ -59,20 +66,18 @@ minimal real hub: Alice opens a channel with the hub, sends one direct
 
 ### Test harness — `e2e/src/harness.ts`
 
-- [ ] `[agent]` Spin up vanilla anvil (no fork) via the existing
+- [x] `[agent]` Spin up vanilla anvil (no fork) via the existing
       `startAnvilFork({ chainId: 31337 })` from `@tainnel/test-utils`.
-- [ ] `[agent]` Deploy `packages/contracts/test/mocks/MockERC20.sol` as USDC
-      (6 decimals). Mint 100 USDC to Alice and 100 USDC to Hub from
-      `TEST_KEYS`.
-- [ ] `[agent]` Deploy `Adjudicator` + `PaymentChannel` proxies and call
-      `setTokenAllowed(usdc, true)`. Either invoke `script/Deploy.s.sol` via
-      `forge script` (`USDC_ADDRESS=<MockERC20>`) or do an inline viem deploy
-      that mirrors it — pick whichever is cleaner during implementation.
-- [ ] `[agent]` Start a minimal in-process WebSocket hub (see below). Bind to
-      an ephemeral port.
-- [ ] `[agent]` Return a single `E2EHandle { rpcUrl, chainId, usdc,
-      paymentChannel, adjudicator, alice, hub, hubServer, stop() }`. `stop()`
-      tears down anvil and the hub.
+- [x] `[agent]` Deploy `packages/contracts/test/mocks/MockERC20.sol` as USDC
+      (6 decimals). Mint 100 USDC to Alice and 100 USDC to Hub.
+- [x] `[agent]` Deploy `Adjudicator` + `PaymentChannel` proxies (inline viem
+      deploy mirroring `script/Deploy.s.sol`) and call
+      `setTokenAllowed(usdc, true)`. Alice + hub approve max USDC.
+- [x] `[agent]` Start `startMockHub` from `@tainnel/test-utils` on an
+      ephemeral port with `hubPrivateKey = TEST_KEYS.hub.privateKey`.
+- [x] `[agent]` Return `E2EHandle { rpcUrl, chainId, usdc, paymentChannel,
+      adjudicator, alice, hub, hubServer, publicClient, stop() }`. Plus
+      helpers `buildAliceClient(h)` and `timeWarp(rpcUrl, seconds)`.
 
 ### Minimal hub for tests — reuse `startMockHub` from `@tainnel/test-utils`
 
@@ -92,46 +97,58 @@ handle `payDirect` (with hub counter-signing when `hubPrivateKey` is set).
 `ChannelClient.pay()` in `packages/sdk/src/client.ts` builds an HTLC. For Phase
 1 we need a 2-party balance update without a preimage.
 
-- [ ] `[agent]` Add `ChannelClient.payDirect(channelId, { amount })` that:
-      bumps the channel's `version`, recomputes `balanceA`/`balanceB`, keeps
+- [x] `[agent]` Added `ChannelClient.payDirect(channelId, { amount })` that
+      bumps `version`, recomputes `balanceA`/`balanceB`, keeps
       `htlcsRoot = bytes32(0)`, signs, persists before send (D4.3), sends to
-      hub, awaits hub counter-sig, stores both signatures.
-- [ ] `[agent]` Reuse existing state-machine helpers; the new method is a thin
-      wrapper that bypasses the HTLC builder.
+      hub, awaits hub counter-sig, stores both signatures. New
+      `payDirect`/`payDirectAck` wire messages added to `hub-protocol.ts`.
+- [x] `[agent]` Reused existing state-machine helpers; the new method is a
+      thin wrapper that bypasses the HTLC builder.
+- [x] `[agent]` Bonus: extended `OpenChannelArgs` with optional
+      `counterpartyAmount` so both parties can deposit at open.
+- [x] `[agent]` **Bug fix discovered while wiring the test:**
+      `ChannelClient.close({cooperative:true})` was sending the unfinalized
+      latest state to the contract, which would have reverted on real chains
+      with `!finalized`. Now bumps version, sets `finalized=true`, signs,
+      sends to hub for counter-sig, then submits.
 
-### The test — `e2e/src/scenarios.test.ts`
+### The tests — `e2e/src/scenarios.test.ts`
 
-- [ ] `[agent]` Replace the `expect(true)` placeholder with a single
-      `describe('e2e — alice→hub 2-party cooperative close', ...)` block.
-- [ ] `[agent]` `beforeAll` calls `bootE2E()` (60s timeout). `afterAll` calls
-      `h.stop()`.
-- [ ] `[agent]` Test body, using SDK only (no CLI in Phase 1):
-      1. Build `ChannelClient` for Alice with `localSigner(ALICE_PK)`,
-         `WebSocketTransport({ url: hubServer.url })`,
-         `InMemoryStorage()`, and the chain adapter pointed at
-         `paymentChannel`.
-      2. `await alice.transport.connect()`
-      3. `const ch = await alice.open({ counterparty: hub.address, token: usdc, amountA: 100_000_000n, amountB: 0n })`
-         → asserts on-chain `channels(ch.id).status == Open`.
-      4. `await alice.payDirect(ch.id, { amount: 5_000_000n })` (5 USDC)
-      5. `await alice.close(ch.id, { cooperative: true })`
-      6. Assert on-chain: `usdc.balanceOf(alice) == 95_000_000n`,
-         `usdc.balanceOf(hub) == 5_000_000n`,
-         `paymentChannel.channels(ch.id).status == Closed`.
-- [ ] `[agent]` Keep all multi-party / dispute / HTLC scenarios as
-      `describe.skip` so they show in the report but don't run.
+Each test gets a fresh harness via `beforeEach` / `afterEach`. Helpers
+`buildAliceClient(h)` and `timeWarp(rpcUrl, seconds)` live in
+`e2e/src/harness.ts`. All multi-party / dispute / HTLC scenarios remain
+`describe.skip` so they appear in the report but don't run.
+
+- [x] `[agent]` **Happy path**: open 100, payDirect 5, cooperative close →
+      alice 95 / hub 105, channel `Status.Closed`.
+- [x] `[agent]` **Sequential payDirect**: 5 + 3 + 2 USDC produces versions
+      2, 3, 4. After cooperative close: alice 90 / hub 110.
+- [x] `[agent]` **No-payment cooperative close**: open then immediately
+      close, both wallets restored to original 100 / 100.
+- [x] `[agent]` **Both-deposit channel**: alice 60 + hub 40 (uses new
+      `OpenChannelArgs.counterpartyAmount`), payDirect 10, close → wallets
+      90 / 110.
+- [x] `[agent]` **Insufficient balance**: payDirect over balance throws,
+      stored state stays at version 1, cooperative close still returns
+      original deposits.
+- [x] `[agent]` **Unilateral close → finalize**: open, payDirect 5, force
+      `closeUnilateral` (cooperative=false), `evm_increaseTime` 24h+1s,
+      `chain.finalize(channelId)` → alice 95 / hub 105, channel
+      `Status.Closed`.
 
 ### CI gate
 
-- [ ] `[agent]` Add an `e2e` job to `.github/workflows/ci.yml` that runs
-      `pnpm -F @tainnel/e2e test`. Block merge on failure.
+- [x] `[agent]` Added `e2e` job to `.github/workflows/ci.yml`: installs
+      Foundry, clones forge libs, runs `forge build` for artifacts, builds
+      TS packages, then `pnpm -F @tainnel/e2e test`. Added to the `ci` gate
+      so merges block on e2e failure.
 
-### Phase 1 done when
+### Phase 1 done when ✅
 
-- `pnpm -F @tainnel/e2e test` reports 1 passed, 0 failed, deferred scenarios
-  skipped, runtime < 30s.
-- CI runs the e2e job on every PR.
-- Existing forge / TS unit tests still pass.
+- [x] `pnpm -F @tainnel/e2e test` reports **6 passed, 0 failed, 3 deferred
+      scenarios skipped, runtime ~1.7s** (well under the 30s budget).
+- [x] CI runs the e2e job on every PR (PR #9).
+- [x] Existing forge / TS unit tests still pass (107 SDK + 49 CLI green).
 
 ---
 
@@ -168,12 +185,6 @@ hydration.
       new.enc`. Cooperative-close existing channel. Re-open signing with the
       new key. Pay Bob through the new channel. On-chain `ChannelOpened` shows
       the new address.
-
-### Scenario: unilateral close → finalize (no dispute)
-**Gates on:** SDK `closeUnilateral`, time-warp helper.
-- [ ] `[agent]` Alice opens, sends 1 payment. Hub goes silent. Alice calls
-      `closeUnilateral` with the latest signed state. Time-warp past the
-      dispute window. `finalize` distributes funds correctly.
 
 ### Scenario: dispute → finalize (watchtower wins)
 **Gates on:** `apps/watchtower` chain watcher + responder, hub

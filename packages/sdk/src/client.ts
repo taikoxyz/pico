@@ -59,6 +59,7 @@ export interface ChannelClientOptions {
 export interface OpenChannelArgs {
   readonly counterparty: Address;
   readonly amount: bigint;
+  readonly counterpartyAmount?: bigint;
   readonly token?: Address;
 }
 
@@ -169,7 +170,7 @@ export class ChannelClient {
       userB: args.counterparty,
       token,
       amountA: args.amount,
-      amountB: 0n,
+      amountB: args.counterpartyAmount ?? 0n,
     });
 
     const channel: Channel = {

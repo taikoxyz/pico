@@ -3,6 +3,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ANVIL_DEV_CHAIN_ID, type ChainId } from '@tainnel/protocol';
 import {
+  ChannelClient,
+  MemoryStorage,
+  ViemChainAdapter,
+  WebSocketTransport,
+  localSigner,
+} from '@tainnel/sdk';
+import {
   type AnvilHandle,
   type MockHubHandle,
   TEST_KEYS,
@@ -19,7 +26,6 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
-  parseEventLogs,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -215,4 +221,52 @@ export async function bootE2E(): Promise<E2EHandle> {
     await anvil.stop();
     throw err;
   }
+}
+
+export interface AliceBundle {
+  readonly client: ChannelClient;
+  readonly transport: WebSocketTransport;
+  readonly storage: MemoryStorage;
+}
+
+export function buildAliceClient(h: E2EHandle): AliceBundle {
+  const aliceAccount = privateKeyToAccount(h.alice.privateKey);
+  const aliceWallet = createWalletClient({
+    account: aliceAccount,
+    chain: foundry,
+    transport: http(h.rpcUrl),
+  });
+  const transport = new WebSocketTransport({ url: h.hubServer.url, autoReconnect: false });
+  const storage = new MemoryStorage();
+  const client = new ChannelClient({
+    signer: localSigner(h.alice.privateKey),
+    transport,
+    storage,
+    chain: new ViemChainAdapter({
+      publicClient: h.publicClient,
+      walletClient: aliceWallet,
+      paymentChannelAddress: h.paymentChannel,
+    }),
+    chainId: h.chainId,
+    verifyingContract: h.adjudicator,
+    defaultToken: h.usdc,
+    settleTimeoutMs: 10_000,
+    closeRequestTimeoutMs: 10_000,
+  });
+  return { client, transport, storage };
+}
+
+export async function timeWarp(rpcUrl: string, seconds: number): Promise<void> {
+  const post = async (method: string, params: unknown[]): Promise<void> => {
+    const r = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    if (!r.ok) throw new Error(`${method} failed: ${r.status}`);
+    const body = (await r.json()) as { error?: { message: string } };
+    if (body.error) throw new Error(`${method} error: ${body.error.message}`);
+  };
+  await post('evm_increaseTime', [seconds]);
+  await post('evm_mine', []);
 }
