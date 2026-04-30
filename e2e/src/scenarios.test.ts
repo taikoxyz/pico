@@ -381,6 +381,8 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
       paymentChannelAddress: h.paymentChannel,
       chainId: h.chainId,
       pollingIntervalMs: 100,
+      confirmations: 1,
+      startHttp: false,
     });
 
     try {

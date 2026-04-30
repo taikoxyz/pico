@@ -1,7 +1,9 @@
 # P6 — Watchtower
 
-**Status:** 🟡 partial — stale-version detection exists; chain watching, backup
-hydration, idempotent penalty submission, health/metrics, and recovery behavior remain
+**Status:** 🟢 implemented — detector, responder, watcher (4 events + reorg buffer
++ RPC reconnect), scheduler, sqlite backup store, /health + /metrics endpoints,
+and an end-to-end anvil dispute drill all land in this branch. P7-coupled
+listen-mode recovery test is deferred to P7.
 **Blocks:** P8, P10
 **Effort:** 4–6 days
 **Depends on:** P3 (state machine), P2 (deployed contracts)
@@ -15,14 +17,14 @@ hydration, idempotent penalty submission, health/metrics, and recovery behavior 
   "service mode" is a Phase-2 product.
 - **Tradeoff:** service mode means encrypted state blobs from clients you've never
   met; non-trivial threat model. Skip for dogfood.
-- Decision: ☐ self-hosted only ☐ also service mode
+- Decision: ☑ self-hosted only ☐ also service mode
 
 ### D6.2 Penalty trigger threshold
 - **Default:** post penalty at **50%** of the dispute window remaining.
 - **Tradeoff:** posting too early wastes gas if the user shows up in time
   themselves. Posting too late risks the dispute window closing during a chain
   reorg or RPC outage. 50% gives 12h of buffer (with a 24h window).
-- Decision: ☐ 25% ☐ 50% ☐ 75%
+- Decision: ☐ 25% ☑ 50% ☐ 75%
 
 ### D6.3 State backup format (self-hosted mode)
 - **Default:** the watchtower owns the same DB the SDK writes to (sqlite
@@ -30,7 +32,7 @@ hydration, idempotent penalty submission, health/metrics, and recovery behavior 
   on the same machine.
 - **For dogfood:** acceptable. If you run the watchtower remotely, use rsync over
   SSH to keep state synced from the user device.
-- Decision: ☐ shared sqlite (default) ☐ encrypted blob protocol
+- Decision: ☑ shared sqlite (default) ☐ encrypted blob protocol
 
 ### D6.4 Who runs what watchtower
 - **Default for dogfood:**
@@ -57,65 +59,80 @@ expectations:
 ## Implementation tasks
 
 ### `watcher.ts`
-- [ ] `[agent]` Subscribe via `viem.watchContractEvent` to all four events on the
+- [x] `[agent]` Subscribe via `viem.watchContractEvent` to all four events on the
       deployed `PaymentChannel` (`ChannelOpened`, `ChannelClosingUnilateral`,
       `DisputeRaised`, `ChannelFinalized`).
-- [ ] `[agent]` Filter to channels we care about (read from the shared DB or a
-      provided `interestedChannelIds` set).
-- [ ] `[agent]` Reorg tolerance: only act on events with ≥ 3 confirmations.
-- [ ] `[agent]` Reconnect on RPC drop with exponential backoff; emit a
-      `WATCHTOWER_RPC_DOWN` log every 5 minutes if disconnected (to fire alerts).
+- [x] `[agent]` Filter to channels we care about (`interestedChannelIds: Set<ChannelId>` opt).
+- [x] `[agent]` Reorg tolerance: configurable `confirmations` (default 3); events
+      buffered in `pendingByTxHash` and flushed only when `head - blockNumber + 1 ≥ confirmations`;
+      receipts re-fetched and reorg-evicted txs dropped.
+- [x] `[agent]` Reconnect on RPC drop with exponential backoff (250ms → 30s, ×2 with
+      ±10% jitter); emits `WATCHTOWER_RPC_DOWN` every 5 minutes while disconnected.
 
 ### `detector.ts`
-- [ ] `[agent]` Already half-implemented (`remember`/`evaluate`). Hydrate `latest`
-      from the DB on startup.
-- [ ] `[agent]` Add `evaluateClosing(channelId, postedVersion, postedAt)` that
-      returns either `{action: 'noop', reason}` or `{action: 'penalize', evidence,
-      submitBy: timestamp}` where `submitBy` is `postedAt + windowMs * threshold`.
+- [x] `[agent]` `hydrate(states)` bulk-loads from store at startup.
+- [x] `[agent]` `evaluateClosing({channelId, postedVersion, postedAtMs, windowMs,
+      thresholdRatio = 0.5, alreadyPenalized})` returns the discriminated union
+      `{action:'noop', reason: 'unknown_channel' | 'not_stale' | 'already_penalized'}`
+      or `{action:'penalize', evidence, submitByMs, latestKnownVersion}`.
 
 ### `responder.ts`
-- [ ] `[agent]` `submitPenalty(channelId, evidence)`:
-      1. Build the `dispute` (or `submitPenaltyProof`) calldata via viem
-      2. Estimate gas, set max fee
-      3. Sign with the watchtower's private key
-      4. Submit and wait for inclusion
-      5. Persist `{tx_hash, submittedAt, includedAt}` for postmortem
-- [ ] `[agent]` Idempotency: if there's already a tx in flight for this channelId,
-      no-op.
-- [ ] `[agent]` Retry with bumped gas if not mined within 60s.
+- [x] `[agent]` `submitPenalty(channelId, evidence, closerSide, observationId?)`:
+      1. Builds `submitPenaltyProof` calldata via viem
+      2. `estimateContractGas` + `estimateFeesPerGas` for EIP-1559 fees
+      3. Signs with watchtower private key
+      4. Submits and waits for inclusion (60s timeout per attempt)
+      5. Persists `{tx_hash, submittedAt, includedAt}` to `watchtower_observations`
+- [x] `[agent]` Idempotency: reads `in_flight_txs[channelId]`; if present and receipt
+      not yet included, returns the existing tx hash as a no-op.
+- [x] `[agent]` Retry: bumps `maxFeePerGas`/`maxPriorityFeePerGas` by 25% (capped at 2×
+      initial), resubmits with same nonce, up to 4 attempts.
 
 ### Storage
-- [ ] `[agent]` `MemoryBackupStore` is in place; add `SqliteBackupStore` that
-      reads/writes the shared sqlite file (per D6.3).
-- [ ] `[agent]` Schema: `watchtower_observations` table (channel_id, posted_version,
-      posted_at, our_latest_version, action_taken, tx_hash).
+- [x] `[agent]` `SqliteWatchtowerStore` (better-sqlite3) implements the new
+      `WatchtowerStore` interface. Self-hosted shared sqlite file per D6.3.
+      `MemoryBackupStore` retained but unused in default wiring.
+- [x] `[agent]` Schema: `signed_states` (hydration source), `watchtower_observations`
+      (channel_id, posted_version, posted_at_ms, our_latest_version, action_taken,
+      tx_hash, submitted_at_ms, included_at_ms, reason, created_at_ms),
+      `in_flight_txs` (idempotency + gas-bump bookkeeping), `meta` (e.g.
+      `last_processed_block_number` for catch-up).
 
 ### Scheduler
-- [ ] `[agent]` Every 60s, scan open `closeUnilateral` events for any whose
-      `submitBy` has been crossed without us submitting; trigger responder.
-- [ ] `[agent]` Run on startup: catches up on events that fired while we were
-      offline, before the dispute window closes.
+- [x] `[agent]` `Scheduler.tick()` runs every 60s (configurable). Iterates the watcher's
+      known closing channels, calls `detector.evaluateClosing`, triggers
+      `responder.submitPenalty` for any whose `submitByMs` is crossed and has no
+      in-flight tx.
+- [x] `[agent]` `Scheduler.catchup()` runs at startup: queries `getContractEvents` for
+      `ChannelClosingUnilateral` between `meta.last_processed_block_number` and head
+      (bounded by 100k blocks), feeds them through the same evaluate→submit pipeline,
+      then persists the new last-processed block.
 
 ### Operational
-- [ ] `[agent]` `/health` HTTP endpoint exposing: RPC reachable, DB reachable,
-      last-event-block-number, channels-watched-count.
-- [ ] `[agent]` `/metrics` Prometheus: `tainnel_watchtower_channels_watched`,
+- [x] `[agent]` `GET /health` (Fastify) → `{ rpc: { up, lastEventBlockNumber }, db: { up },
+      channelsWatched }`. 200 if both up; 503 otherwise.
+- [x] `[agent]` `GET /metrics` (prom-client) exposes `tainnel_watchtower_channels_watched`,
       `tainnel_watchtower_penalties_submitted_total`,
-      `tainnel_watchtower_evaluations_total`, `tainnel_watchtower_rpc_up`.
-- [ ] `[agent]` Structured logs at every step.
+      `tainnel_watchtower_evaluations_total{result}`, `tainnel_watchtower_rpc_up`,
+      plus default Node process metrics.
+- [x] `[agent]` Structured pino logs at every step (subscribe, fraud detection,
+      submission, retry, inclusion, RPC down/up).
 
 ### Tests
-- [ ] `[agent]` Integration test against anvil:
-      - open a channel
-      - hub posts an old state via `closeUnilateral`
-      - watchtower observes within window
-      - watchtower submits dispute
-      - state is replaced; finalize gives funds to honest party
-- [ ] `[agent]` **Listen-mode + watchtower recovery:** simulate "hub cheats while
-      user is offline; user runs `tainnel listen` later; watchtower has already
-      penalized". Assert the agent's state DB ends up consistent with the on-chain
-      finalization and no dangling in-flight HTLCs are left over.
-- [ ] `[agent]` Coverage ≥ 70%.
+- [x] `[agent]` Integration test against anvil (`apps/watchtower/src/integration.test.ts`):
+      opens a channel via the real SDK, alice does 5 sequential payDirects to v6,
+      watchtower remembers each state, hub maliciously posts v3 via `closeUnilateral`,
+      watchtower auto-submits `submitPenaltyProof(v6)`, asserts on-chain `posted=6n`
+      and `penalized=true`, then `finalize` after `timeWarp`, asserts alice gets
+      100% of the channel pot and channel status = Closed.
+- [ ] **Listen-mode + watchtower recovery — DEFERRED to P7.** The "agent runs listen
+      later" test depends on the `tainnel listen` agent runtime that ships in P7.
+      The watchtower's chain-history recovery path (Scheduler.catchup) is exercised
+      by `scheduler.test.ts` Test D; the cross-agent state-DB reconciliation needs
+      P7's listen-mode runtime to assert against. Re-open this checkbox in P7.
+- [x] `[agent]` Coverage ≥ 70% — vitest config enforces this; the dispute drill plus
+      9 unit/integration test files cover all of detector, responder, watcher,
+      scheduler, storage, http, config, index wiring.
 
 ## `[review]` gates
 

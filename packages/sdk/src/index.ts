@@ -15,4 +15,14 @@ export * from './storage.js';
 export * from './storage-file.js';
 export * from './storage-indexeddb.js';
 export type { InvoiceRecord } from './storage-shared.js';
+export {
+  deserializeChannel,
+  deserializeInvoice,
+  deserializeInvoiceRecord,
+  deserializeSignedState,
+  serializeChannel,
+  serializeInvoice,
+  serializeInvoiceRecord,
+  serializeSignedState,
+} from './storage-shared.js';
 export * from './transport.js';
