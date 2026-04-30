@@ -16,6 +16,10 @@ export class FraudDetector {
     }
   }
 
+  getLatest(channelId: ChannelId): SignedState | undefined {
+    return this.latest.get(channelId);
+  }
+
   evaluate(channelId: ChannelId, observedVersion: bigint): DetectionResult {
     const known = this.latest.get(channelId);
     if (!known) return { fraudulent: false, latestKnownVersion: 0n };

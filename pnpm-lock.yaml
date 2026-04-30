@@ -136,6 +136,9 @@ importers:
       '@tainnel/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@tainnel/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@tainnel/state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine

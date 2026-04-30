@@ -1,11 +1,11 @@
 # P8 — E2E + internal audit
 
-**Status:** 🟡 **Phase 2 in progress** — Phase 1 + 2A + 2B done (6 + 2 + 1
-= 9 scenarios green via real hub) (`pnpm -F @tainnel/e2e test` → 9 passed,
-3 deferred, ~2.4s). Phase 2C (dispute/watchtower), 2D (durability) and
-Phase 3 (audit) not started.
+**Status:** 🟡 **Phase 2 in progress** — Phase 1 + 2A + 2B + 2C done
+(6 + 2 + 1 + 1 = 10 scenarios green via real hub + watchtower)
+(`pnpm -F @tainnel/e2e test` → 10 passed, 2 deferred, ~2.7s). Phase 2D
+(durability) and Phase 3 (audit) not started.
 **Blocks:** P9, P10
-**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (2A ✅, 2B ✅, 2C ~2d, 2D ~3d).
+**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (2A ✅, 2B ✅, 2C ✅, 2D ~3d).
 
 ## Why this exists as its own phase
 
@@ -204,10 +204,35 @@ USDC addresses from `packages/protocol/src/constants.ts`.
   test harness via `HUB_FEE_BPS=0`. Production fee-policy alignment is a
   separate concern, tracked but not blocking.
 
-### 2C — Dispute + watchtower penalty 🔵 not started
-**Effort:** ~2 days, ~600 LOC.
-**Gates on:** `apps/watchtower/src/{watcher,responder}.ts` + hub
-`chain-watcher.ts` / `dispute-handler.ts` (all stubs today).
+### 2C — Dispute + watchtower penalty ✅
+- [x] **Watchtower watcher** (`apps/watchtower/src/watcher.ts`) —
+      replaces stub. Uses viem `watchContractEvent` to subscribe to
+      `ChannelClosingUnilateral(channelId, postedVersion,
+      disputeDeadline)`. Configurable polling interval for tests.
+- [x] **Watchtower responder** (`apps/watchtower/src/responder.ts`) —
+      replaces stub. Calls `submitPenaltyProof(channelId,
+      encodedNewerState, sigCloser)` via viem walletClient. Per D2.1,
+      `submitPenaltyProof` (not `dispute`) is the path that triggers
+      the 100% slash on `finalize`.
+- [x] **Watchtower wiring** (`apps/watchtower/src/index.ts`) — exports
+      `startWatchtower(opts)` returning `{ detector, responder, remember,
+      stop }`. On `ChannelClosingUnilateral`, looks up our latest known
+      state, evaluates fraud, reads `channels(channelId).closer` to
+      determine closer side, calls responder.
+- [x] **`@tainnel/sdk` dep** added to watchtower so it can reuse
+      `encodeChannelStateForOnChain` and `signatureToHex`.
+- [x] **`FraudDetector.getLatest(channelId)`** — exposes plaintext
+      state for the responder.
+- [x] **Scenario**: alice opens 100 USDC channel; runs 5 `payDirect`
+      ops (versions 2..6); watchtower remembers all states; hub
+      fraudulently posts v3 via `closeUnilateral`; watchtower's
+      auto-subscription detects within 100ms and calls
+      `submitPenaltyProof(v6, hub_sig)`; on-chain `postedVersion=6,
+      penalized=true`; time-warp 24h+1s; `finalize()` pays alice the
+      entire pot (100 USDC), exercises 100% slash path.
+- [x] **Hub-side dispute-handler / chain-watcher** intentionally
+      deferred: 2C scenario is satisfied by the watchtower alone.
+      Defense-in-depth (warm-key hub responder) is a follow-up.
 
 ### 2D — Durability + recovery scenarios 🔵 not started (optional)
 **Effort:** ~3 days, ~700 LOC. Covers receiver-offline, hot-key rotation,
@@ -243,14 +268,13 @@ hydration.
       new key. Pay Bob through the new channel. On-chain `ChannelOpened` shows
       the new address.
 
-### Scenario: dispute → finalize (watchtower wins)
-**Gates on:** `apps/watchtower` chain watcher + responder, hub
-`dispute-handler`.
-- [ ] `[agent]` Alice and hub do 5 payments (versions 1–5). Hub posts an old
-      state (v3) via `closeUnilateral`. Watchtower (running with Alice's signed
-      states up to v5) detects and submits `dispute` with v5. Time-warp past
-      the window. `finalize` pays Alice the full penalty (per D2.1, 100%
-      slash).
+### Scenario: dispute → finalize (watchtower wins) ✅ (Phase 2C done)
+- [x] `[agent]` Alice and hub do 5 `payDirect` ops (versions 2..6).
+      Watchtower remembers all states. Hub posts old v3 via
+      `closeUnilateral`. Watchtower auto-detects via viem
+      `watchContractEvent`, calls `submitPenaltyProof(v6,
+      hub_sig)`. Time-warp 24h+1s. `finalize` pays alice 100% of pot
+      (penalized=true).
 
 ### Scenario: hub-down recovery
 **Gates on:** SDK reconnect logic, hub state hydration.

@@ -336,11 +336,137 @@ describe('e2e — phase 2B agent-pay-agent (3-party HTLC)', () => {
   });
 });
 
-describe.skip('e2e — full payment lifecycle (deferred to phase 2C/2D)', () => {
-  it('dispute window: counterparty publishes old state, watchtower penalizes', async () => {
-    expect(true).toBe(true);
+describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
+  let h: E2EHandle;
+  let alice: AliceBundle;
+
+  beforeEach(async () => {
+    h = await bootE2E();
+    alice = buildAliceClient(h);
+  }, 60_000);
+
+  afterEach(async () => {
+    await alice?.transport.close();
+    await h?.stop();
   });
 
+  it('hub posts stale v3, watchtower penalty-proofs v6, finalize → alice gets 100% slash pot', async () => {
+    const { startWatchtower } = await import('@tainnel/watchtower');
+
+    const channel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    const v1 = await alice.storage.loadLatestState(channel.id);
+    h.hubServer.registerChannel(channel, v1 ?? undefined);
+
+    const watchtowerKey =
+      '0x0000000000000000000000000000000000000000000000000000000000000ccc' as const;
+    const watchtowerAccount = privateKeyToAccount(watchtowerKey);
+    const wtFundHex = `0x${(10n ** 18n).toString(16)}` as `0x${string}`;
+    await fetch(h.rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'anvil_setBalance',
+        params: [watchtowerAccount.address, wtFundHex],
+      }),
+    });
+
+    const wt = await startWatchtower({
+      rpcUrl: h.rpcUrl,
+      privateKey: watchtowerKey,
+      paymentChannelAddress: h.paymentChannel,
+      chainId: h.chainId,
+      pollingIntervalMs: 100,
+    });
+
+    try {
+      if (v1) wt.remember(v1);
+
+      await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
+      const v2 = await alice.storage.loadLatestState(channel.id);
+      if (v2) wt.remember(v2);
+
+      await alice.client.payDirect(channel.id, { amount: 3n * ONE_USDC });
+      const v3 = await alice.storage.loadLatestState(channel.id);
+      if (v3) wt.remember(v3);
+
+      await alice.client.payDirect(channel.id, { amount: 2n * ONE_USDC });
+      const v4 = await alice.storage.loadLatestState(channel.id);
+      if (v4) wt.remember(v4);
+
+      await alice.client.payDirect(channel.id, { amount: 4n * ONE_USDC });
+      const v5 = await alice.storage.loadLatestState(channel.id);
+      if (v5) wt.remember(v5);
+
+      await alice.client.payDirect(channel.id, { amount: 1n * ONE_USDC });
+      const v6 = await alice.storage.loadLatestState(channel.id);
+      if (v6) wt.remember(v6);
+      expect(v6?.state.version).toBe(6n);
+
+      const stale = v3;
+      if (!stale) throw new Error('no stale state');
+
+      const hubAttackerWallet = createWalletClient({
+        account: privateKeyToAccount(h.hub.privateKey),
+        chain: foundry,
+        transport: http(h.rpcUrl),
+      });
+      await hubAttackerWallet.writeContract({
+        address: h.paymentChannel,
+        abi: paymentChannelAttackAbi,
+        functionName: 'closeUnilateral',
+        args: [channel.id, encodeChannelStateForOnChain(stale.state), signatureToHex(stale.sigA)],
+      });
+      expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSING_UNILATERAL);
+
+      let posted = 0n;
+      const deadline = Date.now() + 10_000;
+      while (Date.now() < deadline) {
+        const row = await h.publicClient.readContract({
+          address: h.paymentChannel,
+          abi: paymentChannelStatusAbi,
+          functionName: 'channels',
+          args: [channel.id],
+        });
+        posted = row[7];
+        const penalized = row[10];
+        if (posted === 6n && penalized) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(posted).toBe(6n);
+
+      await timeWarp(h.rpcUrl, 24 * 60 * 60 + 1);
+
+      const aliceWallet = createWalletClient({
+        account: privateKeyToAccount(h.alice.privateKey),
+        chain: foundry,
+        transport: http(h.rpcUrl),
+      });
+      const finalizeAbi = parseAbi(['function finalize(bytes32 channelId)']);
+      const fHash = await aliceWallet.writeContract({
+        address: h.paymentChannel,
+        abi: finalizeAbi,
+        functionName: 'finalize',
+        args: [channel.id],
+      });
+      await h.publicClient.waitForTransactionReceipt({ hash: fHash });
+
+      expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
+      const aliceUsdc = await readUsdcBalance(h, h.alice.address);
+      const hubUsdc = await readUsdcBalance(h, h.hub.address);
+      expect(aliceUsdc).toBe(100n * ONE_USDC);
+      expect(hubUsdc).toBe(100n * ONE_USDC);
+    } finally {
+      await wt.stop();
+    }
+  });
+});
+
+describe.skip('e2e — full payment lifecycle (deferred to phase 2D)', () => {
   it('hub-down recovery: client reconnects through alternate hub', async () => {
     expect(true).toBe(true);
   });
