@@ -35,9 +35,11 @@ and review gate yourself.
 - **Decision:** 3 claude-generated operator wallets (`alice`, `bob`, `carol`) on this
   machine. Each wallet has its own encrypted key under `~/.tainnel/<role>/key.enc`
   (scrypt + xsalsa20-poly1305, perms 0600). Claude has the passphrases; user funds
-  the addresses. 3 is the lower bound of the original 3–5 range — smaller blast
-  radius for the first real-money run; scale to 5 by repeating the wallet-generation
-  loop with new role names if needed.
+  the addresses. Roles: Alice and Bob run the controlled mainnet flow (sender +
+  receiver); Carol owns the dispute drill on a dedicated channel so a stale-state
+  close cannot pollute the Alice/Bob channels. 3 is the lower bound of the original
+  3–5 range — smaller blast radius for the first real-money run; scale to 5 by
+  repeating the wallet-generation loop with new role names if needed.
 - **Tradeoff:** keys live on one machine. If this machine is compromised, all 3
   operator wallets are compromised. Acceptable given each wallet is capped at
   100 USDC (D10.1) and the hub at 1000 USDC (D10.2).
@@ -83,6 +85,7 @@ dir, encrypted key file, and channel db.
 
 - [ ] `[agent]` Generate three encrypted operator keys under `~/.tainnel/`:
       ```bash
+      unset TAINNEL_PASSPHRASE   # otherwise keys init reuses one passphrase for all
       mkdir -p ~/.tainnel
       for role in alice bob carol; do
         TAINNEL_CONFIG_DIR="$HOME/.tainnel/$role" pnpm tainnel keys init
@@ -140,13 +143,19 @@ dir, encrypted key file, and channel db.
 
 ## Dispute drill
 
-- [ ] `[human]` Open a fresh low-value drill channel.
-- [ ] `[human]` Create at least one signed state update so there is an older state
-      and a newer state.
-- [ ] `[human]` Submit `closeUnilateral` with the older signed state.
+- [ ] `[human]` Carol opens a fresh low-value drill channel to the hub (separate from
+      the Alice/Bob channels above):
+      ```bash
+      TAINNEL_CONFIG_DIR="$HOME/.tainnel/carol" \
+        tainnel channel open --hub <mainnet hub URL> --amount <small drill amount>
+      ```
+- [ ] `[human]` Carol and the hub exchange at least one signed state update so there
+      is an older state and a newer state.
+- [ ] `[human]` Carol submits `closeUnilateral` with the older signed state.
 - [ ] `[human]` Confirm the watchtower observes the stale close and submits the newer
       state before the dispute window closes.
-- [ ] `[human]` Finalize and confirm the honest party receives the expected funds.
+- [ ] `[human]` Finalize and confirm the hub (the honest party) receives the expected
+      funds; Carol's stale-state attempt is penalized.
 - [ ] `[human]` If any step misses the expected state transition, apply D10.5.
 
 ## Done when
