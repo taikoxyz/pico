@@ -1,13 +1,15 @@
-import { encodeChannelStateForOnChain, signatureToHex } from '@tainnel/sdk';
+import { encodeChannelStateForOnChain, generateKeysendKeypair, signatureToHex } from '@tainnel/sdk';
 import { http, createWalletClient, erc20Abi, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   type AliceBundle,
+  type ClientBundle,
   type E2EHandle,
   bootE2E,
   buildAliceClient,
+  buildClient,
   timeWarp,
 } from './harness.js';
 
@@ -63,7 +65,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_OPEN);
 
@@ -82,7 +87,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     const r1 = await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
     const r2 = await alice.client.payDirect(channel.id, { amount: 3n * ONE_USDC });
@@ -106,7 +114,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     await alice.client.close(channel.id, { cooperative: true });
 
@@ -121,7 +132,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       amount: 60n * ONE_USDC,
       counterpartyAmount: 40n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     expect(await readUsdcBalance(h, h.alice.address)).toBe(40n * ONE_USDC);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(60n * ONE_USDC);
@@ -139,7 +153,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     await expect(alice.client.payDirect(channel.id, { amount: 20n * ONE_USDC })).rejects.toThrow(
       /insufficient balance/i,
@@ -159,7 +176,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
     const v2 = await alice.storage.loadLatestState(channel.id);
@@ -191,7 +211,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
     const v2 = await alice.storage.loadLatestState(channel.id);
@@ -222,7 +245,10 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
-    h.hubServer.registerChannel(channel);
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      h.hubServer.registerChannel(channel, init ?? undefined);
+    }
 
     await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
 
@@ -247,16 +273,79 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 });
 
-describe.skip('e2e — full payment lifecycle (deferred to phase 2)', () => {
-  it('open → pay (HTLC) → close (cooperative) — gates on hub router', async () => {
-    expect(true).toBe(true);
+describe('e2e — phase 2B agent-pay-agent (3-party HTLC)', () => {
+  let h: E2EHandle;
+  let alice: AliceBundle;
+  let bob: ClientBundle;
+
+  beforeEach(async () => {
+    h = await bootE2E();
+    alice = buildAliceClient(h);
+    const bobKeysend = generateKeysendKeypair();
+    bob = buildClient(h, h.bob, { encryption: bobKeysend });
+  }, 60_000);
+
+  afterEach(async () => {
+    await alice?.transport.close();
+    await bob?.transport.close();
+    await h?.stop();
   });
 
+  it('alice → hub → bob: invoice pay through real hub router', async () => {
+    const aliceChannel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    {
+      const init = await alice.storage.loadLatestState(aliceChannel.id);
+      h.hubServer.registerChannel(aliceChannel, init ?? undefined);
+    }
+
+    const bobChannel = await bob.client.open({
+      counterparty: h.hub.address,
+      amount: 0n,
+      counterpartyAmount: 10n * ONE_USDC,
+    });
+    {
+      const init = await bob.storage.loadLatestState(bobChannel.id);
+      h.hubServer.registerChannel(bobChannel, init ?? undefined);
+    }
+    await bob.client.ensureSubscribed([bobChannel.id]);
+
+    const { invoice, preimage: expectedPreimage } = await bob.client.createInvoice({
+      amount: 5n * ONE_USDC,
+      memo: 'agent-pay-agent test',
+    });
+
+    const result = await alice.client.pay({ invoice });
+    expect(result.preimage).toBe(expectedPreimage);
+    expect(result.channelId).toBe(aliceChannel.id);
+
+    const aliceState = await alice.storage.loadLatestState(aliceChannel.id);
+    expect(aliceState?.state.htlcs).toEqual([]);
+    const aliceBalance = aliceState?.state.balanceA ?? 0n;
+    expect(aliceBalance).toBeLessThanOrEqual(100n * ONE_USDC - 5n * ONE_USDC);
+    expect(aliceBalance).toBeGreaterThan(94n * ONE_USDC);
+
+    const bobState = await bob.storage.loadLatestState(bobChannel.id);
+    expect(bobState?.state.htlcs).toEqual([]);
+    expect(bobState?.state.balanceA).toBeGreaterThanOrEqual(5n * ONE_USDC);
+
+    const bobInvoice = await bob.storage.loadInvoice(invoice.paymentHash);
+    expect(bobInvoice?.consumedAt).toBeGreaterThan(0);
+  });
+});
+
+describe.skip('e2e — full payment lifecycle (deferred to phase 2C/2D)', () => {
   it('dispute window: counterparty publishes old state, watchtower penalizes', async () => {
     expect(true).toBe(true);
   });
 
   it('hub-down recovery: client reconnects through alternate hub', async () => {
+    expect(true).toBe(true);
+  });
+
+  it('receiver offline then resume', async () => {
     expect(true).toBe(true);
   });
 });

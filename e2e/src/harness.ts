@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { type BuildServerResult, buildServer } from '@tainnel/hub';
 import {
   ANVIL_DEV_CHAIN_ID,
   CONTRACT_ADDRESSES,
   type ChainId,
+  type Channel,
+  type SignedState,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
 } from '@tainnel/protocol';
@@ -15,13 +18,7 @@ import {
   WebSocketTransport,
   localSigner,
 } from '@tainnel/sdk';
-import {
-  type AnvilHandle,
-  type MockHubHandle,
-  TEST_KEYS,
-  startAnvilFork,
-  startMockHub,
-} from '@tainnel/test-utils';
+import { type AnvilHandle, TEST_KEYS, startAnvilFork } from '@tainnel/test-utils';
 import {
   http,
   type Abi,
@@ -72,6 +69,12 @@ export interface E2EParty {
   readonly privateKey: Hex;
 }
 
+export interface HubServerHandle {
+  readonly url: string;
+  registerChannel(channel: Channel, initialState?: SignedState): void;
+  stop(): Promise<void>;
+}
+
 export interface E2EHandle {
   readonly rpcUrl: string;
   readonly chainId: ChainId;
@@ -79,11 +82,44 @@ export interface E2EHandle {
   readonly paymentChannel: Address;
   readonly adjudicator: Address;
   readonly alice: E2EParty;
+  readonly bob: E2EParty;
   readonly hub: E2EParty;
-  readonly hubServer: MockHubHandle;
+  readonly hubServer: HubServerHandle;
   readonly publicClient: PublicClient;
   readonly mode: 'vanilla' | 'fork';
   stop(): Promise<void>;
+}
+
+async function startRealHub(args: {
+  hubPrivateKey: Hex;
+  rpcUrl: string;
+  chainId: ChainId;
+  paymentChannelAddress: Address;
+  adjudicatorAddress: Address;
+}): Promise<HubServerHandle> {
+  const env: NodeJS.ProcessEnv = {
+    HUB_PRIVATE_KEY: args.hubPrivateKey,
+    RPC_URL: args.rpcUrl,
+    CHAIN_ID: String(args.chainId),
+    PAYMENT_CHANNEL_ADDRESS: args.paymentChannelAddress,
+    ADJUDICATOR_ADDRESS: args.adjudicatorAddress,
+    HUB_FEE_BPS: '0',
+    HUB_FEE_FLAT: '0',
+    LOG_LEVEL: 'silent',
+    PORT: '0',
+  };
+  const built: BuildServerResult = await buildServer(env);
+  const url = await built.app.listen({ port: 0, host: '127.0.0.1' });
+  const wsUrl = `${url.replace(/^http/, 'ws')}/ws`;
+  return {
+    url: wsUrl,
+    registerChannel(channel: Channel, initialState?: SignedState): void {
+      built.api.ws.registerChannel(channel, initialState);
+    },
+    async stop(): Promise<void> {
+      await built.app.close();
+    },
+  };
 }
 
 async function deployContract(
@@ -143,6 +179,7 @@ async function bootVanillaMode(): Promise<E2EHandle> {
 
     const deployerAccount = privateKeyToAccount(ANVIL_DEPLOYER_KEY);
     const aliceAccount = privateKeyToAccount(TEST_KEYS.alice.privateKey);
+    const bobAccount = privateKeyToAccount(TEST_KEYS.bob.privateKey);
     const hubAccount = privateKeyToAccount(TEST_KEYS.hub.privateKey);
 
     const deployerWallet = createWalletClient({
@@ -155,6 +192,11 @@ async function bootVanillaMode(): Promise<E2EHandle> {
       chain: foundry,
       transport,
     });
+    const bobWallet = createWalletClient({
+      account: bobAccount,
+      chain: foundry,
+      transport,
+    });
     const hubWallet = createWalletClient({
       account: hubAccount,
       chain: foundry,
@@ -162,7 +204,7 @@ async function bootVanillaMode(): Promise<E2EHandle> {
     });
 
     const fundEth = 10n ** 18n;
-    for (const to of [aliceAccount.address, hubAccount.address]) {
+    for (const to of [aliceAccount.address, bobAccount.address, hubAccount.address]) {
       const hash = await deployerWallet.sendTransaction({
         account: deployerAccount,
         chain: foundry,
@@ -178,7 +220,7 @@ async function bootVanillaMode(): Promise<E2EHandle> {
       USDC_DECIMALS,
     ]);
 
-    for (const to of [aliceAccount.address, hubAccount.address]) {
+    for (const to of [aliceAccount.address, bobAccount.address, hubAccount.address]) {
       const hash = await deployerWallet.writeContract({
         account: deployerAccount,
         chain: foundry,
@@ -222,7 +264,7 @@ async function bootVanillaMode(): Promise<E2EHandle> {
     });
     await publicClient.waitForTransactionReceipt({ hash: allowHash });
 
-    for (const wallet of [aliceWallet, hubWallet]) {
+    for (const wallet of [aliceWallet, bobWallet, hubWallet]) {
       const account = wallet.account;
       if (!account) throw new Error('walletClient missing account');
       const hash = await wallet.writeContract({
@@ -236,10 +278,12 @@ async function bootVanillaMode(): Promise<E2EHandle> {
       await publicClient.waitForTransactionReceipt({ hash });
     }
 
-    const hubServer = await startMockHub({
-      chainId: ANVIL_DEV_CHAIN_ID,
-      verifyingContract: adjudicator,
+    const hubServer = await startRealHub({
       hubPrivateKey: TEST_KEYS.hub.privateKey,
+      rpcUrl: anvil.rpcUrl,
+      chainId: ANVIL_DEV_CHAIN_ID,
+      paymentChannelAddress: paymentChannel,
+      adjudicatorAddress: adjudicator,
     });
 
     return {
@@ -249,6 +293,7 @@ async function bootVanillaMode(): Promise<E2EHandle> {
       paymentChannel,
       adjudicator,
       alice: { address: aliceAccount.address, privateKey: TEST_KEYS.alice.privateKey },
+      bob: { address: bobAccount.address, privateKey: TEST_KEYS.bob.privateKey },
       hub: { address: hubAccount.address, privateKey: TEST_KEYS.hub.privateKey },
       hubServer,
       publicClient,
@@ -282,16 +327,20 @@ async function bootForkMode(opts: BootE2EOptions): Promise<E2EHandle> {
     const publicClient = createPublicClient({ chain: taiko, transport });
 
     const aliceAccount = privateKeyToAccount(TEST_KEYS.alice.privateKey);
+    const bobAccount = privateKeyToAccount(TEST_KEYS.bob.privateKey);
     const hubAccount = privateKeyToAccount(TEST_KEYS.hub.privateKey);
 
     const fundEthHex = `0x${(10n ** 19n).toString(16)}` as Hex; // 10 ETH each
     await anvilSetBalance(anvil.rpcUrl, aliceAccount.address, fundEthHex);
+    await anvilSetBalance(anvil.rpcUrl, bobAccount.address, fundEthHex);
     await anvilSetBalance(anvil.rpcUrl, hubAccount.address, fundEthHex);
 
-    const hubServer = await startMockHub({
-      chainId: TAIKO_MAINNET_CHAIN_ID,
-      verifyingContract: addrs.Adjudicator,
+    const hubServer = await startRealHub({
       hubPrivateKey: TEST_KEYS.hub.privateKey,
+      rpcUrl: anvil.rpcUrl,
+      chainId: TAIKO_MAINNET_CHAIN_ID,
+      paymentChannelAddress: addrs.PaymentChannel,
+      adjudicatorAddress: addrs.Adjudicator,
     });
 
     return {
@@ -301,6 +350,7 @@ async function bootForkMode(opts: BootE2EOptions): Promise<E2EHandle> {
       paymentChannel: addrs.PaymentChannel,
       adjudicator: addrs.Adjudicator,
       alice: { address: aliceAccount.address, privateKey: TEST_KEYS.alice.privateKey },
+      bob: { address: bobAccount.address, privateKey: TEST_KEYS.bob.privateKey },
       hub: { address: hubAccount.address, privateKey: TEST_KEYS.hub.privateKey },
       hubServer,
       publicClient,
@@ -316,37 +366,59 @@ async function bootForkMode(opts: BootE2EOptions): Promise<E2EHandle> {
   }
 }
 
-export interface AliceBundle {
+export interface ClientBundle {
   readonly client: ChannelClient;
   readonly transport: WebSocketTransport;
   readonly storage: MemoryStorage;
 }
 
-export function buildAliceClient(h: E2EHandle): AliceBundle {
-  const aliceAccount = privateKeyToAccount(h.alice.privateKey);
-  const aliceWallet = createWalletClient({
-    account: aliceAccount,
+export type AliceBundle = ClientBundle;
+
+export interface BuildClientOpts {
+  readonly encryption?: { publicKey: Hex; secretKey: Hex };
+}
+
+export function buildClient(
+  h: E2EHandle,
+  party: E2EParty,
+  opts: BuildClientOpts = {},
+): ClientBundle {
+  const account = privateKeyToAccount(party.privateKey);
+  const wallet = createWalletClient({
+    account,
     chain: viemChainFor(h.chainId),
     transport: http(h.rpcUrl),
   });
   const transport = new WebSocketTransport({ url: h.hubServer.url, autoReconnect: false });
   const storage = new MemoryStorage();
   const client = new ChannelClient({
-    signer: localSigner(h.alice.privateKey),
+    signer: localSigner(party.privateKey),
     transport,
     storage,
     chain: new ViemChainAdapter({
       publicClient: h.publicClient,
-      walletClient: aliceWallet,
+      walletClient: wallet,
       paymentChannelAddress: h.paymentChannel,
     }),
     chainId: h.chainId,
     verifyingContract: h.adjudicator,
     defaultToken: h.usdc,
+    hubFeeBps: 0n,
+    hubFeeFlat: 0n,
     settleTimeoutMs: 10_000,
     closeRequestTimeoutMs: 10_000,
+    ...(opts.encryption !== undefined
+      ? {
+          encryptionPubkey: opts.encryption.publicKey,
+          encryptionSecretKey: opts.encryption.secretKey,
+        }
+      : {}),
   });
   return { client, transport, storage };
+}
+
+export function buildAliceClient(h: E2EHandle): AliceBundle {
+  return buildClient(h, h.alice);
 }
 
 export async function timeWarp(rpcUrl: string, seconds: number): Promise<void> {

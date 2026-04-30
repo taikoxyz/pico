@@ -1,6 +1,6 @@
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { registerRoutes } from './api/index.js';
+import { type ApiHandle, registerRoutes } from './api/index.js';
 import { ChainWatcher } from './chain-watcher.js';
 import { ChannelPool } from './channel-pool.js';
 import { type HubConfig, loadConfig } from './config.js';
@@ -11,6 +11,8 @@ import { registry } from './metrics.js';
 export interface BuildServerResult {
   readonly app: FastifyInstance;
   readonly config: HubConfig;
+  readonly channelPool: ChannelPool;
+  readonly api: ApiHandle;
 }
 
 export async function buildServer(
@@ -27,7 +29,15 @@ export async function buildServer(
   const channelPool = new ChannelPool({ logger });
   const chainWatcher = new ChainWatcher({ rpcUrl: config.rpcUrl, logger });
 
-  await registerRoutes(app, { channelPool });
+  const api = await registerRoutes(app, {
+    channelPool,
+    logger,
+    hubPrivateKey: config.hubPrivateKey,
+    chainId: config.chainId,
+    verifyingContract: config.adjudicatorAddress,
+    hubFeeBps: config.hubFeeBps,
+    hubFeeFlat: config.hubFeeFlat,
+  });
 
   app.get('/metrics', async (_req, reply) => {
     void reply.header('Content-Type', registry.contentType);
@@ -40,7 +50,7 @@ export async function buildServer(
   });
 
   await chainWatcher.start();
-  return { app, config };
+  return { app, config, channelPool, api };
 }
 
 export async function start(): Promise<void> {

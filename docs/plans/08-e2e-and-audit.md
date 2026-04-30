@@ -1,12 +1,11 @@
 # P8 — E2E + internal audit
 
-**Status:** 🟡 **Phase 2 in progress** — Phase 1 done (6 scenarios) plus
-Phase 2A done (fork-mode harness + 2 replay-attack scenarios) → 8 scenarios
-green in CI (`pnpm -F @tainnel/e2e test` → 8 passed, 3 deferred, ~2s).
-Phase 2B (HTLC routing), 2C (dispute/watchtower), 2D (durability) and
+**Status:** 🟡 **Phase 2 in progress** — Phase 1 + 2A + 2B done (6 + 2 + 1
+= 9 scenarios green via real hub) (`pnpm -F @tainnel/e2e test` → 9 passed,
+3 deferred, ~2.4s). Phase 2C (dispute/watchtower), 2D (durability) and
 Phase 3 (audit) not started.
 **Blocks:** P9, P10
-**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (2A ✅, 2B ~3d, 2C ~2d, 2D ~3d).
+**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (2A ✅, 2B ✅, 2C ~2d, 2D ~3d).
 
 ## Why this exists as its own phase
 
@@ -176,11 +175,34 @@ USDC addresses from `packages/protocol/src/constants.ts`.
       future `e2e-fork` job; the existing `e2e` job already runs the
       replay scenarios in vanilla mode.
 
-### 2B — 3-party HTLC routing (agent-pay-agent) 🔵 not started
-**Effort:** ~3 days, ~700 LOC.
-**Gates on:** real `apps/hub` HTLC routing + WS handlers (today the
-router/api are stubs). Scenario itself is SDK-driven (no CLI needed).
-Replaces `startMockHub` in the harness with the real hub server.
+### 2B — 3-party HTLC routing (agent-pay-agent) ✅
+- [x] **Real Router** in `apps/hub/src/router.ts` — replaces stub. Routes
+      incoming `pay` to outgoing channel: deducts hub fee, shrinks expiry
+      by `EXPIRY_BUFFER_MS`, signs new state for outgoing channel,
+      tracks inflight `(incoming htlc id ↔ outgoing htlc id)` for
+      settle/fail routing in both directions.
+- [x] **WS handlers** in `apps/hub/src/api/ws.ts` (new) — handles
+      `subscribe`, `pay`, `htlcSettle`, `htlcFail`, `closeRequest`,
+      `payDirect`. On `htlcSettle` from recipient, builds settle on
+      incoming channel and forwards `paymentSettle` to original sender.
+- [x] **Hub config** extended with `chainId`, `paymentChannelAddress`,
+      `adjudicatorAddress`, `hubFeeBps`, `hubFeeFlat` (env-driven).
+- [x] **Harness uses real hub**: `startRealHub` boots the production
+      `buildServer()` from `@tainnel/hub` on an ephemeral port. Mock-hub
+      stays in `packages/sdk/src/_test/` for SDK unit tests.
+- [x] **`buildClient(h, party, opts)`** generic helper in harness;
+      `buildAliceClient` becomes a thin wrapper. New `bob` party plumbed
+      through harness (funded with ETH + USDC, max-approve to channel).
+- [x] **Scenario**: alice + bob both connect to real hub. Alice opens
+      100 USDC channel, bob opens 0/10 USDC (hub-funded) channel, bob
+      issues invoice for 5 USDC, alice pays via `client.pay({ invoice })`
+      → hub routes HTLC → bob settles → preimage round-trips → both
+      channel states advance → invoice marked consumed.
+- Gotcha addressed: the SDK's `pay()` and the hub's `Router` compute
+  fees on different bases (alice adds fee on top of invoice; hub
+  deducts from incoming). For Phase 2B we set both to zero fees in the
+  test harness via `HUB_FEE_BPS=0`. Production fee-policy alignment is a
+  separate concern, tracked but not blocking.
 
 ### 2C — Dispute + watchtower penalty 🔵 not started
 **Effort:** ~2 days, ~600 LOC.
@@ -196,18 +218,16 @@ hub-down recovery. Gates on hub DB hydration + CLI journal replay.
 Each Phase 2 scenario below has a status (✅ done / 🔵 deferred). Gating
 components are noted for the deferred ones.
 
-### Scenario: agent-pay-agent (open → pay → cooperative close, 3-party HTLC)
-**Gates on:** `apps/hub` router with HTLC forwarding; `apps/cli` `tainnel pay` /
-`tainnel listen` end-to-end.
-- [ ] `[agent]` Spawn two CLI processes from `apps/cli`. Alice runs from a key
-      file; Bob runs `tainnel listen --hub <hub-url>`.
-- [ ] `[agent]` Alice opens a 100 USDC channel with the hub. Bob opens a 10
-      USDC channel with the same hub.
-- [ ] `[agent]` Alice runs `tainnel pay --to <bob> --amount 5 --json`. Bob's
-      listen process accepts the inbound HTLC, reveals the preimage, both
-      channel states advance.
-- [ ] `[agent]` Alice cooperatively closes via `tainnel channel close <id>
-      --cooperative`. Final balances on-chain match expectation.
+### Scenario: agent-pay-agent (open → pay → cooperative close, 3-party HTLC) ✅ (Phase 2B done)
+- [x] `[agent]` SDK-driven (no CLI processes — that's deferred). Alice +
+      bob each have a `ChannelClient` connected to the real hub.
+- [x] `[agent]` Alice opens 100 USDC channel; bob opens 0/10 USDC channel
+      (hub-funded counterparty deposit).
+- [x] `[agent]` Bob creates invoice for 5 USDC. Alice pays via
+      `client.pay({ invoice })`. Hub routes HTLC → bob settles → both
+      states advance, preimage round-trips, invoice marked consumed.
+- [ ] `[agent]` (deferred to 2D) Replace SDK calls with `tainnel pay` /
+      `tainnel listen` CLI processes for full end-to-end coverage.
 
 ### Scenario: receiver offline then resume
 **Gates on:** journal replay in `apps/cli` listen, hub durable channel
