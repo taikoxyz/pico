@@ -4,6 +4,7 @@ export const PROTOCOL_VERSION = '0.1.0' as const;
 
 export const TAIKO_MAINNET_CHAIN_ID = 167000 as const;
 export const TAIKO_HOODI_CHAIN_ID = 167009 as const;
+export const ANVIL_DEV_CHAIN_ID = 31337 as const;
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
@@ -24,6 +25,10 @@ export const CONTRACT_ADDRESSES: Record<
     PaymentChannel: ZERO_ADDRESS,
     Adjudicator: ZERO_ADDRESS,
   },
+  [ANVIL_DEV_CHAIN_ID]: {
+    PaymentChannel: ZERO_ADDRESS,
+    Adjudicator: ZERO_ADDRESS,
+  },
 };
 
 export const USDC_TOKENS: Record<ChainId, TokenInfo> = {
@@ -38,6 +43,12 @@ export const USDC_TOKENS: Record<ChainId, TokenInfo> = {
     address: ZERO_ADDRESS,
     decimals: 6,
     chainId: TAIKO_HOODI_CHAIN_ID,
+  },
+  [ANVIL_DEV_CHAIN_ID]: {
+    asset: 'USDC',
+    address: ZERO_ADDRESS,
+    decimals: 6,
+    chainId: ANVIL_DEV_CHAIN_ID,
   },
 };
 

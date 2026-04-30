@@ -395,6 +395,79 @@ export class ChannelClient {
     });
   }
 
+  /**
+   * Direct (non-HTLC) balance update. Atomic 2-party transfer of `amount` from
+   * the caller to the channel counterparty. No preimage, no expiry — the
+   * payment is final the moment the hub returns a counter-signed state.
+   *
+   * Requires no in-flight HTLCs in the channel; otherwise the merkle root
+   * would not match the contract's `htlcsRoot == bytes32(0)` invariant for
+   * cooperative close.
+   */
+  async payDirect(
+    channelId: ChannelId,
+    args: { amount: bigint },
+  ): Promise<{ channelId: ChannelId; version: bigint }> {
+    if (args.amount <= 0n) throw new Error('payDirect: amount must be positive');
+    const me = await this.address();
+    const channel = await this.opts.storage.loadChannel(channelId);
+    if (!channel) throw new Error(`unknown channel ${channelId}`);
+    if (channel.status !== 'open') throw new ChannelNotOpenError(channelId, channel.status);
+    const signed = await this.opts.storage.loadLatestState(channelId);
+    if (!signed) throw new Error(`no signed state for channel ${channelId}`);
+    if (signed.state.htlcs.length > 0) {
+      throw new Error('payDirect: in-flight HTLCs present; settle or fail them first');
+    }
+
+    const iAmA = channel.userA.toLowerCase() === me.toLowerCase();
+    const myBalance = iAmA ? signed.state.balanceA : signed.state.balanceB;
+    if (myBalance < args.amount) {
+      throw new Error(`payDirect: insufficient balance (have ${myBalance}, need ${args.amount})`);
+    }
+
+    const newState: ChannelState = {
+      ...signed.state,
+      version: signed.state.version + 1n,
+      balanceA: iAmA ? signed.state.balanceA - args.amount : signed.state.balanceA + args.amount,
+      balanceB: iAmA ? signed.state.balanceB + args.amount : signed.state.balanceB - args.amount,
+    };
+
+    const mySig = await this.opts.signer.signChannelState(
+      newState,
+      this.opts.chainId,
+      this.opts.verifyingContract,
+    );
+    const lockedSigned: SignedState = {
+      state: newState,
+      sigA: iAmA ? hexToSignature(mySig) : signed.sigA,
+      sigB: iAmA ? signed.sigB : hexToSignature(mySig),
+    };
+    await this.opts.storage.saveState(channelId, lockedSigned);
+
+    const reply = await this.opts.transport.request(
+      {
+        id: newRequestId('payDirect'),
+        kind: 'payDirect',
+        channelId,
+        signedState: lockedSigned,
+      },
+      { timeoutMs: this.settleTimeoutMs },
+    );
+    if (reply.kind === 'error') {
+      throw new Error(`payDirect rejected: ${reply.message}`);
+    }
+    if (reply.kind !== 'payDirectAck') {
+      throw new Error(`payDirect: unexpected reply kind '${reply.kind}'`);
+    }
+    if (reply.signedState.state.version !== newState.version) {
+      throw new Error(
+        `payDirect: hub acked wrong version (sent ${newState.version}, got ${reply.signedState.state.version})`,
+      );
+    }
+    await this.opts.storage.saveState(channelId, reply.signedState);
+    return { channelId, version: newState.version };
+  }
+
   async pay(req: PaymentRequest): Promise<PaymentResult> {
     const me = await this.address();
     if (req.invoice) {
@@ -577,13 +650,33 @@ export class ChannelClient {
     const cooperative = opts.cooperative !== false;
     if (cooperative) {
       try {
+        if (signed.state.htlcs.length > 0) {
+          throw new Error('cooperative close requires no in-flight HTLCs');
+        }
+        const finalState: ChannelState = {
+          ...signed.state,
+          version: signed.state.version + 1n,
+          finalized: true,
+        };
+        const mySig = await this.opts.signer.signChannelState(
+          finalState,
+          this.opts.chainId,
+          this.opts.verifyingContract,
+        );
+        const finalSigned: SignedState = {
+          state: finalState,
+          sigA: iAmA ? hexToSignature(mySig) : signed.sigA,
+          sigB: iAmA ? signed.sigB : hexToSignature(mySig),
+        };
+        await this.opts.storage.saveState(channelId, finalSigned);
+
         const reply = await Promise.race<HubToClientMessage>([
           this.opts.transport.request(
             {
               id: newRequestId('close'),
               kind: 'closeRequest',
               channelId,
-              signedState: signed,
+              signedState: finalSigned,
             },
             { timeoutMs: this.closeRequestTimeoutMs },
           ),
@@ -595,6 +688,7 @@ export class ChannelClient {
           ),
         ]);
         if (reply.kind === 'closeResponse') {
+          await this.opts.storage.saveState(channelId, reply.signedCloseState);
           await this.opts.chain.closeCooperative({
             channelId,
             finalState: reply.signedCloseState,
