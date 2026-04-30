@@ -113,8 +113,6 @@ controlled real-money test path.
 | P9  | Hosting platform | Fly.io | [09](./docs/plans/09-ops.md#decisions) |
 | P9  | Watchtower placement | separate region from hub | [09](./docs/plans/09-ops.md#decisions) |
 | P9  | Alert destination | Discord webhook | [09](./docs/plans/09-ops.md#decisions) |
-| P10 | Test channel cap | 100 USDC | [10](./docs/plans/10-launch.md#decisions) |
-| P10 | Initial hub liquidity ceiling | 1000 USDC | [10](./docs/plans/10-launch.md#decisions) |
 
 ---
 
