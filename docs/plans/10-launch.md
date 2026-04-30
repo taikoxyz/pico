@@ -21,23 +21,34 @@ and review gate yourself.
 - **Tradeoff:** higher caps make the test feel closer to normal use but increase the
   blast radius. 100 USDC is enough to exercise routing and dispute flows while keeping
   the first real-money run deliberately small.
-- Decision: ☐ 50 USDC ☐ 100 USDC ☐ 250 USDC
+- Decision: ☐ 50 USDC ☑ 100 USDC ☐ 250 USDC
 
 ### D10.2 Initial hub liquidity ceiling
 - **Default:** fund the hub with enough USDC for the planned test channels, capped at
   1000 USDC total. Do not exceed the P9 hot-wallet ceiling.
-- Decision: ☐ 500 USDC ☐ 1000 USDC ☐ 2000 USDC
+- Decision: ☐ 500 USDC ☑ 1000 USDC ☐ 2000 USDC
 
 ### D10.3 Test participants
 - **Default:** two wallets/agents you control: Alice sends, Bob receives via
   `tainnel listen`. Add trusted external operators only after the single-operator flow
   passes.
-- Decision: ☐ just you ☐ you + one trusted operator ☐ 3–5 trusted operators
+- **Decision:** 3 claude-generated operator wallets (`alice`, `bob`, `carol`) on this
+  machine. Each wallet has its own encrypted key under `~/.tainnel/<role>/key.enc`
+  (scrypt + xsalsa20-poly1305, perms 0600). Claude has the passphrases; user funds
+  the addresses. Roles: Alice and Bob run the controlled mainnet flow (sender +
+  receiver); Carol owns the dispute drill on a dedicated channel so a stale-state
+  close cannot pollute the Alice/Bob channels. 3 is the lower bound of the original
+  3–5 range — smaller blast radius for the first real-money run; scale to 5 by
+  repeating the wallet-generation loop with new role names if needed.
+- **Tradeoff:** keys live on one machine. If this machine is compromised, all 3
+  operator wallets are compromised. Acceptable given each wallet is capped at
+  100 USDC (D10.1) and the hub at 1000 USDC (D10.2).
+- Decision: ☐ just you ☐ you + one trusted operator ☑ 3–5 trusted operators
 
 ### D10.4 How channels are opened
 - **Default:** self-serve from the CLI with `tainnel channel open --hub <url>
   --amount <usdc>`. The cold wallet does not open user channels on behalf of others.
-- Decision: ☐ self-serve via CLI ☐ manually open for each participant
+- Decision: ☑ self-serve via CLI ☐ manually open for each participant
 
 ### D10.5 Abort criteria
 - **Default:** immediately stop, cooperative-close all open channels if possible, and
@@ -47,7 +58,7 @@ and review gate yourself.
   - Hub or watchtower crashes during a payment or dispute
   - Dispute window passes without the latest state posted
   - Any mainnet transaction uses an unexpected contract or token address
-- Decision: ☐ accept default ☐ stricter ☐ looser
+- Decision: ☑ accept default ☐ stricter ☐ looser
 
 ## Pre-flight checklist
 
@@ -64,6 +75,42 @@ and review gate yourself.
       in separate regions, with monitoring and alert delivery already tested.
 - [ ] `[human]` Confirm `docs/runbooks/` covers hub-down, watchtower-down, dispute
       incident, key compromise, and backup restore.
+
+### Operator wallet generation (D10.3)
+
+Run on the same machine that will execute the test. The CLI's `TAINNEL_CONFIG_DIR`
+env var overrides the default `~/.config/tainnel/` path
+(`apps/cli/src/runtime/config.ts:4-8`) so each operator persona gets its own config
+dir, encrypted key file, and channel db.
+
+- [ ] `[agent]` Generate three encrypted operator keys under `~/.tainnel/`:
+      ```bash
+      unset TAINNEL_PASSPHRASE   # otherwise keys init reuses one passphrase for all
+      mkdir -p ~/.tainnel
+      for role in alice bob carol; do
+        TAINNEL_CONFIG_DIR="$HOME/.tainnel/$role" pnpm tainnel keys init
+      done
+      ```
+      Use a distinct passphrase per role; record passphrases offline (paper or
+      password manager). Each command prints `address: 0x…` and writes
+      `~/.tainnel/<role>/key.enc` with mode 0600.
+- [ ] `[agent]` Print all three addresses for funding:
+      ```bash
+      for role in alice bob carol; do
+        echo "== $role =="
+        TAINNEL_CONFIG_DIR="$HOME/.tainnel/$role" pnpm tainnel keys show
+      done
+      ```
+- [ ] `[human]` Fund each operator address from the cold wallet on Taiko mainnet:
+      - 100 USDC (matches D10.1 per-channel cap)
+      - ~0.005 ETH for gas (channel open + state updates + cooperative close;
+        bridge from L1 if needed)
+- [ ] `[human]` Fund the hub hot wallet with USDC up to but not exceeding the
+      1000 USDC ceiling from D10.2. Confirm against the hub hot wallet address
+      from P9 on Taikoscan before transferring.
+- [ ] `[human]` Take an offline backup of `~/.tainnel/` (encrypted USB, sealed
+      envelope, or external password-manager attachment). The `key.enc` files are
+      passphrase-encrypted, but disk loss + passphrase loss is unrecoverable.
 
 ## First controlled mainnet flow
 
@@ -96,13 +143,19 @@ and review gate yourself.
 
 ## Dispute drill
 
-- [ ] `[human]` Open a fresh low-value drill channel.
-- [ ] `[human]` Create at least one signed state update so there is an older state
-      and a newer state.
-- [ ] `[human]` Submit `closeUnilateral` with the older signed state.
+- [ ] `[human]` Carol opens a fresh low-value drill channel to the hub (separate from
+      the Alice/Bob channels above):
+      ```bash
+      TAINNEL_CONFIG_DIR="$HOME/.tainnel/carol" \
+        tainnel channel open --hub <mainnet hub URL> --amount <small drill amount>
+      ```
+- [ ] `[human]` Carol and the hub exchange at least one signed state update so there
+      is an older state and a newer state.
+- [ ] `[human]` Carol submits `closeUnilateral` with the older signed state.
 - [ ] `[human]` Confirm the watchtower observes the stale close and submits the newer
       state before the dispute window closes.
-- [ ] `[human]` Finalize and confirm the honest party receives the expected funds.
+- [ ] `[human]` Finalize and confirm the hub (the honest party) receives the expected
+      funds; Carol's stale-state attempt is penalized.
 - [ ] `[human]` If any step misses the expected state transition, apply D10.5.
 
 ## Done when
