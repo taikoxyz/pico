@@ -160,14 +160,17 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         alreadyPenalized: meta.penalized,
       });
       if (evaluation.action === 'penalize') {
-        const obsId = store.recordObservation({
-          channelId,
-          postedVersion: event.version,
-          postedAtMs,
-          ourLatestVersion: evaluation.latestKnownVersion,
-          actionTaken: 'penalize',
-          createdAtMs: Date.now(),
-        });
+        const existingInFlight = store.getInFlight(channelId);
+        const obsId =
+          existingInFlight?.observationId ??
+          store.recordObservation({
+            channelId,
+            postedVersion: event.version,
+            postedAtMs,
+            ourLatestVersion: evaluation.latestKnownVersion,
+            actionTaken: 'penalize',
+            createdAtMs: Date.now(),
+          });
         try {
           await responder.submitPenalty(channelId, evaluation.evidence, meta.closerSide, obsId);
         } catch (err) {

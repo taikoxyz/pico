@@ -10,6 +10,7 @@ import type { WatchtowerStore } from './storage.js';
 const DEFAULT_INTERVAL_MS = 60_000;
 const DEFAULT_THRESHOLD_RATIO = 0.5;
 const DEFAULT_CATCHUP_MAX_BLOCKS = 100_000;
+const DEFAULT_CATCHUP_CHUNK_BLOCKS = 10_000n;
 const LAST_PROCESSED_BLOCK_KEY = 'last_processed_block_number';
 
 const closingEventAbi = parseAbi([
@@ -40,6 +41,7 @@ export interface SchedulerDeps {
   readonly windowMs?: number;
   readonly thresholdRatio?: number;
   readonly catchupMaxBlocks?: number;
+  readonly catchupChunkBlocks?: bigint;
   readonly now?: () => number;
   readonly closingProvider: () => Iterable<ClosingChannelInfo>;
 }
@@ -71,27 +73,37 @@ export class Scheduler {
     const head = await this.deps.publicClient.getBlockNumber();
     const lastProcessedRaw = this.deps.store.getMeta(LAST_PROCESSED_BLOCK_KEY);
     const catchupMaxBlocks = BigInt(this.deps.catchupMaxBlocks ?? DEFAULT_CATCHUP_MAX_BLOCKS);
-    const fromBlock = lastProcessedRaw
-      ? BigInt(lastProcessedRaw) + 1n
-      : head > catchupMaxBlocks
-        ? head - catchupMaxBlocks
-        : 0n;
-
-    const events = await this.deps.publicClient.getContractEvents({
-      address: this.deps.paymentChannelAddress,
-      abi: closingEventAbi,
-      eventName: 'ChannelClosingUnilateral',
-      fromBlock,
-      toBlock: head,
-    });
-
-    for (const log of events) {
-      const info = await this.infoFromLog(log);
-      if (!info) continue;
-      await this.evaluateAndSubmit(info);
+    const chunkSize = this.deps.catchupChunkBlocks ?? DEFAULT_CATCHUP_CHUNK_BLOCKS;
+    const earliestAllowed = head > catchupMaxBlocks ? head - catchupMaxBlocks : 0n;
+    const desiredFromBlock = lastProcessedRaw ? BigInt(lastProcessedRaw) + 1n : earliestAllowed;
+    if (desiredFromBlock < earliestAllowed) {
+      this.deps.logger.warn(
+        { desiredFromBlock: String(desiredFromBlock), earliestAllowed: String(earliestAllowed) },
+        'scheduler: clamping catchup window; events older than catchupMaxBlocks may be missed',
+      );
     }
+    let chunkStart = desiredFromBlock < earliestAllowed ? earliestAllowed : desiredFromBlock;
 
-    this.deps.store.putMeta(LAST_PROCESSED_BLOCK_KEY, String(head));
+    while (chunkStart <= head) {
+      const tentativeEnd = chunkStart + chunkSize - 1n;
+      const chunkEnd = tentativeEnd > head ? head : tentativeEnd;
+      const events = await this.deps.publicClient.getContractEvents({
+        address: this.deps.paymentChannelAddress,
+        abi: closingEventAbi,
+        eventName: 'ChannelClosingUnilateral',
+        fromBlock: chunkStart,
+        toBlock: chunkEnd,
+      });
+
+      for (const log of events) {
+        const info = await this.infoFromLog(log);
+        if (!info) continue;
+        await this.evaluateAndSubmit(info);
+      }
+
+      this.deps.store.putMeta(LAST_PROCESSED_BLOCK_KEY, String(chunkEnd));
+      chunkStart = chunkEnd + 1n;
+    }
   }
 
   stop(): void {
@@ -119,16 +131,18 @@ export class Scheduler {
 
     if (result.action !== 'penalize') return;
     if (now < result.submitByMs) return;
-    if (this.deps.store.getInFlight(info.channelId)) return;
 
-    const observationId = this.deps.store.recordObservation({
-      channelId: info.channelId,
-      postedVersion: info.postedVersion,
-      postedAtMs: info.postedAtMs,
-      ourLatestVersion: result.latestKnownVersion,
-      actionTaken: 'penalize',
-      createdAtMs: now,
-    });
+    const existingInFlight = this.deps.store.getInFlight(info.channelId);
+    const observationId =
+      existingInFlight?.observationId ??
+      this.deps.store.recordObservation({
+        channelId: info.channelId,
+        postedVersion: info.postedVersion,
+        postedAtMs: info.postedAtMs,
+        ourLatestVersion: result.latestKnownVersion,
+        actionTaken: 'penalize',
+        createdAtMs: now,
+      });
 
     try {
       await this.deps.responder.submitPenalty(

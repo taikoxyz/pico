@@ -129,12 +129,20 @@ describe('Scheduler', () => {
     expect(typeof call[3]).toBe('number');
   });
 
-  it('B: tick skips when an in-flight tx is already recorded', async () => {
+  it('B: tick reuses observation_id from in-flight row and does not record a duplicate', async () => {
     const detector = new FraudDetector();
     detector.hydrate([makeSignedState(10n)]);
     const pub = makeMockPublic();
     const { responder, submitPenalty } = makeMockResponder();
 
+    const existingObsId = store.recordObservation({
+      channelId,
+      postedVersion: 5n,
+      postedAtMs: 0,
+      ourLatestVersion: 10n,
+      actionTaken: 'penalize',
+      createdAtMs: 1_000,
+    });
     store.putInFlight({
       channelId,
       txHash: `0x${'ab'.repeat(32)}` as `0x${string}`,
@@ -142,6 +150,7 @@ describe('Scheduler', () => {
       nonce: 1,
       maxFeePerGas: 1n,
       attempts: 1,
+      observationId: existingObsId,
     });
 
     const closingInfo: ClosingChannelInfo = {
@@ -170,7 +179,14 @@ describe('Scheduler', () => {
 
     await scheduler.tick();
 
-    expect(submitPenalty).not.toHaveBeenCalled();
+    expect(submitPenalty).toHaveBeenCalledTimes(1);
+    const call = submitPenalty.mock.calls[0];
+    if (!call) throw new Error('submitPenalty was not called');
+    expect(call[3]).toBe(existingObsId);
+    const obsCount = (
+      db.prepare('SELECT COUNT(*) as n FROM watchtower_observations').get() as { n: number }
+    ).n;
+    expect(obsCount).toBe(1);
   });
 
   it('C: tick does not submit when the channel is already penalized', async () => {
@@ -266,5 +282,73 @@ describe('Scheduler', () => {
     expect((call[1] as SignedState).state.version).toBe(10n);
     expect(call[2]).toBe('A');
     expect(store.getMeta('last_processed_block_number')).toBe('100');
+  });
+
+  it('E: catchup chunks the range and persists progress per chunk', async () => {
+    const detector = new FraudDetector();
+    detector.hydrate([makeSignedState(10n)]);
+    const pub = makeMockPublic();
+    const { responder } = makeMockResponder();
+
+    store.putMeta('last_processed_block_number', '0');
+    pub.getBlockNumber.mockResolvedValueOnce(15n);
+    pub.getContractEvents.mockResolvedValue([]);
+
+    const scheduler = new Scheduler({
+      detector,
+      responder,
+      store,
+      publicClient: pub.client,
+      paymentChannelAddress: paymentChannel,
+      logger,
+      windowMs: WINDOW_MS,
+      thresholdRatio: 0.5,
+      catchupChunkBlocks: 5n,
+      closingProvider: () => [],
+    });
+
+    await scheduler.catchup();
+
+    expect(pub.getContractEvents).toHaveBeenCalledTimes(3);
+    const ranges = pub.getContractEvents.mock.calls.map(
+      (c) => [c[0].fromBlock, c[0].toBlock] as [bigint, bigint],
+    );
+    expect(ranges).toEqual([
+      [1n, 5n],
+      [6n, 10n],
+      [11n, 15n],
+    ]);
+    expect(store.getMeta('last_processed_block_number')).toBe('15');
+  });
+
+  it('F: catchup clamps fromBlock when last_processed is older than catchupMaxBlocks', async () => {
+    const detector = new FraudDetector();
+    const pub = makeMockPublic();
+    const { responder } = makeMockResponder();
+
+    store.putMeta('last_processed_block_number', '0');
+    pub.getBlockNumber.mockResolvedValueOnce(1_000_000n);
+    pub.getContractEvents.mockResolvedValue([]);
+
+    const scheduler = new Scheduler({
+      detector,
+      responder,
+      store,
+      publicClient: pub.client,
+      paymentChannelAddress: paymentChannel,
+      logger,
+      windowMs: WINDOW_MS,
+      thresholdRatio: 0.5,
+      catchupMaxBlocks: 100,
+      catchupChunkBlocks: 1_000n,
+      closingProvider: () => [],
+    });
+
+    await scheduler.catchup();
+
+    expect(pub.getContractEvents).toHaveBeenCalledTimes(1);
+    const range = pub.getContractEvents.mock.calls[0]?.[0];
+    expect(range?.fromBlock).toBe(999_900n);
+    expect(range?.toBlock).toBe(1_000_000n);
   });
 });

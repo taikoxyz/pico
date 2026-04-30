@@ -52,6 +52,7 @@ export interface InFlightTx {
   readonly nonce: number;
   readonly maxFeePerGas: bigint;
   readonly attempts: number;
+  readonly observationId?: number;
 }
 
 export interface WatchtowerStore {
@@ -87,6 +88,7 @@ interface InFlightRow {
   readonly nonce: number;
   readonly max_fee_per_gas: string;
   readonly attempts: number;
+  readonly observation_id: number | null;
 }
 
 interface MetaRow {
@@ -152,7 +154,8 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
         submitted_at_ms INTEGER NOT NULL,
         nonce INTEGER NOT NULL,
         max_fee_per_gas TEXT NOT NULL,
-        attempts INTEGER NOT NULL
+        attempts INTEGER NOT NULL,
+        observation_id INTEGER
       );
       CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
@@ -224,6 +227,7 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
       nonce: row.nonce,
       max_fee_per_gas: row.maxFeePerGas.toString(),
       attempts: row.attempts,
+      observation_id: row.observationId ?? null,
     });
   }
 
@@ -238,6 +242,7 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
       nonce: row.nonce,
       maxFeePerGas: BigInt(row.max_fee_per_gas),
       attempts: row.attempts,
+      ...(row.observation_id !== null ? { observationId: row.observation_id } : {}),
     };
   }
 
@@ -299,17 +304,18 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
       WHERE id = @id
     `);
     this.putInFlightStmt = this.db.prepare(`
-      INSERT INTO in_flight_txs (channel_id, tx_hash, submitted_at_ms, nonce, max_fee_per_gas, attempts)
-      VALUES (@channel_id, @tx_hash, @submitted_at_ms, @nonce, @max_fee_per_gas, @attempts)
+      INSERT INTO in_flight_txs (channel_id, tx_hash, submitted_at_ms, nonce, max_fee_per_gas, attempts, observation_id)
+      VALUES (@channel_id, @tx_hash, @submitted_at_ms, @nonce, @max_fee_per_gas, @attempts, @observation_id)
       ON CONFLICT(channel_id) DO UPDATE SET
         tx_hash = excluded.tx_hash,
         submitted_at_ms = excluded.submitted_at_ms,
         nonce = excluded.nonce,
         max_fee_per_gas = excluded.max_fee_per_gas,
-        attempts = excluded.attempts
+        attempts = excluded.attempts,
+        observation_id = COALESCE(excluded.observation_id, in_flight_txs.observation_id)
     `);
     this.getInFlightStmt = this.db.prepare(`
-      SELECT channel_id, tx_hash, submitted_at_ms, nonce, max_fee_per_gas, attempts
+      SELECT channel_id, tx_hash, submitted_at_ms, nonce, max_fee_per_gas, attempts, observation_id
       FROM in_flight_txs
       WHERE channel_id = @channel_id
     `);

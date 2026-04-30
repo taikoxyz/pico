@@ -192,6 +192,29 @@ describe('SqliteWatchtowerStore', () => {
       expect(row?.txHash).toBe('0xdef');
       expect(row?.attempts).toBe(2);
     });
+
+    it('round-trips observationId and preserves it across upserts that omit it', () => {
+      store.putInFlight({
+        channelId,
+        txHash: '0xabc' as `0x${string}`,
+        submittedAtMs: 1_000,
+        nonce: 7,
+        maxFeePerGas: 1n,
+        attempts: 1,
+        observationId: 42,
+      });
+      expect(store.getInFlight(channelId)?.observationId).toBe(42);
+
+      store.putInFlight({
+        channelId,
+        txHash: '0xdef' as `0x${string}`,
+        submittedAtMs: 2_000,
+        nonce: 7,
+        maxFeePerGas: 2n,
+        attempts: 2,
+      });
+      expect(store.getInFlight(channelId)?.observationId).toBe(42);
+    });
   });
 
   describe('meta', () => {

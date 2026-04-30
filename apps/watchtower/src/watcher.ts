@@ -1,5 +1,13 @@
 import type { Address } from '@tainnel/protocol';
-import { http, type Chain, type Hash, type PublicClient, createPublicClient, parseAbi } from 'viem';
+import {
+  http,
+  type Chain,
+  type Hash,
+  type PublicClient,
+  TransactionReceiptNotFoundError,
+  createPublicClient,
+  parseAbi,
+} from 'viem';
 import { foundry, taiko } from 'viem/chains';
 import type { Logger } from './logger.js';
 import * as metrics from './metrics.js';
@@ -33,6 +41,11 @@ const DEFAULT_POLLING_INTERVAL_MS = 250;
 function chainForId(chainId: number): Chain {
   if (chainId === 167000) return taiko;
   return foundry;
+}
+
+function isReceiptNotFound(err: unknown): boolean {
+  if (err instanceof TransactionReceiptNotFoundError) return true;
+  return (err as { name?: string } | null)?.name === 'TransactionReceiptNotFoundError';
 }
 
 export type WatcherEventKind = 'open' | 'closeUnilateral' | 'dispute' | 'finalize';
@@ -239,17 +252,25 @@ export class ChainEventWatcher {
       }
     }
     for (const entry of ready) {
-      this.pending.delete(entry.event.txHash);
-      const receipt = await this.publicClient
-        .getTransactionReceipt({ hash: entry.event.txHash })
-        .catch(() => null);
-      if (!receipt) {
-        this.deps.logger.warn(
-          { txHash: entry.event.txHash, blockNumber: entry.blockNumber },
-          'watcher: dropping reorg-evicted event',
-        );
+      let receipt: Awaited<ReturnType<PublicClient['getTransactionReceipt']>> | null;
+      try {
+        receipt = await this.publicClient.getTransactionReceipt({ hash: entry.event.txHash });
+      } catch (err) {
+        if (isReceiptNotFound(err)) {
+          this.pending.delete(entry.event.txHash);
+          this.deps.logger.warn(
+            { txHash: entry.event.txHash, blockNumber: entry.blockNumber },
+            'watcher: dropping reorg-evicted event',
+          );
+        } else {
+          this.deps.logger.warn(
+            { err, txHash: entry.event.txHash, blockNumber: entry.blockNumber },
+            'watcher: receipt fetch failed; will retry on next flush',
+          );
+        }
         continue;
       }
+      this.pending.delete(entry.event.txHash);
       if (
         this.deps.interestedChannelIds &&
         !this.deps.interestedChannelIds.has(entry.event.channelId)

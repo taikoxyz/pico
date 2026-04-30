@@ -121,10 +121,10 @@ export class PenaltyResponder {
         return existing.txHash;
       }
       if (receipt.status === 'success') {
-        this.recordIncluded(observationId);
+        this.recordIncluded(existing.observationId ?? observationId);
         this.clearInFlight(channelId);
         this.deps.logger.info(
-          { channelId, txHash: existing.txHash },
+          { channelId, txHash: existing.txHash, observationId: existing.observationId },
           'submitPenalty idempotent no-op: existing in-flight tx already included',
         );
         return existing.txHash;
@@ -195,6 +195,7 @@ export class PenaltyResponder {
       nonce,
       maxFeePerGas,
       attempts,
+      ...(observationId !== undefined ? { observationId } : {}),
     });
     if (observationId !== undefined && this.deps.store) {
       this.deps.store.markObservationSubmitted(observationId, currentTxHash, submittedAtMs);
@@ -260,6 +261,7 @@ export class PenaltyResponder {
         nonce,
         maxFeePerGas,
         attempts,
+        ...(observationId !== undefined ? { observationId } : {}),
       });
       this.deps.logger.warn(
         {

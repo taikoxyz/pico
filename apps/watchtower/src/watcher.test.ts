@@ -1,6 +1,6 @@
 import type { Address } from '@tainnel/protocol';
-import type { PublicClient } from 'viem';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type PublicClient, TransactionReceiptNotFoundError } from 'viem';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { logger } from './logger.js';
 import * as metrics from './metrics.js';
 import { ChainEventWatcher, type WatcherEvent } from './watcher.js';
@@ -46,8 +46,8 @@ function makeMockClient(): MockPublicClient {
   );
 
   const getBlockNumber = vi.fn(async () => head);
-  const getTransactionReceipt = vi.fn(async ({ hash }: { hash: string }) => {
-    if (!receiptForHash.has(hash)) throw new Error('no receipt');
+  const getTransactionReceipt = vi.fn(async ({ hash }: { hash: `0x${string}` }) => {
+    if (!receiptForHash.has(hash)) throw new TransactionReceiptNotFoundError({ hash });
     return receiptForHash.get(hash);
   });
 
@@ -170,6 +170,40 @@ describe('ChainEventWatcher', () => {
     client.setHead(20n);
     await watcher.__forFlush();
     expect(handler).not.toHaveBeenCalled();
+
+    await watcher.stop();
+  });
+
+  it('B2: retries on transient receipt errors instead of dropping the event', async () => {
+    const client = makeMockClient();
+    const watcher = new ChainEventWatcher({
+      rpcUrl: 'http://localhost',
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      chainId: 31337,
+      logger: silentLogger,
+      publicClient: client as unknown as PublicClient,
+      confirmations: 3,
+    });
+    const handler = vi.fn(async (_e: WatcherEvent) => {});
+    await watcher.start(handler);
+
+    const txHash =
+      '0xcccc000000000000000000000000000000000000000000000000000000000003' as `0x${string}`;
+
+    client.getTransactionReceipt
+      .mockRejectedValueOnce(new Error('rpc rate limited'))
+      .mockResolvedValueOnce({ status: 'success', transactionHash: txHash });
+
+    const sub = getSubscription(client, 'ChannelClosingUnilateral');
+    sub.onLogs([makeClosingLog(CHANNEL_A, 10n, txHash)]);
+
+    client.setHead(13n);
+    await watcher.__forFlush();
+    expect(handler).not.toHaveBeenCalled();
+
+    await watcher.__forFlush();
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0]?.[0]?.channelId).toBe(CHANNEL_A);
 
     await watcher.stop();
   });

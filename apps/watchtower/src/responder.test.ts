@@ -242,6 +242,70 @@ describe('PenaltyResponder', () => {
     );
     expect(store.getInFlight(channelId)).toBeUndefined();
   });
+
+  it('E: marks the in-flight rows observationId as included, not the current calls', async () => {
+    const pub = makeMockPublic();
+    const wallet = makeMockWallet();
+    const existingHash = `0x${'ee'.repeat(32)}` as Hash;
+
+    const originalObsId = store.recordObservation({
+      channelId,
+      postedVersion: 5n,
+      postedAtMs: 1_000,
+      ourLatestVersion: 10n,
+      actionTaken: 'penalize',
+      createdAtMs: 1_500,
+    });
+    store.markObservationSubmitted(originalObsId, existingHash, 2_000);
+    store.putInFlight({
+      channelId,
+      txHash: existingHash,
+      submittedAtMs: 2_000,
+      nonce: 7,
+      maxFeePerGas: 1_000_000_000n,
+      attempts: 1,
+      observationId: originalObsId,
+    });
+
+    pub.getTransactionReceipt.mockResolvedValueOnce({
+      status: 'success',
+      transactionHash: existingHash,
+    });
+
+    const responder = new PenaltyResponder({
+      rpcUrl: 'http://localhost:0',
+      privateKey: fakePrivateKey,
+      paymentChannelAddress: paymentChannel,
+      chainId: 31337,
+      logger,
+      publicClient: pub.client,
+      walletClient: wallet.client,
+      store,
+    });
+
+    const callerObsId = store.recordObservation({
+      channelId,
+      postedVersion: 5n,
+      postedAtMs: 1_000,
+      ourLatestVersion: 10n,
+      actionTaken: 'penalize',
+      createdAtMs: 9_000,
+    });
+
+    const result = await responder.submitPenalty(channelId, makeEvidence(10n), 'A', callerObsId);
+    expect(result).toBe(existingHash);
+    expect(wallet.writeContract).not.toHaveBeenCalled();
+    expect(store.getInFlight(channelId)).toBeUndefined();
+
+    const original = db
+      .prepare('SELECT included_at_ms FROM watchtower_observations WHERE id = ?')
+      .get(originalObsId) as { included_at_ms: number | null };
+    const caller = db
+      .prepare('SELECT included_at_ms FROM watchtower_observations WHERE id = ?')
+      .get(callerObsId) as { included_at_ms: number | null };
+    expect(original.included_at_ms).not.toBeNull();
+    expect(caller.included_at_ms).toBeNull();
+  });
 });
 
 async function readCounter(): Promise<number> {
