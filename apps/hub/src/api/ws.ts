@@ -5,9 +5,13 @@ import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@tainnel/sdk
 import { buildChannelStateTypedData } from '@tainnel/state-machine';
 import type { FastifyInstance } from 'fastify';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { type SignedEnvelope, verifyEnvelope } from '../auth/envelope.js';
 import type { ChannelPool } from '../channel-pool.js';
+import type { Repos } from '../db/repos/index.js';
 import { FlatPlusBpsFeePolicy } from '../fee-policy.js';
+import type { LiquidityTracker } from '../liquidity.js';
 import type { Logger } from '../logger.js';
+import type { HubMetrics } from '../metrics.js';
 import { type InflightHtlc, Router } from '../router.js';
 
 interface SubscriberSession {
@@ -17,17 +21,33 @@ interface SubscriberSession {
 
 export interface WsDeps {
   readonly channelPool: ChannelPool;
+  readonly liquidity: LiquidityTracker;
+  readonly repos: Repos;
+  readonly metrics: HubMetrics;
   readonly logger: Logger;
   readonly hubPrivateKey: `0x${string}`;
   readonly chainId: ChainId;
   readonly verifyingContract: Address;
   readonly hubFeeBps: bigint;
   readonly hubFeeFlat: bigint;
+  readonly requireSignedEnvelope: boolean;
+  readonly nonceWindowMs: number;
 }
 
 export interface WsHandle {
   readonly hubAccount: PrivateKeyAccount;
-  registerChannel(channel: Channel, initialState?: SignedState): void;
+  registerChannel(channel: Channel, initialState?: SignedState): Promise<void>;
+}
+
+function isSignedEnvelope(value: unknown): value is SignedEnvelope {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.nonce === 'string' &&
+    typeof v.ts === 'number' &&
+    typeof v.payload === 'string' &&
+    typeof v.sig === 'string'
+  );
 }
 
 export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Promise<WsHandle> {
@@ -49,6 +69,10 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
 
   function sendError(socket: WsWebSocket, requestId: string, code: string, message: string): void {
     send(socket, { id: requestId, kind: 'error', code, message, requestId });
+  }
+
+  function knownPartiesForChannel(channel: Channel): ReadonlySet<Address> {
+    return new Set([channel.userA, channel.userB] as Address[]);
   }
 
   async function handleSubscribe(
@@ -96,7 +120,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         ? incomingChannel.userB
         : incomingChannel.userA;
 
-    deps.channelPool.recordState(incomingChannel.id, msg.signedState);
+    await deps.channelPool.recordState(incomingChannel.id, msg.signedState);
 
     let routed: Awaited<ReturnType<typeof router.route>>;
     try {
@@ -109,13 +133,15 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         paymentHash: msg.paymentHash,
       });
     } catch (err) {
+      const reason = (err as Error).message;
       send(socket, {
         id: `fail-${msg.htlc.id}`,
         kind: 'paymentFailed',
         channelId: msg.channelId,
         htlcId: msg.htlc.id,
-        reason: (err as Error).message,
+        reason,
       });
+      deps.metrics.paymentsTotal.inc({ result: 'rejected' });
       return;
     }
 
@@ -131,7 +157,42 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       recipient: msg.recipient,
     };
     router.recordInflight(inflight);
-    deps.channelPool.recordState(routed.outgoingChannel.id, routed.outgoingHubSigned);
+    await deps.channelPool.recordState(routed.outgoingChannel.id, routed.outgoingHubSigned);
+
+    await deps.repos.htlcs.save({
+      htlc: msg.htlc,
+      channelId: incomingChannel.id,
+      state: 'inflight',
+      incomingChannelId: incomingChannel.id,
+      outgoingChannelId: routed.outgoingChannel.id,
+    });
+    await deps.repos.htlcs.save({
+      htlc: routed.outgoingHtlc,
+      channelId: routed.outgoingChannel.id,
+      state: 'inflight',
+      incomingChannelId: incomingChannel.id,
+      outgoingChannelId: routed.outgoingChannel.id,
+    });
+    await deps.repos.payments.create({
+      id: `${msg.channelId}-${msg.htlc.id}`,
+      paymentHash: msg.paymentHash,
+      incomingChannelId: incomingChannel.id,
+      outgoingChannelId: routed.outgoingChannel.id,
+      incomingHtlcId: msg.htlc.id,
+      outgoingHtlcId: routed.outgoingHtlc.id,
+      recipient: msg.recipient,
+      amount: msg.amount,
+      fee: routed.fee,
+      status: 'in_flight',
+    });
+    try {
+      deps.liquidity.reserveOutbound(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
+    } catch (err) {
+      deps.logger.warn(
+        { err: (err as Error).message, channelId: routed.outgoingChannel.id },
+        'liquidity reservation failed (continuing — state already advanced)',
+      );
+    }
 
     const recipientSession = sessions.get(msg.recipient.toLowerCase());
     if (!recipientSession) {
@@ -162,7 +223,16 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       return;
     }
     const settledIncoming = await router.settleIncoming(inflight, msg.preimage, msg.signedState);
-    deps.channelPool.recordState(inflight.incomingChannelId, settledIncoming);
+    await deps.channelPool.recordState(inflight.incomingChannelId, settledIncoming);
+    deps.liquidity.releaseReservation(inflight.outgoingChannelId, inflight.outgoingHtlc.amount);
+    await deps.repos.htlcs.setState(inflight.incomingHtlcId, 'settled');
+    await deps.repos.htlcs.setState(inflight.outgoingHtlcId, 'settled');
+    await deps.repos.payments.settle(
+      `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
+      msg.preimage,
+    );
+    deps.metrics.paymentsTotal.inc({ result: 'settled' });
+
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());
     if (!senderSession) {
       deps.logger.warn({ sender: inflight.incomingSenderAddress }, 'sender not subscribed');
@@ -188,7 +258,16 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       return;
     }
     const failedIncoming = await router.failIncoming(inflight);
-    deps.channelPool.recordState(inflight.incomingChannelId, failedIncoming);
+    await deps.channelPool.recordState(inflight.incomingChannelId, failedIncoming);
+    deps.liquidity.releaseReservation(inflight.outgoingChannelId, inflight.outgoingHtlc.amount);
+    await deps.repos.htlcs.setState(inflight.incomingHtlcId, 'failed');
+    await deps.repos.htlcs.setState(inflight.outgoingHtlcId, 'failed');
+    await deps.repos.payments.fail(
+      `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
+      msg.reason,
+    );
+    deps.metrics.paymentsTotal.inc({ result: 'failed' });
+
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());
     if (!senderSession) return;
     send(senderSession.socket, {
@@ -219,7 +298,8 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       sigA: hubIsA ? sig : msg.signedState.sigA,
       sigB: hubIsA ? msg.signedState.sigB : sig,
     };
-    deps.channelPool.recordState(msg.channelId, acked);
+    await deps.channelPool.recordState(msg.channelId, acked);
+    deps.metrics.paymentsTotal.inc({ result: 'direct' });
     send(socket, {
       id: msg.id,
       kind: 'payDirectAck',
@@ -247,7 +327,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       sigA: hubIsA ? sig : msg.signedState.sigA,
       sigB: hubIsA ? msg.signedState.sigB : sig,
     };
-    deps.channelPool.recordState(msg.channelId, countersigned);
+    await deps.channelPool.recordState(msg.channelId, countersigned);
     send(socket, {
       id: msg.id,
       kind: 'closeResponse',
@@ -275,16 +355,39 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     }
   }
 
-  app.get('/ws', { websocket: true }, (socket) => {
-    socket.on('message', (raw: Buffer) => {
-      let msg: HubMessage;
-      try {
-        msg = decodeHubMessage(raw.toString('utf8'));
-      } catch (err) {
-        deps.logger.warn({ err: (err as Error).message }, 'invalid ws message');
+  async function authorizeAndDispatch(socket: WsWebSocket, raw: string): Promise<void> {
+    const parsedAny = JSON.parse(raw) as unknown;
+    let inner: HubMessage;
+    if (deps.requireSignedEnvelope) {
+      if (!isSignedEnvelope(parsedAny)) {
+        deps.logger.warn('signed envelope required but message is unwrapped');
         return;
       }
-      void dispatch(socket, msg).catch((err) => {
+      const channels = deps.channelPool.list();
+      const knownSigners = new Set<Address>();
+      for (const c of channels) {
+        for (const a of knownPartiesForChannel(c)) knownSigners.add(a);
+      }
+      const verify = await verifyEnvelope({
+        envelope: parsedAny,
+        knownSigners,
+        nonceRepo: deps.repos.nonces,
+        windowMs: deps.nonceWindowMs,
+      });
+      if (!verify.ok) {
+        deps.logger.warn({ reason: verify.reason }, 'envelope verification failed');
+        return;
+      }
+      inner = decodeHubMessage(verify.payload);
+    } else {
+      inner = decodeHubMessage(raw);
+    }
+    return dispatch(socket, inner);
+  }
+
+  app.get('/ws', { websocket: true }, (socket) => {
+    socket.on('message', (raw: Buffer) => {
+      void authorizeAndDispatch(socket, raw.toString('utf8')).catch((err) => {
         deps.logger.error({ err }, 'ws handler error');
       });
     });
@@ -297,9 +400,8 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
 
   return {
     hubAccount,
-    registerChannel(channel: Channel, initialState?: SignedState): void {
-      deps.channelPool.register(channel);
-      if (initialState) deps.channelPool.recordState(channel.id, initialState);
+    async registerChannel(channel: Channel, initialState?: SignedState): Promise<void> {
+      await deps.channelPool.register(channel, initialState);
     },
   };
 }

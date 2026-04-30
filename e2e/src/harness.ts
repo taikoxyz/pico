@@ -71,7 +71,7 @@ export interface E2EParty {
 
 export interface HubServerHandle {
   readonly url: string;
-  registerChannel(channel: Channel, initialState?: SignedState): void;
+  registerChannel(channel: Channel, initialState?: SignedState): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -117,8 +117,8 @@ export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHan
   const wsUrl = `${url.replace(/^http/, 'ws')}/ws`;
   return {
     url: wsUrl,
-    registerChannel(channel: Channel, initialState?: SignedState): void {
-      built.api.ws.registerChannel(channel, initialState);
+    async registerChannel(channel: Channel, initialState?: SignedState): Promise<void> {
+      await built.api.ws.registerChannel(channel, initialState);
     },
     async stop(): Promise<void> {
       await built.app.close();

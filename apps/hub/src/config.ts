@@ -21,6 +21,10 @@ export interface HubConfig {
   readonly dbDriver: 'sqlite' | 'postgres';
   readonly dbUrl: string;
   readonly prometheusPort: number;
+  readonly chainPollingIntervalMs: number;
+  readonly chainConfirmations: number;
+  readonly requireSignedEnvelope: boolean;
+  readonly nonceWindowMs: number;
 }
 
 function parseChainId(raw: string | undefined): ChainId {
@@ -50,5 +54,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
       env.DB_URL ??
       (driver === 'sqlite' ? './data/hub.sqlite' : 'postgres://localhost/tainnel_hub'),
     prometheusPort: Number(env.PROMETHEUS_PORT ?? 9090),
+    chainPollingIntervalMs: Number(env.CHAIN_POLLING_INTERVAL_MS ?? 4_000),
+    chainConfirmations: Number(env.CHAIN_CONFIRMATIONS ?? 3),
+    requireSignedEnvelope: env.HUB_REQUIRE_SIGNED_ENVELOPE === 'true',
+    nonceWindowMs: Number(env.HUB_NONCE_WINDOW_MS ?? 60_000),
   };
 }

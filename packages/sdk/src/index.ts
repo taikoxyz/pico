@@ -1,5 +1,6 @@
 export * from './chain-adapter.js';
 export * from './client.js';
+export { paymentChannelAbi, channelStateSolidityStruct } from './contracts-abi.js';
 export * from './crypto.js';
 export * from './errors.js';
 export * from './events.js';

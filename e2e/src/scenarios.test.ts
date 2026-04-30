@@ -67,7 +67,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_OPEN);
@@ -89,7 +89,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     const r1 = await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
@@ -116,7 +116,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     await alice.client.close(channel.id, { cooperative: true });
@@ -134,7 +134,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     expect(await readUsdcBalance(h, h.alice.address)).toBe(40n * ONE_USDC);
@@ -155,7 +155,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     await expect(alice.client.payDirect(channel.id, { amount: 20n * ONE_USDC })).rejects.toThrow(
@@ -178,7 +178,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
@@ -213,7 +213,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
@@ -247,7 +247,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
@@ -298,7 +298,7 @@ describe('e2e — phase 2B agent-pay-agent (3-party HTLC)', () => {
     });
     {
       const init = await alice.storage.loadLatestState(aliceChannel.id);
-      h.hubServer.registerChannel(aliceChannel, init ?? undefined);
+      await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
     const bobChannel = await bob.client.open({
@@ -308,7 +308,7 @@ describe('e2e — phase 2B agent-pay-agent (3-party HTLC)', () => {
     });
     {
       const init = await bob.storage.loadLatestState(bobChannel.id);
-      h.hubServer.registerChannel(bobChannel, init ?? undefined);
+      await h.hubServer.registerChannel(bobChannel, init ?? undefined);
     }
     await bob.client.ensureSubscribed([bobChannel.id]);
 
@@ -358,7 +358,7 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
       amount: 100n * ONE_USDC,
     });
     const v1 = await alice.storage.loadLatestState(channel.id);
-    h.hubServer.registerChannel(channel, v1 ?? undefined);
+    await h.hubServer.registerChannel(channel, v1 ?? undefined);
 
     const watchtowerKey =
       '0x0000000000000000000000000000000000000000000000000000000000000ccc' as const;
@@ -486,7 +486,7 @@ describe('e2e — phase 2D hot-key rotation', () => {
       });
       {
         const init = await k1Bundle.storage.loadLatestState(ch1.id);
-        h.hubServer.registerChannel(ch1, init ?? undefined);
+        await h.hubServer.registerChannel(ch1, init ?? undefined);
       }
       await k1Bundle.client.payDirect(ch1.id, { amount: 5n * ONE_USDC });
       await k1Bundle.client.close(ch1.id, { cooperative: true });
@@ -507,7 +507,7 @@ describe('e2e — phase 2D hot-key rotation', () => {
       });
       {
         const init = await k2Bundle.storage.loadLatestState(ch2.id);
-        h.hubServer.registerChannel(ch2, init ?? undefined);
+        await h.hubServer.registerChannel(ch2, init ?? undefined);
       }
 
       const onChainCh = await h.publicClient.readContract({
@@ -552,7 +552,7 @@ describe('e2e — phase 2D hub-down recovery', () => {
     });
     {
       const init = await alice.storage.loadLatestState(channel.id);
-      h.hubServer.registerChannel(channel, init ?? undefined);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
     }
 
     await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
@@ -574,7 +574,7 @@ describe('e2e — phase 2D hub-down recovery', () => {
       port,
     });
     try {
-      reborn.registerChannel(channel, v2 ?? undefined);
+      await reborn.registerChannel(channel, v2 ?? undefined);
 
       const reconnected = buildClient(h, h.alice);
       try {
@@ -620,7 +620,7 @@ describe('e2e — phase 2D receiver offline then resume', () => {
     });
     {
       const init = await alice.storage.loadLatestState(aliceChannel.id);
-      h.hubServer.registerChannel(aliceChannel, init ?? undefined);
+      await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
     const bobChannel = await bob.client.open({
@@ -630,7 +630,7 @@ describe('e2e — phase 2D receiver offline then resume', () => {
     });
     {
       const init = await bob.storage.loadLatestState(bobChannel.id);
-      h.hubServer.registerChannel(bobChannel, init ?? undefined);
+      await h.hubServer.registerChannel(bobChannel, init ?? undefined);
     }
     await bob.client.ensureSubscribed([bobChannel.id]);
 
