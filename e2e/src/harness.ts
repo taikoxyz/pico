@@ -87,6 +87,7 @@ export interface E2EHandle {
   readonly hubServer: HubServerHandle;
   readonly publicClient: PublicClient;
   readonly mode: 'vanilla' | 'fork';
+  fundAndApproveParty(privateKey: Hex, usdcAmount?: bigint): Promise<E2EParty>;
   stop(): Promise<void>;
 }
 
@@ -298,6 +299,43 @@ async function bootVanillaMode(): Promise<E2EHandle> {
       hubServer,
       publicClient,
       mode: 'vanilla',
+      async fundAndApproveParty(
+        privateKey: Hex,
+        usdcAmount: bigint = 100n * ONE_USDC,
+      ): Promise<E2EParty> {
+        const newAccount = privateKeyToAccount(privateKey);
+        const ethHash = await deployerWallet.sendTransaction({
+          account: deployerAccount,
+          chain: foundry,
+          to: newAccount.address,
+          value: 10n ** 18n,
+        });
+        await publicClient.waitForTransactionReceipt({ hash: ethHash });
+        const mintHash = await deployerWallet.writeContract({
+          account: deployerAccount,
+          chain: foundry,
+          address: usdc,
+          abi: mockErc20.abi,
+          functionName: 'mint',
+          args: [newAccount.address, usdcAmount],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: mintHash });
+        const newWallet = createWalletClient({
+          account: newAccount,
+          chain: foundry,
+          transport,
+        });
+        const apprHash = await newWallet.writeContract({
+          account: newAccount,
+          chain: foundry,
+          address: usdc,
+          abi: mockErc20.abi,
+          functionName: 'approve',
+          args: [paymentChannel, 2n ** 256n - 1n],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: apprHash });
+        return { address: newAccount.address, privateKey };
+      },
       async stop(): Promise<void> {
         await hubServer.stop();
         await anvil.stop();
@@ -355,6 +393,11 @@ async function bootForkMode(opts: BootE2EOptions): Promise<E2EHandle> {
       hubServer,
       publicClient,
       mode: 'fork',
+      async fundAndApproveParty(): Promise<E2EParty> {
+        throw new Error(
+          'fundAndApproveParty: not supported in fork mode; bridged USDC mint requires impersonation of a whale',
+        );
+      },
       async stop(): Promise<void> {
         await hubServer.stop();
         await anvil.stop();

@@ -466,12 +466,75 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
   });
 });
 
-describe.skip('e2e — full payment lifecycle (deferred to phase 2D)', () => {
-  it('hub-down recovery: client reconnects through alternate hub', async () => {
+describe('e2e — phase 2D hot-key rotation', () => {
+  let h: E2EHandle;
+
+  beforeEach(async () => {
+    h = await bootE2E();
+  }, 60_000);
+
+  afterEach(async () => {
+    await h?.stop();
+  });
+
+  it('alice rotates to a new key, opens a fresh channel, on-chain ChannelOpened reflects new userA', async () => {
+    const k1Bundle = buildClient(h, h.alice);
+    try {
+      const ch1 = await k1Bundle.client.open({
+        counterparty: h.hub.address,
+        amount: 100n * ONE_USDC,
+      });
+      {
+        const init = await k1Bundle.storage.loadLatestState(ch1.id);
+        h.hubServer.registerChannel(ch1, init ?? undefined);
+      }
+      await k1Bundle.client.payDirect(ch1.id, { amount: 5n * ONE_USDC });
+      await k1Bundle.client.close(ch1.id, { cooperative: true });
+      expect(await readUsdcBalance(h, h.alice.address)).toBe(95n * ONE_USDC);
+    } finally {
+      await k1Bundle.transport.close();
+    }
+
+    const newKey = '0x000000000000000000000000000000000000000000000000000000000000aaaa' as const;
+    const newParty = await h.fundAndApproveParty(newKey, 50n * ONE_USDC);
+    expect(newParty.address.toLowerCase()).not.toBe(h.alice.address.toLowerCase());
+
+    const k2Bundle = buildClient(h, newParty);
+    try {
+      const ch2 = await k2Bundle.client.open({
+        counterparty: h.hub.address,
+        amount: 50n * ONE_USDC,
+      });
+      {
+        const init = await k2Bundle.storage.loadLatestState(ch2.id);
+        h.hubServer.registerChannel(ch2, init ?? undefined);
+      }
+
+      const onChainCh = await h.publicClient.readContract({
+        address: h.paymentChannel,
+        abi: paymentChannelStatusAbi,
+        functionName: 'channels',
+        args: [ch2.id],
+      });
+      const userA = onChainCh[0];
+      expect(userA.toLowerCase()).toBe(newParty.address.toLowerCase());
+
+      await k2Bundle.client.payDirect(ch2.id, { amount: 3n * ONE_USDC });
+      await k2Bundle.client.close(ch2.id, { cooperative: true });
+
+      expect(await readUsdcBalance(h, newParty.address)).toBe(47n * ONE_USDC);
+    } finally {
+      await k2Bundle.transport.close();
+    }
+  });
+});
+
+describe.skip('e2e — full payment lifecycle (deferred from phase 2D)', () => {
+  it('hub-down recovery: client reconnects after hub restart (gates on durable channel pool)', async () => {
     expect(true).toBe(true);
   });
 
-  it('receiver offline then resume', async () => {
+  it('receiver offline then resume (gates on CLI journal replay)', async () => {
     expect(true).toBe(true);
   });
 });

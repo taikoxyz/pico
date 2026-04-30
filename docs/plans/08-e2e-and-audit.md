@@ -1,11 +1,14 @@
 # P8 — E2E + internal audit
 
-**Status:** 🟡 **Phase 2 in progress** — Phase 1 + 2A + 2B + 2C done
-(6 + 2 + 1 + 1 = 10 scenarios green via real hub + watchtower)
-(`pnpm -F @tainnel/e2e test` → 10 passed, 2 deferred, ~2.7s). Phase 2D
-(durability) and Phase 3 (audit) not started.
+**Status:** 🟡 **Phase 2 substantially done** — Phase 1 + 2A + 2B + 2C +
+hot-key rotation = 11 scenarios green via real hub + watchtower
+(`pnpm -F @tainnel/e2e test` → 11 passed, 2 deferred, ~3s). Remaining
+deferred: hub-down recovery (gates on durable channel pool, separate
+PR), receiver-offline (gates on CLI journal replay, separate PR), and
+Phase 3 (audit).
 **Blocks:** P9, P10
-**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (2A ✅, 2B ✅, 2C ✅, 2D ~3d).
+**Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week (2A ✅, 2B ✅, 2C ✅, 2D
+partial — hot-key ✅; durability deferred).
 
 ## Why this exists as its own phase
 
@@ -234,9 +237,30 @@ USDC addresses from `packages/protocol/src/constants.ts`.
       deferred: 2C scenario is satisfied by the watchtower alone.
       Defense-in-depth (warm-key hub responder) is a follow-up.
 
-### 2D — Durability + recovery scenarios 🔵 not started (optional)
-**Effort:** ~3 days, ~700 LOC. Covers receiver-offline, hot-key rotation,
-hub-down recovery. Gates on hub DB hydration + CLI journal replay.
+### 2D — Durability + recovery scenarios 🟡 partial
+- [x] **Hot-key rotation scenario** — alice opens, payDirects, closes;
+      generates a fresh key (`fundAndApproveParty(newKey)` provisions
+      ETH+USDC+approval); opens a new channel signing with the new key;
+      pays + closes; on-chain `channels(channelId).userA` reflects the
+      new address. Demonstrates the existing CLI key-init primitives
+      compose correctly through the SDK and contract.
+- [x] **`E2EHandle.fundAndApproveParty(privateKey, usdcAmount?)`** —
+      harness helper that funds a new EOA with ETH (via deployer
+      transfer), mints USDC (MockERC20.mint is permissionless), and
+      max-approves the PaymentChannel. Vanilla mode only; fork mode
+      throws (USDC mint requires whale impersonation).
+- [ ] **Hub-down recovery** — deferred to a separate PR. Gates on
+      durable channel pool persistence (SQLite schema + hydration on
+      restart). The SDK's WebSocketTransport already supports
+      auto-reconnect with backoff and `onReconnect` hook; pairing it
+      with hub durability is the missing half.
+- [ ] **Receiver offline → resume** — deferred. Gates on CLI journal
+      replay (scan local storage on `tainnel listen` startup, settle
+      in-flight HTLCs from invoice store, time-out expired ones).
+      Significant new code in `apps/cli/src/cmd/listen.ts`.
+- [ ] **Stale-state invariant in CI** — deferred. Forge invariant test
+      already exists in `packages/contracts/test/PaymentChannel.invariant.t.sol`;
+      this task is a CI fuzz-runs bump for nightly runs.
 
 ---
 
@@ -261,12 +285,13 @@ hydration.
       reads the journal, reconnects, picks up the in-flight HTLC, reveals the
       preimage, both sides settle. No double-spend, no lost preimage.
 
-### Scenario: signer hot-key rotation
-**Gates on:** `tainnel keys init` flow.
-- [ ] `[agent]` Alice generates a new key with `tainnel keys init --out
-      new.enc`. Cooperative-close existing channel. Re-open signing with the
-      new key. Pay Bob through the new channel. On-chain `ChannelOpened` shows
-      the new address.
+### Scenario: signer hot-key rotation ✅ (Phase 2D done)
+- [x] `[agent]` Alice opens channel with key1, runs `payDirect`, closes.
+      Test generates a new private key; harness's
+      `fundAndApproveParty(newKey)` funds + mints + approves. Alice
+      opens a fresh channel signing with key2; on-chain
+      `channels(channelId).userA` is the new address. Pays + closes
+      successfully.
 
 ### Scenario: dispute → finalize (watchtower wins) ✅ (Phase 2C done)
 - [x] `[agent]` Alice and hub do 5 `payDirect` ops (versions 2..6).
