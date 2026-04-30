@@ -22,6 +22,11 @@ fs_permissions = [
 fuzz = { runs = 1000 }
 verbosity = 3
 
+[profile.nightly]
+fuzz = { runs = 100000 }
+invariant = { runs = 10000, depth = 500 }
+verbosity = 2
+
 [rpc_endpoints]
 taiko_mainnet = "${TAIKO_MAINNET_RPC_URL}"
 taiko_hoodi = "${TAIKO_HOODI_RPC_URL}"

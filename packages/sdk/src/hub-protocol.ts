@@ -88,6 +88,20 @@ export interface PaymentFailedMessage {
   readonly reason: string;
 }
 
+export interface PayDirectMessage {
+  readonly id: string;
+  readonly kind: 'payDirect';
+  readonly channelId: ChannelId;
+  readonly signedState: SignedState;
+}
+
+export interface PayDirectAckMessage {
+  readonly id: string;
+  readonly kind: 'payDirectAck';
+  readonly channelId: ChannelId;
+  readonly signedState: SignedState;
+}
+
 export interface CloseRequestMessage {
   readonly id: string;
   readonly kind: 'closeRequest';
@@ -113,6 +127,7 @@ export interface ErrorMessage {
 export type ClientToHubMessage =
   | SubscribeMessage
   | PayMessage
+  | PayDirectMessage
   | HtlcSettleMessage
   | HtlcFailMessage
   | CloseRequestMessage;
@@ -122,6 +137,7 @@ export type HubToClientMessage =
   | HtlcOfferMessage
   | PaymentSettleMessage
   | PaymentFailedMessage
+  | PayDirectAckMessage
   | CloseResponseMessage
   | ErrorMessage;
 

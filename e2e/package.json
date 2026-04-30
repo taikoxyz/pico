@@ -17,7 +17,8 @@
     "@tainnel/sdk": "workspace:*",
     "@tainnel/state-machine": "workspace:*",
     "@tainnel/test-utils": "workspace:*",
-    "@tainnel/watchtower": "workspace:*"
+    "@tainnel/watchtower": "workspace:*",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

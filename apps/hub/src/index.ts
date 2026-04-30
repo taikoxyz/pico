@@ -1,3 +1,4 @@
+export * from './api/ws.js';
 export * from './channel-pool.js';
 export * from './router.js';
 export * from './liquidity.js';

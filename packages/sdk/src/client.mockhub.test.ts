@@ -167,6 +167,53 @@ describe('ChannelClient integration with MockHub', () => {
     await expect(alice.client.pay({ invoice: fakeInvoice })).rejects.toThrow();
   });
 
+  it('payDirect: 2-party non-HTLC balance update with hub counter-sig', async () => {
+    const channel = await openAliceBobChannel();
+    const before = await alice.storage.loadLatestState(channel.id);
+    expect(before?.state.version).toBe(1n);
+
+    const result = await alice.client.payDirect(channel.id, { amount: 250n });
+    expect(result.channelId).toBe(channel.id);
+    expect(result.version).toBe(2n);
+
+    const after = await alice.storage.loadLatestState(channel.id);
+    expect(after?.state.version).toBe(2n);
+    expect(after?.state.balanceA).toBe(1_000_000n - 250n);
+    expect(after?.state.balanceB).toBe(250n);
+    expect(after?.state.htlcs).toEqual([]);
+  });
+
+  it('payDirect: rejects when amount exceeds my balance', async () => {
+    const channel = await openAliceBobChannel();
+    await expect(alice.client.payDirect(channel.id, { amount: 2_000_000n })).rejects.toThrow(
+      /insufficient balance/i,
+    );
+  });
+
+  it('payDirect: rejects when in-flight HTLCs are present', async () => {
+    const channel = await openAliceBobChannel();
+    const signed = await alice.storage.loadLatestState(channel.id);
+    if (!signed) throw new Error('no state');
+    await alice.storage.saveState(channel.id, {
+      ...signed,
+      state: {
+        ...signed.state,
+        htlcs: [
+          {
+            id: 'fake-htlc',
+            direction: 'AtoB',
+            amount: 1n,
+            paymentHash: `0x${'aa'.repeat(32)}`,
+            expiryMs: BigInt(Date.now() + 60_000),
+          },
+        ],
+      },
+    });
+    await expect(alice.client.payDirect(channel.id, { amount: 100n })).rejects.toThrow(
+      /in-flight HTLCs/i,
+    );
+  });
+
   it('cooperative close goes through hub and chain', async () => {
     const channel = await openAliceBobChannel();
     const closedEvents: string[] = [];

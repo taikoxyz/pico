@@ -69,7 +69,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec turbo run test --filter='!@tainnel/contracts'
+      - run: pnpm exec turbo run test --filter='!@tainnel/contracts' --filter='!@tainnel/e2e'
 
   test-solidity:
     runs-on: ubuntu-latest
@@ -101,9 +101,54 @@ jobs:
       - run: forge build
       - run: forge test -vvv
 
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.0
+      - name: Cache forge libraries
+        uses: actions/cache@v4
+        with:
+          path: packages/contracts/lib
+          key: forge-lib-${{ runner.os }}-${{ hashFiles('packages/contracts/remappings.txt', 'packages/contracts/foundry.toml', 'packages/contracts/foundry.lock') }}
+      - name: Install forge libraries
+        working-directory: packages/contracts
+        run: |
+          if [ ! -d lib/forge-std ]; then
+            git clone --depth 1 --branch v1.16.0 https://github.com/foundry-rs/forge-std.git lib/forge-std
+          fi
+          if [ ! -d lib/openzeppelin-contracts ]; then
+            git clone --depth 1 --branch v5.4.0 https://github.com/OpenZeppelin/openzeppelin-contracts.git lib/openzeppelin-contracts
+          fi
+          if [ ! -d lib/openzeppelin-contracts-upgradeable ]; then
+            git clone --depth 1 --branch v5.4.0 https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable.git lib/openzeppelin-contracts-upgradeable
+          fi
+      - run: pnpm install --frozen-lockfile
+      - name: Build contract artifacts
+        working-directory: packages/contracts
+        run: forge build
+      - name: Build TS packages
+        run: pnpm exec turbo run build --filter='!@tainnel/contracts'
+      - name: Run E2E tests
+        run: pnpm -F @tainnel/e2e test
+
+  # TODO (Phase 2C/2D): add an optional `e2e-fork` job gated on
+  # secrets.TAIKO_MAINNET_RPC_URL that runs scenarios needing a Taiko mainnet
+  # fork (HTLC, dispute, watchtower). The harness already supports fork mode
+  # via bootE2E({ forkUrl, forkBlockNumber }); no test requires it yet.
+
   ci:
     if: always()
-    needs: [lint, typecheck, build, test-ts, test-solidity]
+    needs: [lint, typecheck, build, test-ts, test-solidity, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs passed

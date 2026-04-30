@@ -184,6 +184,40 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
       return;
     }
 
+    if (msg.kind === 'payDirect') {
+      const ch = channels.get(msg.channelId);
+      if (!ch) {
+        send(socket, {
+          id: msg.id,
+          kind: 'error',
+          code: 'UNKNOWN_CHANNEL',
+          message: `unknown channel ${msg.channelId}`,
+          requestId: msg.id,
+        });
+        return;
+      }
+      let acked = msg.signedState;
+      if (hubAccount) {
+        const stateSig = await hubAccount.signTypedData(
+          buildChannelStateTypedData(msg.signedState.state, opts.chainId, opts.verifyingContract),
+        );
+        const hubSig = hexToSignature(stateSig);
+        const hubIsA = ch.userA.toLowerCase() === hubAccount.address.toLowerCase();
+        acked = {
+          state: msg.signedState.state,
+          sigA: hubIsA ? hubSig : msg.signedState.sigA,
+          sigB: hubIsA ? msg.signedState.sigB : hubSig,
+        };
+      }
+      send(socket, {
+        id: msg.id,
+        kind: 'payDirectAck',
+        channelId: msg.channelId,
+        signedState: acked,
+      });
+      return;
+    }
+
     if (msg.kind === 'closeRequest') {
       const ch = channels.get(msg.channelId);
       if (!ch) {
@@ -230,6 +264,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
       if (
         msg.kind === 'subscribe' ||
         msg.kind === 'pay' ||
+        msg.kind === 'payDirect' ||
         msg.kind === 'htlcSettle' ||
         msg.kind === 'htlcFail' ||
         msg.kind === 'closeRequest'
