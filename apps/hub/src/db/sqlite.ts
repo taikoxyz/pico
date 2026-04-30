@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import Sqlite from 'better-sqlite3';
 import type { DbDriver, Row } from './types.js';
 
@@ -7,6 +9,10 @@ export interface SqliteDriverOptions {
 
 export function openSqliteDriver(opts: SqliteDriverOptions): DbDriver {
   const path = opts.url.replace(/^sqlite:\/\//, '');
+  if (path !== ':memory:') {
+    const dir = dirname(path);
+    if (dir && dir !== '.') mkdirSync(dir, { recursive: true });
+  }
   const db = new Sqlite(path);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');

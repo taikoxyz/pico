@@ -63,4 +63,16 @@ describe('openSqliteDriver', () => {
   it('ping resolves on a healthy connection', async () => {
     await expect(driver.ping()).resolves.toBeUndefined();
   });
+
+  it('creates the parent directory when it does not exist', async () => {
+    const nested = mkdtempSync(join(tmpdir(), 'hub-sqlite-mkdir-'));
+    const target = join(nested, 'a', 'b', 'c', 'fresh.sqlite');
+    const d = openSqliteDriver({ url: target });
+    try {
+      await expect(d.ping()).resolves.toBeUndefined();
+    } finally {
+      await d.close();
+      rmSync(nested, { recursive: true, force: true });
+    }
+  });
 });
