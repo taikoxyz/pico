@@ -10,7 +10,7 @@ export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Addr
 
 export const SUPPORTED_CHAIN_IDS: readonly ChainId[] = [
   TAIKO_MAINNET_CHAIN_ID,
-  TAIKO_HOODI_CHAIN_ID,
+  // TAIKO_HOODI_CHAIN_ID is excluded until contract and USDC addresses are deployed.
 ];
 
 export const CONTRACT_ADDRESSES: Record<

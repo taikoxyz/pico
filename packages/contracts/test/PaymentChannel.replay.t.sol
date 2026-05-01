@@ -28,14 +28,14 @@ contract PaymentChannelReplayTest is Fixtures {
         vm.prank(alice);
         channel.closeUnilateral(id, abi.encode(v1), _signState(bobPk, v1));
 
-        // v5 disputes successfully — dispute carries the *closer*'s (alice's) signature.
+        // v5 disputes successfully — both parties must have signed the disputed state.
         Adjudicator.ChannelState memory v5 = _state(id, 5, 10_000_000, 70_000_000);
-        channel.dispute(id, abi.encode(v5), _signState(alicePk, v5));
+        channel.dispute(id, abi.encode(v5), _signState(alicePk, v5), _signState(bobPk, v5));
 
         // Replaying v3 (older than v5) must revert as stale.
         Adjudicator.ChannelState memory v3 = _state(id, 3, 30_000_000, 50_000_000);
         vm.expectRevert(bytes("stale"));
-        channel.dispute(id, abi.encode(v3), _signState(alicePk, v3));
+        channel.dispute(id, abi.encode(v3), _signState(alicePk, v3), _signState(bobPk, v3));
     }
 
     function test_replay_disputeSameVersionAfterAccepted() public {
@@ -47,11 +47,12 @@ contract PaymentChannelReplayTest is Fixtures {
 
         Adjudicator.ChannelState memory v2 = _state(id, 2, 40_000_000, 40_000_000);
         bytes memory sigAv2 = _signState(alicePk, v2);
-        channel.dispute(id, abi.encode(v2), sigAv2);
+        bytes memory sigBv2 = _signState(bobPk, v2);
+        channel.dispute(id, abi.encode(v2), sigAv2, sigBv2);
 
         // Same version v2 again — must be rejected.
         vm.expectRevert(bytes("stale"));
-        channel.dispute(id, abi.encode(v2), sigAv2);
+        channel.dispute(id, abi.encode(v2), sigAv2, sigBv2);
     }
 
     function test_replay_penaltyProofStaleAfterAccepted() public {
@@ -64,13 +65,15 @@ contract PaymentChannelReplayTest is Fixtures {
 
         Adjudicator.ChannelState memory newer = _state(id, 5, 1, 79_999_999);
         bytes memory sigA5 = _signState(alicePk, newer);
-        channel.submitPenaltyProof(id, abi.encode(newer), sigA5);
+        bytes memory sigB5 = _signState(bobPk, newer);
+        channel.submitPenaltyProof(id, abi.encode(newer), sigA5, sigB5);
 
-        // Older signed state by closer — should be rejected as stale
+        // Older signed state — should be rejected as stale
         Adjudicator.ChannelState memory older = _state(id, 3, 1, 79_999_999);
         bytes memory sigA3 = _signState(alicePk, older);
+        bytes memory sigB3 = _signState(bobPk, older);
         vm.expectRevert(bytes("stale"));
-        channel.submitPenaltyProof(id, abi.encode(older), sigA3);
+        channel.submitPenaltyProof(id, abi.encode(older), sigA3, sigB3);
     }
 
     function test_replay_finalizedChannelRejectsAllPaths() public {
@@ -85,17 +88,19 @@ contract PaymentChannelReplayTest is Fixtures {
         channel.finalize(id);
 
         // After finalize all the path-gates must be tripped
+        bytes memory sigA = _signState(alicePk, s);
         vm.expectRevert(bytes("!closing"));
-        channel.dispute(id, abi.encode(s), sigB);
+        channel.dispute(id, abi.encode(s), sigA, sigB);
 
         Adjudicator.ChannelState memory s2 = _state(id, 2, 50_000_000, 30_000_000);
+        bytes memory sigA2 = _signState(alicePk, s2);
         bytes memory sigB2 = _signState(bobPk, s2);
         vm.prank(alice);
         vm.expectRevert(bytes("!open"));
         channel.closeUnilateral(id, abi.encode(s2), sigB2);
 
         vm.expectRevert(bytes("!closing"));
-        channel.submitPenaltyProof(id, abi.encode(s2), sigB2);
+        channel.submitPenaltyProof(id, abi.encode(s2), sigA2, sigB2);
 
         vm.expectRevert(bytes("!closing"));
         channel.finalize(id);

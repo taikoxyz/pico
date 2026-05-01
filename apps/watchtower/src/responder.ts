@@ -18,7 +18,7 @@ import { penaltiesSubmittedTotal } from './metrics.js';
 import type { InFlightTx, WatchtowerStore } from './storage.js';
 
 const penaltyAbi = parseAbi([
-  'function submitPenaltyProof(bytes32 channelId, bytes penaltyState, bytes signature)',
+  'function submitPenaltyProof(bytes32 channelId, bytes penaltyState, bytes sigA, bytes sigB)',
 ]);
 
 const DEFAULT_GAS_BUMP_PERCENT = 25;
@@ -133,8 +133,9 @@ export class PenaltyResponder {
     }
 
     const stateBytes = encodeChannelStateForOnChain(evidence.state);
-    const sigCloser = signatureToHex(closerSide === 'A' ? evidence.sigA : evidence.sigB);
-    const args = [channelId, stateBytes, sigCloser] as const;
+    const sigA = signatureToHex(evidence.sigA);
+    const sigB = signatureToHex(evidence.sigB);
+    const args = [channelId, stateBytes, sigA, sigB] as const;
 
     const nonce = await this.publicClient.getTransactionCount({
       address: account.address,

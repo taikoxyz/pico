@@ -92,7 +92,7 @@ describe('ChannelClient integration with MockHub', () => {
     if (!initial) throw new Error('no initial state');
     await bob.storage.saveState(channel.id, initial);
     // Register the channel with the hub so it routes between the two.
-    hub.registerChannel(channel);
+    hub.registerChannel(channel, initial);
     // Bob subscribes to start receiving HTLCs.
     await bob.client.ensureSubscribed([channel.id]);
     return channel;

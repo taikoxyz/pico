@@ -44,15 +44,15 @@ contract PaymentChannelFuzzTest is Fixtures {
         uint256 finalA = total == 0 ? 0 : (splitSeed % (total + 1));
         uint256 finalB = total - finalA;
 
-        Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id, version: 1, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: true
+        Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
+            channelId: id, finalBalanceA: finalA, finalBalanceB: finalB, signedAt: uint64(block.timestamp)
         });
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigB = _signState(bobPk, s);
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
 
         uint256 balA0 = token.balanceOf(alice);
         uint256 balB0 = token.balanceOf(bob);
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
         assertEq(token.balanceOf(alice), balA0 + finalA);
         assertEq(token.balanceOf(bob), balB0 + finalB);
@@ -68,14 +68,14 @@ contract PaymentChannelFuzzTest is Fixtures {
         vm.prank(alice);
         bytes32 id = channel.openChannel(bob, address(token), amountA, amountB);
 
-        Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id, version: 1, balanceA: attackerA, balanceB: 0, htlcsRoot: bytes32(0), finalized: true
+        Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
+            channelId: id, finalBalanceA: attackerA, finalBalanceB: 0, signedAt: uint64(block.timestamp)
         });
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigB = _signState(bobPk, s);
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
 
         vm.expectRevert(bytes("!conserved"));
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
     }
 
     function testFuzz_dispute_alwaysReplacesIfStrictlyNewer(uint64 startV, uint64 deltaV) public {
@@ -90,15 +90,16 @@ contract PaymentChannelFuzzTest is Fixtures {
         vm.prank(alice);
         channel.closeUnilateral(id, abi.encode(startState), sigB);
 
-        // Closer is alice — a valid dispute carries alice's signature on the new state.
+        // A valid dispute requires both parties' signatures on the newer state.
         Adjudicator.ChannelState memory next = _state(id, startV + deltaV, 1, 79_999_999);
         bytes memory sigA = _signState(alicePk, next);
-        channel.dispute(id, abi.encode(next), sigA);
+        bytes memory sigB2 = _signState(bobPk, next);
+        channel.dispute(id, abi.encode(next), sigA, sigB2);
 
         assertEq(channel.channels(id).postedVersion, startV + deltaV);
     }
 
-    function testFuzz_dispute_rejectsNonCloserSelfSignedState(uint64 startV, uint64 deltaV, uint256 splitSeed) public {
+    function testFuzz_dispute_rejectsSinglePartySignature(uint64 startV, uint64 deltaV, uint256 splitSeed) public {
         startV = uint64(bound(uint256(startV), 1, type(uint32).max));
         deltaV = uint64(bound(uint256(deltaV), 1, type(uint32).max));
 
@@ -112,9 +113,11 @@ contract PaymentChannelFuzzTest is Fixtures {
         uint256 finalA = splitSeed % 80_000_001;
         uint256 finalB = 80_000_000 - finalA;
         Adjudicator.ChannelState memory forged = _state(id, startV + deltaV, finalA, finalB);
+
+        // Single-party signatures (from either side) must be rejected.
         bytes memory sigBobOnly = _signState(bobPk, forged);
         vm.expectRevert(bytes("bad sig"));
-        channel.dispute(id, abi.encode(forged), sigBobOnly);
+        channel.dispute(id, abi.encode(forged), hex"", sigBobOnly);
     }
 
     function _state(bytes32 channelId, uint64 version, uint256 balanceA, uint256 balanceB)

@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -21,9 +21,13 @@ import {Adjudicator} from "./Adjudicator.sol";
 ///       - 100% slash on penalty (the `closeUnilateral` caller forfeits *all* funds in the
 ///         channel to the honest counterparty when an `oldState` proof shows they posted a
 ///         stale state).
-///       - Dispute and cooperative paths assume `htlcsRoot == bytes32(0)`. Posting a state
-///         with in-flight HTLCs reverts. This is consistent with the 1-hop dogfood scope:
-///         HTLCs only live inside a single payment, and any close happens between payments.
+///       - Dispute, unilateral-close, and penalty paths assume `htlcsRoot == bytes32(0)`.
+///         Posting a state with in-flight HTLCs reverts. Cooperative close signs a dedicated
+///         `CooperativeClose` artifact without an HTLC root, so clients/hubs must only request
+///         it after all in-flight HTLCs settle or fail. This is consistent with the 1-hop
+///         dogfood scope: HTLCs only live inside a single payment, and any close happens
+///         between payments. On-chain HTLC claim/refund is NOT implemented in v1; the frozen
+///         spec and threat model have been updated to match.
 ///       - UUPS upgradeable behind `ERC1967Proxy`. `_authorizeUpgrade` is gated by an owner.
 contract PaymentChannel is
     IPaymentChannel,
@@ -100,7 +104,12 @@ contract PaymentChannel is
     /// @param adjudicator_ Address of the deployed `Adjudicator` proxy.
     function initialize(address initialOwner, address adjudicator_) external initializer {
         require(adjudicator_ != address(0), "adjudicator=0");
-        __Ownable_init(initialOwner);
+        require(initialOwner != address(0), "owner=0");
+        // Skip `__Ownable_init()` because in OZ v4.9.6 it would set the owner to the temp
+        // proxy deployer and emit a spurious `OwnershipTransferred(0, deployer)`. Calling
+        // `_transferOwnership(initialOwner)` directly produces a single canonical
+        // `OwnershipTransferred(0, initialOwner)`. Safe inside `initializer`.
+        _transferOwnership(initialOwner);
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
         adjudicator = Adjudicator(adjudicator_);
@@ -136,7 +145,7 @@ contract PaymentChannel is
         require(amountA + amountB >= MIN_CHANNEL_AMOUNT, "amount<min");
 
         uint256 nonce = openNonce++;
-        channelId = keccak256(abi.encode(msg.sender, userB, token, block.timestamp, nonce));
+        channelId = keccak256(abi.encode(address(this), msg.sender, userB, token, block.timestamp, nonce));
         require(_channels[channelId].status == Status.None, "exists");
 
         _channels[channelId] = Channel({
@@ -162,37 +171,36 @@ contract PaymentChannel is
     }
 
     /// @inheritdoc IPaymentChannel
-    /// @dev `finalState` MUST abi-encode to `(Adjudicator.ChannelState)`. The state must
-    ///      match `channelId`, be marked `finalized`, conserve total balance and carry an
-    ///      empty HTLC root.
-    function closeCooperative(bytes32 channelId, bytes calldata finalState, bytes calldata sigA, bytes calldata sigB)
+    /// @dev `closeData` MUST abi-encode to `(Adjudicator.CooperativeClose)`. Both parties
+    ///      sign a dedicated `CooperativeClose` typed-data message (EIP-712), distinct from
+    ///      `ChannelState`, so operators can co-sign a one-shot close without committing to
+    ///      a specific HTLC root or version. Balance conservation is checked against the
+    ///      channel's on-chain funded amounts.
+    function closeCooperative(bytes32 channelId, bytes calldata closeData, bytes calldata sigA, bytes calldata sigB)
         external
         nonReentrant
     {
         Channel storage ch = _channels[channelId];
         require(ch.status == Status.Open, "!open");
 
-        Adjudicator.ChannelState memory state = abi.decode(finalState, (Adjudicator.ChannelState));
-        require(state.channelId == channelId, "channelId");
-        require(state.finalized, "!finalized");
-        require(state.htlcsRoot == bytes32(0), "htlcs!=0");
-        require(state.balanceA + state.balanceB == ch.amountA + ch.amountB, "!conserved");
+        Adjudicator.CooperativeClose memory cc = abi.decode(closeData, (Adjudicator.CooperativeClose));
+        require(cc.channelId == channelId, "channelId");
+        require(cc.finalBalanceA + cc.finalBalanceB == ch.amountA + ch.amountB, "!conserved");
 
-        require(_verifyDualSig(ch.userA, ch.userB, state, sigA, sigB), "bad sig");
+        require(_verifyDualCooperativeClose(ch.userA, ch.userB, cc, sigA, sigB), "bad sig");
 
         address token = ch.token;
         address userA = ch.userA;
         address userB = ch.userB;
-        uint64 version = state.version;
-        uint256 payA = state.balanceA;
-        uint256 payB = state.balanceB;
+        uint256 payA = cc.finalBalanceA;
+        uint256 payB = cc.finalBalanceB;
 
         ch.status = Status.Closed;
 
         if (payA > 0) IERC20(token).safeTransfer(userA, payA);
         if (payB > 0) IERC20(token).safeTransfer(userB, payB);
 
-        emit ChannelClosedCooperative(channelId, version);
+        emit ChannelClosedCooperative(channelId, payA, payB, cc.signedAt);
     }
 
     /// @inheritdoc IPaymentChannel
@@ -226,15 +234,31 @@ contract PaymentChannel is
     }
 
     /// @inheritdoc IPaymentChannel
-    /// @dev Replaces the posted state with a strictly-newer version. The dispute deadline is
-    ///      NOT extended (this is what bounds watchtower work). The signature MUST be the
-    ///      *closer's* signature on the new state — that is what proves the state was
-    ///      genuinely co-signed and overrides the closer's stale post. Verifying the
-    ///      non-closer's signature would be useless: anyone could forge a self-signed
-    ///      state and steal the pot.
-    function dispute(bytes32 channelId, bytes calldata state, bytes calldata sigCloser) external nonReentrant {
+    /// @dev Replaces the posted state with a strictly-newer dual-signed version. Both
+    ///      parties MUST have signed the disputed state, proving mutual agreement on the
+    ///      newer balances. A single-party signature would let either party forge a
+    ///      self-serving state and steal funds. Only callable while the dispute window
+    ///      is still open.
+    /// @dev Any successful dispute is implicit proof that the closer posted a stale state
+    ///      (a strictly-newer dual-signed state existed at close time), so `penalized` is
+    ///      set to true here as well — otherwise the closer could front-run a watchtower's
+    ///      `submitPenaltyProof` by self-calling `dispute` (or paying any third party to
+    ///      do so) with the latest dual-signed state, bumping `postedVersion` past the
+    ///      proof's required threshold and escaping the 100% slash. `submitPenaltyProof`
+    ///      remains as the `IWatchtower`-facing alias.
+    /// @dev The dispute deadline is extended by a full window only on the FIRST successful
+    ///      dispute. Once `penalized` is true the slash outcome is locked in (100% to the
+    ///      non-closer regardless of further posted balances), so subsequent disputes only
+    ///      bump `postedVersion` without restarting the deadline. This prevents the slashed
+    ///      closer from griefing the honest party by repeatedly disputing with progressively
+    ///      newer dual-signed states to push `finalize` eligibility further out.
+    function dispute(bytes32 channelId, bytes calldata state, bytes calldata sigA, bytes calldata sigB)
+        external
+        nonReentrant
+    {
         Channel storage ch = _channels[channelId];
         require(ch.status == Status.ClosingUnilateral, "!closing");
+        require(block.timestamp < ch.disputeDeadline, "deadline");
 
         Adjudicator.ChannelState memory s = abi.decode(state, (Adjudicator.ChannelState));
         require(s.channelId == channelId, "channelId");
@@ -242,26 +266,37 @@ contract PaymentChannel is
         require(s.htlcsRoot == bytes32(0), "htlcs!=0");
         require(s.balanceA + s.balanceB == ch.amountA + ch.amountB, "!conserved");
 
-        require(_recoverStateSigner(s, sigCloser) == ch.closer, "bad sig");
+        require(_verifyDualSig(ch.userA, ch.userB, s, sigA, sigB), "bad sig");
 
         ch.postedVersion = s.version;
         ch.postedBalanceA = s.balanceA;
         ch.postedBalanceB = s.balanceB;
+        if (!ch.penalized) {
+            ch.disputeDeadline = uint64(block.timestamp) + DISPUTE_WINDOW;
+            ch.penalized = true;
+        }
 
+        address beneficiary = ch.closer == ch.userA ? ch.userB : ch.userA;
+        emit PenaltyApplied(channelId, ch.closer, beneficiary);
         emit DisputeRaised(channelId, s.version);
     }
 
     /// @inheritdoc IWatchtower
-    /// @dev Watchtower path. `penaltyState` is an `oldState` that the closer signed but did
-    ///      NOT publish — proving they unilaterally closed at a stale version on purpose.
-    ///      Any caller may submit it. On success, `penalized = true` and the *closer* is
-    ///      slashed for 100% of the channel funds at `finalize`.
-    function submitPenaltyProof(bytes32 channelId, bytes calldata penaltyState, bytes calldata signature)
-        external
-        nonReentrant
-    {
+    /// @dev Watchtower path. `penaltyState` is a strictly-newer `ChannelState` that BOTH
+    ///      parties signed, proving the closer knowingly posted a stale version on-chain.
+    ///      The dual-signature requirement prevents a party from forging a self-signed
+    ///      "proof" against a counterparty. Any caller may submit. On success,
+    ///      `penalized = true` and the *closer* is slashed for 100% of the channel funds
+    ///      at `finalize`. Only callable while the dispute window is still open.
+    function submitPenaltyProof(
+        bytes32 channelId,
+        bytes calldata penaltyState,
+        bytes calldata sigA,
+        bytes calldata sigB
+    ) external nonReentrant {
         Channel storage ch = _channels[channelId];
         require(ch.status == Status.ClosingUnilateral, "!closing");
+        require(block.timestamp < ch.disputeDeadline, "deadline");
 
         Adjudicator.ChannelState memory s = abi.decode(penaltyState, (Adjudicator.ChannelState));
         require(s.channelId == channelId, "channelId");
@@ -269,7 +304,7 @@ contract PaymentChannel is
         require(s.htlcsRoot == bytes32(0), "htlcs!=0");
         require(s.balanceA + s.balanceB == ch.amountA + ch.amountB, "!conserved");
 
-        require(_recoverStateSigner(s, signature) == ch.closer, "!closer sig");
+        require(_verifyDualSig(ch.userA, ch.userB, s, sigA, sigB), "bad sig");
 
         ch.postedVersion = s.version;
         ch.postedBalanceA = s.balanceA;
@@ -331,13 +366,24 @@ contract PaymentChannel is
     }
 
     /// @dev See `_verifyDualSig`. Same `memory -> calldata` hop trick for single-signer
-    ///      recovery.
+    ///      recovery (used by `closeUnilateral` to verify the counterparty's signature).
     function _recoverStateSigner(Adjudicator.ChannelState memory state, bytes calldata sig)
         internal
         view
         returns (address)
     {
         return adjudicator.recoverStateSigner(state, sig);
+    }
+
+    /// @dev Same memory→calldata pattern for `CooperativeClose` dual-signature verification.
+    function _verifyDualCooperativeClose(
+        address userA,
+        address userB,
+        Adjudicator.CooperativeClose memory cc,
+        bytes calldata sigA,
+        bytes calldata sigB
+    ) internal view returns (bool) {
+        return adjudicator.verifyDualCooperativeClose(userA, userB, cc, sigA, sigB);
     }
 
     /// @inheritdoc UUPSUpgradeable

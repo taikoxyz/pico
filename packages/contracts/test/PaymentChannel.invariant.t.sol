@@ -77,12 +77,12 @@ contract ChannelHandler is Test {
         uint256 finalA = total == 0 ? 0 : (splitSeed % (total + 1));
         uint256 finalB = total - finalA;
 
-        Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id, version: 1, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: true
+        Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
+            channelId: id, finalBalanceA: finalA, finalBalanceB: finalB, signedAt: uint64(block.timestamp)
         });
-        bytes memory sigA = _sign(alicePk, s);
-        bytes memory sigB = _sign(bobPk, s);
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
         totalWithdrawn += total;
         _removeOpenAt(idx);
@@ -124,6 +124,7 @@ contract ChannelHandler is Test {
         bytes32 id = openIds[idx];
         PaymentChannel.Channel memory ch = channel.channels(id);
         if (ch.status != PaymentChannel.Status.ClosingUnilateral) return;
+        if (block.timestamp >= ch.disputeDeadline) return;
         uint64 vNew = ch.postedVersion + uint64(bound(versionDelta, 1, 1000));
 
         uint256 total = ch.amountA + ch.amountB;
@@ -133,10 +134,10 @@ contract ChannelHandler is Test {
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
             channelId: id, version: vNew, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: false
         });
-        // Closer must sign the disputed state (the handler always closes via alice).
-        uint256 closerPk = ch.closer == alice ? alicePk : bobPk;
-        bytes memory sig = _sign(closerPk, s);
-        channel.dispute(id, abi.encode(s), sig);
+        // Both parties must sign the disputed state.
+        bytes memory sigA = _sign(alicePk, s);
+        bytes memory sigB = _sign(bobPk, s);
+        channel.dispute(id, abi.encode(s), sigA, sigB);
     }
 
     /* -------------------------------------------------------------------- */
@@ -184,6 +185,23 @@ contract ChannelHandler is Test {
                 s.balanceB,
                 s.htlcsRoot,
                 s.finalized
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 sSig) = vm.sign(pk, digest);
+        return abi.encodePacked(r, sSig, v);
+    }
+
+    function _signCoopClose(uint256 pk, Adjudicator.CooperativeClose memory cc) internal view returns (bytes memory) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "CooperativeClose(bytes32 channelId,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt)"
+                ),
+                cc.channelId,
+                cc.finalBalanceA,
+                cc.finalBalanceB,
+                cc.signedAt
             )
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));

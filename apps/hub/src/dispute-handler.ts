@@ -146,9 +146,6 @@ export class DisputeHandler {
       return;
     }
 
-    const closerIsA = onChain.closer.toLowerCase() === channel.userA.toLowerCase();
-    const closerSig = closerIsA ? ourLatest.sigA : ourLatest.sigB;
-
     let txHash: Hash | undefined;
     let lastErr: unknown;
     for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
@@ -163,7 +160,8 @@ export class DisputeHandler {
           args: [
             channelId,
             encodeChannelStateForOnChain(ourLatest.state),
-            signatureToHex(closerSig),
+            signatureToHex(ourLatest.sigA),
+            signatureToHex(ourLatest.sigB),
           ],
         });
         await this.publicClient.waitForTransactionReceipt({ hash: txHash });

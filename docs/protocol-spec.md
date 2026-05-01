@@ -59,7 +59,7 @@ split. Either submits it on-chain; funds disburse instantly.
 **Dispute**: during the window, the counterparty may submit a strictly newer
 `ChannelState` (`version` field, §2). The contract replaces the state and restarts
 the window. After the window closes with no challenge, anyone may call `finalize`,
-which disburses balances and reveals/refunds any in-flight HTLCs.
+which disburses balances. v1 does not reveal/refund in-flight HTLCs on-chain.
 
 ## 2. State updates
 
@@ -224,24 +224,42 @@ Hub refuses to forward when:
 
 ### 5.3 Challenge
 
-During the window, the counterparty may submit a strictly-newer dual-signed state.
-The contract replaces the recorded state and **restarts** the 24-hour window.
-Repeated challenge/counter-challenge is permitted as long as each new submission has
-a strictly higher `version`.
+During the window, the counterparty (or any third-party watchtower) may submit a
+strictly-newer dual-signed state. The contract replaces the recorded state and, on the
+**first** successful challenge, restarts the 24-hour window. Repeated challenge/
+counter-challenge is permitted as long as each new submission has a strictly higher
+`version`, but the deadline only restarts once — subsequent challenges bump
+`postedVersion` without extending `disputeDeadline`.
 
-### 5.4 HTLC reveal
+A successful challenge is implicit proof that the closer posted a stale state — a
+strictly-newer state that *both* parties already signed existed at close time. The
+contract therefore marks the channel `penalized` on every successful `dispute()` (and
+on `submitPenaltyProof`), and `finalize` disburses 100% of the pot to the non-closing
+party. Without this rule the closer could front-run a watchtower's penalty proof by
+self-calling `dispute` (or hiring any third party) with the latest dual-signed state,
+bumping `postedVersion` past the proof's required threshold and escaping the slash.
+The one-shot deadline restart prevents a complementary griefing path: once `penalized`
+is set, the slash outcome is locked in, so further disputes cannot affect the payout
+and must not be allowed to delay `finalize` for the honest party.
 
-In-flight HTLCs are settled on-chain during the dispute window:
-- Receiver reveals preimage to claim → on-chain credit to receiver
-- After expiry without reveal → on-chain refund to sender
+### 5.4 HTLC handling (v1 limitation)
 
-The contract verifies the HTLC was in the committed set via a Merkle proof against
-`htlcsRoot`.
+v1 does **not** implement on-chain HTLC claim/refund during disputes. The contracts
+reject any `ChannelState` with a non-empty `htlcsRoot` in unilateral close, dispute,
+and penalty paths. Cooperative close signs a `CooperativeClose` artifact without an
+HTLC root, so clients and hubs MUST only request it after all HTLCs settle or fail.
+This is a conscious simplification for the 1-hop dogfood scope: HTLCs only live
+inside a single payment, and any close happens between payments. Clients and
+watchtowers MUST ensure no unilateral close/dispute is initiated while
+`htlcsRoot != 0`.
+
+On-chain HTLC settlement (Merkle proof verification, preimage claims, expiry refunds)
+is deferred to a future protocol version.
 
 ### 5.5 Finalize
 
-After `now > deadline` and all on-chain HTLC actions resolved, anyone calls
-`finalize()`. Funds disburse to A and B per the final balances.
+After `now > deadline`, anyone calls `finalize()`. Funds disburse to A and B per the
+final balances.
 
 ### 5.6 Watchtower
 

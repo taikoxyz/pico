@@ -1,4 +1,12 @@
-import type { Address, ChannelId, ChannelState, Hex, SignedState } from '@tainnel/protocol';
+import type {
+  Address,
+  ChannelId,
+  ChannelState,
+  CooperativeClose,
+  Hex,
+  SignedCooperativeClose,
+  SignedState,
+} from '@tainnel/protocol';
 import { computeHtlcsRoot } from '@tainnel/state-machine';
 import {
   type Hash,
@@ -7,7 +15,11 @@ import {
   encodeAbiParameters,
   parseEventLogs,
 } from 'viem';
-import { channelStateSolidityStruct, paymentChannelAbi } from './contracts-abi.js';
+import {
+  channelStateSolidityStruct,
+  cooperativeCloseSolidityStruct,
+  paymentChannelAbi,
+} from './contracts-abi.js';
 import { signatureToHex } from './signature-codec.js';
 
 export interface OpenChannelOnChainArgs {
@@ -30,7 +42,7 @@ export interface OpenChannelOnChainResult {
 
 export interface CloseCooperativeOnChainArgs {
   readonly channelId: ChannelId;
-  readonly finalState: SignedState;
+  readonly signedClose: SignedCooperativeClose;
 }
 
 export interface CloseUnilateralOnChainArgs {
@@ -75,6 +87,20 @@ export function encodeChannelStateForOnChain(state: ChannelState): Hex {
         balanceB: state.balanceB,
         htlcsRoot: computeHtlcsRoot(state.htlcs),
         finalized: state.finalized,
+      },
+    ],
+  );
+}
+
+export function encodeCooperativeCloseForOnChain(close: CooperativeClose): Hex {
+  return encodeAbiParameters(
+    [{ type: 'tuple', components: [...cooperativeCloseSolidityStruct] }],
+    [
+      {
+        channelId: close.channelId,
+        finalBalanceA: close.finalBalanceA,
+        finalBalanceB: close.finalBalanceB,
+        signedAt: close.signedAt,
       },
     ],
   );
@@ -134,15 +160,15 @@ export class ViemChainAdapter implements ChainAdapter {
     const chain = walletClient.chain;
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
-    const stateBytes = encodeChannelStateForOnChain(args.finalState.state);
-    const sigA = signatureToHex(args.finalState.sigA);
-    const sigB = signatureToHex(args.finalState.sigB);
+    const closeBytes = encodeCooperativeCloseForOnChain(args.signedClose.close);
+    const sigA = signatureToHex(args.signedClose.sigA);
+    const sigB = signatureToHex(args.signedClose.sigB);
 
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
       functionName: 'closeCooperative',
-      args: [args.channelId, stateBytes, sigA, sigB],
+      args: [args.channelId, closeBytes, sigA, sigB],
       account,
       chain,
     });

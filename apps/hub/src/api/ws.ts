@@ -1,8 +1,14 @@
 import type { WebSocket as WsWebSocket } from '@fastify/websocket';
-import type { Address, ChainId, Channel, SignedState } from '@tainnel/protocol';
+import type {
+  Address,
+  ChainId,
+  Channel,
+  SignedCooperativeClose,
+  SignedState,
+} from '@tainnel/protocol';
 import type { ClientToHubMessage, HubMessage, HubToClientMessage } from '@tainnel/sdk';
 import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@tainnel/sdk';
-import { buildChannelStateTypedData } from '@tainnel/state-machine';
+import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@tainnel/state-machine';
 import type { FastifyInstance } from 'fastify';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type SignedEnvelope, verifyEnvelope } from '../auth/envelope.js';
@@ -317,15 +323,50 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       sendError(socket, msg.id, 'UNKNOWN_CHANNEL', `unknown channel ${msg.channelId}`);
       return;
     }
+    const latest = deps.channelPool.latest(msg.channelId);
+    if (!latest) {
+      sendError(socket, msg.id, 'NO_STATE', `no signed state for channel ${msg.channelId}`);
+      return;
+    }
+    if (latest.state.htlcs.length > 0 || msg.signedState.state.htlcs.length > 0) {
+      sendError(socket, msg.id, 'PENDING_HTLCS', 'cooperative close requires no in-flight HTLCs');
+      return;
+    }
+    if (
+      msg.signedState.state.channelId !== msg.channelId ||
+      msg.signedState.state.version !== latest.state.version + 1n ||
+      msg.signedState.state.balanceA !== latest.state.balanceA ||
+      msg.signedState.state.balanceB !== latest.state.balanceB ||
+      msg.signedCooperativeClose.close.channelId !== msg.channelId ||
+      msg.signedCooperativeClose.close.finalBalanceA !== msg.signedState.state.balanceA ||
+      msg.signedCooperativeClose.close.finalBalanceB !== msg.signedState.state.balanceB ||
+      !msg.signedState.state.finalized
+    ) {
+      sendError(socket, msg.id, 'INVALID_CLOSE', 'cooperative close does not match final state');
+      return;
+    }
     const sigHex = await hubAccount.signTypedData(
       buildChannelStateTypedData(msg.signedState.state, deps.chainId, deps.verifyingContract),
     );
+    const closeSigHex = await hubAccount.signTypedData(
+      buildCooperativeCloseTypedData(
+        msg.signedCooperativeClose.close,
+        deps.chainId,
+        deps.verifyingContract,
+      ),
+    );
     const sig = hexToSignature(sigHex);
+    const closeSig = hexToSignature(closeSigHex);
     const hubIsA = ch.userA.toLowerCase() === hubAccount.address.toLowerCase();
     const countersigned: SignedState = {
       state: msg.signedState.state,
       sigA: hubIsA ? sig : msg.signedState.sigA,
       sigB: hubIsA ? msg.signedState.sigB : sig,
+    };
+    const countersignedClose: SignedCooperativeClose = {
+      close: msg.signedCooperativeClose.close,
+      sigA: hubIsA ? closeSig : msg.signedCooperativeClose.sigA,
+      sigB: hubIsA ? msg.signedCooperativeClose.sigB : closeSig,
     };
     await deps.channelPool.recordState(msg.channelId, countersigned);
     send(socket, {
@@ -333,6 +374,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       kind: 'closeResponse',
       channelId: msg.channelId,
       signedCloseState: countersigned,
+      signedCooperativeClose: countersignedClose,
     });
   }
 

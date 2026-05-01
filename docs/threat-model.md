@@ -20,7 +20,10 @@ over their key, willing to submit on-chain transactions and withhold cooperation
   typed-data (§ 6.2).
 - *HTLC double-spend*: user adds an HTLC, settles it, then submits the pre-settle
   state on dispute to "rewind" the settlement. Targets `htlcsRoot` and HTLC reveal
-  flow (§ 3, § 5.4).
+  flow (§ 3, § 5.4). **Note**: v1 rejects any unilateral close/dispute with
+  non-empty `htlcsRoot`, and cooperative close is client/hub-gated until all HTLCs
+  settle or fail, so this attack vector requires a future protocol version with
+  on-chain HTLC settlement.
 - *Grief via dust*: user opens many small channels with the hub to inflate hub
   collateral pressure. Targets `MIN_CHANNEL_AMOUNT_USDC`.
 
@@ -28,11 +31,18 @@ over their key, willing to submit on-chain transactions and withhold cooperation
 
 - The 24-hour dispute window (§ 5.1) gives the counterparty (or watchtower) time to
   challenge with a newer dual-signed state. Stale submissions are reverted.
+- A successful `dispute` (newer dual-signed state) automatically slashes the closer
+  for 100% of the pot at finalize, identical to `submitPenaltyProof`. The closer
+  cannot escape the slash by self-calling `dispute` (or hiring any third party): any
+  successful dispute is by definition proof that a strictly-newer dual-signed state
+  existed at close time, which is the on-chain definition of stale-state cheating.
 - All transitions require both signatures over the resulting `ChannelState`; the
   state-machine in `@tainnel/state-machine` enforces strict version monotonicity
   (`replay.ts:ensureMonotonicVersion`).
-- HTLCs in dispute are settled on-chain via Merkle proof against the committed
-  `htlcsRoot`; preimage reveal is publicly verifiable.
+- v1 does not implement on-chain HTLC settlement. The contracts reject unilateral
+  close/dispute/penalty states with non-empty `htlcsRoot`; cooperative close is
+  client/hub-gated until all HTLCs settle or fail. Clients and watchtowers must
+  ensure no close/dispute is initiated while HTLCs are in-flight.
 - `MIN_CHANNEL_AMOUNT_USDC = 10_000_000n` (10 USDC) raises the per-channel cost above
   expected gas, deterring dust grief.
 

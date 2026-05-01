@@ -89,8 +89,8 @@ export class MockChainAdapter implements ChainAdapter {
     await this.sleep(this.opts.closeLatencyMs);
     const ch = this.channels.get(args.channelId);
     if (!ch) throw new Error(`mock: unknown channel ${args.channelId}`);
-    ch.postedBalanceA = args.finalState.state.balanceA;
-    ch.postedBalanceB = args.finalState.state.balanceB;
+    ch.postedBalanceA = args.signedClose.close.finalBalanceA;
+    ch.postedBalanceB = args.signedClose.close.finalBalanceB;
     ch.status = 'closed';
     const txHash = fakeHash(`close-coop|${args.channelId}`);
     this.emitFinalized(args.channelId, ch.postedBalanceA, ch.postedBalanceB, txHash);

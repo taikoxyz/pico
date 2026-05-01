@@ -78,3 +78,9 @@ export interface SignedState {
   readonly sigA: Signature;
   readonly sigB: Signature;
 }
+
+export interface SignedCooperativeClose {
+  readonly close: CooperativeClose;
+  readonly sigA: Signature;
+  readonly sigB: Signature;
+}

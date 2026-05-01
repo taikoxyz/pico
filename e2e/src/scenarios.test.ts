@@ -19,7 +19,7 @@ const paymentChannelStatusAbi = parseAbi([
 
 const paymentChannelAttackAbi = parseAbi([
   'function closeUnilateral(bytes32 channelId, bytes state, bytes sigCounterparty)',
-  'function dispute(bytes32 channelId, bytes state, bytes sigCloser)',
+  'function dispute(bytes32 channelId, bytes state, bytes sigA, bytes sigB)',
 ]);
 
 const ONE_USDC = 1_000_000n;
@@ -199,7 +199,12 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
         address: h.paymentChannel,
         abi: paymentChannelAttackAbi,
         functionName: 'dispute',
-        args: [channel.id, encodeChannelStateForOnChain(v2.state), signatureToHex(v2.sigA)],
+        args: [
+          channel.id,
+          encodeChannelStateForOnChain(v2.state),
+          signatureToHex(v2.sigA),
+          signatureToHex(v2.sigB),
+        ],
       }),
     ).rejects.toThrow(/stale/i);
 
