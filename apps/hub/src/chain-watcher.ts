@@ -87,9 +87,10 @@ export class ChainWatcher {
       'chain watcher starting',
     );
     if ((await this.deps.repos.kv.get(KV_KEY_LAST_BLOCK)) === undefined) {
-      // Prefer an explicit deploy block; otherwise the minimum opened-block of
-      // any known channel; otherwise fall back to (head - confirmations).
-      // Avoid silently advancing past historical events.
+      // Cursor priority: persisted deploy_block KV → configured deps.deployBlock
+      // → (head - confirmations). The last fallback skips historical events,
+      // so operators with existing channels in the DB should set deps.deployBlock
+      // (or seed the deploy_block KV) to backfill from the actual deploy height.
       const initial = await this.computeInitialBlock();
       await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK, initial.toString());
       this.deps.logger.info(
@@ -146,7 +147,7 @@ export class ChainWatcher {
         try {
           const currentBlock = await this.client.getBlock({ blockNumber: last });
           if (currentBlock.hash !== expectedHash) {
-            const rewound = await this.findCommonAncestor(last, expectedHash);
+            const rewound = this.rewindForReorg(last);
             this.deps.logger.warn(
               {
                 cursor: last.toString(),
@@ -215,14 +216,16 @@ export class ChainWatcher {
   }
 
   /**
-   * Walk back from `from` until we find a block whose stored hash matches the
-   * RPC's current view, OR until we reach 0. Returns the highest block known
-   * to be on the canonical chain. Conservative: in practice we just rewind
-   * one full chunk, which is ample for the typical 1-3 block reorg.
+   * Conservative reorg rewind: drop the cursor by one full chunk so the next
+   * poll re-scans that range. This does not walk back hash-by-hash to a true
+   * common ancestor; it relies on downstream dispatch being idempotent (the
+   * channelPool / DB writes upsert by id) and on reorgs being shallower than
+   * `chunkSize`. Reorgs deeper than `chunkSize` will be misclassified as a
+   * single chunk-rewind — implement per-chunk hash storage and walk-back if
+   * deeper rollback safety is required.
    */
-  private async findCommonAncestor(from: bigint, _staleHash: string): Promise<bigint> {
-    const rewindTo = from > this.chunkSize ? from - this.chunkSize : 0n;
-    return rewindTo;
+  private rewindForReorg(from: bigint): bigint {
+    return from > this.chunkSize ? from - this.chunkSize : 0n;
   }
 
   private async collectAndDispatch(fromBlock: bigint, toBlock: bigint): Promise<void> {

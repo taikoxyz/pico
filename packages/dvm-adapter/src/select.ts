@@ -1,4 +1,4 @@
-import type { Address, Channel } from '@tainnel/protocol';
+import type { Channel } from '@tainnel/protocol';
 import type { PaymentOptionTag } from './payment-tag.js';
 
 export interface PaymentMethodChoice {
@@ -7,17 +7,9 @@ export interface PaymentMethodChoice {
   readonly viaChannel?: Channel;
 }
 
-export interface SelectOpts {
-  /** The address that will pay (for outbound balance check). */
-  readonly payerAddress?: Address;
-  /** When set, the chosen channel must have outbound balance >= amount. */
-  readonly minOutboundBalance?: bigint;
-}
-
 export function selectPaymentMethod(
   quote: PaymentOptionTag,
   channels: readonly Channel[],
-  opts: SelectOpts = {},
 ): PaymentMethodChoice {
   if (quote.method === 'onchain') {
     return { method: 'onchain', reason: 'quote requires on-chain payment' };

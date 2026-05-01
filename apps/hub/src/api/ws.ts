@@ -206,6 +206,17 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
           outgoingHubSigned: routed.outgoingHubSigned,
           recipient: msg.recipient,
         };
+
+        // Reserve liquidity BEFORE any durable state changes. If the outbound
+        // channel is oversubscribed we must reject without advancing channel
+        // state or persisting a route, otherwise the hub commits to forwarding
+        // past its outbound cap.
+        try {
+          deps.liquidity.reserveOutbound(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
+        } catch (err) {
+          return { kind: 'rejected' as const, reason: (err as Error).message };
+        }
+
         await deps.channelPool.recordState(routed.outgoingChannel.id, routed.outgoingHubSigned);
 
         try {
@@ -253,23 +264,10 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
             });
           });
         } catch (err) {
+          deps.liquidity.releaseReservation(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
           return { kind: 'tx_failed' as const, reason: (err as Error).message };
         }
 
-        // Reserve liquidity AFTER the durable writes succeed. If reservation
-        // fails (oversubscription), surface it as a rejection — the routed
-        // state has been written, so the caller will see paymentFailed and
-        // can retry with a smaller amount or different channel.
-        try {
-          deps.liquidity.reserveOutbound(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
-        } catch (err) {
-          deps.logger.warn(
-            { err: (err as Error).message, channelId: routed.outgoingChannel.id },
-            'liquidity reservation failed after durable write (will be reconciled on hydrate)',
-          );
-        }
-
-        // Now safe to register the in-memory inflight; durable rows exist.
         router.recordInflight(inflight);
         return { kind: 'ok' as const, routed };
       });
