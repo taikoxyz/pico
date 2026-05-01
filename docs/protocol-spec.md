@@ -224,10 +224,23 @@ Hub refuses to forward when:
 
 ### 5.3 Challenge
 
-During the window, the counterparty may submit a strictly-newer dual-signed state.
-The contract replaces the recorded state and **restarts** the 24-hour window.
-Repeated challenge/counter-challenge is permitted as long as each new submission has
-a strictly higher `version`.
+During the window, the counterparty (or any third-party watchtower) may submit a
+strictly-newer dual-signed state. The contract replaces the recorded state and, on the
+**first** successful challenge, restarts the 24-hour window. Repeated challenge/
+counter-challenge is permitted as long as each new submission has a strictly higher
+`version`, but the deadline only restarts once — subsequent challenges bump
+`postedVersion` without extending `disputeDeadline`.
+
+A successful challenge is implicit proof that the closer posted a stale state — a
+strictly-newer state that *both* parties already signed existed at close time. The
+contract therefore marks the channel `penalized` on every successful `dispute()` (and
+on `submitPenaltyProof`), and `finalize` disburses 100% of the pot to the non-closing
+party. Without this rule the closer could front-run a watchtower's penalty proof by
+self-calling `dispute` (or hiring any third party) with the latest dual-signed state,
+bumping `postedVersion` past the proof's required threshold and escaping the slash.
+The one-shot deadline restart prevents a complementary griefing path: once `penalized`
+is set, the slash outcome is locked in, so further disputes cannot affect the payout
+and must not be allowed to delay `finalize` for the honest party.
 
 ### 5.4 HTLC handling (v1 limitation)
 

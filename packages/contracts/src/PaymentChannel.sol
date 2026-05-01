@@ -104,7 +104,11 @@ contract PaymentChannel is
     /// @param adjudicator_ Address of the deployed `Adjudicator` proxy.
     function initialize(address initialOwner, address adjudicator_) external initializer {
         require(adjudicator_ != address(0), "adjudicator=0");
-        __Ownable_init();
+        require(initialOwner != address(0), "owner=0");
+        // Skip `__Ownable_init()` because in OZ v4.9.6 it would set the owner to the temp
+        // proxy deployer and emit a spurious `OwnershipTransferred(0, deployer)`. Calling
+        // `_transferOwnership(initialOwner)` directly produces a single canonical
+        // `OwnershipTransferred(0, initialOwner)`. Safe inside `initializer`.
         _transferOwnership(initialOwner);
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
@@ -196,7 +200,7 @@ contract PaymentChannel is
         if (payA > 0) IERC20(token).safeTransfer(userA, payA);
         if (payB > 0) IERC20(token).safeTransfer(userB, payB);
 
-        emit ChannelClosedCooperative(channelId, cc.signedAt);
+        emit ChannelClosedCooperative(channelId, payA, payB, cc.signedAt);
     }
 
     /// @inheritdoc IPaymentChannel
@@ -233,9 +237,21 @@ contract PaymentChannel is
     /// @dev Replaces the posted state with a strictly-newer dual-signed version. Both
     ///      parties MUST have signed the disputed state, proving mutual agreement on the
     ///      newer balances. A single-party signature would let either party forge a
-    ///      self-serving state and steal funds. The dispute deadline IS extended by a full
-    ///      window to give the counterparty time to respond (per the frozen protocol spec).
-    ///      Only callable while the dispute window is still open.
+    ///      self-serving state and steal funds. Only callable while the dispute window
+    ///      is still open.
+    /// @dev Any successful dispute is implicit proof that the closer posted a stale state
+    ///      (a strictly-newer dual-signed state existed at close time), so `penalized` is
+    ///      set to true here as well — otherwise the closer could front-run a watchtower's
+    ///      `submitPenaltyProof` by self-calling `dispute` (or paying any third party to
+    ///      do so) with the latest dual-signed state, bumping `postedVersion` past the
+    ///      proof's required threshold and escaping the 100% slash. `submitPenaltyProof`
+    ///      remains as the `IWatchtower`-facing alias.
+    /// @dev The dispute deadline is extended by a full window only on the FIRST successful
+    ///      dispute. Once `penalized` is true the slash outcome is locked in (100% to the
+    ///      non-closer regardless of further posted balances), so subsequent disputes only
+    ///      bump `postedVersion` without restarting the deadline. This prevents the slashed
+    ///      closer from griefing the honest party by repeatedly disputing with progressively
+    ///      newer dual-signed states to push `finalize` eligibility further out.
     function dispute(bytes32 channelId, bytes calldata state, bytes calldata sigA, bytes calldata sigB)
         external
         nonReentrant
@@ -255,8 +271,13 @@ contract PaymentChannel is
         ch.postedVersion = s.version;
         ch.postedBalanceA = s.balanceA;
         ch.postedBalanceB = s.balanceB;
-        ch.disputeDeadline = uint64(block.timestamp) + DISPUTE_WINDOW;
+        if (!ch.penalized) {
+            ch.disputeDeadline = uint64(block.timestamp) + DISPUTE_WINDOW;
+            ch.penalized = true;
+        }
 
+        address beneficiary = ch.closer == ch.userA ? ch.userB : ch.userA;
+        emit PenaltyApplied(channelId, ch.closer, beneficiary);
         emit DisputeRaised(channelId, s.version);
     }
 

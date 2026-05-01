@@ -183,7 +183,7 @@ contract PaymentChannelTest is Fixtures {
 
         uint64 ts = uint64(block.timestamp);
         vm.expectEmit(true, false, false, true, address(channel));
-        emit IPaymentChannel.ChannelClosedCooperative(id, ts);
+        emit IPaymentChannel.ChannelClosedCooperative(id, 30_000_000, 50_000_000, ts);
         channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
         assertEq(token.balanceOf(alice), balA0 + 30_000_000);
@@ -325,6 +325,8 @@ contract PaymentChannelTest is Fixtures {
 
         uint64 deadlineBefore = channel.channels(id).disputeDeadline;
         skip(1 hours); // advance time so the restart is observable
+        vm.expectEmit(true, true, true, true, address(channel));
+        emit PaymentChannel.PenaltyApplied(id, alice, bob);
         vm.expectEmit(true, false, false, true, address(channel));
         emit IPaymentChannel.DisputeRaised(id, 5);
         vm.prank(bob);
@@ -335,6 +337,35 @@ contract PaymentChannelTest is Fixtures {
         assertEq(ch.postedBalanceA, 10_000_000);
         assertEq(ch.postedBalanceB, 70_000_000);
         assertGt(ch.disputeDeadline, deadlineBefore, "deadline must restart");
+        assertTrue(ch.penalized, "successful dispute proves stale-state cheat");
+    }
+
+    function test_dispute_secondCallDoesNotExtendDeadline() public {
+        // Once `penalized` is set on the first dispute, the slash outcome is locked in
+        // and further disputes must NOT restart the deadline — otherwise the slashed
+        // closer could grief the honest party by repeatedly disputing with progressively
+        // newer dual-signed states to push `finalize` eligibility further out.
+        bytes32 id = _openDefault();
+        Adjudicator.ChannelState memory stale = _state(id, 3, 50_000_000, 30_000_000, false);
+        vm.prank(alice);
+        channel.closeUnilateral(id, abi.encode(stale), _signState(bobPk, stale));
+
+        Adjudicator.ChannelState memory v5 = _state(id, 5, 10_000_000, 70_000_000, false);
+        vm.prank(bob);
+        channel.dispute(id, abi.encode(v5), _signState(alicePk, v5), _signState(bobPk, v5));
+
+        uint64 lockedDeadline = channel.channels(id).disputeDeadline;
+        skip(1 hours);
+
+        // Slashed closer (alice) tries to push the deadline out with a higher dual-signed state.
+        Adjudicator.ChannelState memory v7 = _state(id, 7, 5_000_000, 75_000_000, false);
+        vm.prank(alice);
+        channel.dispute(id, abi.encode(v7), _signState(alicePk, v7), _signState(bobPk, v7));
+
+        PaymentChannel.Channel memory ch = channel.channels(id);
+        assertEq(ch.postedVersion, 7, "posted state must still bump");
+        assertEq(ch.disputeDeadline, lockedDeadline, "deadline must NOT restart after first slash");
+        assertTrue(ch.penalized);
     }
 
     function test_dispute_rejectsSinglePartySignature() public {

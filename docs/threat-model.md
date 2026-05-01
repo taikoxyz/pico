@@ -31,6 +31,11 @@ over their key, willing to submit on-chain transactions and withhold cooperation
 
 - The 24-hour dispute window (§ 5.1) gives the counterparty (or watchtower) time to
   challenge with a newer dual-signed state. Stale submissions are reverted.
+- A successful `dispute` (newer dual-signed state) automatically slashes the closer
+  for 100% of the pot at finalize, identical to `submitPenaltyProof`. The closer
+  cannot escape the slash by self-calling `dispute` (or hiring any third party): any
+  successful dispute is by definition proof that a strictly-newer dual-signed state
+  existed at close time, which is the on-chain definition of stale-state cheating.
 - All transitions require both signatures over the resulting `ChannelState`; the
   state-machine in `@tainnel/state-machine` enforces strict version monotonicity
   (`replay.ts:ensureMonotonicVersion`).
