@@ -1,0 +1,243 @@
+# Prometheus StatefulSet (TSDB on a 20Gi PVC, 15-day retention) plus a
+# ClusterIP service for Grafana + Alertmanager wiring. Scrape config
+# targets the headless Services for hub + watchtower so the pod IPs
+# resolve via SRV records.
+#
+# Caveat: hub + watchtower currently bind /metrics to 127.0.0.1 inside
+# their pods (apps/hub/src/server.ts:116, apps/watchtower/src/index.ts:239).
+# Until that is patched to bind on 0.0.0.0/::, these scrapes will report
+# `up == 0` even though the pods are healthy. See infra/k8s/README.md.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tainnel-prometheus
+  namespace: tainnel
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-prometheus-config
+  namespace: tainnel
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      scrape_timeout: 10s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: prod-gke
+
+    rule_files:
+      - /etc/prometheus/alerts.yml
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+                - tainnel-alertmanager.tainnel.svc:9093
+
+    scrape_configs:
+      - job_name: tainnel-hub
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - tainnel-hub-0.tainnel-hub.tainnel.svc:9090
+
+      - job_name: tainnel-watchtower
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - tainnel-watchtower-0.tainnel-watchtower.tainnel.svc:9090
+
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - localhost:9090
+
+  alerts.yml: |
+    groups:
+      - name: tainnel-protocol
+        rules:
+          - alert: HubDown
+            expr: up{job="tainnel-hub"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Hub is unreachable"
+              description: "Prometheus has been unable to scrape tainnel-hub for 2m."
+
+          - alert: WatchtowerDown
+            expr: up{job="tainnel-watchtower"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Watchtower is unreachable"
+              description: "Prometheus has been unable to scrape tainnel-watchtower for 2m."
+
+          - alert: WatchtowerRpcDown
+            expr: tainnel_watchtower_rpc_up == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Watchtower RPC connection is down"
+              description: "Watchtower cannot reach the configured RPC for 5m. Penalty submission is blocked."
+
+          - alert: DisputeOpened
+            expr: increase(tainnel_hub_disputes_total[5m]) > 0
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Dispute observed by hub"
+              description: "tainnel_hub_disputes_total increased in the last 5m. Open docs/runbooks/dispute-response.md."
+
+          - alert: PenaltySubmissionStalled
+            expr: |
+              rate(tainnel_watchtower_evaluations_total{result="penalize"}[1h]) > 0
+              and
+              rate(tainnel_watchtower_penalties_submitted_total[1h]) == 0
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Watchtower decided to penalize but no penalty tx landed"
+              description: "Penalize-decisions rate > 0 over the last hour while penalty submission rate == 0. Open docs/runbooks/watchtower-down.md."
+
+          - alert: PaymentFailureRateHigh
+            expr: |
+              rate(tainnel_hub_payments_total{result="failed"}[15m])
+              / clamp_min(rate(tainnel_hub_payments_total[15m]), 0.001) > 0.1
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Hub payment failure rate above 10%"
+              description: "Sustained failure share above 10% for 15m. Check hub logs and watchtower status."
+
+          - alert: HubLiquidityLow
+            expr: tainnel_hub_outbound_liquidity_usdc < 1e7
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Hub outbound liquidity is low"
+              description: "Outbound liquidity has been < 10 USDC for 10m. Top up before payments start failing."
+
+          - alert: HubMemoryHigh
+            expr: process_resident_memory_bytes{job="tainnel-hub"} > 524288000
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Hub resident memory above 500MB"
+              description: "Investigate for leaks or restart from kubectl."
+
+          - alert: WatchtowerEvaluationStalled
+            expr: |
+              tainnel_watchtower_channels_watched > 0
+              and
+              rate(tainnel_watchtower_evaluations_total[15m]) == 0
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Watchtower has channels but is not evaluating"
+              description: "channels_watched > 0 yet evaluations rate == 0 for 15m. Check scheduler + chain watcher logs."
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tainnel-prometheus
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-prometheus
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tainnel-prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tainnel-prometheus
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-prometheus
+spec:
+  serviceName: tainnel-prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tainnel-prometheus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tainnel-prometheus
+    spec:
+      serviceAccountName: tainnel-prometheus
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.54.1
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--storage.tsdb.retention.time=15d"
+            - "--web.enable-lifecycle"
+          ports:
+            - name: http
+              containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 250m
+              memory: 1Gi
+              ephemeral-storage: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+              readOnly: true
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: tainnel-prometheus-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 20Gi

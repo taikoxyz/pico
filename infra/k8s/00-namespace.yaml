@@ -1,0 +1,32 @@
+# Namespace for all tainnel workloads on GKE Autopilot.
+#
+# Apply: kubectl apply -f infra/k8s/00-namespace.yaml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel
+    app.kubernetes.io/managed-by: kubectl
+---
+# Default LimitRange so any pod that forgets requests gets sane defaults.
+# Autopilot rejects pods without requests; this is a safety net for ad-hoc
+# kubectl runs (e.g., a debug pod). All shipped manifests set requests
+# explicitly.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: defaults
+  namespace: tainnel
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 250m
+        memory: 512Mi
+        ephemeral-storage: 1Gi
+      defaultRequest:
+        cpu: 250m
+        memory: 512Mi
+        ephemeral-storage: 1Gi

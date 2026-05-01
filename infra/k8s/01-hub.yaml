@@ -1,0 +1,258 @@
+# Hub StatefulSet (app + litestream sidecar), Service, public Ingress, and
+# GCE-managed TLS certificate. Single replica with a 10Gi PVC for SQLite.
+#
+# Public surface: HTTPS on the Ingress's external IP (point your DNS at it).
+# Metrics surface: 9090 inside the pod, bound to 127.0.0.1 by the app — see
+# infra/k8s/README.md "Follow-ups" before relying on cross-pod scraping.
+#
+# Required Secret: `tainnel-hub-secrets` (set via secrets-bootstrap.sh).
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tainnel-hub
+  namespace: tainnel
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-hub-config
+  namespace: tainnel
+data:
+  PORT: "3030"
+  LOG_LEVEL: "info"
+  DB_DRIVER: "sqlite"
+  DB_URL: "/data/hub.sqlite"
+  PROMETHEUS_PORT: "9090"
+  HUB_REQUIRE_SIGNED_ENVELOPE: "true"
+  CHAIN_ID: "167000"
+  NODE_ENV: "production"
+---
+# Litestream config mounted into the sidecar at /etc/litestream.yml.
+# Same shape as infra/litestream/hub.yml. ${LITESTREAM_*} resolve from
+# the Secret at runtime.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-hub-litestream
+  namespace: tainnel
+data:
+  litestream.yml: |
+    dbs:
+      - path: /data/hub.sqlite
+        replicas:
+          - type: s3
+            bucket: ${LITESTREAM_R2_BUCKET}
+            path: hub.sqlite
+            endpoint: ${LITESTREAM_R2_ENDPOINT}
+            region: ${LITESTREAM_R2_REGION:-auto}
+            access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+            secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+            retention: 720h
+            snapshot-interval: 1h
+            sync-interval: 10s
+---
+# Headless Service so the StatefulSet pod has stable DNS for in-cluster
+# Prometheus scraping (tainnel-hub-0.tainnel-hub.tainnel.svc).
+apiVersion: v1
+kind: Service
+metadata:
+  name: tainnel-hub
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-hub
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: tainnel-hub
+  ports:
+    - name: http
+      port: 3030
+      targetPort: 3030
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+---
+# Routable Service in front of the Ingress. ClusterIP is correct here;
+# Ingress + GCE LB do the public exposure.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tainnel-hub-ingress
+  namespace: tainnel
+  annotations:
+    cloud.google.com/backend-config: '{"default": "tainnel-hub-backend"}'
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tainnel-hub
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3030
+---
+# Tells the GCE LB to use /v1/health for backend health checks instead of
+# the default `/`. Without this the LB will mark the backend unhealthy.
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: tainnel-hub-backend
+  namespace: tainnel
+spec:
+  healthCheck:
+    type: HTTP
+    requestPath: /v1/health
+    port: 3030
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+  timeoutSec: 60
+---
+# HTTP -> HTTPS redirect at the GCE LB.
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: tainnel-hub-frontend
+  namespace: tainnel
+spec:
+  redirectToHttps:
+    enabled: true
+    responseCodeName: MOVED_PERMANENTLY_DEFAULT
+---
+# Replace `hub.tainnel.dev` with your real hostname before applying.
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: tainnel-hub-cert
+  namespace: tainnel
+spec:
+  domains:
+    - hub.tainnel.dev
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tainnel-hub
+  namespace: tainnel
+  annotations:
+    kubernetes.io/ingress.class: gce
+    networking.gke.io/managed-certificates: tainnel-hub-cert
+    networking.gke.io/v1beta1.FrontendConfig: tainnel-hub-frontend
+spec:
+  defaultBackend:
+    service:
+      name: tainnel-hub-ingress
+      port:
+        number: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tainnel-hub
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-hub
+spec:
+  serviceName: tainnel-hub
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tainnel-hub
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tainnel-hub
+    spec:
+      serviceAccountName: tainnel-hub
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: hub
+          # Replace IMAGE with your Artifact Registry path. The image must be
+          # built from apps/hub/Dockerfile.
+          image: REGION-docker.pkg.dev/PROJECT/tainnel/hub:VERSION
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3030
+            - name: metrics
+              containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: tainnel-hub-config
+            - secretRef:
+                name: tainnel-hub-secrets
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: 3030
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 3030
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        - name: litestream
+          image: litestream/litestream:0.3.13
+          args: ["replicate", "-config", "/etc/litestream.yml"]
+          envFrom:
+            - secretRef:
+                name: tainnel-hub-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+              readOnly: true
+      volumes:
+        - name: litestream-config
+          configMap:
+            name: tainnel-hub-litestream
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 10Gi
+        # Autopilot default StorageClass = standard-rwo (pd-balanced).
+        # Omit storageClassName to use it; set explicitly to override.

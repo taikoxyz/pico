@@ -1,0 +1,337 @@
+# Grafana Deployment + Service + provisioning ConfigMaps.
+#
+# By default Grafana is reachable only via `kubectl port-forward
+# svc/tainnel-grafana 3000:3000 -n tainnel`. To expose it publicly,
+# uncomment the Ingress + ManagedCertificate at the bottom and substitute
+# your hostname.
+#
+# Admin credentials come from `tainnel-monitoring-secrets` (set via
+# secrets-bootstrap.sh --bootstrap-monitoring).
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tainnel-grafana
+  namespace: tainnel
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-grafana-datasources
+  namespace: tainnel
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        uid: prometheus
+        url: http://tainnel-prometheus.tainnel.svc:9090
+        isDefault: true
+        editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-grafana-dashboards-provider
+  namespace: tainnel
+data:
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: tainnel
+        orgId: 1
+        folder: tainnel
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-grafana-dashboards
+  namespace: tainnel
+data:
+  hub-overview.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Channels open",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "tainnel_hub_channels_total", "refId": "A", "legendFormat": "channels"}
+          ],
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 7}
+        },
+        {
+          "id": 2,
+          "type": "gauge",
+          "title": "HTLCs in flight",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "tainnel_hub_htlcs_in_flight", "refId": "A"}
+          ],
+          "gridPos": {"x": 12, "y": 0, "w": 6, "h": 7}
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Disputes observed (cumulative)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "tainnel_hub_disputes_total", "refId": "A"}
+          ],
+          "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "background"},
+          "gridPos": {"x": 18, "y": 0, "w": 6, "h": 7}
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Liquidity (USDC, smallest unit)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "tainnel_hub_inbound_liquidity_usdc", "refId": "A", "legendFormat": "inbound"},
+            {"expr": "tainnel_hub_outbound_liquidity_usdc", "refId": "B", "legendFormat": "outbound"}
+          ],
+          "fieldConfig": {"defaults": {"custom": {"stacking": {"mode": "normal"}, "fillOpacity": 30}}},
+          "gridPos": {"x": 0, "y": 7, "w": 12, "h": 8}
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Payments by result (rate 5m)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "rate(tainnel_hub_payments_total[5m])", "refId": "A", "legendFormat": "{{result}}"}
+          ],
+          "gridPos": {"x": 12, "y": 7, "w": 12, "h": 8}
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Process resident memory",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "process_resident_memory_bytes{job=\"tainnel-hub\"}", "refId": "A", "legendFormat": "rss"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "bytes"}},
+          "gridPos": {"x": 0, "y": 15, "w": 24, "h": 7}
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["tainnel", "hub"],
+      "time": {"from": "now-6h", "to": "now"},
+      "title": "Tainnel — Hub Overview",
+      "uid": "tainnel-hub-overview",
+      "version": 1
+    }
+  watchtower-overview.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Channels watched",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"expr": "tainnel_watchtower_channels_watched", "refId": "A"}],
+          "gridPos": {"x": 0, "y": 0, "w": 6, "h": 6}
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "RPC up",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"expr": "tainnel_watchtower_rpc_up", "refId": "A"}],
+          "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "background"},
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}]
+            }
+          },
+          "gridPos": {"x": 6, "y": 0, "w": 6, "h": 6}
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Penalties submitted (cumulative)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"expr": "tainnel_watchtower_penalties_submitted_total", "refId": "A"}],
+          "gridPos": {"x": 12, "y": 0, "w": 6, "h": 6}
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Evaluations by result (rate 5m)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"expr": "rate(tainnel_watchtower_evaluations_total[5m])", "refId": "A", "legendFormat": "{{result}}"}],
+          "gridPos": {"x": 0, "y": 6, "w": 18, "h": 8}
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Process resident memory",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"expr": "process_resident_memory_bytes{job=\"tainnel-watchtower\"}", "refId": "A", "legendFormat": "rss"}],
+          "fieldConfig": {"defaults": {"unit": "bytes"}},
+          "gridPos": {"x": 0, "y": 14, "w": 18, "h": 7}
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["tainnel", "watchtower"],
+      "time": {"from": "now-6h", "to": "now"},
+      "title": "Tainnel — Watchtower Overview",
+      "uid": "tainnel-watchtower-overview",
+      "version": 1
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tainnel-grafana
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-grafana
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tainnel-grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tainnel-grafana
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tainnel-grafana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tainnel-grafana
+    spec:
+      serviceAccountName: tainnel-grafana
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.4.5
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: tainnel-monitoring-secrets
+                  key: GRAFANA_ADMIN_USER
+                  optional: true
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tainnel-monitoring-secrets
+                  key: GRAFANA_ADMIN_PASSWORD
+                  optional: true
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+            - name: state
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: datasources
+          configMap:
+            name: tainnel-grafana-datasources
+        - name: dashboards-provider
+          configMap:
+            name: tainnel-grafana-dashboards-provider
+        - name: dashboards
+          configMap:
+            name: tainnel-grafana-dashboards
+        - name: state
+          emptyDir: {}
+# To expose Grafana publicly, uncomment and set the host:
+# ---
+# apiVersion: networking.gke.io/v1
+# kind: ManagedCertificate
+# metadata:
+#   name: tainnel-grafana-cert
+#   namespace: tainnel
+# spec:
+#   domains:
+#     - grafana.tainnel.dev
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: tainnel-grafana
+#   namespace: tainnel
+#   annotations:
+#     kubernetes.io/ingress.class: gce
+#     networking.gke.io/managed-certificates: tainnel-grafana-cert
+# spec:
+#   defaultBackend:
+#     service:
+#       name: tainnel-grafana
+#       port:
+#         number: 3000
