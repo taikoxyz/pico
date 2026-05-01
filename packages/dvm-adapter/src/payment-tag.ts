@@ -1,4 +1,6 @@
-import type { Address, ChainId } from '@tainnel/protocol';
+import { type Address, type ChainId, SUPPORTED_CHAIN_IDS } from '@tainnel/protocol';
+
+const HEX_ADDR = /^0x[0-9a-fA-F]{40}$/;
 
 export interface PaymentOptionTag {
   readonly method: 'onchain' | 'channel';
@@ -41,8 +43,29 @@ export function decodePaymentOption(raw: readonly string[]): PaymentOptionTag {
   if (!token || !chainIdStr || !amountStr || !recipient) {
     throw new Error('malformed tainnel-pay tag');
   }
-  const chainId = Number(chainIdStr) as ChainId;
-  const amount = BigInt(amountStr);
+  if (!HEX_ADDR.test(token)) {
+    throw new Error(`invalid token address: ${token}`);
+  }
+  if (!HEX_ADDR.test(recipient)) {
+    throw new Error(`invalid recipient address: ${recipient}`);
+  }
+  const chainIdNum = Number(chainIdStr);
+  if (!Number.isFinite(chainIdNum) || !Number.isInteger(chainIdNum) || chainIdNum <= 0) {
+    throw new Error(`invalid chain id: ${chainIdStr}`);
+  }
+  const chainId = chainIdNum as ChainId;
+  if (!SUPPORTED_CHAIN_IDS.includes(chainId) && chainIdNum !== 31337) {
+    throw new Error(`unsupported chain id: ${chainId}`);
+  }
+  let amount: bigint;
+  try {
+    amount = BigInt(amountStr);
+  } catch {
+    throw new Error(`invalid amount: ${amountStr}`);
+  }
+  if (amount <= 0n) {
+    throw new Error(`amount must be positive, got ${amount}`);
+  }
   const hubHints = raw[6] ? raw[6].split(',').filter(Boolean) : undefined;
   return { method, token, chainId, amount, recipient, ...(hubHints ? { hubHints } : {}) };
 }

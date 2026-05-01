@@ -26,6 +26,7 @@ export interface ListenDeps {
   readonly storageOverride?: string;
   readonly chainIdOverride?: ChainId;
   readonly contractAddressOverride?: Address;
+  readonly adjudicatorAddressOverride?: Address;
   readonly transportOverride?: ConstructorParameters<typeof WebSocketTransport>[0];
   readonly signerOverride?: Signer;
   readonly logger?: { info(o: unknown, m?: string): void; warn(o: unknown, m?: string): void };
@@ -75,8 +76,10 @@ export function listenCommand(deps: ListenDeps = {}): Command {
           deps.logger ??
           pino(opts.logFormat === 'pretty' ? { transport: { target: 'pino-pretty' } } : {});
         const chainId = deps.chainIdOverride ?? TAIKO_MAINNET_CHAIN_ID;
-        const verifyingContract =
+        const paymentChannelAddress =
           deps.contractAddressOverride ?? CONTRACT_ADDRESSES[chainId].PaymentChannel;
+        const verifyingContract =
+          deps.adjudicatorAddressOverride ?? CONTRACT_ADDRESSES[chainId].Adjudicator;
         const rpcUrl =
           opts.rpc ?? env.TAINNEL_RPC_URL ?? (chainFor(chainId).rpcUrls.default.http[0] as string);
         const privateKey = await resolvePrivateKey({
@@ -91,7 +94,7 @@ export function listenCommand(deps: ListenDeps = {}): Command {
         const chainAdapter = new ViemChainAdapter({
           publicClient,
           walletClient,
-          paymentChannelAddress: verifyingContract,
+          paymentChannelAddress,
         });
         const transport = new WebSocketTransport(
           deps.transportOverride ?? { url: opts.hub, autoReconnect: true },

@@ -74,7 +74,7 @@
 
 <h2>What it is</h2>
 
-<p>The watchtower is a small Node service whose only job is to sit between the chain and the channel database, watch for unilateral closes, and submit a penalty transaction if the close uses an obsolete state. It lives at <code>apps/watchtower/</code> and consists of focused modules: <code>watcher.ts</code> for the high-level loop, <code>detector.ts</code> for "is this close stale and is it worth penalizing", <code>responder.ts</code> for building and submitting penalty calldata, <code>storage.ts</code> for encrypted state-backup persistence, plus <code>config.ts</code> and <code>logger.ts</code>.</p>
+<p>The watchtower is a small Node service whose only job is to sit between the chain and the channel database, watch for unilateral closes, and submit a penalty transaction if the close uses an obsolete state. It lives at <code>apps/watchtower/</code> and consists of focused modules: <code>watcher.ts</code> for the high-level loop, <code>detector.ts</code> for "is this close stale and is it worth penalizing", <code>responder.ts</code> for building and submitting penalty calldata, <code>storage.ts</code> for SQLite-backed signed-state and in-flight-tx persistence (plaintext at-rest in v1; protect via filesystem encryption), plus <code>config.ts</code> and <code>logger.ts</code>.</p>
 
 <p>Architecturally the watchtower is the simplest of the long-running components. It does not hold funds, it does not forward payments, it does not maintain channels. It does one thing: when it sees a closure on chain, it reads the channel's signed-state log from disk, picks the freshest state it has, and races to submit it before the dispute window closes.</p>
 

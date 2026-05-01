@@ -76,7 +76,7 @@
 <h2>Why it exists</h2>
 <p>State channels structurally need a process that holds a hot key, signs frequent off-chain messages, and (for receivers) keeps a connection open to the hub so it can accept inbound HTLCs and reveal preimages. The simplest design that satisfies all of that without locking the project into one ecosystem is a CLI with a <code>listen</code> subcommand — the same architecture Lightning's <code>lnd</code> + <code>lncli</code> uses, just slimmed to one binary. CLI-as-agent-surface gives every language ubiquitous access (any agent framework can shell out), avoids coupling to MCP or x402, and keeps the trust boundary clean: the key never leaves the local process.</p>
 
-<div class="note">The React wallet UI was deleted from the tree as part of the v1 re-scope. Its outline is preserved in <a href="../docs/plans/07-agent-runtime.md">docs/plans/07-agent-runtime.md</a> for a future Phase 2 starting point. v1 is agents only.</div>
+<div class="note">The React wallet UI was deleted from the tree as part of the v1 re-scope. Its outline is preserved in <a href="../plans/07-agent-runtime.md">docs/plans/07-agent-runtime.md</a> for a future Phase 2 starting point. v1 is agents only.</div>
 
 <h2>Key concepts</h2>
 <ul>

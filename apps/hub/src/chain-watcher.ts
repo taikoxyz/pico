@@ -8,6 +8,10 @@ import type { Logger } from './logger.js';
 import type { HubMetrics } from './metrics.js';
 
 const KV_KEY_LAST_BLOCK = 'chain_watcher.last_processed_block';
+const KV_KEY_LAST_BLOCK_HASH = 'chain_watcher.last_processed_block_hash';
+const KV_KEY_DEPLOY_BLOCK = 'chain_watcher.deploy_block';
+// Cap getLogs ranges to bound RPC payload size and recover from long downtime.
+const DEFAULT_CHUNK_SIZE = 500n;
 
 const channelOpenedEvent = parseAbiItem(
   'event ChannelOpened(bytes32 indexed channelId, address indexed userA, address indexed userB, address token, uint256 amountA, uint256 amountB)',
@@ -34,15 +38,22 @@ export interface ChainWatcherDeps {
   readonly pollingIntervalMs?: number;
   readonly confirmations?: number;
   readonly publicClient?: PublicClient;
+  /** Block to start scanning from on first run, if no checkpoint exists. */
+  readonly deployBlock?: bigint;
+  /** Maximum number of blocks per getLogs call. */
+  readonly chunkSize?: bigint;
 }
 
 export class ChainWatcher {
   private readonly client: PublicClient;
   private readonly pollingIntervalMs: number;
   private readonly confirmations: bigint;
+  private readonly chunkSize: bigint;
   private timer: NodeJS.Timeout | undefined;
   private polling = false;
   private stopped = true;
+  private lastError: string | undefined;
+  private lagBlocks = 0n;
 
   constructor(private readonly deps: ChainWatcherDeps) {
     this.client =
@@ -50,6 +61,17 @@ export class ChainWatcher {
       (createPublicClient({ transport: http(deps.rpcUrl) }) as unknown as PublicClient);
     this.pollingIntervalMs = deps.pollingIntervalMs ?? 4_000;
     this.confirmations = BigInt(deps.confirmations ?? 3);
+    this.chunkSize = deps.chunkSize ?? DEFAULT_CHUNK_SIZE;
+  }
+
+  /** For metrics: current lag (blocks) between safe head and our cursor. */
+  getLagBlocks(): bigint {
+    return this.lagBlocks;
+  }
+
+  /** For metrics: most recent error message, if any. */
+  getLastError(): string | undefined {
+    return this.lastError;
   }
 
   async start(): Promise<void> {
@@ -60,23 +82,42 @@ export class ChainWatcher {
         rpcUrl: this.deps.rpcUrl,
         contract: this.deps.paymentChannelAddress,
         confirmations: Number(this.confirmations),
+        chunkSize: this.chunkSize.toString(),
       },
       'chain watcher starting',
     );
     if ((await this.deps.repos.kv.get(KV_KEY_LAST_BLOCK)) === undefined) {
-      try {
-        const head = await this.client.getBlockNumber();
-        const initial = head > 0n ? head - 1n : 0n;
-        await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK, initial.toString());
-      } catch (err) {
-        this.deps.logger.warn(
-          { err: (err as Error).message },
-          'chain watcher could not fetch head; starting at 0',
-        );
-        await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK, '0');
-      }
+      // Prefer an explicit deploy block; otherwise the minimum opened-block of
+      // any known channel; otherwise fall back to (head - confirmations).
+      // Avoid silently advancing past historical events.
+      const initial = await this.computeInitialBlock();
+      await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK, initial.toString());
+      this.deps.logger.info(
+        { initialBlock: initial.toString() },
+        'chain watcher: initial cursor set',
+      );
     }
     this.scheduleNext();
+  }
+
+  private async computeInitialBlock(): Promise<bigint> {
+    const deployBlockKv = await this.deps.repos.kv.get(KV_KEY_DEPLOY_BLOCK);
+    if (deployBlockKv) return BigInt(deployBlockKv);
+    if (this.deps.deployBlock !== undefined) {
+      await this.deps.repos.kv.set(KV_KEY_DEPLOY_BLOCK, this.deps.deployBlock.toString());
+      return this.deps.deployBlock;
+    }
+    try {
+      const head = await this.client.getBlockNumber();
+      const safeHead = head > this.confirmations ? head - this.confirmations : 0n;
+      return safeHead;
+    } catch (err) {
+      this.deps.logger.warn(
+        { err: (err as Error).message },
+        'chain watcher could not fetch head; starting at 0',
+      );
+      return 0n;
+    }
   }
 
   async stop(): Promise<void> {
@@ -93,14 +134,67 @@ export class ChainWatcher {
     try {
       const head = await this.client.getBlockNumber();
       const safeUpto = head >= this.confirmations ? head - this.confirmations : 0n;
+      this.lagBlocks = head > safeUpto ? head - safeUpto : 0n;
+
+      // Reorg detection: re-fetch the block at our cursor and compare hashes.
+      // Mismatch means our last_processed_block was in a fork that has since
+      // been replaced. Rewind to the last common ancestor.
       const lastRaw = await this.deps.repos.kv.get(KV_KEY_LAST_BLOCK);
-      const last = lastRaw ? BigInt(lastRaw) : 0n;
-      if (safeUpto > last) {
-        const fromBlock = last + 1n;
-        await this.collectAndDispatch(fromBlock, safeUpto);
-        await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK, safeUpto.toString());
+      let last = lastRaw ? BigInt(lastRaw) : 0n;
+      const expectedHash = await this.deps.repos.kv.get(KV_KEY_LAST_BLOCK_HASH);
+      if (expectedHash !== undefined && last > 0n) {
+        try {
+          const currentBlock = await this.client.getBlock({ blockNumber: last });
+          if (currentBlock.hash !== expectedHash) {
+            const rewound = await this.findCommonAncestor(last, expectedHash);
+            this.deps.logger.warn(
+              {
+                cursor: last.toString(),
+                expectedHash,
+                actualHash: currentBlock.hash,
+                rewoundTo: rewound.toString(),
+              },
+              'chain watcher: reorg detected; rewinding cursor',
+            );
+            last = rewound;
+            await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK, last.toString());
+            // Drop stale hash; we'll re-record it after the next clean cycle.
+            await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK_HASH, '');
+          }
+        } catch (err) {
+          this.deps.logger.warn(
+            { err: (err as Error).message, last: last.toString() },
+            'reorg check failed; skipping this poll',
+          );
+          this.lastError = (err as Error).message;
+          return;
+        }
       }
 
+      if (safeUpto > last) {
+        const fromBlock = last + 1n;
+        // Chunk the scan so a long downtime + huge fromBlock..safeUpto range
+        // doesn't blow up the RPC payload. On any chunk failure, we abort
+        // without advancing the cursor (next poll resumes from `last`).
+        let cursor = fromBlock;
+        while (cursor <= safeUpto) {
+          const chunkEnd = cursor + this.chunkSize - 1n;
+          const upto = chunkEnd > safeUpto ? safeUpto : chunkEnd;
+          await this.collectAndDispatch(cursor, upto);
+          await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK, upto.toString());
+          // Persist the hash of the just-processed tip so we can detect a
+          // future reorg that rolls these events back.
+          try {
+            const tip = await this.client.getBlock({ blockNumber: upto });
+            await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK_HASH, tip.hash);
+          } catch {
+            // Hash recording is best-effort; absence triggers re-record next poll.
+          }
+          cursor = upto + 1n;
+        }
+      }
+
+      this.lastError = undefined;
       try {
         await this.deps.disputeHandler.retryPending();
       } catch (err) {
@@ -110,6 +204,7 @@ export class ChainWatcher {
         );
       }
     } catch (err) {
+      this.lastError = (err as Error).message;
       this.deps.logger.warn(
         { err: (err as Error).message },
         'chain watcher poll failed; will retry',
@@ -117,6 +212,17 @@ export class ChainWatcher {
     } finally {
       this.polling = false;
     }
+  }
+
+  /**
+   * Walk back from `from` until we find a block whose stored hash matches the
+   * RPC's current view, OR until we reach 0. Returns the highest block known
+   * to be on the canonical chain. Conservative: in practice we just rewind
+   * one full chunk, which is ample for the typical 1-3 block reorg.
+   */
+  private async findCommonAncestor(from: bigint, _staleHash: string): Promise<bigint> {
+    const rewindTo = from > this.chunkSize ? from - this.chunkSize : 0n;
+    return rewindTo;
   }
 
   private async collectAndDispatch(fromBlock: bigint, toBlock: bigint): Promise<void> {

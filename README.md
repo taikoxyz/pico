@@ -7,7 +7,7 @@
 Inspired by Lightning's LSP model. Stablecoin (USDC) first in v1. **No native token.
 No governance. No bridges. No MCP / x402 association.**
 
-> **New here?** Open [`learning/index.html`](./learning/index.html) for a tour of every
+> **New here?** Open [`docs/learning/index.html`](./docs/learning/index.html) for a tour of every
 > component before diving into source code. Start with `00-big-picture.html` if you
 > want intuition first.
 
@@ -40,7 +40,7 @@ packages/
   test-utils/   Anvil/forge fixtures, mock hubs, deterministic keys
 e2e/            Cross-package end-to-end tests
 docs/           Protocol spec, threat model, and per-phase plans
-learning/       Per-component HTML tutorials — start at learning/index.html
+docs/learning/  Per-component HTML tutorials — start at docs/learning/index.html
 ```
 
 ## Quick start
@@ -92,7 +92,7 @@ Any-language agents shell out to the CLI; non-TS callers parse the `--json` outp
 
 ## Documentation
 
-- [`learning/index.html`](./learning/index.html) — per-component HTML tutorials,
+- [`docs/learning/index.html`](./docs/learning/index.html) — per-component HTML tutorials,
   offline-readable. Start here.
 - [`ROADMAP.md`](./ROADMAP.md) — phase status, what to work on next, open decisions,
   Phase 2 follow-ups.

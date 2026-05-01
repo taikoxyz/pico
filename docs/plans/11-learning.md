@@ -13,8 +13,8 @@ test. Without
 purpose-built, self-contained tutorials, the only way in is reading source plus the
 plans in `docs/plans/`. That's enough for an engineer; not enough for a
 "hand-this-to-an-AI-agent-or-a-non-Solidity-friend" onboarding experience. This phase
-delivers a `learning/` folder of well-designed HTML pages that can be opened from
-disk with no build step, no JavaScript, and no internet connection.
+delivers a `docs/learning/` folder of well-designed HTML pages that can be opened
+from disk with no build step, no JavaScript, and no internet connection.
 
 ## Format constraints (locked in)
 
@@ -22,8 +22,8 @@ disk with no build step, no JavaScript, and no internet connection.
   no CDN scripts, no MCP / cloud integrations. Pages must work with JS off.
 - **Inline SVG only** — no `<img>` tags or external image references. Diagrams are
   pre-rendered Mermaid → SVG (or hand-authored SVG) and pasted inline.
-- **Offline-readable.** Open `learning/index.html` from a finder window and every link
-  works.
+- **Offline-readable.** Open `docs/learning/index.html` from a finder window and
+  every link works.
 - **Cross-links use relative paths** (`./05-hub.html`, `./00-big-picture.html`).
 - **800–1500 words per component page.** No filler. The goal is to learn, not to
   perform exhaustiveness.
@@ -32,7 +32,7 @@ disk with no build step, no JavaScript, and no internet connection.
 ## File structure
 
 ```
-learning/
+docs/learning/
 ├── index.html                  Entry / cover page, table of contents, glossary
 ├── 00-big-picture.html         Story walkthrough (Alice/Bob/hub/watchtower)
 ├── 01-contracts.html           PaymentChannel.sol + Adjudicator.sol + HTLC.sol
@@ -45,7 +45,7 @@ learning/
 └── 08-e2e.html                 End-to-end test scenarios + how to run them
 ```
 
-(`learning/_diagrams/` may exist with the Mermaid sources used to generate inline SVG;
+(`docs/learning/_diagrams/` may exist with the Mermaid sources used to generate inline SVG;
 this is optional but useful for diff hygiene when a diagram needs editing.)
 
 ## Per-page template
@@ -67,11 +67,11 @@ Every component page (`01–08`) follows the same skeleton:
 ## Implementation tasks
 
 ### Skeleton
-- [ ] `[agent]` Author `learning/index.html` first as the canonical style template.
+- [ ] `[agent]` Author `docs/learning/index.html` first as the canonical style template.
       Embedded CSS (color palette, serif body, monospace code, card layouts), table
       of contents linking to all 10 pages, glossary table, "where to start"
       block.
-- [ ] `[agent]` Author `learning/00-big-picture.html` next: a narrative walkthrough
+- [ ] `[agent]` Author `docs/learning/00-big-picture.html` next: a narrative walkthrough
       (Alice the AI agent pays Bob the AI agent via the hub; hub goes silent; Alice
       unilaterally closes; hub posts a stale state; watchtower posts the fresher
       state; cheater gets slashed). Inline SVG sequence diagram for the happy path
@@ -106,15 +106,15 @@ Every component page (`01–08`) follows the same skeleton:
 
 ### Sync rule
 - [ ] `[review]` PR template gets a checkbox: "If this PR changes
-      `packages/<pkg>/` or `apps/<app>/`, the corresponding `learning/<n>-*.html`
+      `packages/<pkg>/` or `apps/<app>/`, the corresponding `docs/learning/<n>-*.html`
       page has been updated (or a follow-up issue has been filed)." Don't enforce
       with CI in v1 — checkbox + reviewer attention is enough.
 
 ## `[review]` gates
 
-- You read `learning/index.html` end-to-end. Confirm the glossary covers every term
+- You read `docs/learning/index.html` end-to-end. Confirm the glossary covers every term
   used by the component pages.
-- You read `learning/00-big-picture.html`. The story should be self-consistent with
+- You read `docs/learning/00-big-picture.html`. The story should be self-consistent with
   the component pages it links to (no contradictions).
 - You spot-check at least one component page you did not write. Confirm: it can be
   read alone, the diagram is clear, and it contains design/technical details only,

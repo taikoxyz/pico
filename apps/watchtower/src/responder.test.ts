@@ -142,7 +142,9 @@ describe('PenaltyResponder', () => {
     store.putInFlight({
       channelId,
       txHash: existingHash,
-      submittedAtMs: 1_000,
+      // Recent submittedAtMs so it stays within the inclusion timeout and the
+      // idempotent no-op path runs (instead of replacement).
+      submittedAtMs: Date.now(),
       nonce: 7,
       maxFeePerGas: 1_000_000_000n,
       attempts: 1,
@@ -159,6 +161,7 @@ describe('PenaltyResponder', () => {
       publicClient: pub.client,
       walletClient: wallet.client,
       store,
+      inclusionTimeoutMs: 60_000,
     });
 
     const result = await responder.submitPenalty(channelId, makeEvidence(10n), 'A');

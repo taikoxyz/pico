@@ -2,11 +2,34 @@
 
 Cross-package end-to-end tests. Each scenario:
 
-1. Spins up `anvil` with a Taiko fork.
-2. Deploys contracts via `forge script`.
+1. Spins up `anvil` (vanilla, or as a Taiko mainnet fork when `forkUrl` is set).
+2. Deploys contracts via `forge script` (vanilla mode) or uses already-deployed
+   addresses from `CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID]` (fork mode).
 3. Starts an in-process `@tainnel/hub` and `@tainnel/watchtower`.
 4. Drives the SDK through realistic flows.
 
-Active scenarios in the bootstrap are smoke-only (`scenarios.test.ts`); the full
-open → pay → close, dispute, and hub-down-recovery cases are `describe.skip`'d until the
-underlying primitives land.
+## Active scenarios (`scenarios.test.ts`)
+
+Vanilla anvil. Full lifecycle is exercised, including:
+
+- channel open, pay, cooperative close,
+- HTLC routing,
+- watchtower stale-state penalty,
+- key rotation,
+- hub-down recovery.
+
+Run with `pnpm -F @tainnel/e2e test`.
+
+## Fork scenarios (`scenarios.fork.test.ts`)
+
+Anvil forked from Taiko mainnet at a pinned block. Skipped when
+`E2E_FORK_URL` is unset. Run with `pnpm -F @tainnel/e2e test:fork` and an
+`E2E_FORK_URL=https://...` environment variable.
+
+USDC provisioning on the fork uses `anvil_impersonateAccount` against a known
+USDC whale; see `harness.ts:fundAndApproveParty` for the fork-mode path.
+
+## CI
+
+The vanilla suite runs on every PR. The fork suite is gated on the
+`TAIKO_MAINNET_RPC_URL` repository secret and is required for release branches.

@@ -9,7 +9,7 @@
 
 This roadmap is the bird's-eye view. Each phase has a detailed plan in
 [`docs/plans/`](./docs/plans/). Work the phases in order unless explicitly marked
-parallelizable. New readers: start with [`learning/index.html`](./learning/index.html).
+parallelizable. New readers: start with [`docs/learning/index.html`](./docs/learning/index.html).
 
 ---
 
@@ -41,7 +41,7 @@ agent must stop before pressing the button.
 | P8  | E2E + internal audit        | mixed                | 🔵 not started | P5, P6, P7 | only bootstrap placeholder runs; real lifecycle scenarios are skipped. [08-e2e-and-audit.md](./docs/plans/08-e2e-and-audit.md) |
 | P9  | Ops & infra                 | `[human]` heavy      | ⚪ planning | P8        | production-like hub/watchtower infra, monitoring, alerts, backups. [09-ops.md](./docs/plans/09-ops.md) |
 | P10 | Mainnet real-money test     | `[human]` heavy      | ⚪ planning | P9        | first controlled E2E payment and dispute drill with real USDC. [10-launch.md](./docs/plans/10-launch.md) |
-| P11 | Learning materials          | `[agent]`+`[review]` | 🟡 in progress | —      | per-component HTML tutorials in `learning/`. Parallelizable with all other phases. [11-learning.md](./docs/plans/11-learning.md) |
+| P11 | Learning materials          | `[agent]`+`[review]` | 🟡 in progress | —      | per-component HTML tutorials in `docs/learning/`. Parallelizable with all other phases. [11-learning.md](./docs/plans/11-learning.md) |
 
 🟢 done · 🟡 in progress / partial · 🔵 not started · ⚪ planning only
 
@@ -147,7 +147,7 @@ moves. None of them are designed for in this roadmap.
 
 ## Glossary (just enough to read the sub-plans)
 
-For longer prose explanations and diagrams, see [`learning/index.html`](./learning/index.html).
+For longer prose explanations and diagrams, see [`docs/learning/index.html`](./docs/learning/index.html).
 
 - **Channel** — a 2-of-2 escrow on-chain between two parties (typically client + hub).
   Funds are deposited once on open, then balances move off-chain via signed updates.
@@ -201,7 +201,7 @@ gate** below is green:
       submission is penalized by the watchtower within the dispute window
 - [ ] First-test log written with exact addresses, tx hashes, channel ids, observed
       alerts, and follow-up issues
-- [ ] Learning materials in `learning/` cover the design and technical model for every
+- [ ] Learning materials in `docs/learning/` cover the design and technical model for every
       component, with no readiness/gap tracking duplicated from this roadmap
 - [ ] Follow-up Phase 2 issues filed where needed (wallet UI, ERC-8004, EIP-7702,
       TEE Signer, DVM, ETH, multi-hub)

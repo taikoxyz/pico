@@ -80,11 +80,45 @@ export class IndexedDBStorage implements ChannelStorage {
           db.createObjectStore(STORE_INVOICES, { keyPath: 'invoice.paymentHash' });
         }
       });
-      open.addEventListener('success', () => resolve(open.result));
+      open.addEventListener('success', () => {
+        // F-05: request that the browser treat this storage as persistent
+        // (not subject to eviction under disk pressure). Best-effort; some
+        // browsers prompt the user, others auto-grant when the origin has
+        // engagement signals. We never fail open() on denial — the SDK
+        // surfaces the result via persistenceGranted() so callers can warn.
+        const nav = (
+          globalThis as { navigator?: { storage?: { persist?: () => Promise<boolean> } } }
+        ).navigator;
+        const storage = nav?.storage;
+        const persistFn = storage?.persist;
+        if (storage && typeof persistFn === 'function') {
+          persistFn
+            .call(storage)
+            .then((granted) => {
+              this.persistGranted = granted;
+            })
+            .catch(() => {
+              this.persistGranted = false;
+            });
+        }
+        resolve(open.result);
+      });
       open.addEventListener('error', () => reject(open.error ?? new Error('open failed')));
       open.addEventListener('blocked', () => reject(new Error('open blocked')));
     });
     return this.dbPromise;
+  }
+
+  private persistGranted: boolean | undefined;
+
+  /**
+   * F-05: returns true if the browser has confirmed this storage is
+   * persistent (not auto-evictable). Returns undefined while the request is
+   * still pending or if the API is unavailable. Browser callers SHOULD warn
+   * the user when this is false.
+   */
+  persistenceGranted(): boolean | undefined {
+    return this.persistGranted;
   }
 
   private async withStore<T>(

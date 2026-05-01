@@ -1,0 +1,28 @@
+# Tainnel runbooks (DRAFT — verify before P10)
+
+These runbooks are **draft** scaffolds. They list the steps an on-call operator
+should take, the files/commands involved, and the verification checks. Treat each
+as a fill-in-the-blanks template until P10 (mainnet real-money test) signs off.
+
+| Runbook | Trigger | Severity |
+|---|---|---|
+| [hub-incident.md](./hub-incident.md) | hub stops accepting WS connections, returns 5xx, or alerts fire | critical |
+| [watchtower-down.md](./watchtower-down.md) | watchtower process down, RPC up failing, or oldest pending tx age > deadline / 3 | critical |
+| [dispute-response.md](./dispute-response.md) | a unilateral close was observed against one of our channels | critical |
+| [key-rotation.md](./key-rotation.md) | scheduled rotation, or suspected hot-key compromise | high |
+| [backup-restore.md](./backup-restore.md) | hub DB lost, corrupt, or rolled back; restore from litestream | critical |
+
+Common touch-points:
+
+- Hub config: `apps/hub/.env.example` and `apps/hub/src/config.ts`.
+- Watchtower config: `apps/watchtower/.env.example` and `apps/watchtower/src/config.ts`.
+- Hub DB: SQLite + litestream in v1 (see `docs/plans/05-hub.md`,
+  `docs/plans/09-ops.md`).
+- Metrics: `/metrics` on the hub; `/metrics` and `/health` on the watchtower.
+- Logs: structured pino JSON; tail with `docker logs -f` or your platform UI.
+
+Open issues / TODOs:
+
+- Replace the `TODO(infra)` / `TODO(contact)` placeholders below with real
+  endpoints once Fly.io / Discord / PagerDuty are provisioned (P9).
+- Validate each runbook with a fire drill before running real funds.

@@ -112,6 +112,11 @@ export class ChainEventWatcher {
   private headBlock: bigint | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private rpcDownInterval: ReturnType<typeof setInterval> | undefined;
+  // WTW-001: independent of onLogs, periodically flushes pending events that
+  // have crossed the confirmation depth. Without this, an event observed
+  // before confirmations and never followed by another contract log can
+  // remain pending forever.
+  private confirmationFlushInterval: ReturnType<typeof setInterval> | undefined;
   private reconnectAttempts = 0;
   private stopped = false;
 
@@ -138,6 +143,12 @@ export class ChainEventWatcher {
       { contract: this.deps.paymentChannelAddress, chainId: this.deps.chainId },
       'watcher subscribed to PaymentChannel events',
     );
+    // Start the confirmation flusher (WTW-001). Tick at the polling cadence
+    // so it doesn't add load over what the existing log poller already does.
+    this.confirmationFlushInterval = setInterval(() => {
+      if (this.pending.size === 0) return;
+      void this.flushConfirmed();
+    }, this.pollingIntervalMs);
   }
 
   async stop(): Promise<void> {
@@ -150,6 +161,10 @@ export class ChainEventWatcher {
     if (this.rpcDownInterval !== undefined) {
       clearInterval(this.rpcDownInterval);
       this.rpcDownInterval = undefined;
+    }
+    if (this.confirmationFlushInterval !== undefined) {
+      clearInterval(this.confirmationFlushInterval);
+      this.confirmationFlushInterval = undefined;
     }
     this.handler = undefined;
     this.connected = false;

@@ -155,6 +155,7 @@ export function invoiceCommand(deps: InvoiceDeps = {}): Command {
     .option('--private-key <hex>', 'Private key (test/CI only)')
     .option('--key-file <path>', 'Encrypted or plaintext key file')
     .option('--json', 'Emit JSON output instead of an envelope', false)
+    .option('--reveal-preimage', 'Include the preimage in the JSON output (off by default)', false)
     .action(
       async (opts: {
         amount: string;
@@ -164,6 +165,7 @@ export function invoiceCommand(deps: InvoiceDeps = {}): Command {
         privateKey?: `0x${string}`;
         keyFile?: string;
         json: boolean;
+        revealPreimage: boolean;
       }) => {
         const env = deps.env ?? process.env;
         const stdout = deps.stdout ?? process.stdout;
@@ -191,10 +193,14 @@ export function invoiceCommand(deps: InvoiceDeps = {}): Command {
           ...(opts.hubHint !== undefined ? { hubHint: opts.hubHint } : {}),
         });
         if (opts.json) {
+          // F-06: only include the preimage when explicitly requested.
+          // Receivers persist the preimage in their local store and don't
+          // need it in the JSON pipeline; if it's needed for backup, the
+          // user can opt in.
           emit(
             {
               invoice: created.invoice,
-              preimage: created.preimage,
+              ...(opts.revealPreimage ? { preimage: created.preimage } : {}),
               paymentHash: created.paymentHash,
               envelope: encodeInvoiceEnvelope(created.invoice),
             },

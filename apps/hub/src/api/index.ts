@@ -24,6 +24,7 @@ export interface ApiDeps {
   readonly hubFeeFlat: bigint;
   readonly requireSignedEnvelope: boolean;
   readonly nonceWindowMs: number;
+  readonly operatorToken: string | undefined;
 }
 
 export interface ApiHandle {
@@ -77,7 +78,7 @@ function reviveSignedState(raw: RawSignedState): SignedState {
 }
 
 export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promise<ApiHandle> {
-  const operatorToken = process.env.HUB_OPERATOR_TOKEN;
+  const { operatorToken } = deps;
   const publicClient = createPublicClient({ transport: http(deps.rpcUrl) });
 
   function isOperator(authHeader: string | undefined): boolean {
@@ -158,10 +159,25 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     };
   });
 
+  // Public fee policy endpoint. Clients fetch this before sending pay
+  // messages so they can gross-up amounts and reject hub fee changes that
+  // exceed their max-fee cap. Returning base-unit strings to avoid
+  // JS Number precision loss.
+  app.get('/v1/fee-policy', async () => {
+    return {
+      version: 1,
+      hubFeeBps: deps.hubFeeBps.toString(),
+      hubFeeFlat: deps.hubFeeFlat.toString(),
+      // Hint to clients: total fee = ceil(amount * bps / 10000) + flat
+      formula: 'ceil(amount * hubFeeBps / 10000) + hubFeeFlat',
+    };
+  });
+
   const ws = await registerWsRoutes(app, {
     channelPool: deps.channelPool,
     liquidity: deps.liquidity,
     repos: deps.repos,
+    db: deps.db,
     metrics: deps.metrics,
     logger: deps.logger,
     hubPrivateKey: deps.hubPrivateKey,

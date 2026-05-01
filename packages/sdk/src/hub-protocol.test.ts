@@ -41,11 +41,15 @@ describe('hub-protocol encode/decode', () => {
   });
 
   it('rejects messages without kind', () => {
-    expect(() => decodeHubMessage('{"id":"x"}')).toThrow(/invalid message shape/);
+    expect(() => decodeHubMessage('{"id":"x"}')).toThrow(/missing or non-string `kind`/);
   });
 
   it('rejects messages without id', () => {
-    expect(() => decodeHubMessage('{"kind":"x"}')).toThrow(/invalid message shape/);
+    expect(() => decodeHubMessage('{"kind":"subscribe"}')).toThrow(/missing or non-string `id`/);
+  });
+
+  it('rejects messages with unknown kind', () => {
+    expect(() => decodeHubMessage('{"id":"x","kind":"bogus"}')).toThrow(/unknown message kind/);
   });
 
   it('encodes bigints with $bigint tag', () => {

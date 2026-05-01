@@ -88,11 +88,11 @@ export class DisputeHandler {
   }
 
   private async attemptDispute(channelId: ChannelId, attackerVersion: bigint): Promise<void> {
-    const ourLatest = await this.deps.repos.states.latest(channelId);
+    const ourLatest = await this.deps.repos.states.latestDisputeEligible(channelId);
     if (!ourLatest) {
       this.deps.logger.warn(
         { channelId, attackerVersion },
-        'dispute notification: no signed state in DB; cannot dispute',
+        'dispute notification: no dispute-eligible state in DB (need empty htlcs and conserved balances); cannot dispute',
       );
       await this.deps.repos.disputes.markResolution(channelId, attackerVersion, 'lost');
       return;
@@ -164,7 +164,14 @@ export class DisputeHandler {
             signatureToHex(ourLatest.sigB),
           ],
         });
-        await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+        const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+        if (receipt.status !== 'success') {
+          this.deps.logger.error(
+            { channelId, txHash, status: receipt.status },
+            'dispute tx mined but reverted; not marking won',
+          );
+          throw new Error(`dispute tx ${txHash} reverted on-chain`);
+        }
         break;
       } catch (err) {
         lastErr = err;

@@ -115,6 +115,8 @@ export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHan
     PORT: String(args.port ?? 0),
     DB_DRIVER: 'sqlite',
     DB_URL: join(dbDir, 'hub.sqlite'),
+    TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
+    TAINNEL_SKIP_PROD_ASSERT: 'true',
   };
   const built: BuildServerResult = await buildServer(env);
   const url = await built.app.listen({ port: args.port ?? 0, host: '127.0.0.1' });
