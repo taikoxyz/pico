@@ -1,0 +1,41 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: pager
+      group_wait: 10s
+      repeat_interval: 1h
+    - matchers: [severity="warning"]
+      receiver: email
+      repeat_interval: 6h
+
+receivers:
+  # All three are placeholders. Set ALERTMANAGER_PAGER_WEBHOOK_URL +
+  # ALERTMANAGER_EMAIL_WEBHOOK_URL via your secrets manager and substitute
+  # the URLs below when you instantiate this file in prod.
+  - name: default
+    webhook_configs:
+      - url: http://localhost:5001/null  # set ALERTMANAGER_DEFAULT_WEBHOOK_URL
+        send_resolved: true
+
+  - name: pager
+    webhook_configs:
+      - url: http://localhost:5001/pager  # set ALERTMANAGER_PAGER_WEBHOOK_URL (PagerDuty / Opsgenie)
+        send_resolved: true
+
+  - name: email
+    webhook_configs:
+      - url: http://localhost:5001/email  # set ALERTMANAGER_EMAIL_WEBHOOK_URL (relay or SendGrid)
+        send_resolved: true
+
+inhibit_rules:
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: [alertname, cluster]

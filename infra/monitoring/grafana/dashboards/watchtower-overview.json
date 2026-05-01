@@ -1,0 +1,83 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Channels watched",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "tainnel_watchtower_channels_watched", "refId": "A"}
+      ],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "value"},
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 6}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "RPC up",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "tainnel_watchtower_rpc_up", "refId": "A"}
+      ],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "background"},
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        }
+      },
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 6}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Penalties submitted (cumulative)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "tainnel_watchtower_penalties_submitted_total", "refId": "A"}
+      ],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "value"},
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 6}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Evaluations by result (rate 5m)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(tainnel_watchtower_evaluations_total[5m])", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"x": 0, "y": 6, "w": 18, "h": 8}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Process resident memory",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "process_resident_memory_bytes{job=\"tainnel-watchtower\"}", "refId": "A", "legendFormat": "rss"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 7}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["tainnel", "watchtower"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Tainnel — Watchtower Overview",
+  "uid": "tainnel-watchtower-overview",
+  "version": 1,
+  "weekStart": ""
+}
