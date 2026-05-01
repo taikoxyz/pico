@@ -1,6 +1,7 @@
 # P10 — Mainnet real-money E2E test readiness
 
-**Status:** ⚪ planning only
+**Status:** 🟡 in progress (operator-wallet decisions locked; gating items
+tracked in [`../launch-checklist.md`](../launch-checklist.md))
 **Blocks:** P9
 **Effort:** 1–2 days of active execution after P1–P9 are green
 
