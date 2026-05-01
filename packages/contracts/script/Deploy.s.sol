@@ -36,5 +36,10 @@ contract Deploy is Script {
         console2.log("PaymentChannel impl :", address(pcImpl));
         console2.log("PaymentChannel proxy:", paymentChannelProxy);
         console2.log("USDC token allowed  :", usdc);
+
+        console2.log("");
+        console2.log("WARNING: deployer currently owns both proxies (deployer:", deployer, ").");
+        console2.log("WARNING: run script/TransferOwnership.s.sol to hand ownership to a Timelock+Safe");
+        console2.log("WARNING: BEFORE any mainnet payment activity. See docs/runbooks/ownership-transfer.md.");
     }
 }

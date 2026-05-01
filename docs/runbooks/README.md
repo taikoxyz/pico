@@ -11,6 +11,7 @@ as a fill-in-the-blanks template until P10 (mainnet real-money test) signs off.
 | [dispute-response.md](./dispute-response.md) | a unilateral close was observed against one of our channels | critical |
 | [key-rotation.md](./key-rotation.md) | scheduled rotation, or suspected hot-key compromise | high |
 | [backup-restore.md](./backup-restore.md) | hub DB lost, corrupt, or rolled back; restore from litestream | critical |
+| [ownership-transfer.md](./ownership-transfer.md) | one-time mainnet handoff to multisig+timelock, or routine governed upgrade | critical |
 
 Common touch-points:
 
