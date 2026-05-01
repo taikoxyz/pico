@@ -1,0 +1,29 @@
+TAINNEL PGP KEY PLACEHOLDER
+
+This file is a placeholder. The real ASCII-armored PGP public key for
+security@tainnel.dev has not been generated yet.
+
+Until pgp-key.asc exists in this directory and SECURITY.md lists a real
+PGP fingerprint, **PGP-encrypted reports cannot be processed**. Use the
+GitHub private vulnerability advisory channel instead:
+
+  https://github.com/dantaik/tainnel/security/advisories/new
+
+To replace this placeholder (operator only):
+
+  gpg --quick-generate-key 'Tainnel Security <security@tainnel.dev>' \
+    ed25519 sign 5y
+  gpg --quick-add-key <FPR> cv25519 encr 5y
+  gpg --armor --export <FPR> > pgp-key.asc
+  gpg --send-keys --keyserver hkps://keys.openpgp.org <FPR>
+
+Then in the same PR:
+
+  - Delete this placeholder file (`git rm pgp-key.asc.placeholder`).
+  - Replace `<TAINNEL_PGP_FINGERPRINT_TODO>` in SECURITY.md with the real
+    fingerprint (40-char hex with spaces every 4 chars).
+  - Update docs/runbooks/security-disclosure.md "Open TODOs" section.
+
+The CI check at .github/workflows/security-md-lint.yml will fail if you
+forget to delete this file when SECURITY.md is updated to publish a real
+fingerprint, or vice versa.

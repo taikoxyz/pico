@@ -1,0 +1,166 @@
+# Watchtower StatefulSet (app + litestream sidecar) and headless Service.
+# No public surface — the watchtower binds 127.0.0.1 internally; access via
+# `kubectl port-forward statefulset/tainnel-watchtower 3031:3031 -n tainnel`.
+#
+# Required Secret: `tainnel-watchtower-secrets` (set via secrets-bootstrap.sh).
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tainnel-watchtower
+  namespace: tainnel
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-watchtower-config
+  namespace: tainnel
+data:
+  PORT: "3031"
+  LOG_LEVEL: "info"
+  DB_URL: "/data/watchtower.sqlite"
+  CHAIN_ID: "167000"
+  MODE: "self-hosted"
+  NODE_ENV: "production"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tainnel-watchtower-litestream
+  namespace: tainnel
+data:
+  litestream.yml: |
+    dbs:
+      - path: /data/watchtower.sqlite
+        replicas:
+          - type: s3
+            bucket: ${LITESTREAM_R2_BUCKET}
+            path: watchtower.sqlite
+            endpoint: ${LITESTREAM_R2_ENDPOINT}
+            region: ${LITESTREAM_R2_REGION:-auto}
+            access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+            secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+            retention: 720h
+            snapshot-interval: 1h
+            sync-interval: 10s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tainnel-watchtower
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-watchtower
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: tainnel-watchtower
+  ports:
+    - name: http
+      port: 3031
+      targetPort: 3031
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tainnel-watchtower
+  namespace: tainnel
+  labels:
+    app.kubernetes.io/name: tainnel-watchtower
+spec:
+  serviceName: tainnel-watchtower
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tainnel-watchtower
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tainnel-watchtower
+    spec:
+      serviceAccountName: tainnel-watchtower
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: watchtower
+          image: REGION-docker.pkg.dev/PROJECT/tainnel/watchtower:VERSION
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3031
+          envFrom:
+            - configMapRef:
+                name: tainnel-watchtower-config
+            - secretRef:
+                name: tainnel-watchtower-secrets
+          # The watchtower binds /health to 127.0.0.1 inside the pod, so
+          # httpGet probes (which target the pod IP) cannot reach it. Use
+          # exec probes that run inside the container's network namespace.
+          readinessProbe:
+            exec:
+              command: ["wget", "-qO-", "--timeout=5", "http://127.0.0.1:3031/health"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["wget", "-qO-", "--timeout=5", "http://127.0.0.1:3031/health"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        - name: litestream
+          image: litestream/litestream:0.3.13
+          args: ["replicate", "-config", "/etc/litestream.yml"]
+          envFrom:
+            - secretRef:
+                name: tainnel-watchtower-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+              readOnly: true
+      volumes:
+        - name: litestream-config
+          configMap:
+            name: tainnel-watchtower-litestream
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 5Gi

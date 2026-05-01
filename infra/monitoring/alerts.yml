@@ -1,0 +1,111 @@
+groups:
+  - name: tainnel-protocol
+    rules:
+      # === Critical ===
+
+      - alert: HubDown
+        expr: up{job="tainnel-hub"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hub is unreachable"
+          description: "Prometheus has been unable to scrape tainnel-hub for 2m."
+
+      - alert: WatchtowerDown
+        expr: up{job="tainnel-watchtower"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Watchtower is unreachable"
+          description: "Prometheus has been unable to scrape tainnel-watchtower for 2m."
+
+      - alert: WatchtowerRpcDown
+        expr: tainnel_watchtower_rpc_up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Watchtower RPC connection is down"
+          description: "Watchtower cannot reach the configured RPC for 5m. Penalty submission is blocked."
+
+      - alert: DisputeOpened
+        # Any new dispute observed by the hub is page-worthy.
+        expr: increase(tainnel_hub_disputes_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dispute observed by hub"
+          description: "tainnel_hub_disputes_total increased in the last 5m. Open docs/runbooks/dispute-response.md."
+
+      - alert: PenaltySubmissionStalled
+        # Spec deviation: original brief used result="fraud", but the watchtower
+        # only emits result="noop" or result="penalize" (see
+        # apps/watchtower/src/detector.ts:20-86 +
+        # apps/watchtower/src/scheduler.ts:130). result="penalize" is the
+        # faithful equivalent of "fraud detected" — the watchtower decided to
+        # penalize. If decisions to penalize are coming in but no penalty txs
+        # are landing, we have a problem.
+        expr: |
+          rate(tainnel_watchtower_evaluations_total{result="penalize"}[1h]) > 0
+          and
+          rate(tainnel_watchtower_penalties_submitted_total[1h]) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Watchtower decided to penalize but no penalty tx landed"
+          description: "Penalize-decisions rate > 0 over the last hour while penalty submission rate == 0. Open docs/runbooks/watchtower-down.md."
+
+      # === Warning ===
+
+      - alert: PaymentFailureRateHigh
+        # > 10% hub payment failures over a 15m window. clamp_min to avoid
+        # divide-by-zero when no traffic.
+        expr: |
+          rate(tainnel_hub_payments_total{result="failed"}[15m])
+          / clamp_min(rate(tainnel_hub_payments_total[15m]), 0.001) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hub payment failure rate above 10%"
+          description: "Sustained failure share above 10% for 15m. Check hub logs and watchtower status."
+
+      - alert: HubLiquidityLow
+        # 10 USDC = 1e7 in 6-decimal smallest units. At 10 USDC of outbound
+        # liquidity the hub is effectively dry; new payments will be rejected.
+        expr: tainnel_hub_outbound_liquidity_usdc < 1e7
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hub outbound liquidity is low"
+          description: "Outbound liquidity has been < 10 USDC for 10m. Top up before payments start failing."
+
+      - alert: HubMemoryHigh
+        # 500 MB resident is the soft ceiling for the v1 single-instance hub.
+        # 524288000 bytes = 500 * 1024 * 1024.
+        expr: process_resident_memory_bytes{job="tainnel-hub"} > 524288000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hub resident memory above 500MB"
+          description: "Investigate for leaks or restart from the Fly UI."
+
+      - alert: WatchtowerEvaluationStalled
+        # Watching channels but doing zero evaluations is suspicious — either
+        # the scheduler stopped or the chain watcher stopped feeding it.
+        expr: |
+          tainnel_watchtower_channels_watched > 0
+          and
+          rate(tainnel_watchtower_evaluations_total[15m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Watchtower has channels but is not evaluating"
+          description: "channels_watched > 0 yet evaluations rate == 0 for 15m. Check scheduler + chain watcher logs."

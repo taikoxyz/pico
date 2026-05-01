@@ -1,28 +1,35 @@
-# Tainnel infrastructure (DRAFT — placeholder for P9)
+# Tainnel infrastructure
 
-This directory holds the production deployment manifests and supporting
-operational scripts. v1 targets:
+Production deployment manifests and supporting operational scripts. v1 targets:
 
 - **Hosting:** Fly.io (per `docs/plans/09-ops.md`).
 - **Hub:** single instance + litestream sidecar replicating SQLite to
   Cloudflare R2.
 - **Watchtower:** single instance in a different region from the hub.
-- **Monitoring:** local Prometheus + structured logs (no SaaS observability).
+- **Monitoring:** Prometheus + Grafana + Alertmanager (`infra/monitoring/`).
 
 ## Layout
 
 ```
 infra/
-├── README.md                  This file.
-├── docker-compose.prod.yml    Reference production compose (hub + litestream).
-└── fly/                       (TODO P9) fly.toml manifests for hub + watchtower.
+├── README.md                       This file.
+├── docker-compose.prod.yml         Hub-host compose (hub + litestream sidecar).
+├── docker-compose.watchtower.yml   Watchtower-host compose (watchtower + litestream).
+├── litestream/
+│   ├── hub.yml                     Litestream config for the hub DB.
+│   └── watchtower.yml              Litestream config for the watchtower DB.
+├── scripts/
+│   └── restore-drill.sh            Restore-from-backup drill (used by CI).
+├── fly/                            Fly.io production manifests — see fly/README.md.
+└── monitoring/                     Prometheus + Grafana + Alertmanager stack.
 ```
 
 ## Status
 
-Most of P9 is still planning-only. The compose file shows the intended
-hub + litestream sidecar layout for review; it is not yet wired into a CI
-deploy. See `docs/plans/09-ops.md` for the full P9 task list.
+Production manifests live in `fly/` and the deploy workflow at
+`.github/workflows/deploy.yml`. See `docs/plans/09-ops.md` for the full P9
+task list and `docs/launch-checklist.md` for what gates remain before mainnet
+GA.
 
 ## Build flags
 

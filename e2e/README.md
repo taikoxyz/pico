@@ -22,12 +22,17 @@ Run with `pnpm -F @tainnel/e2e test`.
 
 ## Fork scenarios (`scenarios.fork.test.ts`)
 
-Anvil forked from Taiko mainnet at a pinned block. Skipped when
-`E2E_FORK_URL` is unset. Run with `pnpm -F @tainnel/e2e test:fork` and an
-`E2E_FORK_URL=https://...` environment variable.
+Anvil forked from Taiko mainnet at a pinned block. The container `describe`
+is skipped when `E2E_FORK_URL` is unset. Run with `pnpm -F @tainnel/e2e
+test:fork` and an `E2E_FORK_URL=https://...` environment variable.
 
-USDC provisioning on the fork uses `anvil_impersonateAccount` against a known
-USDC whale; see `harness.ts:fundAndApproveParty` for the fork-mode path.
+USDC provisioning on the fork uses `anvil_impersonateAccount` against the
+account given by `E2E_USDC_WHALE` (any account holding ≥ ~300 USDC at the
+fork block qualifies — Taiko USDC bridge proxy or a known CEX hot wallet).
+The two value-flow tests (`it.skipIf(!HAS_WHALE)`) skip cleanly when
+`E2E_USDC_WHALE` is unset; only the bytecode-parity boot is exercised in
+that mode. See `harness.ts:fundAndApproveParty` and `whale.ts` for the
+fork-mode funding path.
 
 ## CI
 

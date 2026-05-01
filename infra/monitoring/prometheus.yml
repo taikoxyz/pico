@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: prod
+
+rule_files:
+  - alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: tainnel-hub
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          # Replace with your real metrics target. On Fly the canonical
+          # name is tainnel-hub-prod.internal:9090, BUT the hub currently
+          # binds /metrics to 127.0.0.1 inside the machine — see README.
+          - tainnel-hub-prod.internal:9090
+
+  - job_name: tainnel-watchtower
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - tainnel-watchtower-prod.internal:9090
+
+# Uncomment + populate to forward to Grafana Cloud or Grafana Mimir.
+# remote_write:
+#   - url: ${GRAFANA_CLOUD_PROM_URL}
+#     basic_auth:
+#       username: ${GRAFANA_CLOUD_PROM_USER}
+#       password: ${GRAFANA_CLOUD_PROM_API_KEY}

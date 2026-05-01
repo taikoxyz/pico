@@ -213,6 +213,11 @@ jobs:
       - name: Run forked E2E tests
         env:
           E2E_FORK_URL: ${{ secrets.TAIKO_MAINNET_RPC_URL }}
+          # Optional. When set, the value-flow + penalty-drill fork tests
+          # impersonate this account to fund Alice/Bob/Hub with real USDC.
+          # When unset, those tests skip cleanly and only bytecode-parity
+          # boot is exercised.
+          E2E_USDC_WHALE: ${{ secrets.E2E_USDC_WHALE || '' }}
         run: pnpm -F @tainnel/e2e test:fork
 
   ci:

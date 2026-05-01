@@ -1,0 +1,92 @@
+# Fly.io production manifest for the Tainnel hub.
+#
+# Single instance in iad. Persistent /data volume. App + litestream run as two
+# processes inside the same machine. Public service exposes 3030 with TLS;
+# metrics on 9090 are bound to 127.0.0.1 inside the app and are NOT exposed as
+# a Fly service (see infra/fly/README.md "Follow-ups" for the monitoring
+# scrape constraint).
+#
+# Deploy from the repo root:
+#   flyctl deploy --remote-only --config infra/fly/hub/fly.toml
+
+app            = "tainnel-hub-prod"
+primary_region = "iad"
+
+[build]
+  dockerfile = "apps/hub/Dockerfile"
+  [build.args]
+    INCLUDE_LITESTREAM = "1"
+
+# Non-secret defaults. All secrets (HUB_PRIVATE_KEY, RPC_URL, HUB_OPERATOR_TOKEN,
+# LITESTREAM_*) are set via `infra/fly/secrets-bootstrap.sh`.
+[env]
+  PORT                        = "3030"
+  LOG_LEVEL                   = "info"
+  DB_DRIVER                   = "sqlite"
+  DB_URL                      = "/data/hub.sqlite"
+  PROMETHEUS_PORT             = "9090"
+  HUB_REQUIRE_SIGNED_ENVELOPE = "true"
+  CHAIN_ID                    = "167000"
+  NODE_ENV                    = "production"
+
+[[mounts]]
+  source       = "hub_data"
+  destination  = "/data"
+  initial_size = "10gb"
+
+# Inject the litestream config at deploy time so secrets stay out of the image.
+[[files]]
+  guest_path = "/etc/litestream.yml"
+  local_path = "infra/fly/hub/litestream.yml"
+
+[processes]
+  app        = "node dist/server.js"
+  litestream = "litestream replicate -config /etc/litestream.yml"
+
+[[services]]
+  protocol      = "tcp"
+  internal_port = 3030
+  processes     = ["app"]
+
+  [[services.ports]]
+    port     = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port     = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type       = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout  = "5s"
+    grace_period = "10s"
+
+  [[services.http_checks]]
+    interval      = "30s"
+    timeout       = "5s"
+    grace_period  = "20s"
+    method        = "get"
+    path          = "/v1/health"
+    protocol      = "http"
+
+[deploy]
+  strategy             = "rolling"
+  max_unavailable      = 1
+  release_command      = "sh -c 'case \"$FLY_APP_NAME\" in *prod*) exit 0 ;; *) echo \"FLY_APP_NAME must contain prod (got $FLY_APP_NAME)\" >&2; exit 1 ;; esac'"
+
+[[vm]]
+  size      = "shared-cpu-1x"
+  memory_mb = 512
+  cpus      = 1
+
+# Single-instance prod: do not auto-stop or auto-start.
+[machines]
+  auto_stop_machines    = false
+  auto_start_machines   = false
+  min_machines_running  = 1

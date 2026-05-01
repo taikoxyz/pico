@@ -1,0 +1,69 @@
+name: security-md-lint
+
+on:
+  pull_request:
+    paths:
+      - 'SECURITY.md'
+      - 'pgp-key.asc'
+      - 'pgp-key.asc.placeholder'
+      - '.github/workflows/security-md-lint.yml'
+
+jobs:
+  pgp-placeholder-swap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify SECURITY.md and PGP key are in a consistent state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          security_md="SECURITY.md"
+          placeholder="pgp-key.asc.placeholder"
+          real_key="pgp-key.asc"
+
+          if [ ! -f "$security_md" ]; then
+            echo "::error::SECURITY.md is missing"
+            exit 1
+          fi
+
+          mentions_email=0
+          if grep -q 'security@tainnel\.dev' "$security_md"; then
+            mentions_email=1
+          fi
+
+          has_real_fpr=0
+          if ! grep -q '<TAINNEL_PGP_FINGERPRINT_TODO>' "$security_md"; then
+            has_real_fpr=1
+          fi
+
+          placeholder_present=0
+          [ -f "$placeholder" ] && placeholder_present=1
+
+          real_key_present=0
+          [ -f "$real_key" ] && real_key_present=1
+
+          echo "mentions_email=$mentions_email"
+          echo "has_real_fpr=$has_real_fpr"
+          echo "placeholder_present=$placeholder_present"
+          echo "real_key_present=$real_key_present"
+
+          # Atomic-swap rule 1: real fingerprint => placeholder must be gone.
+          if [ "$mentions_email" = "1" ] && [ "$has_real_fpr" = "1" ] && [ "$placeholder_present" = "1" ]; then
+            echo "::error::SECURITY.md publishes a real PGP fingerprint but pgp-key.asc.placeholder still exists. Delete the placeholder and commit pgp-key.asc in the same PR."
+            exit 1
+          fi
+
+          # Atomic-swap rule 2: real fingerprint => real key file must exist.
+          if [ "$mentions_email" = "1" ] && [ "$has_real_fpr" = "1" ] && [ "$real_key_present" = "0" ]; then
+            echo "::error::SECURITY.md publishes a real PGP fingerprint but pgp-key.asc is missing from the repo root."
+            exit 1
+          fi
+
+          # Drift rule: placeholder marker present => placeholder file must exist.
+          if [ "$has_real_fpr" = "0" ] && [ "$placeholder_present" = "0" ] && [ "$real_key_present" = "0" ]; then
+            echo "::error::SECURITY.md still has the placeholder fingerprint marker but no pgp-key.asc.placeholder file exists."
+            exit 1
+          fi
+
+          echo "OK: SECURITY.md and PGP files are in a consistent state."

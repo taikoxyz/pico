@@ -31,9 +31,11 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
+  erc20Abi,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, taiko } from 'viem/chains';
+import { WhaleNotConfiguredError, fundUsdcParty } from './whale.js';
 
 const ANVIL_DEPLOYER_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex;
@@ -403,10 +405,32 @@ async function bootForkMode(opts: BootE2EOptions): Promise<E2EHandle> {
       hubServer,
       publicClient,
       mode: 'fork',
-      async fundAndApproveParty(): Promise<E2EParty> {
-        throw new Error(
-          'fundAndApproveParty: not supported in fork mode; bridged USDC mint requires impersonation of a whale',
+      async fundAndApproveParty(
+        privateKey: Hex,
+        usdcAmount: bigint = 100n * 10n ** 6n,
+      ): Promise<E2EParty> {
+        const newAccount = privateKeyToAccount(privateKey);
+        await anvilSetBalance(
+          anvil.rpcUrl,
+          newAccount.address,
+          `0x${(10n ** 19n).toString(16)}` as Hex,
         );
+        await fundUsdcParty(anvil.rpcUrl, publicClient, usdc, newAccount.address, usdcAmount);
+        const newWallet = createWalletClient({
+          account: newAccount,
+          chain: taiko,
+          transport,
+        });
+        const apprHash = await newWallet.writeContract({
+          account: newAccount,
+          chain: taiko,
+          address: usdc,
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [addrs.PaymentChannel, 2n ** 256n - 1n],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: apprHash });
+        return { address: newAccount.address, privateKey };
       },
       async stop(): Promise<void> {
         await hubServer.stop();

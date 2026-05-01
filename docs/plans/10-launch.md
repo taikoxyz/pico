@@ -1,6 +1,7 @@
 # P10 — Mainnet real-money E2E test readiness
 
-**Status:** ⚪ planning only
+**Status:** 🟡 in progress (operator-wallet decisions locked; gating items
+tracked in [`../launch-checklist.md`](../launch-checklist.md))
 **Blocks:** P9
 **Effort:** 1–2 days of active execution after P1–P9 are green
 
@@ -75,6 +76,9 @@ and review gate yourself.
       in separate regions, with monitoring and alert delivery already tested.
 - [ ] `[human]` Confirm `docs/runbooks/` covers hub-down, watchtower-down, dispute
       incident, key compromise, and backup restore.
+- [ ] `[human]` Confirm SECURITY.md reflects monitored inbox, real PGP key, and
+      paging rotation tested via dry-run drill (see
+      `docs/runbooks/security-disclosure.md`).
 
 ### Operator wallet generation (D10.3)
 

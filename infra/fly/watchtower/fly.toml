@@ -1,0 +1,54 @@
+# Fly.io production manifest for the Tainnel watchtower.
+#
+# Single instance in lhr (different region from the hub for fault isolation).
+# Watchtower binds its HTTP server (3031) and metrics to 127.0.0.1 inside the
+# app, so there is NO public Fly service. Operators reach the running process
+# via `flyctl ssh console --app tainnel-watchtower-prod`.
+#
+# Deploy from the repo root:
+#   flyctl deploy --remote-only --config infra/fly/watchtower/fly.toml
+
+app            = "tainnel-watchtower-prod"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "apps/watchtower/Dockerfile"
+
+# All secrets (WATCHTOWER_PRIVATE_KEY, RPC_URL) are set via
+# infra/fly/secrets-bootstrap.sh.
+[env]
+  LOG_LEVEL  = "info"
+  DB_URL     = "/data/watchtower.sqlite"
+  CHAIN_ID   = "167000"
+  MODE       = "self-hosted"
+  NODE_ENV   = "production"
+
+[[mounts]]
+  source       = "watchtower_data"
+  destination  = "/data"
+  initial_size = "5gb"
+
+# Process-level TCP check: machine-internal probe that the HTTP server is alive
+# on its 127.0.0.1 listener. Public services are deliberately omitted.
+[checks]
+  [checks.alive]
+    type     = "tcp"
+    interval = "30s"
+    timeout  = "5s"
+    grace_period = "20s"
+    port     = 3031
+
+[deploy]
+  strategy             = "rolling"
+  max_unavailable      = 1
+  release_command      = "sh -c 'case \"$FLY_APP_NAME\" in *prod*) exit 0 ;; *) echo \"FLY_APP_NAME must contain prod (got $FLY_APP_NAME)\" >&2; exit 1 ;; esac'"
+
+[[vm]]
+  size      = "shared-cpu-1x"
+  memory_mb = 512
+  cpus      = 1
+
+[machines]
+  auto_stop_machines    = false
+  auto_start_machines   = false
+  min_machines_running  = 1

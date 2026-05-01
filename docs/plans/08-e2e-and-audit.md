@@ -175,6 +175,14 @@ USDC addresses from `packages/protocol/src/constants.ts`.
 - [x] `[agent]` CI marker added in `.github/workflows/ci.yml` for a
       future `e2e-fork` job; the existing `e2e` job already runs the
       replay scenarios in vanilla mode.
+- [x] `[agent]` **WS-16 closed.** `e2e/src/whale.ts` adds USDC whale
+      impersonation (`anvil_impersonateAccount` + ERC-20 transfer) and
+      `harness.ts:fundAndApproveParty` is now functional in fork mode.
+      Two new fork tests in `e2e/src/scenarios.fork.test.ts` exercise
+      the full lifecycle and the stale-state penalty drill against the
+      deployed Taiko mainnet contracts. Tests skip cleanly without
+      `E2E_USDC_WHALE`. CI passes the env var through when the secret
+      is configured.
 
 ### 2B — 3-party HTLC routing (agent-pay-agent) ✅
 - [x] **Real Router** in `apps/hub/src/router.ts` — replaces stub. Routes

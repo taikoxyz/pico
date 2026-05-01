@@ -1,0 +1,21 @@
+# Litestream replication for the Tainnel hub SQLite DB.
+#
+# All four ${...} placeholders come from Fly secrets set by
+# infra/fly/secrets-bootstrap.sh. Litestream resolves them at process start.
+
+dbs:
+  - path: /data/hub.sqlite
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_R2_BUCKET}
+        path: hub.sqlite
+        endpoint: ${LITESTREAM_R2_ENDPOINT}
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+        region: auto
+        # 10s sync window matches docker-compose.prod.yml expectations.
+        sync-interval: 10s
+        # 1h snapshot, 168h (7d) retention per docs/plans/09-ops.md.
+        snapshot-interval: 1h
+        retention: 168h
+        retention-check-interval: 24h
