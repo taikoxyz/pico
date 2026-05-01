@@ -1,4 +1,4 @@
-import { execSync, spawn, type ChildProcess } from 'node:child_process';
+import { type ChildProcess, execSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,11 +13,29 @@ function litestreamOnPath(): boolean {
   }
 }
 
-async function loadBetterSqlite(): Promise<typeof import('better-sqlite3') | null> {
+// Loaded via dynamic import so the test skips cleanly when better-sqlite3
+// is not hoisted into e2e's node_modules. Typed loosely to avoid pulling
+// @types/better-sqlite3 as a hard dep.
+type SqliteCtor = new (
+  path: string,
+  opts?: { readonly?: boolean },
+) => {
+  pragma(s: string): unknown;
+  exec(s: string): void;
+  prepare(s: string): {
+    run(...args: unknown[]): unknown;
+    get(...args: unknown[]): unknown;
+    all(...args: unknown[]): unknown;
+  };
+  close(): void;
+};
+
+async function loadBetterSqlite(): Promise<SqliteCtor | null> {
   try {
-    const m = await import('better-sqlite3');
-    return (m as { default?: typeof import('better-sqlite3') }).default ??
-      (m as unknown as typeof import('better-sqlite3'));
+    // @ts-expect-error - better-sqlite3 is an optional runtime dep; module spec
+    // is dynamic so the test skips cleanly when the package is not installed.
+    const m = (await import('better-sqlite3')) as { default?: SqliteCtor } | SqliteCtor;
+    return (m as { default?: SqliteCtor }).default ?? (m as SqliteCtor);
   } catch {
     return null;
   }
