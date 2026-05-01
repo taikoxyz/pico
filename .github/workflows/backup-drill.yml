@@ -1,0 +1,56 @@
+name: backup-drill
+
+on:
+  schedule:
+    - cron: "0 7 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drill:
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [hub, watchtower]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install litestream
+        run: |
+          curl -L \
+            https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64-static.tar.gz \
+            | sudo tar -xz -C /usr/local/bin litestream
+          litestream version
+      - name: Install sqlite3
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
+      - name: Run restore drill
+        env:
+          LITESTREAM_ACCESS_KEY_ID: ${{ secrets.STAGING_LITESTREAM_ACCESS_KEY_ID }}
+          LITESTREAM_SECRET_ACCESS_KEY: ${{ secrets.STAGING_LITESTREAM_SECRET_ACCESS_KEY }}
+          LITESTREAM_ENDPOINT: ${{ secrets.STAGING_LITESTREAM_ENDPOINT }}
+          LITESTREAM_REGION: ${{ secrets.STAGING_LITESTREAM_REGION }}
+          LITESTREAM_BUCKET_HUB: ${{ secrets.STAGING_LITESTREAM_BUCKET_HUB }}
+          LITESTREAM_BUCKET_WATCHTOWER: ${{ secrets.STAGING_LITESTREAM_BUCKET_WATCHTOWER }}
+        run: |
+          chmod +x infra/scripts/restore-drill.sh
+          infra/scripts/restore-drill.sh \
+            --service "${{ matrix.service }}" \
+            --target-volume "${RUNNER_TEMP}/restore-${{ matrix.service }}"
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="backup-drill: ${{ matrix.service }} failed (${GITHUB_SHA::7})"
+          EXISTING=$(gh issue list \
+            --search "backup-drill: ${{ matrix.service }} failed in:title state:open" \
+            --json number --jq 'length')
+          if [ "$EXISTING" = "0" ]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              --label "ops,backup"
+          fi

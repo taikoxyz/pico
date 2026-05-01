@@ -1,0 +1,55 @@
+# Reference watchtower-host compose. The watchtower runs in a region distinct
+# from the hub (see infra/README.md), so it has its own compose with its own
+# litestream sidecar pointing at a watchtower-specific bucket.
+
+services:
+  watchtower:
+    image: tainnel/watchtower:latest
+    build:
+      context: ..
+      dockerfile: apps/watchtower/Dockerfile
+      args:
+        INCLUDE_LITESTREAM: "1"
+    restart: unless-stopped
+    environment:
+      - PORT=3031
+      - LOG_LEVEL=info
+      # CRITICAL: real values come from a secrets manager, NEVER from the repo.
+      - WATCHTOWER_PRIVATE_KEY
+      - RPC_URL
+      - DB_URL=/data/watchtower.sqlite
+      - PAYMENT_CHANNEL_ADDRESS
+      - CHAIN_ID
+      - INTERESTED_CHANNEL_IDS
+      - PENALTY_THRESHOLD
+      - SCHEDULER_INTERVAL_MS
+      - CONFIRMATIONS
+    volumes:
+      - watchtower-data:/data
+    ports:
+      - "3031:3031"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3031/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  litestream:
+    image: litestream/litestream:0.3.13
+    restart: unless-stopped
+    command: ["replicate", "-config", "/etc/litestream.yml"]
+    environment:
+      - LITESTREAM_ACCESS_KEY_ID
+      - LITESTREAM_SECRET_ACCESS_KEY
+      - LITESTREAM_ENDPOINT
+      - LITESTREAM_REGION
+      - LITESTREAM_BUCKET_WATCHTOWER
+    volumes:
+      - watchtower-data:/data:ro
+      - ./litestream/watchtower.yml:/etc/litestream.yml:ro
+    depends_on:
+      watchtower:
+        condition: service_healthy
+
+volumes:
+  watchtower-data:

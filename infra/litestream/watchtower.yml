@@ -1,0 +1,14 @@
+# Litestream config for the watchtower SQLite DB. Mounted into the litestream
+# sidecar of infra/docker-compose.watchtower.yml. The watchtower host runs in
+# a different region from the hub (per infra/README.md).
+dbs:
+  - path: /data/watchtower.sqlite
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_BUCKET_WATCHTOWER}
+        path: watchtower.sqlite
+        endpoint: ${LITESTREAM_ENDPOINT}
+        region: ${LITESTREAM_REGION:-auto}
+        retention: 720h
+        snapshot-interval: 1h
+        sync-interval: 10s

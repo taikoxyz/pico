@@ -12,10 +12,16 @@ Production deployment manifests and supporting operational scripts. v1 targets:
 
 ```
 infra/
-├── README.md                  This file.
-├── docker-compose.prod.yml    Reference production compose (hub + litestream).
-├── fly/                       Fly.io production manifests — see fly/README.md.
-└── monitoring/                Prometheus + Grafana + Alertmanager stack.
+├── README.md                       This file.
+├── docker-compose.prod.yml         Hub-host compose (hub + litestream sidecar).
+├── docker-compose.watchtower.yml   Watchtower-host compose (watchtower + litestream).
+├── litestream/
+│   ├── hub.yml                     Litestream config for the hub DB.
+│   └── watchtower.yml              Litestream config for the watchtower DB.
+├── scripts/
+│   └── restore-drill.sh            Restore-from-backup drill (used by CI).
+├── fly/                            Fly.io production manifests — see fly/README.md.
+└── monitoring/                     Prometheus + Grafana + Alertmanager stack.
 ```
 
 ## Status

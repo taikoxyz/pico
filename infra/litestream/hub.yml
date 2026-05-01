@@ -1,0 +1,14 @@
+# Litestream config for the hub SQLite DB. Mounted into the litestream
+# sidecar of infra/docker-compose.prod.yml. Bucket and endpoint come from
+# env vars so a single image targets staging or prod.
+dbs:
+  - path: /data/hub.sqlite
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_BUCKET_HUB}
+        path: hub.sqlite
+        endpoint: ${LITESTREAM_ENDPOINT}
+        region: ${LITESTREAM_REGION:-auto}
+        retention: 720h
+        snapshot-interval: 1h
+        sync-interval: 10s
