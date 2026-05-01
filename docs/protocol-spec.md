@@ -59,7 +59,7 @@ split. Either submits it on-chain; funds disburse instantly.
 **Dispute**: during the window, the counterparty may submit a strictly newer
 `ChannelState` (`version` field, §2). The contract replaces the state and restarts
 the window. After the window closes with no challenge, anyone may call `finalize`,
-which disburses balances and reveals/refunds any in-flight HTLCs.
+which disburses balances. v1 does not reveal/refund in-flight HTLCs on-chain.
 
 ## 2. State updates
 
@@ -232,10 +232,13 @@ a strictly higher `version`.
 ### 5.4 HTLC handling (v1 limitation)
 
 v1 does **not** implement on-chain HTLC claim/refund during disputes. The contracts
-reject any `ChannelState` with a non-empty `htlcsRoot` in all close, dispute, and
-penalty paths. This is a conscious simplification for the 1-hop dogfood scope: HTLCs
-only live inside a single payment, and any close happens between payments. Clients
-and watchtowers MUST ensure no close/dispute is initiated while `htlcsRoot != 0`.
+reject any `ChannelState` with a non-empty `htlcsRoot` in unilateral close, dispute,
+and penalty paths. Cooperative close signs a `CooperativeClose` artifact without an
+HTLC root, so clients and hubs MUST only request it after all HTLCs settle or fail.
+This is a conscious simplification for the 1-hop dogfood scope: HTLCs only live
+inside a single payment, and any close happens between payments. Clients and
+watchtowers MUST ensure no unilateral close/dispute is initiated while
+`htlcsRoot != 0`.
 
 On-chain HTLC settlement (Merkle proof verification, preimage claims, expiry refunds)
 is deferred to a future protocol version.

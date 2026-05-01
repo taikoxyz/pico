@@ -10,6 +10,7 @@ import type {
   PaymentHash,
   Preimage,
   Signature,
+  SignedCooperativeClose,
   SignedState,
 } from '@tainnel/protocol';
 import { addHtlc, failHtlc, preimageDigest, settleHtlc } from '@tainnel/state-machine';
@@ -677,17 +678,33 @@ export class ChannelClient {
           version: signed.state.version + 1n,
           finalized: true,
         };
+        const close: CooperativeClose = {
+          channelId,
+          finalBalanceA: finalState.balanceA,
+          finalBalanceB: finalState.balanceB,
+          signedAt: BigInt(Math.floor(Date.now() / 1000)),
+        };
         const mySig = await this.opts.signer.signChannelState(
           finalState,
           this.opts.chainId,
           this.opts.verifyingContract,
         );
+        const myCloseSig = await this.opts.signer.signCooperativeClose(
+          close,
+          this.opts.chainId,
+          this.opts.verifyingContract,
+        );
+        const myCloseSignature = hexToSignature(myCloseSig);
         const finalSigned: SignedState = {
           state: finalState,
           sigA: iAmA ? hexToSignature(mySig) : signed.sigA,
           sigB: iAmA ? signed.sigB : hexToSignature(mySig),
         };
-        await this.opts.storage.saveState(channelId, finalSigned);
+        const signedCooperativeClose: SignedCooperativeClose = {
+          close,
+          sigA: myCloseSignature,
+          sigB: myCloseSignature,
+        };
 
         const reply = await Promise.race<HubToClientMessage>([
           this.opts.transport.request(
@@ -696,6 +713,7 @@ export class ChannelClient {
               kind: 'closeRequest',
               channelId,
               signedState: finalSigned,
+              signedCooperativeClose,
             },
             { timeoutMs: this.closeRequestTimeoutMs },
           ),
@@ -710,7 +728,7 @@ export class ChannelClient {
           await this.opts.storage.saveState(channelId, reply.signedCloseState);
           await this.opts.chain.closeCooperative({
             channelId,
-            finalState: reply.signedCloseState,
+            signedClose: reply.signedCooperativeClose,
           });
           await this.markClosed(channel);
           return;

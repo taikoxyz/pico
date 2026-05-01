@@ -299,9 +299,7 @@ contract PaymentChannelTest is Fixtures {
         bytes32 id = _openDefault();
         // Cooperatively close it first
         Adjudicator.CooperativeClose memory cc = _coopClose(id, 50_000_000, 30_000_000);
-        channel.closeCooperative(
-            id, abi.encode(cc), _signCoopClose(alicePk, cc), _signCoopClose(bobPk, cc)
-        );
+        channel.closeCooperative(id, abi.encode(cc), _signCoopClose(alicePk, cc), _signCoopClose(bobPk, cc));
 
         Adjudicator.ChannelState memory s = _state(id, 2, 50_000_000, 30_000_000, false);
         bytes memory sigB = _signState(bobPk, s);

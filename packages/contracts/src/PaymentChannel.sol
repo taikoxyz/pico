@@ -21,8 +21,10 @@ import {Adjudicator} from "./Adjudicator.sol";
 ///       - 100% slash on penalty (the `closeUnilateral` caller forfeits *all* funds in the
 ///         channel to the honest counterparty when an `oldState` proof shows they posted a
 ///         stale state).
-///       - Dispute, cooperative-close, and penalty paths assume `htlcsRoot == bytes32(0)`.
-///         Posting a state with in-flight HTLCs reverts. This is consistent with the 1-hop
+///       - Dispute, unilateral-close, and penalty paths assume `htlcsRoot == bytes32(0)`.
+///         Posting a state with in-flight HTLCs reverts. Cooperative close signs a dedicated
+///         `CooperativeClose` artifact without an HTLC root, so clients/hubs must only request
+///         it after all in-flight HTLCs settle or fail. This is consistent with the 1-hop
 ///         dogfood scope: HTLCs only live inside a single payment, and any close happens
 ///         between payments. On-chain HTLC claim/refund is NOT implemented in v1; the frozen
 ///         spec and threat model have been updated to match.

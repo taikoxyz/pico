@@ -7,6 +7,7 @@ import type {
   HtlcId,
   PaymentHash,
   Preimage,
+  SignedCooperativeClose,
   SignedState,
 } from '@tainnel/protocol';
 
@@ -107,6 +108,7 @@ export interface CloseRequestMessage {
   readonly kind: 'closeRequest';
   readonly channelId: ChannelId;
   readonly signedState: SignedState;
+  readonly signedCooperativeClose: SignedCooperativeClose;
 }
 
 export interface CloseResponseMessage {
@@ -114,6 +116,7 @@ export interface CloseResponseMessage {
   readonly kind: 'closeResponse';
   readonly channelId: ChannelId;
   readonly signedCloseState: SignedState;
+  readonly signedCooperativeClose: SignedCooperativeClose;
 }
 
 export interface ErrorMessage {

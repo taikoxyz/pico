@@ -1,8 +1,8 @@
-import { type ChannelState, EMPTY_HTLCS_ROOT } from '@tainnel/protocol';
+import { type ChannelState, type CooperativeClose, EMPTY_HTLCS_ROOT } from '@tainnel/protocol';
 import { decodeAbiParameters } from 'viem';
 import { describe, expect, it } from 'vitest';
-import { encodeChannelStateForOnChain } from './chain-adapter.js';
-import { channelStateSolidityStruct } from './contracts-abi.js';
+import { encodeChannelStateForOnChain, encodeCooperativeCloseForOnChain } from './chain-adapter.js';
+import { channelStateSolidityStruct, cooperativeCloseSolidityStruct } from './contracts-abi.js';
 
 const baseState: ChannelState = {
   channelId: '0x0000000000000000000000000000000000000000000000000000000000000001',
@@ -11,6 +11,13 @@ const baseState: ChannelState = {
   balanceB: 50n,
   htlcs: [],
   finalized: true,
+};
+
+const baseClose: CooperativeClose = {
+  channelId: baseState.channelId,
+  finalBalanceA: 90n,
+  finalBalanceB: 60n,
+  signedAt: 1_777_777_777n,
 };
 
 describe('encodeChannelStateForOnChain', () => {
@@ -48,5 +55,16 @@ describe('encodeChannelStateForOnChain', () => {
       encoded,
     );
     expect((decoded as { htlcsRoot: string }).htlcsRoot).not.toBe(EMPTY_HTLCS_ROOT);
+  });
+});
+
+describe('encodeCooperativeCloseForOnChain', () => {
+  it('encodes a CooperativeClose as a single ABI tuple', () => {
+    const encoded = encodeCooperativeCloseForOnChain(baseClose);
+    const [decoded] = decodeAbiParameters(
+      [{ type: 'tuple', components: [...cooperativeCloseSolidityStruct] }],
+      encoded,
+    );
+    expect(decoded).toEqual(baseClose);
   });
 });

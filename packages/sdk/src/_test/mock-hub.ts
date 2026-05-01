@@ -6,9 +6,10 @@ import type {
   Hex,
   Htlc,
   HtlcId,
+  SignedCooperativeClose,
   SignedState,
 } from '@tainnel/protocol';
-import { buildChannelStateTypedData } from '@tainnel/state-machine';
+import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@tainnel/state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type AddressInfo, type WebSocket, WebSocketServer } from 'ws';
 import {
@@ -230,17 +231,57 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         });
         return;
       }
+      if (msg.signedState.state.htlcs.length > 0) {
+        send(socket, {
+          id: msg.id,
+          kind: 'error',
+          code: 'PENDING_HTLCS',
+          message: 'cooperative close requires no in-flight HTLCs',
+          requestId: msg.id,
+        });
+        return;
+      }
+      if (
+        msg.signedState.state.channelId !== msg.channelId ||
+        msg.signedCooperativeClose.close.channelId !== msg.channelId ||
+        msg.signedCooperativeClose.close.finalBalanceA !== msg.signedState.state.balanceA ||
+        msg.signedCooperativeClose.close.finalBalanceB !== msg.signedState.state.balanceB ||
+        !msg.signedState.state.finalized
+      ) {
+        send(socket, {
+          id: msg.id,
+          kind: 'error',
+          code: 'INVALID_CLOSE',
+          message: 'cooperative close does not match final state',
+          requestId: msg.id,
+        });
+        return;
+      }
       let countersignedState = msg.signedState;
+      let countersignedClose: SignedCooperativeClose = msg.signedCooperativeClose;
       if (hubAccount) {
         const stateSig = await hubAccount.signTypedData(
           buildChannelStateTypedData(msg.signedState.state, opts.chainId, opts.verifyingContract),
         );
+        const closeSigHex = await hubAccount.signTypedData(
+          buildCooperativeCloseTypedData(
+            msg.signedCooperativeClose.close,
+            opts.chainId,
+            opts.verifyingContract,
+          ),
+        );
         const hubSig = hexToSignature(stateSig);
+        const closeSig = hexToSignature(closeSigHex);
         const hubIsA = ch.userA.toLowerCase() === hubAccount.address.toLowerCase();
         countersignedState = {
           state: msg.signedState.state,
           sigA: hubIsA ? hubSig : msg.signedState.sigA,
           sigB: hubIsA ? msg.signedState.sigB : hubSig,
+        };
+        countersignedClose = {
+          close: msg.signedCooperativeClose.close,
+          sigA: hubIsA ? closeSig : msg.signedCooperativeClose.sigA,
+          sigB: hubIsA ? msg.signedCooperativeClose.sigB : closeSig,
         };
       }
       send(socket, {
@@ -248,6 +289,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         kind: 'closeResponse',
         channelId: msg.channelId,
         signedCloseState: countersignedState,
+        signedCooperativeClose: countersignedClose,
       });
       return;
     }

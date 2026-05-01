@@ -78,7 +78,10 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: id, finalBalanceA: finalA, finalBalanceB: finalB, signedAt: uint64(block.timestamp)
+            channelId: id,
+            finalBalanceA: finalA,
+            finalBalanceB: finalB,
+            signedAt: uint64(block.timestamp)
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
@@ -107,7 +110,12 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id, version: version, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: false
+            channelId: id,
+            version: version,
+            balanceA: finalA,
+            balanceB: finalB,
+            htlcsRoot: bytes32(0),
+            finalized: false
         });
         bytes memory sigB = _sign(bobPk, s);
         vm.prank(alice);
@@ -132,7 +140,12 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id, version: vNew, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: false
+            channelId: id,
+            version: vNew,
+            balanceA: finalA,
+            balanceB: finalB,
+            htlcsRoot: bytes32(0),
+            finalized: false
         });
         // Both parties must sign the disputed state.
         bytes memory sigA = _sign(alicePk, s);
@@ -192,11 +205,7 @@ contract ChannelHandler is Test {
         return abi.encodePacked(r, sSig, v);
     }
 
-    function _signCoopClose(uint256 pk, Adjudicator.CooperativeClose memory cc)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function _signCoopClose(uint256 pk, Adjudicator.CooperativeClose memory cc) internal view returns (bytes memory) {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(

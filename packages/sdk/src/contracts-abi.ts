@@ -17,7 +17,7 @@ export const paymentChannelAbi = [
     stateMutability: 'nonpayable',
     inputs: [
       { name: 'channelId', type: 'bytes32' },
-      { name: 'finalState', type: 'bytes' },
+      { name: 'closeData', type: 'bytes' },
       { name: 'sigA', type: 'bytes' },
       { name: 'sigB', type: 'bytes' },
     ],
@@ -41,7 +41,8 @@ export const paymentChannelAbi = [
     inputs: [
       { name: 'channelId', type: 'bytes32' },
       { name: 'state', type: 'bytes' },
-      { name: 'sigCloser', type: 'bytes' },
+      { name: 'sigA', type: 'bytes' },
+      { name: 'sigB', type: 'bytes' },
     ],
     outputs: [],
   },
@@ -69,7 +70,7 @@ export const paymentChannelAbi = [
     name: 'ChannelClosedCooperative',
     inputs: [
       { name: 'channelId', type: 'bytes32', indexed: true },
-      { name: 'finalVersion', type: 'uint64', indexed: false },
+      { name: 'signedAt', type: 'uint64', indexed: false },
     ],
   },
   {
@@ -107,4 +108,11 @@ export const channelStateSolidityStruct = [
   { name: 'balanceB', type: 'uint256' },
   { name: 'htlcsRoot', type: 'bytes32' },
   { name: 'finalized', type: 'bool' },
+] as const;
+
+export const cooperativeCloseSolidityStruct = [
+  { name: 'channelId', type: 'bytes32' },
+  { name: 'finalBalanceA', type: 'uint256' },
+  { name: 'finalBalanceB', type: 'uint256' },
+  { name: 'signedAt', type: 'uint64' },
 ] as const;

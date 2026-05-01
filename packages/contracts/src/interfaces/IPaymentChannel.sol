@@ -16,7 +16,7 @@ interface IPaymentChannel {
     );
 
     /// @notice Emitted when both parties cooperatively close.
-    event ChannelClosedCooperative(bytes32 indexed channelId, uint64 finalVersion);
+    event ChannelClosedCooperative(bytes32 indexed channelId, uint64 signedAt);
 
     /// @notice Emitted when one party unilaterally posts a state on-chain and the dispute window starts.
     event ChannelClosingUnilateral(bytes32 indexed channelId, uint64 postedVersion, uint256 disputeDeadline);
