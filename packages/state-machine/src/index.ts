@@ -5,3 +5,4 @@ export * from './preimage.js';
 export * from './signing.js';
 export * from './invoice.js';
 export * from './replay.js';
+export * from './admit.js';

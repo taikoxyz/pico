@@ -84,9 +84,18 @@ export async function buildServer(
     hubFeeFlat: config.hubFeeFlat,
     requireSignedEnvelope: config.requireSignedEnvelope,
     nonceWindowMs: config.nonceWindowMs,
+    operatorToken: config.operatorToken,
   });
 
-  app.get('/metrics', async (_req, reply) => {
+  // Metrics serving:
+  //  - If PROMETHEUS_PORT is set AND differs from the main port, bind /metrics
+  //    on a separate Fastify instance on 127.0.0.1 (private network). This
+  //    keeps metrics off the public app surface and matches the documented
+  //    operational pattern.
+  //  - Otherwise, gate /metrics behind the operator token (if set) or expose
+  //    publicly on the main app.
+  let metricsApp: FastifyInstance | undefined;
+  const refreshAndRender = async (reply: { header(k: string, v: string): unknown }) => {
     void reply.header('Content-Type', registry.contentType);
     metrics.refreshGauges({
       channelsTotal: channelPool.list().length,
@@ -95,10 +104,34 @@ export async function buildServer(
       outboundLiquidity: liquidity.totalOutbound(),
     });
     return registry.metrics();
-  });
+  };
+
+  if (
+    typeof config.prometheusPort === 'number' &&
+    config.prometheusPort > 0 &&
+    config.prometheusPort !== config.port
+  ) {
+    metricsApp = Fastify({ logger: { level: config.logLevel } });
+    metricsApp.get('/metrics', async (_req, reply) => refreshAndRender(reply));
+    await metricsApp.listen({ port: config.prometheusPort, host: '127.0.0.1' });
+  } else {
+    app.get('/metrics', async (req, reply) => {
+      // If an operator token is configured, require it on the main-port path.
+      const tok = config.operatorToken;
+      if (tok) {
+        const auth = req.headers.authorization;
+        if (auth !== `Bearer ${tok}`) {
+          void reply.code(401);
+          return { error: 'unauthorized' };
+        }
+      }
+      return refreshAndRender(reply);
+    });
+  }
 
   app.addHook('onClose', async () => {
     await chainWatcher.stop();
+    if (metricsApp) await metricsApp.close();
     await db.close();
   });
 

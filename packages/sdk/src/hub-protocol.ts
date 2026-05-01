@@ -172,15 +172,41 @@ export function encodeHubMessage(msg: HubMessage): string {
   return JSON.stringify(msg, replacer);
 }
 
+const KNOWN_KINDS: ReadonlySet<string> = new Set([
+  'subscribe',
+  'subscribeAck',
+  'pay',
+  'payDirect',
+  'payDirectAck',
+  'htlcOffer',
+  'htlcSettle',
+  'htlcFail',
+  'paymentSettle',
+  'paymentFailed',
+  'closeRequest',
+  'closeResponse',
+  'error',
+]);
+
 export function decodeHubMessage(raw: string): HubMessage {
-  const parsed = JSON.parse(raw, reviver);
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    typeof (parsed as { kind?: unknown }).kind !== 'string' ||
-    typeof (parsed as { id?: unknown }).id !== 'string'
-  ) {
-    throw new Error('decodeHubMessage: invalid message shape');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw, reviver);
+  } catch (err) {
+    throw new Error(`decodeHubMessage: invalid JSON (${(err as Error).message})`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('decodeHubMessage: payload is not an object');
+  }
+  const obj = parsed as Record<string, unknown>;
+  if (typeof obj.kind !== 'string') {
+    throw new Error('decodeHubMessage: missing or non-string `kind` field');
+  }
+  if (typeof obj.id !== 'string') {
+    throw new Error('decodeHubMessage: missing or non-string `id` field');
+  }
+  if (!KNOWN_KINDS.has(obj.kind)) {
+    throw new Error(`decodeHubMessage: unknown message kind '${obj.kind}'`);
   }
   return parsed as HubMessage;
 }

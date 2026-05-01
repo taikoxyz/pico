@@ -105,6 +105,9 @@ describe('buildServer integration', () => {
       HUB_FEE_FLAT: '0',
       LOG_LEVEL: 'silent',
       CHAIN_POLLING_INTERVAL_MS: '999999',
+      TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
+      TAINNEL_SKIP_PROD_ASSERT: 'true',
+      PROMETHEUS_PORT: '0',
     } as NodeJS.ProcessEnv);
     baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
     wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws`;
@@ -332,6 +335,9 @@ describe('buildServer operator-token gate', () => {
       LOG_LEVEL: 'silent',
       CHAIN_POLLING_INTERVAL_MS: '999999',
       HUB_OPERATOR_TOKEN: TOKEN,
+      TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
+      TAINNEL_SKIP_PROD_ASSERT: 'true',
+      PROMETHEUS_PORT: '0',
     } as NodeJS.ProcessEnv);
     baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
   });

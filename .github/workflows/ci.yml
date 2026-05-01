@@ -173,14 +173,51 @@ jobs:
       - name: Run E2E tests
         run: pnpm -F @tainnel/e2e test
 
-  # TODO (Phase 2C/2D): add an optional `e2e-fork` job gated on
-  # secrets.TAIKO_MAINNET_RPC_URL that runs scenarios needing a Taiko mainnet
-  # fork (HTLC, dispute, watchtower). The harness already supports fork mode
-  # via bootE2E({ forkUrl, forkBlockNumber }); no test requires it yet.
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Hub coverage
+        run: pnpm -F @tainnel/hub test:coverage
+      - name: Watchtower coverage
+        run: pnpm -F @tainnel/watchtower test:coverage
+      - name: CLI coverage
+        run: pnpm -F @tainnel/cli test:coverage
+
+  e2e-fork:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.TAIKO_MAINNET_RPC_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.0
+      - run: pnpm install --frozen-lockfile
+      - name: Build TS packages
+        run: pnpm exec turbo run build --filter='!@tainnel/contracts'
+      - name: Run forked E2E tests
+        env:
+          E2E_FORK_URL: ${{ secrets.TAIKO_MAINNET_RPC_URL }}
+        run: pnpm -F @tainnel/e2e test:fork
 
   ci:
     if: always()
-    needs: [lint, typecheck, build, test-ts, test-solidity, e2e]
+    needs: [lint, typecheck, build, test-ts, test-solidity, e2e, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs passed

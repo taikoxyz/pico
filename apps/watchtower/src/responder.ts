@@ -114,13 +114,34 @@ export class PenaltyResponder {
         .getTransactionReceipt({ hash: existing.txHash })
         .catch(() => null);
       if (!receipt) {
-        this.deps.logger.info(
-          { channelId, txHash: existing.txHash, attempts: existing.attempts },
-          'submitPenalty idempotent no-op: existing in-flight tx still pending',
-        );
-        return existing.txHash;
-      }
-      if (receipt.status === 'success') {
+        // WTW-003: if the tx has been waiting longer than the inclusion
+        // timeout, replace it (same nonce, bumped fee). Otherwise it's
+        // still legitimately pending; do nothing.
+        const ageMs = Date.now() - existing.submittedAtMs;
+        if (ageMs >= this.inclusionTimeoutMs) {
+          this.deps.logger.warn(
+            {
+              channelId,
+              txHash: existing.txHash,
+              ageMs,
+              inclusionTimeoutMs: this.inclusionTimeoutMs,
+              attempts: existing.attempts,
+            },
+            'in-flight penalty tx exceeded inclusion timeout; rebuilding with bumped fee + same nonce',
+          );
+          // Clear and fall through to the normal submit path below; the new
+          // submit will reuse the persisted nonce so the network treats it
+          // as a replacement.
+          this.clearInFlight(channelId);
+          // Fall through to submit path.
+        } else {
+          this.deps.logger.info(
+            { channelId, txHash: existing.txHash, attempts: existing.attempts, ageMs },
+            'submitPenalty idempotent no-op: existing in-flight tx still pending',
+          );
+          return existing.txHash;
+        }
+      } else if (receipt.status === 'success') {
         this.recordIncluded(existing.observationId ?? observationId);
         this.clearInFlight(channelId);
         this.deps.logger.info(
@@ -128,8 +149,14 @@ export class PenaltyResponder {
           'submitPenalty idempotent no-op: existing in-flight tx already included',
         );
         return existing.txHash;
+      } else {
+        // Reverted on-chain; clear and re-submit a fresh attempt.
+        this.deps.logger.warn(
+          { channelId, txHash: existing.txHash, status: receipt.status },
+          'in-flight penalty tx reverted; resubmitting',
+        );
+        this.clearInFlight(channelId);
       }
-      this.clearInFlight(channelId);
     }
 
     const stateBytes = encodeChannelStateForOnChain(evidence.state);
@@ -205,6 +232,21 @@ export class PenaltyResponder {
     while (true) {
       const receipt = await this.tryWaitForReceipt(currentTxHash, this.inclusionTimeoutMs);
       if (receipt) {
+        if (receipt.status !== 'success') {
+          this.deps.logger.error(
+            {
+              channelId,
+              version: evidence.state.version,
+              txHash: currentTxHash,
+              status: receipt.status,
+              attempts,
+            },
+            'penalty proof tx mined but reverted; not marking included',
+          );
+          throw new Error(
+            `responder: penalty tx ${currentTxHash} reverted on-chain (status=${receipt.status})`,
+          );
+        }
         penaltiesSubmittedTotal.inc();
         this.recordIncluded(observationId);
         this.clearInFlight(channelId);

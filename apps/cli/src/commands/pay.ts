@@ -26,6 +26,7 @@ export interface PayDeps {
   readonly storageOverride?: string;
   readonly chainIdOverride?: ChainId;
   readonly contractAddressOverride?: Address;
+  readonly adjudicatorAddressOverride?: Address;
   readonly transportOverride?: ConstructorParameters<typeof WebSocketTransport>[0];
   readonly signerOverride?: Signer;
 }
@@ -64,6 +65,11 @@ export function payCommand(deps: PayDeps = {}): Command {
     .option('--private-key <hex>', 'Private key (test/CI only)')
     .option('--key-file <path>', 'Encrypted or plaintext key file')
     .option('--json', 'Emit one JSON object per state transition', false)
+    .option(
+      '--reveal-preimage',
+      'Print the settlement preimage (off by default for security)',
+      false,
+    )
     .action(
       async (opts: {
         invoice?: string;
@@ -77,6 +83,7 @@ export function payCommand(deps: PayDeps = {}): Command {
         privateKey?: `0x${string}`;
         keyFile?: string;
         json: boolean;
+        revealPreimage: boolean;
       }) => {
         if (opts.invoice && opts.keysend) {
           throw new Error('--invoice and --keysend are mutually exclusive');
@@ -87,8 +94,10 @@ export function payCommand(deps: PayDeps = {}): Command {
         const env = deps.env ?? process.env;
         const stdout = deps.stdout ?? process.stdout;
         const chainId = deps.chainIdOverride ?? TAIKO_MAINNET_CHAIN_ID;
-        const verifyingContract =
+        const paymentChannelAddress =
           deps.contractAddressOverride ?? CONTRACT_ADDRESSES[chainId].PaymentChannel;
+        const verifyingContract =
+          deps.adjudicatorAddressOverride ?? CONTRACT_ADDRESSES[chainId].Adjudicator;
         const rpcUrl =
           opts.rpc ?? env.TAINNEL_RPC_URL ?? (chainFor(chainId).rpcUrls.default.http[0] as string);
 
@@ -104,7 +113,7 @@ export function payCommand(deps: PayDeps = {}): Command {
         const chainAdapter = new ViemChainAdapter({
           publicClient,
           walletClient,
-          paymentChannelAddress: verifyingContract,
+          paymentChannelAddress,
         });
         const transport = new WebSocketTransport(
           deps.transportOverride ?? { url: opts.via, autoReconnect: false },
@@ -135,17 +144,26 @@ export function payCommand(deps: PayDeps = {}): Command {
         try {
           await transport.connect();
           await client.ensureSubscribed([]);
+          // F-06: redact preimages by default. Operator must opt in via
+          // --reveal-preimage. Preimages settle matching HTLCs, so leaking
+          // them in shell history / CI logs is fund-sensitive.
+          const showPreimage = (p: string): string =>
+            opts.revealPreimage ? p : '***redacted (use --reveal-preimage to show)***';
           if (opts.invoice) {
             const invoice = decodeInvoiceEnvelope(opts.invoice);
             if (opts.json) emit({ stage: 'verifying' }, stdout);
             const result = await client.pay({ invoice });
             if (opts.json) {
               emit(
-                { settled: true, preimage: result.preimage, channelId: result.channelId },
+                {
+                  settled: true,
+                  preimage: opts.revealPreimage ? result.preimage : undefined,
+                  channelId: result.channelId,
+                },
                 stdout,
               );
             } else {
-              stdout.write(`settled: ${result.preimage}\n`);
+              stdout.write(`settled: ${showPreimage(result.preimage)}\n`);
             }
           } else {
             if (!opts.to || !opts.amount) {
@@ -166,14 +184,14 @@ export function payCommand(deps: PayDeps = {}): Command {
               emit(
                 {
                   settled: true,
-                  preimage: result.preimage,
+                  preimage: opts.revealPreimage ? result.preimage : undefined,
                   channelId: result.channelId,
                   keysend: true,
                 },
                 stdout,
               );
             } else {
-              stdout.write(`settled (keysend): ${result.preimage}\n`);
+              stdout.write(`settled (keysend): ${showPreimage(result.preimage)}\n`);
             }
           }
         } finally {

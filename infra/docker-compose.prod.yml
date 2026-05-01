@@ -1,0 +1,53 @@
+# Reference production compose. Not yet wired into CI deploys (P9).
+#
+# Hub runs alongside a litestream sidecar that streams ./data/hub.sqlite to
+# the configured object store. The watchtower runs on a separate host /
+# region (not in this compose).
+
+services:
+  hub:
+    image: tainnel/hub:latest
+    build:
+      context: ..
+      dockerfile: apps/hub/Dockerfile
+      args:
+        INCLUDE_LITESTREAM: "1"
+    restart: unless-stopped
+    environment:
+      - PORT=3030
+      - LOG_LEVEL=info
+      # CRITICAL: real values come from a secrets manager, NEVER from the repo.
+      - HUB_PRIVATE_KEY
+      - HUB_OPERATOR_TOKEN
+      - HUB_REQUIRE_SIGNED_ENVELOPE=true
+      - RPC_URL
+      - DB_DRIVER=sqlite
+      - DB_URL=/data/hub.sqlite
+      - PROMETHEUS_PORT=9090
+    volumes:
+      - hub-data:/data
+    ports:
+      - "3030:3030"
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3030/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  litestream:
+    image: litestream/litestream:0.3.13
+    restart: unless-stopped
+    command: ["replicate", "-config", "/etc/litestream.yml"]
+    environment:
+      - LITESTREAM_ACCESS_KEY_ID
+      - LITESTREAM_SECRET_ACCESS_KEY
+    volumes:
+      - hub-data:/data:ro
+      - ./litestream.yml:/etc/litestream.yml:ro
+    depends_on:
+      hub:
+        condition: service_healthy
+
+volumes:
+  hub-data:

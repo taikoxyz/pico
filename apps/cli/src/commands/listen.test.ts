@@ -14,7 +14,7 @@ describe('tainnel listen', () => {
   beforeEach(async () => {
     hub = await startMockHub({
       chainId: TAIKO_MAINNET_CHAIN_ID,
-      verifyingContract: CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID].PaymentChannel,
+      verifyingContract: CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID].Adjudicator,
     });
   });
 

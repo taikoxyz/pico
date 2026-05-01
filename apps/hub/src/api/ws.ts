@@ -3,21 +3,31 @@ import type {
   Address,
   ChainId,
   Channel,
+  ChannelId,
   SignedCooperativeClose,
   SignedState,
 } from '@tainnel/protocol';
 import type { ClientToHubMessage, HubMessage, HubToClientMessage } from '@tainnel/sdk';
 import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@tainnel/sdk';
-import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@tainnel/state-machine';
+import {
+  StateAdmissionError,
+  admitClose,
+  admitHtlcOffer,
+  admitSignedState,
+  buildChannelStateTypedData,
+  buildCooperativeCloseTypedData,
+} from '@tainnel/state-machine';
 import type { FastifyInstance } from 'fastify';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type SignedEnvelope, verifyEnvelope } from '../auth/envelope.js';
 import type { ChannelPool } from '../channel-pool.js';
-import type { Repos } from '../db/repos/index.js';
+import type { Database } from '../db/index.js';
+import { type Repos, buildRepos } from '../db/repos/index.js';
 import { FlatPlusBpsFeePolicy } from '../fee-policy.js';
 import type { LiquidityTracker } from '../liquidity.js';
 import type { Logger } from '../logger.js';
 import type { HubMetrics } from '../metrics.js';
+import { KeyedMutex } from '../mutex.js';
 import { type InflightHtlc, Router } from '../router.js';
 
 interface SubscriberSession {
@@ -29,6 +39,7 @@ export interface WsDeps {
   readonly channelPool: ChannelPool;
   readonly liquidity: LiquidityTracker;
   readonly repos: Repos;
+  readonly db: Database;
   readonly metrics: HubMetrics;
   readonly logger: Logger;
   readonly hubPrivateKey: `0x${string}`;
@@ -66,8 +77,17 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     verifyingContract: deps.verifyingContract,
     logger: deps.logger,
   });
+  await router.hydrate(deps.repos);
 
   const sessions = new Map<string, SubscriberSession>();
+  // Serializes route+sign+save per outgoing channel to prevent the hub
+  // from signing two conflicting same-version states under concurrency.
+  // Locks are taken in deterministic ChannelId order (lowest first) when a
+  // pay handler must lock both incoming and outgoing channels (H-04).
+  const channelMutex = new KeyedMutex<ChannelId>();
+  function lockOrder(a: ChannelId, b: ChannelId): readonly [ChannelId, ChannelId] {
+    return a < b ? [a, b] : [b, a];
+  }
 
   function send(socket: WsWebSocket, msg: HubToClientMessage): void {
     socket.send(encodeHubMessage(msg));
@@ -126,20 +146,136 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         ? incomingChannel.userB
         : incomingChannel.userA;
 
+    const incomingPrev = deps.channelPool.latest(incomingChannel.id);
+    try {
+      await admitHtlcOffer(
+        msg.signedState,
+        {
+          channel: incomingChannel,
+          chainId: deps.chainId,
+          verifyingContract: deps.verifyingContract,
+        },
+        {
+          prev: incomingPrev?.state,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [senderAddr],
+          expectedHtlc: msg.htlc,
+        },
+      );
+    } catch (err) {
+      const code = err instanceof StateAdmissionError ? err.code : 'INVALID_STATE';
+      sendError(socket, msg.id, code, (err as Error).message);
+      return;
+    }
     await deps.channelPool.recordState(incomingChannel.id, msg.signedState);
 
-    let routed: Awaited<ReturnType<typeof router.route>>;
-    try {
-      routed = await router.route({
-        incomingChannel,
-        incomingSignedState: msg.signedState,
-        incomingHtlc: msg.htlc,
-        recipient: msg.recipient,
-        amount: msg.amount,
-        paymentHash: msg.paymentHash,
+    // Serialize route+sign+persist per outgoing channel to prevent equivocation
+    // (H-04). We don't yet know the outgoing channel id until router.route()
+    // resolves it, so first take a sender-keyed lock to serialize concurrent
+    // pays from the same sender, then route under a per-outgoing-channel
+    // pre-route step. To keep things simple, lock the incoming channel here;
+    // the per-outgoing-channel mutex is taken inside router.route via the
+    // channel-pool's existing locks.
+    const result = await channelMutex.run(incomingChannel.id, async () => {
+      let routed: Awaited<ReturnType<typeof router.route>>;
+      try {
+        routed = await router.route({
+          incomingChannel,
+          incomingSignedState: msg.signedState,
+          incomingHtlc: msg.htlc,
+          recipient: msg.recipient,
+          amount: msg.amount,
+          paymentHash: msg.paymentHash,
+        });
+      } catch (err) {
+        return { kind: 'rejected' as const, reason: (err as Error).message };
+      }
+
+      // Hold the outgoing-channel mutex across the persistence sequence so
+      // two concurrent pays cannot both record same-version state.
+      return channelMutex.run(routed.outgoingChannel.id, async () => {
+        const inflight: InflightHtlc = {
+          incomingChannelId: incomingChannel.id,
+          incomingHtlcId: msg.htlc.id,
+          incomingSignedState: msg.signedState,
+          incomingSenderAddress: senderAddr,
+          outgoingChannelId: routed.outgoingChannel.id,
+          outgoingHtlcId: routed.outgoingHtlc.id,
+          outgoingHtlc: routed.outgoingHtlc,
+          outgoingHubSigned: routed.outgoingHubSigned,
+          recipient: msg.recipient,
+        };
+
+        // Reserve liquidity BEFORE any durable state changes. If the outbound
+        // channel is oversubscribed we must reject without advancing channel
+        // state or persisting a route, otherwise the hub commits to forwarding
+        // past its outbound cap.
+        try {
+          deps.liquidity.reserveOutbound(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
+        } catch (err) {
+          return { kind: 'rejected' as const, reason: (err as Error).message };
+        }
+
+        await deps.channelPool.recordState(routed.outgoingChannel.id, routed.outgoingHubSigned);
+
+        try {
+          await deps.db.driver.transaction(async (tx) => {
+            const txRepos = buildRepos(tx);
+            await txRepos.htlcs.save({
+              htlc: msg.htlc,
+              channelId: incomingChannel.id,
+              state: 'inflight',
+              incomingChannelId: incomingChannel.id,
+              outgoingChannelId: routed.outgoingChannel.id,
+            });
+            await txRepos.htlcs.save({
+              htlc: routed.outgoingHtlc,
+              channelId: routed.outgoingChannel.id,
+              state: 'inflight',
+              incomingChannelId: incomingChannel.id,
+              outgoingChannelId: routed.outgoingChannel.id,
+            });
+            await txRepos.payments.create({
+              id: `${msg.channelId}-${msg.htlc.id}`,
+              paymentHash: msg.paymentHash,
+              incomingChannelId: incomingChannel.id,
+              outgoingChannelId: routed.outgoingChannel.id,
+              incomingHtlcId: msg.htlc.id,
+              outgoingHtlcId: routed.outgoingHtlc.id,
+              recipient: msg.recipient,
+              amount: msg.amount,
+              fee: routed.fee,
+              status: 'in_flight',
+            });
+            // WS-9: persist the route so router.hydrate() can rebuild
+            // in-memory inflight maps after a restart.
+            await txRepos.routes.insert({
+              incomingChannelId: incomingChannel.id,
+              incomingHtlcId: msg.htlc.id,
+              outgoingChannelId: routed.outgoingChannel.id,
+              outgoingHtlcId: routed.outgoingHtlc.id,
+              sender: senderAddr,
+              recipient: msg.recipient,
+              paymentHash: msg.paymentHash,
+              incomingSignedState: msg.signedState,
+              outgoingHubSigned: routed.outgoingHubSigned,
+              outgoingHtlc: routed.outgoingHtlc,
+            });
+          });
+        } catch (err) {
+          deps.liquidity.releaseReservation(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
+          return { kind: 'tx_failed' as const, reason: (err as Error).message };
+        }
+
+        router.recordInflight(inflight);
+        return { kind: 'ok' as const, routed };
       });
-    } catch (err) {
-      const reason = (err as Error).message;
+    });
+
+    if (result.kind === 'rejected' || result.kind === 'tx_failed') {
+      const reason =
+        result.kind === 'rejected' ? result.reason : `db transaction failed: ${result.reason}`;
       send(socket, {
         id: `fail-${msg.htlc.id}`,
         kind: 'paymentFailed',
@@ -150,55 +286,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       deps.metrics.paymentsTotal.inc({ result: 'rejected' });
       return;
     }
-
-    const inflight: InflightHtlc = {
-      incomingChannelId: incomingChannel.id,
-      incomingHtlcId: msg.htlc.id,
-      incomingSignedState: msg.signedState,
-      incomingSenderAddress: senderAddr,
-      outgoingChannelId: routed.outgoingChannel.id,
-      outgoingHtlcId: routed.outgoingHtlc.id,
-      outgoingHtlc: routed.outgoingHtlc,
-      outgoingHubSigned: routed.outgoingHubSigned,
-      recipient: msg.recipient,
-    };
-    router.recordInflight(inflight);
-    await deps.channelPool.recordState(routed.outgoingChannel.id, routed.outgoingHubSigned);
-
-    await deps.repos.htlcs.save({
-      htlc: msg.htlc,
-      channelId: incomingChannel.id,
-      state: 'inflight',
-      incomingChannelId: incomingChannel.id,
-      outgoingChannelId: routed.outgoingChannel.id,
-    });
-    await deps.repos.htlcs.save({
-      htlc: routed.outgoingHtlc,
-      channelId: routed.outgoingChannel.id,
-      state: 'inflight',
-      incomingChannelId: incomingChannel.id,
-      outgoingChannelId: routed.outgoingChannel.id,
-    });
-    await deps.repos.payments.create({
-      id: `${msg.channelId}-${msg.htlc.id}`,
-      paymentHash: msg.paymentHash,
-      incomingChannelId: incomingChannel.id,
-      outgoingChannelId: routed.outgoingChannel.id,
-      incomingHtlcId: msg.htlc.id,
-      outgoingHtlcId: routed.outgoingHtlc.id,
-      recipient: msg.recipient,
-      amount: msg.amount,
-      fee: routed.fee,
-      status: 'in_flight',
-    });
-    try {
-      deps.liquidity.reserveOutbound(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
-    } catch (err) {
-      deps.logger.warn(
-        { err: (err as Error).message, channelId: routed.outgoingChannel.id },
-        'liquidity reservation failed (continuing — state already advanced)',
-      );
-    }
+    const routed = result.routed;
 
     const recipientSession = sessions.get(msg.recipient.toLowerCase());
     if (!recipientSession) {
@@ -220,13 +308,58 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   }
 
   async function handleHtlcSettle(
-    _socket: WsWebSocket,
+    socket: WsWebSocket,
     msg: Extract<ClientToHubMessage, { kind: 'htlcSettle' }>,
   ): Promise<void> {
-    const inflight = router.takeByOutgoingId(msg.htlcId);
+    const inflight = router.peekByOutgoingId(msg.htlcId);
     if (!inflight) {
       deps.logger.warn({ htlcId: msg.htlcId }, 'htlcSettle for unknown outgoing htlc');
+      sendError(socket, msg.id, 'UNKNOWN_HTLC', `unknown outgoing htlc ${msg.htlcId}`);
       return;
+    }
+    if (inflight.outgoingChannelId !== msg.channelId) {
+      sendError(
+        socket,
+        msg.id,
+        'CHANNEL_MISMATCH',
+        `htlcSettle channelId ${msg.channelId} does not match route ${inflight.outgoingChannelId}`,
+      );
+      return;
+    }
+    const outgoingChannel = deps.channelPool.get(inflight.outgoingChannelId);
+    if (!outgoingChannel) {
+      sendError(socket, msg.id, 'UNKNOWN_CHANNEL', 'outgoing channel missing');
+      return;
+    }
+    try {
+      await admitSignedState(
+        msg.signedState,
+        {
+          channel: outgoingChannel,
+          chainId: deps.chainId,
+          verifyingContract: deps.verifyingContract,
+        },
+        {
+          prev: inflight.outgoingHubSigned.state,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [inflight.recipient],
+        },
+      );
+    } catch (err) {
+      const code = err instanceof StateAdmissionError ? err.code : 'INVALID_STATE';
+      sendError(socket, msg.id, code, (err as Error).message);
+      return;
+    }
+    // Validation passed; now consume the inflight entry atomically.
+    router.takeByOutgoingId(msg.htlcId);
+    try {
+      await deps.repos.routes.markSettled(inflight.outgoingHtlcId);
+    } catch (err) {
+      deps.logger.warn(
+        { err: (err as Error).message, outgoingHtlcId: inflight.outgoingHtlcId },
+        'route already marked or missing; continuing settle',
+      );
     }
     const settledIncoming = await router.settleIncoming(inflight, msg.preimage, msg.signedState);
     await deps.channelPool.recordState(inflight.incomingChannelId, settledIncoming);
@@ -255,13 +388,32 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   }
 
   async function handleHtlcFail(
-    _socket: WsWebSocket,
+    socket: WsWebSocket,
     msg: Extract<ClientToHubMessage, { kind: 'htlcFail' }>,
   ): Promise<void> {
-    const inflight = router.takeByOutgoingId(msg.htlcId);
+    const inflight = router.peekByOutgoingId(msg.htlcId);
     if (!inflight) {
       deps.logger.warn({ htlcId: msg.htlcId }, 'htlcFail for unknown outgoing htlc');
+      sendError(socket, msg.id, 'UNKNOWN_HTLC', `unknown outgoing htlc ${msg.htlcId}`);
       return;
+    }
+    if (inflight.outgoingChannelId !== msg.channelId) {
+      sendError(
+        socket,
+        msg.id,
+        'CHANNEL_MISMATCH',
+        `htlcFail channelId ${msg.channelId} does not match route ${inflight.outgoingChannelId}`,
+      );
+      return;
+    }
+    router.takeByOutgoingId(msg.htlcId);
+    try {
+      await deps.repos.routes.markFailed(inflight.outgoingHtlcId);
+    } catch (err) {
+      deps.logger.warn(
+        { err: (err as Error).message, outgoingHtlcId: inflight.outgoingHtlcId },
+        'route already marked or missing; continuing fail',
+      );
     }
     const failedIncoming = await router.failIncoming(inflight);
     await deps.channelPool.recordState(inflight.incomingChannelId, failedIncoming);
@@ -292,6 +444,29 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     const ch = deps.channelPool.get(msg.channelId);
     if (!ch) {
       sendError(socket, msg.id, 'UNKNOWN_CHANNEL', `unknown channel ${msg.channelId}`);
+      return;
+    }
+    const senderAddrDirect =
+      ch.userA.toLowerCase() === hubAccount.address.toLowerCase() ? ch.userB : ch.userA;
+    const prevDirect = deps.channelPool.latest(msg.channelId);
+    try {
+      await admitSignedState(
+        msg.signedState,
+        {
+          channel: ch,
+          chainId: deps.chainId,
+          verifyingContract: deps.verifyingContract,
+        },
+        {
+          prev: prevDirect?.state,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [senderAddrDirect],
+        },
+      );
+    } catch (err) {
+      const code = err instanceof StateAdmissionError ? err.code : 'INVALID_STATE';
+      sendError(socket, msg.id, code, (err as Error).message);
       return;
     }
     const sigHex = await hubAccount.signTypedData(
@@ -345,6 +520,22 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       sendError(socket, msg.id, 'INVALID_CLOSE', 'cooperative close does not match final state');
       return;
     }
+    const senderAddrClose =
+      ch.userA.toLowerCase() === hubAccount.address.toLowerCase() ? ch.userB : ch.userA;
+    try {
+      await admitClose(
+        msg.signedState,
+        {
+          channel: ch,
+          chainId: deps.chainId,
+          verifyingContract: deps.verifyingContract,
+        },
+        { allowPartialSigs: true, requireSignerAddresses: [senderAddrClose] },
+      );
+    } catch (err) {
+      sendError(socket, msg.id, 'INVALID_CLOSE', (err as Error).message);
+      return;
+    }
     const sigHex = await hubAccount.signTypedData(
       buildChannelStateTypedData(msg.signedState.state, deps.chainId, deps.verifyingContract),
     );
@@ -378,28 +569,80 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     });
   }
 
-  async function dispatch(socket: WsWebSocket, msg: HubMessage): Promise<void> {
+  function authorizedSignerForChannel(
+    signer: Address | undefined,
+    channelId: ChannelId,
+  ): { ok: true } | { ok: false; reason: string } {
+    if (signer === undefined) return { ok: true };
+    const ch = deps.channelPool.get(channelId);
+    if (!ch) return { ok: false, reason: `unknown channel ${channelId}` };
+    const lower = signer.toLowerCase();
+    if (lower === ch.userA.toLowerCase() || lower === ch.userB.toLowerCase()) {
+      return { ok: true };
+    }
+    return { ok: false, reason: `signer ${signer} is not a party of channel ${channelId}` };
+  }
+
+  async function dispatch(
+    socket: WsWebSocket,
+    msg: HubMessage,
+    signer: Address | undefined,
+  ): Promise<void> {
     switch (msg.kind) {
       case 'subscribe':
+        if (signer && signer.toLowerCase() !== msg.address.toLowerCase()) {
+          sendError(
+            socket,
+            msg.id,
+            'UNAUTHORIZED',
+            `subscribe signer ${signer} does not match address ${msg.address}`,
+          );
+          return;
+        }
         return handleSubscribe(socket, msg);
-      case 'pay':
+      case 'pay': {
+        const auth = authorizedSignerForChannel(signer, msg.channelId);
+        if (!auth.ok) {
+          sendError(socket, msg.id, 'UNAUTHORIZED', auth.reason);
+          return;
+        }
         return handlePay(socket, msg);
+      }
       case 'htlcSettle':
         return handleHtlcSettle(socket, msg);
       case 'htlcFail':
         return handleHtlcFail(socket, msg);
-      case 'payDirect':
+      case 'payDirect': {
+        const auth = authorizedSignerForChannel(signer, msg.channelId);
+        if (!auth.ok) {
+          sendError(socket, msg.id, 'UNAUTHORIZED', auth.reason);
+          return;
+        }
         return handlePayDirect(socket, msg);
-      case 'closeRequest':
+      }
+      case 'closeRequest': {
+        const auth = authorizedSignerForChannel(signer, msg.channelId);
+        if (!auth.ok) {
+          sendError(socket, msg.id, 'UNAUTHORIZED', auth.reason);
+          return;
+        }
         return handleCloseRequest(socket, msg);
+      }
       default:
         return;
     }
   }
 
   async function authorizeAndDispatch(socket: WsWebSocket, raw: string): Promise<void> {
-    const parsedAny = JSON.parse(raw) as unknown;
+    let parsedAny: unknown;
+    try {
+      parsedAny = JSON.parse(raw) as unknown;
+    } catch (err) {
+      deps.logger.warn({ err: (err as Error).message }, 'ws message: invalid JSON');
+      return;
+    }
     let inner: HubMessage;
+    let signer: Address | undefined;
     if (deps.requireSignedEnvelope) {
       if (!isSignedEnvelope(parsedAny)) {
         deps.logger.warn('signed envelope required but message is unwrapped');
@@ -420,11 +663,22 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         deps.logger.warn({ reason: verify.reason }, 'envelope verification failed');
         return;
       }
-      inner = decodeHubMessage(verify.payload);
+      try {
+        inner = decodeHubMessage(verify.payload);
+      } catch (err) {
+        deps.logger.warn({ err: (err as Error).message }, 'inner payload decode failed');
+        return;
+      }
+      signer = verify.signer;
     } else {
-      inner = decodeHubMessage(raw);
+      try {
+        inner = decodeHubMessage(raw);
+      } catch (err) {
+        deps.logger.warn({ err: (err as Error).message }, 'ws message decode failed');
+        return;
+      }
     }
-    return dispatch(socket, inner);
+    return dispatch(socket, inner, signer);
   }
 
   app.get('/ws', { websocket: true }, (socket) => {

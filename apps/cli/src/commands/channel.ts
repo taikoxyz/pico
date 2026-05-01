@@ -24,6 +24,7 @@ export interface ChannelDeps {
   readonly rpcUrlOverride?: string;
   readonly transportOverride?: ConstructorParameters<typeof WebSocketTransport>[0];
   readonly contractAddressOverride?: Address;
+  readonly adjudicatorAddressOverride?: Address;
   readonly tokenAddressOverride?: Address;
 }
 
@@ -91,6 +92,8 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
         const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
         const paymentChannelAddress =
           deps.contractAddressOverride ?? CONTRACT_ADDRESSES[chainId].PaymentChannel;
+        const adjudicatorAddress =
+          deps.adjudicatorAddressOverride ?? CONTRACT_ADDRESSES[chainId].Adjudicator;
         const token = opts.token ?? deps.tokenAddressOverride ?? USDC_TOKENS[chainId].address;
 
         const transport = new WebSocketTransport(
@@ -109,7 +112,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
           storage,
           chain: chainAdapter,
           chainId,
-          verifyingContract: paymentChannelAddress,
+          verifyingContract: adjudicatorAddress,
           defaultToken: token,
         });
         try {
@@ -180,6 +183,8 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
         const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
         const paymentChannelAddress =
           deps.contractAddressOverride ?? CONTRACT_ADDRESSES[chainId].PaymentChannel;
+        const adjudicatorAddress =
+          deps.adjudicatorAddressOverride ?? CONTRACT_ADDRESSES[chainId].Adjudicator;
         const transport = new WebSocketTransport(
           deps.transportOverride ?? { url: opts.via, autoReconnect: false },
         );
@@ -196,7 +201,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
           storage,
           chain: chainAdapter,
           chainId,
-          verifyingContract: paymentChannelAddress,
+          verifyingContract: adjudicatorAddress,
         });
         try {
           await transport.connect();

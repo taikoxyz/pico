@@ -11,8 +11,14 @@ COPY . .
 RUN pnpm --filter @tainnel/hub... build
 
 FROM node:20-alpine
+ARG INCLUDE_LITESTREAM=0
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN if [ "$INCLUDE_LITESTREAM" = "1" ]; then \
+      apk add --no-cache curl ca-certificates && \
+      curl -L https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64-static.tar.gz \
+        | tar -xz -C /usr/local/bin litestream ; \
+    fi
 COPY --from=builder /repo /repo
 WORKDIR /repo/apps/hub
 EXPOSE 3030 9090

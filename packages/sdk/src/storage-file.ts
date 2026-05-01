@@ -1,5 +1,6 @@
+import { closeSync, fsyncSync, openSync } from 'node:fs';
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type {
   Channel,
   ChannelId,
@@ -48,12 +49,39 @@ async function readJsonOrUndefined<T>(path: string): Promise<T | undefined> {
 
 async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
   const tmp = `${path}.${randomNonce16()}.tmp`;
-  await writeFile(tmp, JSON.stringify(value), 'utf8');
+  // F-05: write with restrictive 0o600 mode so leaked preimages or signed
+  // states are not world-readable on multi-user hosts.
+  await writeFile(tmp, JSON.stringify(value), { encoding: 'utf8', mode: 0o600 });
+  // F-05: fsync the file before rename so the new contents are durable
+  // across power loss before the directory entry is updated.
+  try {
+    const fd = openSync(tmp, 'r+');
+    try {
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    // fsync is best-effort; on filesystems that don't support it (or in
+    // sandboxed CI environments), continue.
+  }
   try {
     await rename(tmp, path);
   } catch (err) {
     await rm(tmp, { force: true });
     throw err;
+  }
+  // F-05: fsync the parent directory entry so the rename is durable across
+  // power loss. Best-effort; some platforms (Windows) require different flags.
+  try {
+    const dirFd = openSync(dirname(path), 'r');
+    try {
+      fsyncSync(dirFd);
+    } finally {
+      closeSync(dirFd);
+    }
+  } catch {
+    // ignore
   }
 }
 
@@ -73,9 +101,11 @@ export class FileStorage implements ChannelStorage {
 
   private async ensureDirs(): Promise<void> {
     if (this.dirsReady) return;
-    await mkdir(this.channelsDir, { recursive: true });
-    await mkdir(this.statesDir, { recursive: true });
-    await mkdir(this.invoicesDir, { recursive: true });
+    // F-05: create directories with restrictive 0o700 mode so other local
+    // users cannot read channel state, signed states, or invoice preimages.
+    await mkdir(this.channelsDir, { recursive: true, mode: 0o700 });
+    await mkdir(this.statesDir, { recursive: true, mode: 0o700 });
+    await mkdir(this.invoicesDir, { recursive: true, mode: 0o700 });
     this.dirsReady = true;
   }
 

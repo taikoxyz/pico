@@ -14,6 +14,7 @@ import { hexToSignature, randomHtlcId } from '@tainnel/sdk';
 import { addHtlc, buildChannelStateTypedData, failHtlc, settleHtlc } from '@tainnel/state-machine';
 import type { PrivateKeyAccount } from 'viem/accounts';
 import type { ChannelPool } from './channel-pool.js';
+import type { Repos } from './db/repos/index.js';
 import type { FeePolicy } from './fee-policy.js';
 import type { Logger } from './logger.js';
 
@@ -130,6 +131,31 @@ export class Router {
     this.inflightByOutgoingId.set(item.outgoingHtlcId, item);
   }
 
+  /**
+   * Rebuilds in-memory inflight maps from durable payment_routes rows.
+   * Called on hub startup so that settle/fail messages for HTLCs that were
+   * in flight before a crash can still be processed.
+   */
+  async hydrate(repos: Repos): Promise<void> {
+    const rows = await repos.routes.loadInflight();
+    for (const row of rows) {
+      const item: InflightHtlc = {
+        incomingChannelId: row.incomingChannelId,
+        incomingHtlcId: row.incomingHtlcId,
+        incomingSignedState: row.incomingSignedState,
+        incomingSenderAddress: row.sender,
+        outgoingChannelId: row.outgoingChannelId,
+        outgoingHtlcId: row.outgoingHtlcId,
+        outgoingHtlc: row.outgoingHtlc,
+        outgoingHubSigned: row.outgoingHubSigned,
+        recipient: row.recipient,
+      };
+      this.inflightByIncomingId.set(item.incomingHtlcId, item);
+      this.inflightByOutgoingId.set(item.outgoingHtlcId, item);
+    }
+    this.deps.logger.info({ rehydrated: rows.length }, 'router: hydrated inflight routes from db');
+  }
+
   pendingForRecipient(recipient: Address): readonly InflightHtlc[] {
     const lower = recipient.toLowerCase();
     return Array.from(this.inflightByOutgoingId.values()).filter(
@@ -137,6 +163,12 @@ export class Router {
     );
   }
 
+  /** Look up an inflight entry without removing it. */
+  peekByOutgoingId(outgoingHtlcId: HtlcId): InflightHtlc | undefined {
+    return this.inflightByOutgoingId.get(outgoingHtlcId);
+  }
+
+  /** Remove and return an inflight entry. Use only after validation has passed. */
   takeByOutgoingId(outgoingHtlcId: HtlcId): InflightHtlc | undefined {
     const item = this.inflightByOutgoingId.get(outgoingHtlcId);
     if (!item) return undefined;

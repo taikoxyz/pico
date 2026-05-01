@@ -1,8 +1,23 @@
 import { existsSync, readFileSync } from 'node:fs';
-import type { Hex } from '@tainnel/protocol';
+import type {
+  Address,
+  ChainId,
+  ChannelState,
+  CooperativeClose,
+  Hex,
+  Htlc,
+  Invoice,
+} from '@tainnel/protocol';
+import {
+  buildChannelStateTypedData,
+  buildCooperativeCloseTypedData,
+  buildHtlcTypedData,
+  buildInvoiceTypedData,
+  buildUpdateTypedData,
+} from '@tainnel/state-machine';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { decryptPrivateKey, isEncryptedKeyFile, parseKeyFile } from './key-file.js';
 import type { Signer } from './signer.js';
-import { InMemorySigner } from './signer.test-only.js';
 
 const HEX_PRIVATE_KEY = /^0x[0-9a-fA-F]{64}$/;
 
@@ -13,12 +28,71 @@ export interface LoadLocalSignerOpts {
   readonly passphrase?: string | (() => Promise<string> | string);
 }
 
-export class LocalSigner extends InMemorySigner {}
+/**
+ * Production-grade hot-key signer for the SDK. Holds a `PrivateKeyAccount`
+ * directly (no longer subclasses the test-only InMemorySigner) so the
+ * production custody surface is independent of test utilities.
+ *
+ * For higher-assurance key custody, implement the `Signer` interface against
+ * a KMS / Nitro Enclave / Turnkey backend (Phase 2).
+ */
+export class LocalSigner implements Signer {
+  private readonly account: PrivateKeyAccount;
+
+  constructor(privateKey: Hex) {
+    if (!HEX_PRIVATE_KEY.test(privateKey)) {
+      throw new Error('LocalSigner: expected 0x-prefixed 32-byte hex private key');
+    }
+    this.account = privateKeyToAccount(privateKey);
+  }
+
+  async address(): Promise<Address> {
+    return this.account.address;
+  }
+
+  addressSync(): Address {
+    return this.account.address;
+  }
+
+  signChannelState(
+    state: ChannelState,
+    chainId: ChainId,
+    verifyingContract: Address,
+  ): Promise<Hex> {
+    return this.account.signTypedData(
+      buildChannelStateTypedData(state, chainId, verifyingContract),
+    );
+  }
+
+  signUpdate(
+    update: import('@tainnel/protocol').Update,
+    chainId: ChainId,
+    verifyingContract: Address,
+  ): Promise<Hex> {
+    return this.account.signTypedData(buildUpdateTypedData(update, chainId, verifyingContract));
+  }
+
+  signCooperativeClose(
+    close: CooperativeClose,
+    chainId: ChainId,
+    verifyingContract: Address,
+  ): Promise<Hex> {
+    return this.account.signTypedData(
+      buildCooperativeCloseTypedData(close, chainId, verifyingContract),
+    );
+  }
+
+  signHtlc(htlc: Htlc, chainId: ChainId, verifyingContract: Address): Promise<Hex> {
+    return this.account.signTypedData(buildHtlcTypedData(htlc, chainId, verifyingContract));
+  }
+
+  signInvoice(invoice: Omit<Invoice, 'signature'>, chainId: ChainId): Promise<Hex> {
+    const fullInvoice: Invoice = { ...invoice, signature: '0x' };
+    return this.account.signTypedData(buildInvoiceTypedData(fullInvoice, chainId));
+  }
+}
 
 export function localSigner(privateKey: Hex): LocalSigner {
-  if (!HEX_PRIVATE_KEY.test(privateKey)) {
-    throw new Error('localSigner: expected 0x-prefixed 32-byte hex private key');
-  }
   return new LocalSigner(privateKey);
 }
 

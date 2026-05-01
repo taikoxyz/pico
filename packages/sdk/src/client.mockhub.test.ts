@@ -51,6 +51,9 @@ async function makeParty(
     htlcExpiryMs: 60_000n,
     settleTimeoutMs: 5_000,
     closeRequestTimeoutMs: 2_000,
+    safetyMarginMs: 1_000n,
+    hubFeeBps: 0n,
+    hubFeeFlat: 0n,
     ...(encryption !== undefined
       ? { encryptionPubkey: encryption.publicKey, encryptionSecretKey: encryption.secretKey }
       : {}),

@@ -67,6 +67,8 @@ export interface WatchtowerStore {
   clearInFlight(channelId: ChannelId): void;
   putMeta(key: string, value: string): void;
   getMeta(key: string): string | undefined;
+  /** Quick liveness probe: throws on broken DB; returns true on success. */
+  ping(): boolean;
   close(): void;
 }
 
@@ -260,6 +262,13 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
     const stmt = this.requireGetMeta();
     const row = stmt.get({ key }) as MetaRow | undefined;
     return row?.value;
+  }
+
+  ping(): boolean {
+    if (!this.db.open) throw new Error('watchtower SQLite db is not open');
+    const row = this.db.prepare('SELECT 1 AS ok').get() as { ok: number } | undefined;
+    if (!row || row.ok !== 1) throw new Error('watchtower SQLite ping returned unexpected result');
+    return true;
   }
 
   close(): void {

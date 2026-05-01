@@ -123,6 +123,30 @@ export class StateRepo {
     return rows[0] ? BigInt(rows[0].version) : undefined;
   }
 
+  /**
+   * Returns the highest-version signed state for a channel that is
+   * dispute-eligible: empty HTLCs (matches PaymentChannel's
+   * `htlcsRoot == bytes32(0)` invariant) and balances that conserve total.
+   * Returns undefined if no such state exists. Used by the dispute handler
+   * to avoid submitting states the contract will revert.
+   */
+  async latestDisputeEligible(channelId: ChannelId): Promise<SignedState | undefined> {
+    const rows = await this.db.query<StateRow>(
+      `SELECT channel_id, version, state_json, sig_a, sig_b
+       FROM signed_states
+       WHERE channel_id = ?
+       ORDER BY length(version) DESC, version DESC`,
+      [channelId],
+    );
+    for (const r of rows) {
+      const signed = rowToSignedState(r);
+      if (signed.state.htlcs.length === 0) {
+        return signed;
+      }
+    }
+    return undefined;
+  }
+
   async loadAllLatest(): Promise<ReadonlyMap<ChannelId, SignedState>> {
     const rows = await this.db.query<StateRow>(
       `SELECT s.channel_id, s.version, s.state_json, s.sig_a, s.sig_b

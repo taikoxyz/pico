@@ -39,7 +39,15 @@ describe('tainnel invoice', () => {
       stdout,
       storageOverride: join(dir, 'db'),
     });
-    await cmd.parseAsync(['node', 'tainnel', 'create', '--amount', '1000', '--json']);
+    await cmd.parseAsync([
+      'node',
+      'tainnel',
+      'create',
+      '--amount',
+      '1000',
+      '--json',
+      '--reveal-preimage',
+    ]);
     const obj = JSON.parse(stdout.buf.trim()) as {
       envelope: string;
       preimage: string;

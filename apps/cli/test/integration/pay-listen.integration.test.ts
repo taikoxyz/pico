@@ -28,7 +28,8 @@ import { decodeInvoiceEnvelope } from '../../src/runtime/invoice-envelope.js';
 const ALICE_PK = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const BOB_PK = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
 const CHAIN_ID = TAIKO_MAINNET_CHAIN_ID;
-const VERIFYING_CONTRACT = CONTRACT_ADDRESSES[CHAIN_ID].PaymentChannel;
+const PAYMENT_CHANNEL = CONTRACT_ADDRESSES[CHAIN_ID].PaymentChannel;
+const VERIFYING_CONTRACT = CONTRACT_ADDRESSES[CHAIN_ID].Adjudicator;
 const TOKEN = USDC_TOKENS[CHAIN_ID].address;
 
 class StubStream {
@@ -49,7 +50,7 @@ async function preopenChannel(
   const channel: Channel = {
     id: channelId,
     chainId: CHAIN_ID,
-    contract: VERIFYING_CONTRACT,
+    contract: PAYMENT_CHANNEL,
     userA: aliceAddr,
     userB: bobAddr,
     token: TOKEN,
@@ -177,6 +178,7 @@ describe('pay → listen integration via mock hub', () => {
       '--via',
       hub.url,
       '--json',
+      '--reveal-preimage',
     ]);
 
     expect(aliceOut.buf).toContain('"settled":true');

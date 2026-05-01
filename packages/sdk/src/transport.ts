@@ -298,6 +298,13 @@ export class WebSocketTransport implements Transport {
   }
 }
 
+/**
+ * @experimental Nostr relay transport — NOT implemented in v1.
+ *
+ * All methods throw. The class is exported only as a shape stub so
+ * downstream code can program against the eventual interface. Will be
+ * implemented in Phase 2 (DVM/Nostr discovery).
+ */
 export class NostrRelayTransport implements Transport {
   constructor(
     private readonly _relays: readonly string[],
@@ -306,17 +313,29 @@ export class NostrRelayTransport implements Transport {
     void this._relays;
     void this._subscriberPubkey;
   }
+  /** @experimental Throws — NostrRelayTransport is a Phase-2 feature. */
   async connect(): Promise<void> {
-    throw new Error('NostrRelayTransport: not implemented (Phase 2)');
+    throw new Error(
+      'NostrRelayTransport.connect: experimental Phase-2 feature, not implemented in v1',
+    );
   }
+  /** @experimental Throws — NostrRelayTransport is a Phase-2 feature. */
   async close(): Promise<void> {
-    throw new Error('NostrRelayTransport: not implemented (Phase 2)');
+    throw new Error(
+      'NostrRelayTransport.close: experimental Phase-2 feature, not implemented in v1',
+    );
   }
+  /** @experimental Throws — NostrRelayTransport is a Phase-2 feature. */
   async send(): Promise<void> {
-    throw new Error('NostrRelayTransport: not implemented (Phase 2)');
+    throw new Error(
+      'NostrRelayTransport.send: experimental Phase-2 feature, not implemented in v1',
+    );
   }
+  /** @experimental Throws — NostrRelayTransport is a Phase-2 feature. */
   async request(): Promise<HubToClientMessage> {
-    throw new Error('NostrRelayTransport: not implemented (Phase 2)');
+    throw new Error(
+      'NostrRelayTransport.request: experimental Phase-2 feature, not implemented in v1',
+    );
   }
   onMessage(): () => void {
     return () => {};

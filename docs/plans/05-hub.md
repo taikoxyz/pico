@@ -31,8 +31,12 @@ that defines the network shape, not the API a Python or Rust agent reaches for f
 - **Tradeoff:** sqlite is one binary, no separate process; perfect for a single-hub
   dogfood. Postgres pays off only when you scale to multiple hub instances, which
   isn't on the roadmap.
-- Decision: ☐ sqlite + litestream ☒ Postgres ☐ sqlite without backup
-  (SqliteDatabase impl retained for tests/local dev — Postgres is production)
+- Decision: ☒ sqlite + litestream ☐ Postgres ☐ sqlite without backup.
+  v1 ships with SQLite + litestream as the production target; the Postgres
+  driver is retained for operators who want it but is not the default. This
+  matches `apps/hub/src/config.ts` (DB_DRIVER defaults to sqlite) and
+  `docs/plans/09-ops.md` (litestream → R2). See the audit alignment commit for
+  context.
 
 ### D5.2 WebSocket auth
 - **Default:** every WS message from a client carries a fresh signed envelope

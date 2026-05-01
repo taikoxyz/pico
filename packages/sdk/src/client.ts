@@ -13,7 +13,18 @@ import type {
   SignedCooperativeClose,
   SignedState,
 } from '@tainnel/protocol';
-import { addHtlc, failHtlc, preimageDigest, settleHtlc } from '@tainnel/state-machine';
+import { DEFAULT_HUB_FEE_BPS, DEFAULT_HUB_FEE_FLAT } from '@tainnel/protocol';
+import {
+  type StateAdmissionError,
+  addHtlc,
+  admitClose,
+  admitHtlcOffer,
+  admitHtlcSettle,
+  admitSignedState,
+  failHtlc,
+  preimageDigest,
+  settleHtlc,
+} from '@tainnel/state-machine';
 import type { ChainAdapter } from './chain-adapter.js';
 import { randomHtlcId, randomNonce16 } from './crypto.js';
 import {
@@ -97,8 +108,8 @@ export class ChannelClient {
   private readonly settleTimeoutMs: number;
 
   constructor(private readonly opts: ChannelClientOptions) {
-    this.hubFeeBps = opts.hubFeeBps ?? 0n;
-    this.hubFeeFlat = opts.hubFeeFlat ?? 0n;
+    this.hubFeeBps = opts.hubFeeBps ?? DEFAULT_HUB_FEE_BPS;
+    this.hubFeeFlat = opts.hubFeeFlat ?? DEFAULT_HUB_FEE_FLAT;
     this.htlcExpiryMs = opts.htlcExpiryMs ?? 60n * 60n * 1000n;
     this.safetyMarginMs = opts.safetyMarginMs ?? 5n * 60n * 1000n;
     this.disputeWindowMs = opts.disputeWindowMs ?? 24 * 60 * 60 * 1000;
@@ -234,6 +245,33 @@ export class ChannelClient {
     if (reply.kind === 'error') {
       throw new Error(`subscribe failed: ${reply.message}`);
     }
+    if (reply.kind === 'subscribeAck') {
+      // F-02: surface pendingHtlcs reported by the hub. The client may have
+      // crashed while these HTLCs were in-flight; emitting them lets a CLI
+      // listener pick them up and settle/fail.
+      for (const p of reply.pendingHtlcs ?? []) {
+        this.emitter.emit('htlc:incoming', { channelId: p.channelId, htlc: p.htlc });
+      }
+    }
+  }
+
+  /**
+   * Re-establishes in-memory state from durable storage. Called explicitly
+   * by long-running CLIs (`tainnel listen`, `tainnel pay --resume`) after a
+   * restart so that late settle/fail messages for HTLCs persisted before the
+   * crash can still be matched. F-02.
+   *
+   * The current implementation reconstructs subscribed channel ids from
+   * storage and (re)subscribes; pendingHtlcs from the hub flow through
+   * `ensureSubscribed`'s `subscribeAck` handler above. In-flight payment
+   * promises are not restored across processes — late settle/fail messages
+   * become events rather than promise resolutions.
+   */
+  async recover(): Promise<void> {
+    const channels = await this.opts.storage.list();
+    if (channels.length === 0) return;
+    const ids = channels.map((c) => c.id);
+    await this.ensureSubscribed(ids);
   }
 
   private installInboundHandler(): void {
@@ -262,6 +300,16 @@ export class ChannelClient {
       if (pending) {
         this.inflight.delete(msg.htlcId);
         pending.resolve(msg);
+      } else {
+        // F-02: late settle for an HTLC whose pay() promise is gone (process
+        // restart). Surface as an event so listeners can persist the
+        // settled state.
+        this.emitter.emit('htlc:settled', {
+          channelId: msg.channelId,
+          htlc: { id: msg.htlcId } as Htlc,
+          preimage: msg.preimage,
+          direction: 'outgoing',
+        });
       }
       return;
     }
@@ -293,6 +341,33 @@ export class ChannelClient {
       });
       return;
     }
+    const prev = await this.opts.storage.loadLatestState(msg.channelId);
+    const counterparty =
+      channel.userA.toLowerCase() === me.toLowerCase() ? channel.userB : channel.userA;
+    try {
+      await admitHtlcOffer(
+        msg.signedStateBeforeHtlc,
+        {
+          channel,
+          chainId: this.opts.chainId,
+          verifyingContract: this.opts.verifyingContract,
+        },
+        {
+          prev: prev?.state,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [counterparty],
+          expectedHtlc: msg.htlc,
+        },
+      );
+    } catch (err) {
+      const error = err as StateAdmissionError;
+      this.emitter.emit('error', {
+        error,
+        context: `htlcOffer.admit:${error.code ?? 'unknown'}`,
+      });
+      return;
+    }
     this.emitter.emit('htlc:incoming', { channelId: msg.channelId, htlc: msg.htlc });
 
     const record = await this.opts.storage.loadInvoice(msg.htlc.paymentHash);
@@ -300,6 +375,28 @@ export class ChannelClient {
     let direction: 'incoming-invoice' | 'incoming-keysend' | undefined;
 
     if (record) {
+      // F-03: reject replayed invoices (consumed_at marker present).
+      if (record.consumedAt !== undefined) {
+        await this.failInbound(msg, channel, me, 'invoice already consumed');
+        return;
+      }
+      // F-03: reject expired invoices (signed-by-us; we already trust it,
+      // but the local clock may have moved past the expiry).
+      const nowMs = BigInt(Date.now());
+      if (record.invoice.expiryMs <= nowMs) {
+        await this.failInbound(msg, channel, me, 'invoice expired');
+        return;
+      }
+      // F-03: reject HTLCs that expire too soon for safe settlement.
+      if (msg.htlc.expiryMs <= nowMs + this.safetyMarginMs) {
+        await this.failInbound(msg, channel, me, 'incoming HTLC expires within safety margin');
+        return;
+      }
+      // F-03: reject invoice records whose recipient is not us.
+      if (record.invoice.recipient.toLowerCase() !== me.toLowerCase()) {
+        await this.failInbound(msg, channel, me, 'invoice recipient is not this signer');
+        return;
+      }
       if (record.invoice.amount > msg.htlc.amount) {
         await this.failInbound(msg, channel, me, 'amount underpaid');
         return;
@@ -484,6 +581,28 @@ export class ChannelClient {
         `payDirect: hub acked wrong version (sent ${newState.version}, got ${reply.signedState.state.version})`,
       );
     }
+    const counterpartyDirect =
+      channel.userA.toLowerCase() === me.toLowerCase() ? channel.userB : channel.userA;
+    await admitSignedState(
+      reply.signedState,
+      {
+        channel,
+        chainId: this.opts.chainId,
+        verifyingContract: this.opts.verifyingContract,
+      },
+      {
+        prev: signed.state,
+        expectedVersion: newState.version,
+        allowPartialSigs: true,
+        requireSignerAddresses: [counterpartyDirect],
+      },
+    );
+    if (
+      reply.signedState.state.balanceA !== newState.balanceA ||
+      reply.signedState.state.balanceB !== newState.balanceB
+    ) {
+      throw new Error('payDirect: hub-acked balances do not match the state we signed');
+    }
     await this.opts.storage.saveState(channelId, reply.signedState);
     return { channelId, version: newState.version };
   }
@@ -620,6 +739,25 @@ export class ChannelClient {
     if (preimageDigest(settled.preimage).toLowerCase() !== paymentHash.toLowerCase()) {
       throw new PreimageMismatchError();
     }
+    const counterpartySettle =
+      channel.userA.toLowerCase() === me.toLowerCase() ? channel.userB : channel.userA;
+    await admitHtlcSettle(
+      settled.signedStateAfterSettle,
+      {
+        channel,
+        chainId: this.opts.chainId,
+        verifyingContract: this.opts.verifyingContract,
+      },
+      {
+        prev: lockedSigned.state,
+        allowEqualVersion: true,
+        allowPartialSigs: true,
+        requireSignerAddresses: [counterpartySettle],
+        htlcId: htlc.id,
+        preimage: settled.preimage,
+        expectedPaymentHash: paymentHash,
+      },
+    );
     const settledState = settleHtlc(newState, htlc.id, settled.preimage);
     const settledNext: ChannelState = { ...settledState, version: settledState.version + 1n };
     const settledSig = await this.opts.signer.signChannelState(
@@ -725,6 +863,18 @@ export class ChannelClient {
           ),
         ]);
         if (reply.kind === 'closeResponse') {
+          const me = await this.address();
+          const counterpartyClose =
+            channel.userA.toLowerCase() === me.toLowerCase() ? channel.userB : channel.userA;
+          await admitClose(
+            reply.signedCloseState,
+            {
+              channel,
+              chainId: this.opts.chainId,
+              verifyingContract: this.opts.verifyingContract,
+            },
+            { allowPartialSigs: true, requireSignerAddresses: [counterpartyClose] },
+          );
           await this.opts.storage.saveState(channelId, reply.signedCloseState);
           await this.opts.chain.closeCooperative({
             channelId,

@@ -1,4 +1,11 @@
-import type { Invoice } from '@tainnel/protocol';
+import {
+  type Invoice,
+  WireValidationError,
+  parseAddress,
+  parseBigIntPositive,
+  parseHex32,
+  parseHex as parseHexProto,
+} from '@tainnel/protocol';
 
 interface InvoiceWire {
   v: 1;
@@ -32,18 +39,51 @@ export function encodeInvoiceEnvelope(invoice: Invoice): string {
 export function decodeInvoiceEnvelope(text: string): Invoice {
   const trimmed = text.trim();
   if (!trimmed.startsWith(PREFIX)) throw new Error('invoice envelope: bad prefix');
-  const json = Buffer.from(trimmed.slice(PREFIX.length), 'base64url').toString('utf8');
-  const wire = JSON.parse(json) as InvoiceWire;
-  if (wire.v !== 1) throw new Error(`invoice envelope: unsupported version ${wire.v}`);
-  const out: Invoice = {
-    paymentHash: wire.paymentHash as Invoice['paymentHash'],
-    amount: BigInt(wire.amount),
-    recipient: wire.recipient as Invoice['recipient'],
-    expiryMs: BigInt(wire.expiryMs),
-    nonce: wire.nonce as Invoice['nonce'],
-    signature: wire.signature as Invoice['signature'],
-    ...(wire.memo !== undefined ? { memo: wire.memo } : {}),
-    ...(wire.hubHint !== undefined ? { hubHint: wire.hubHint } : {}),
-  };
-  return out;
+  let json: string;
+  try {
+    json = Buffer.from(trimmed.slice(PREFIX.length), 'base64url').toString('utf8');
+  } catch {
+    throw new Error('invoice envelope: invalid base64url payload');
+  }
+  let wire: unknown;
+  try {
+    wire = JSON.parse(json);
+  } catch {
+    throw new Error('invoice envelope: payload is not valid JSON');
+  }
+  if (!wire || typeof wire !== 'object') {
+    throw new Error('invoice envelope: payload is not an object');
+  }
+  const w = wire as Record<string, unknown>;
+  if (w.v !== 1) throw new Error(`invoice envelope: unsupported version ${stringify(w.v)}`);
+  try {
+    const out: Invoice = {
+      paymentHash: parseHex32(w.paymentHash, 'paymentHash') as Invoice['paymentHash'],
+      amount: parseBigIntPositive(w.amount, 'amount'),
+      recipient: parseAddress(w.recipient, 'recipient'),
+      expiryMs: parseBigIntPositive(w.expiryMs, 'expiryMs'),
+      // Invoice nonces are 16 bytes (32 hex chars); allow any hex length
+      // here so that historical envelopes still parse, but reject
+      // non-hex/empty values.
+      nonce: parseHexProto(w.nonce, 'nonce') as Invoice['nonce'],
+      signature: parseHexProto(w.signature, 'signature') as Invoice['signature'],
+      ...(typeof w.memo === 'string' ? { memo: w.memo } : {}),
+      ...(typeof w.hubHint === 'string' ? { hubHint: w.hubHint } : {}),
+    };
+    return out;
+  } catch (err) {
+    if (err instanceof WireValidationError) {
+      throw new Error(`invoice envelope: ${err.message}`);
+    }
+    throw err;
+  }
+}
+
+function stringify(v: unknown): string {
+  if (typeof v === 'bigint') return `${v}n`;
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
 }

@@ -221,11 +221,20 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
   if (opts.startHttp !== false) {
     http = await buildHttpServer({
       logger: log,
-      healthProbe: () => ({
-        rpc: { up: watcher.isConnected(), lastEventBlockNumber: watcher.lastEventBlockNumber() },
-        db: { up: true },
-        channelsWatched: closingChannels.size,
-      }),
+      healthProbe: () => {
+        let dbUp = false;
+        let dbErr: string | undefined;
+        try {
+          dbUp = store.ping();
+        } catch (err) {
+          dbErr = (err as Error).message;
+        }
+        return {
+          rpc: { up: watcher.isConnected(), lastEventBlockNumber: watcher.lastEventBlockNumber() },
+          db: { up: dbUp, ...(dbErr !== undefined ? { error: dbErr } : {}) },
+          channelsWatched: closingChannels.size,
+        };
+      },
     });
     httpUrl = await http.listen({ port: opts.httpPort ?? 0, host: '127.0.0.1' });
   }

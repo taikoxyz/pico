@@ -29,10 +29,14 @@ const client = new ChannelClient({
   chain: new ViemChainAdapter({
     publicClient,
     walletClient,
+    // PaymentChannel is the on-chain entrypoint for open/close/dispute calls.
     paymentChannelAddress: CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID].PaymentChannel,
   }),
   chainId: TAIKO_MAINNET_CHAIN_ID,
-  verifyingContract: CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID].PaymentChannel,
+  // EIP-712 verifyingContract is the Adjudicator: that contract verifies signed
+  // states on-chain via verifyDualSig(). Using PaymentChannel here would produce
+  // signatures the deployed contracts reject.
+  verifyingContract: CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID].Adjudicator,
   defaultToken: USDC_TOKENS[TAIKO_MAINNET_CHAIN_ID].address,
 });
 
