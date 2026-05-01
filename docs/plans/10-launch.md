@@ -75,6 +75,9 @@ and review gate yourself.
       in separate regions, with monitoring and alert delivery already tested.
 - [ ] `[human]` Confirm `docs/runbooks/` covers hub-down, watchtower-down, dispute
       incident, key compromise, and backup restore.
+- [ ] `[human]` Confirm SECURITY.md reflects monitored inbox, real PGP key, and
+      paging rotation tested via dry-run drill (see
+      `docs/runbooks/security-disclosure.md`).
 
 ### Operator wallet generation (D10.3)
 
