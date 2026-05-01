@@ -104,12 +104,12 @@ for role in "${ROLES[@]}"; do
   fi
   usdc="$(usdc_balance "$addr" "$RPC_URL")"
   eth="$(eth_balance_wei "$addr" "$RPC_URL")"
-  if (( $(python3 -c "print(int('$usdc') >= int('$MIN_USDC_OPERATOR'))") )); then
+  if (( $(python3 -c "print(1 if int('$usdc') >= int('$MIN_USDC_OPERATOR') else 0)") )); then
     ok "$role USDC OK (raw: $usdc, addr: $addr)"
   else
     bad "$role USDC below 100 USDC cap (raw: $usdc, addr: $addr)"
   fi
-  if (( $(python3 -c "print(int('$eth') >= int('$MIN_ETH_WEI'))") )); then
+  if (( $(python3 -c "print(1 if int('$eth') >= int('$MIN_ETH_WEI') else 0)") )); then
     ok "$role ETH OK (raw wei: $eth)"
   else
     bad "$role ETH below 0.005 minimum (raw wei: $eth)"
@@ -117,7 +117,7 @@ for role in "${ROLES[@]}"; do
 done
 
 hub_usdc="$(usdc_balance "$HUB_HOT_WALLET" "$RPC_URL")"
-if (( $(python3 -c "print(int('$hub_usdc') <= int('$HUB_USDC_CEILING'))") )); then
+if (( $(python3 -c "print(1 if int('$hub_usdc') <= int('$HUB_USDC_CEILING') else 0)") )); then
   ok "Hub hot wallet USDC under 1000 USDC ceiling (raw: $hub_usdc, addr: $HUB_HOT_WALLET)"
 else
   bad "Hub hot wallet USDC ABOVE 1000 USDC ceiling — DRAIN BEFORE PROCEEDING (raw: $hub_usdc)"

@@ -100,18 +100,19 @@ spec:
                 name: tainnel-watchtower-config
             - secretRef:
                 name: tainnel-watchtower-secrets
+          # The watchtower binds /health to 127.0.0.1 inside the pod, so
+          # httpGet probes (which target the pod IP) cannot reach it. Use
+          # exec probes that run inside the container's network namespace.
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 3031
+            exec:
+              command: ["wget", "-qO-", "--timeout=5", "http://127.0.0.1:3031/health"]
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 3031
+            exec:
+              command: ["wget", "-qO-", "--timeout=5", "http://127.0.0.1:3031/health"]
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5

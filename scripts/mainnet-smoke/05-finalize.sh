@@ -82,4 +82,3 @@ any incident notes here. Sign off below when complete._
 EOF
 
 green "Wrote $OUT"
-EOF
