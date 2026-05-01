@@ -229,19 +229,21 @@ The contract replaces the recorded state and **restarts** the 24-hour window.
 Repeated challenge/counter-challenge is permitted as long as each new submission has
 a strictly higher `version`.
 
-### 5.4 HTLC reveal
+### 5.4 HTLC handling (v1 limitation)
 
-In-flight HTLCs are settled on-chain during the dispute window:
-- Receiver reveals preimage to claim → on-chain credit to receiver
-- After expiry without reveal → on-chain refund to sender
+v1 does **not** implement on-chain HTLC claim/refund during disputes. The contracts
+reject any `ChannelState` with a non-empty `htlcsRoot` in all close, dispute, and
+penalty paths. This is a conscious simplification for the 1-hop dogfood scope: HTLCs
+only live inside a single payment, and any close happens between payments. Clients
+and watchtowers MUST ensure no close/dispute is initiated while `htlcsRoot != 0`.
 
-The contract verifies the HTLC was in the committed set via a Merkle proof against
-`htlcsRoot`.
+On-chain HTLC settlement (Merkle proof verification, preimage claims, expiry refunds)
+is deferred to a future protocol version.
 
 ### 5.5 Finalize
 
-After `now > deadline` and all on-chain HTLC actions resolved, anyone calls
-`finalize()`. Funds disburse to A and B per the final balances.
+After `now > deadline`, anyone calls `finalize()`. Funds disburse to A and B per the
+final balances.
 
 ### 5.6 Watchtower
 

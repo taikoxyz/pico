@@ -56,11 +56,10 @@ describe('chain ids and supported chains', () => {
     expect(TAIKO_HOODI_CHAIN_ID).toBe(167009);
   });
 
-  it('SUPPORTED_CHAIN_IDS contains exactly mainnet and Hoodi', () => {
-    expect([...SUPPORTED_CHAIN_IDS].sort()).toEqual(
-      [TAIKO_MAINNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID].sort(),
-    );
-    expect(SUPPORTED_CHAIN_IDS).toHaveLength(2);
+  it('SUPPORTED_CHAIN_IDS contains mainnet; Hoodi excluded until deployed', () => {
+    expect([...SUPPORTED_CHAIN_IDS]).toContain(TAIKO_MAINNET_CHAIN_ID);
+    // TAIKO_HOODI_CHAIN_ID is excluded until contract and USDC addresses are deployed.
+    expect(SUPPORTED_CHAIN_IDS).toHaveLength(1);
   });
 
   it('ZERO_ADDRESS is 20 zero bytes', () => {

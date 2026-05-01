@@ -174,16 +174,17 @@ contract PaymentChannelTest is Fixtures {
 
     function test_closeCooperative_happyPath() public {
         bytes32 id = _openDefault();
-        Adjudicator.ChannelState memory s = _state(id, 5, 30_000_000, 50_000_000, true);
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigB = _signState(bobPk, s);
+        Adjudicator.CooperativeClose memory cc = _coopClose(id, 30_000_000, 50_000_000);
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
 
         uint256 balA0 = token.balanceOf(alice);
         uint256 balB0 = token.balanceOf(bob);
 
+        uint64 ts = uint64(block.timestamp);
         vm.expectEmit(true, false, false, true, address(channel));
-        emit IPaymentChannel.ChannelClosedCooperative(id, 5);
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
+        emit IPaymentChannel.ChannelClosedCooperative(id, ts);
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
         assertEq(token.balanceOf(alice), balA0 + 30_000_000);
         assertEq(token.balanceOf(bob), balB0 + 50_000_000);
@@ -192,55 +193,36 @@ contract PaymentChannelTest is Fixtures {
 
     function test_closeCooperative_revertsIfNotOpen() public {
         bytes32 id = bytes32(uint256(0xDEAD));
-        Adjudicator.ChannelState memory s = _state(id, 1, 0, 0, true);
+        Adjudicator.CooperativeClose memory cc = _coopClose(id, 0, 0);
         vm.expectRevert(bytes("!open"));
-        channel.closeCooperative(id, abi.encode(s), hex"", hex"");
+        channel.closeCooperative(id, abi.encode(cc), hex"", hex"");
     }
 
     function test_closeCooperative_revertsOnWrongChannelId() public {
         bytes32 id = _openDefault();
-        Adjudicator.ChannelState memory s = _state(bytes32(uint256(0xBAD)), 1, 50_000_000, 30_000_000, true);
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigB = _signState(bobPk, s);
+        Adjudicator.CooperativeClose memory cc = _coopClose(bytes32(uint256(0xBAD)), 50_000_000, 30_000_000);
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
         vm.expectRevert(bytes("channelId"));
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
-    }
-
-    function test_closeCooperative_revertsIfNotFinalized() public {
-        bytes32 id = _openDefault();
-        Adjudicator.ChannelState memory s = _state(id, 1, 50_000_000, 30_000_000, false);
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigB = _signState(bobPk, s);
-        vm.expectRevert(bytes("!finalized"));
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
-    }
-
-    function test_closeCooperative_revertsOnNonEmptyHtlcRoot() public {
-        bytes32 id = _openDefault();
-        Adjudicator.ChannelState memory s = _state(id, 1, 50_000_000, 30_000_000, true);
-        s.htlcsRoot = bytes32(uint256(0xAA));
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigB = _signState(bobPk, s);
-        vm.expectRevert(bytes("htlcs!=0"));
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
     }
 
     function test_closeCooperative_revertsIfBalancesNotConserved() public {
         bytes32 id = _openDefault();
-        Adjudicator.ChannelState memory s = _state(id, 1, 1_000_000_000, 1, true);
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigB = _signState(bobPk, s);
+        Adjudicator.CooperativeClose memory cc = _coopClose(id, 1_000_000_000, 1);
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
         vm.expectRevert(bytes("!conserved"));
-        channel.closeCooperative(id, abi.encode(s), sigA, sigB);
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
     }
 
     function test_closeCooperative_revertsOnBadSig() public {
         bytes32 id = _openDefault();
-        Adjudicator.ChannelState memory s = _state(id, 1, 50_000_000, 30_000_000, true);
-        bytes memory sigA = _signState(alicePk, s);
-        bytes memory sigCarol = _signState(carolPk, s);
+        Adjudicator.CooperativeClose memory cc = _coopClose(id, 50_000_000, 30_000_000);
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigCarol = _signCoopClose(carolPk, cc);
         vm.expectRevert(bytes("bad sig"));
-        channel.closeCooperative(id, abi.encode(s), sigA, sigCarol);
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigCarol);
     }
 
     /* ====================================================================== */
@@ -316,9 +298,9 @@ contract PaymentChannelTest is Fixtures {
     function test_closeUnilateral_revertsIfNotOpen() public {
         bytes32 id = _openDefault();
         // Cooperatively close it first
-        Adjudicator.ChannelState memory finalState = _state(id, 1, 50_000_000, 30_000_000, true);
+        Adjudicator.CooperativeClose memory cc = _coopClose(id, 50_000_000, 30_000_000);
         channel.closeCooperative(
-            id, abi.encode(finalState), _signState(alicePk, finalState), _signState(bobPk, finalState)
+            id, abi.encode(cc), _signCoopClose(alicePk, cc), _signCoopClose(bobPk, cc)
         );
 
         Adjudicator.ChannelState memory s = _state(id, 2, 50_000_000, 30_000_000, false);
@@ -341,42 +323,53 @@ contract PaymentChannelTest is Fixtures {
 
         Adjudicator.ChannelState memory fresher = _state(id, 5, 10_000_000, 70_000_000, false);
         bytes memory sigA = _signState(alicePk, fresher);
+        bytes memory sigB = _signState(bobPk, fresher);
 
         uint64 deadlineBefore = channel.channels(id).disputeDeadline;
+        skip(1 hours); // advance time so the restart is observable
         vm.expectEmit(true, false, false, true, address(channel));
         emit IPaymentChannel.DisputeRaised(id, 5);
         vm.prank(bob);
-        channel.dispute(id, abi.encode(fresher), sigA);
+        channel.dispute(id, abi.encode(fresher), sigA, sigB);
 
         PaymentChannel.Channel memory ch = channel.channels(id);
         assertEq(ch.postedVersion, 5);
         assertEq(ch.postedBalanceA, 10_000_000);
         assertEq(ch.postedBalanceB, 70_000_000);
-        assertEq(ch.disputeDeadline, deadlineBefore, "deadline must not extend");
+        assertGt(ch.disputeDeadline, deadlineBefore, "deadline must restart");
     }
 
-    function test_dispute_rejectsNonCloserSelfSignedState() public {
-        // Regression for the "non-closer can drain the pot via self-signed dispute" bug.
+    function test_dispute_rejectsSinglePartySignature() public {
+        // Proof that single-party forged disputes are rejected. Either party can fabricate
+        // a self-signed state — dual signatures are required to prove mutual agreement.
         bytes32 id = _openDefault();
         Adjudicator.ChannelState memory honest = _state(id, 1, 50_000_000, 30_000_000, false);
         vm.prank(alice);
         channel.closeUnilateral(id, abi.encode(honest), _signState(bobPk, honest));
 
-        // Non-closer (bob) fabricates a strictly-newer state in his own favour and signs only
-        // with his own key — the closer (alice) never agreed to this state. Must revert.
         Adjudicator.ChannelState memory forged = _state(id, 99, 0, FUND_A + FUND_B, false);
+
+        // Non-closer (bob) self-signs a draining state — rejected.
         bytes memory sigBobOnly = _signState(bobPk, forged);
+        bytes memory sigAEmpty = hex"";
         vm.prank(bob);
         vm.expectRevert(bytes("bad sig"));
-        channel.dispute(id, abi.encode(forged), sigBobOnly);
+        channel.dispute(id, abi.encode(forged), sigAEmpty, sigBobOnly);
+
+        // Closer (alice) self-signs a draining state — also rejected.
+        bytes memory sigAliceOnly = _signState(alicePk, forged);
+        vm.prank(alice);
+        vm.expectRevert(bytes("bad sig"));
+        channel.dispute(id, abi.encode(forged), sigAliceOnly, sigAEmpty);
     }
 
     function test_dispute_revertsIfNotClosing() public {
         bytes32 id = _openDefault();
         Adjudicator.ChannelState memory s = _state(id, 5, 50_000_000, 30_000_000, false);
+        bytes memory sigA = _signState(alicePk, s);
         bytes memory sigB = _signState(bobPk, s);
         vm.expectRevert(bytes("!closing"));
-        channel.dispute(id, abi.encode(s), sigB);
+        channel.dispute(id, abi.encode(s), sigA, sigB);
     }
 
     function test_dispute_revertsOnStaleVersion() public {
@@ -386,14 +379,16 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(posted), _signState(bobPk, posted));
 
         Adjudicator.ChannelState memory equal_ = _state(id, 5, 1, 79_999_999, false);
+        bytes memory sigA = _signState(alicePk, equal_);
         bytes memory sigB = _signState(bobPk, equal_);
         vm.expectRevert(bytes("stale"));
-        channel.dispute(id, abi.encode(equal_), sigB);
+        channel.dispute(id, abi.encode(equal_), sigA, sigB);
 
         Adjudicator.ChannelState memory older = _state(id, 4, 1, 79_999_999, false);
+        bytes memory sigA2 = _signState(alicePk, older);
         bytes memory sigB2 = _signState(bobPk, older);
         vm.expectRevert(bytes("stale"));
-        channel.dispute(id, abi.encode(older), sigB2);
+        channel.dispute(id, abi.encode(older), sigA2, sigB2);
     }
 
     function test_dispute_revertsOnWrongChannelId() public {
@@ -403,9 +398,10 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(posted), _signState(bobPk, posted));
 
         Adjudicator.ChannelState memory s = _state(bytes32(uint256(0xBAD)), 6, 1, 79_999_999, false);
+        bytes memory sigA = _signState(alicePk, s);
         bytes memory sigB = _signState(bobPk, s);
         vm.expectRevert(bytes("channelId"));
-        channel.dispute(id, abi.encode(s), sigB);
+        channel.dispute(id, abi.encode(s), sigA, sigB);
     }
 
     function test_dispute_revertsOnNonEmptyHtlcRoot() public {
@@ -416,9 +412,10 @@ contract PaymentChannelTest is Fixtures {
 
         Adjudicator.ChannelState memory s = _state(id, 2, 50_000_000, 30_000_000, false);
         s.htlcsRoot = bytes32(uint256(0xAA));
+        bytes memory sigA = _signState(alicePk, s);
         bytes memory sigB = _signState(bobPk, s);
         vm.expectRevert(bytes("htlcs!=0"));
-        channel.dispute(id, abi.encode(s), sigB);
+        channel.dispute(id, abi.encode(s), sigA, sigB);
     }
 
     function test_dispute_revertsOnBadSig() public {
@@ -428,9 +425,11 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(posted), _signState(bobPk, posted));
 
         Adjudicator.ChannelState memory s = _state(id, 2, 1, 79_999_999, false);
+        // One valid sig + one forged (carol) should revert
+        bytes memory sigA = _signState(alicePk, s);
         bytes memory sigCarol = _signState(carolPk, s);
         vm.expectRevert(bytes("bad sig"));
-        channel.dispute(id, abi.encode(s), sigCarol);
+        channel.dispute(id, abi.encode(s), sigA, sigCarol);
     }
 
     function test_dispute_revertsIfNotConserved() public {
@@ -440,9 +439,25 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(posted), _signState(bobPk, posted));
 
         Adjudicator.ChannelState memory s = _state(id, 2, 1, 1, false);
+        bytes memory sigA = _signState(alicePk, s);
         bytes memory sigB = _signState(bobPk, s);
         vm.expectRevert(bytes("!conserved"));
-        channel.dispute(id, abi.encode(s), sigB);
+        channel.dispute(id, abi.encode(s), sigA, sigB);
+    }
+
+    function test_dispute_revertsAfterDeadline() public {
+        bytes32 id = _openDefault();
+        Adjudicator.ChannelState memory posted = _state(id, 1, 50_000_000, 30_000_000, false);
+        vm.prank(alice);
+        channel.closeUnilateral(id, abi.encode(posted), _signState(bobPk, posted));
+
+        skip(channel.DISPUTE_WINDOW() + 1);
+
+        Adjudicator.ChannelState memory s = _state(id, 2, 40_000_000, 40_000_000, false);
+        bytes memory sigA = _signState(alicePk, s);
+        bytes memory sigB = _signState(bobPk, s);
+        vm.expectRevert(bytes("deadline"));
+        channel.dispute(id, abi.encode(s), sigA, sigB);
     }
 
     /* ====================================================================== */
@@ -457,14 +472,16 @@ contract PaymentChannelTest is Fixtures {
         vm.prank(alice);
         channel.closeUnilateral(id, abi.encode(cheatState), _signState(bobPk, cheatState));
 
-        // Watchtower (carol) submits Alice's signature on a strictly newer state
+        // Watchtower (carol) submits BOTH parties' signatures on a strictly newer state,
+        // proving the closer knowingly posted a stale version.
         Adjudicator.ChannelState memory newer = _state(id, 5, 10_000_000, 70_000_000, false);
         bytes memory sigAlice = _signState(alicePk, newer);
+        bytes memory sigBob = _signState(bobPk, newer);
 
         vm.expectEmit(true, true, true, true, address(channel));
         emit PaymentChannel.PenaltyApplied(id, alice, bob);
         vm.prank(carol);
-        channel.submitPenaltyProof(id, abi.encode(newer), sigAlice);
+        channel.submitPenaltyProof(id, abi.encode(newer), sigAlice, sigBob);
 
         PaymentChannel.Channel memory ch = channel.channels(id);
         assertTrue(ch.penalized);
@@ -474,9 +491,10 @@ contract PaymentChannelTest is Fixtures {
     function test_submitPenaltyProof_revertsIfNotClosing() public {
         bytes32 id = _openDefault();
         Adjudicator.ChannelState memory s = _state(id, 5, 50_000_000, 30_000_000, false);
-        bytes memory sig = _signState(alicePk, s);
+        bytes memory sigA = _signState(alicePk, s);
+        bytes memory sigB = _signState(bobPk, s);
         vm.expectRevert(bytes("!closing"));
-        channel.submitPenaltyProof(id, abi.encode(s), sig);
+        channel.submitPenaltyProof(id, abi.encode(s), sigA, sigB);
     }
 
     function test_submitPenaltyProof_revertsOnStaleVersion() public {
@@ -486,21 +504,30 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(cheatState), _signState(bobPk, cheatState));
 
         Adjudicator.ChannelState memory equal_ = _state(id, 3, 70_000_000, 10_000_000, false);
-        bytes memory sigAlice = _signState(alicePk, equal_);
+        bytes memory sigA = _signState(alicePk, equal_);
+        bytes memory sigB = _signState(bobPk, equal_);
         vm.expectRevert(bytes("stale"));
-        channel.submitPenaltyProof(id, abi.encode(equal_), sigAlice);
+        channel.submitPenaltyProof(id, abi.encode(equal_), sigA, sigB);
     }
 
-    function test_submitPenaltyProof_revertsIfSignedByNonCloser() public {
+    function test_submitPenaltyProof_revertsOnSinglePartySig() public {
+        // A single-party signature does not prove mutual agreement; dual sigs are required.
         bytes32 id = _openDefault();
         Adjudicator.ChannelState memory cheatState = _state(id, 1, 70_000_000, 10_000_000, false);
         vm.prank(alice);
         channel.closeUnilateral(id, abi.encode(cheatState), _signState(bobPk, cheatState));
 
         Adjudicator.ChannelState memory newer = _state(id, 5, 10_000_000, 70_000_000, false);
+
+        // Only non-closer (bob) signs — rejected.
         bytes memory sigBob = _signState(bobPk, newer);
-        vm.expectRevert(bytes("!closer sig"));
-        channel.submitPenaltyProof(id, abi.encode(newer), sigBob);
+        vm.expectRevert(bytes("bad sig"));
+        channel.submitPenaltyProof(id, abi.encode(newer), hex"", sigBob);
+
+        // Only closer (alice) signs — also rejected.
+        bytes memory sigAlice = _signState(alicePk, newer);
+        vm.expectRevert(bytes("bad sig"));
+        channel.submitPenaltyProof(id, abi.encode(newer), sigAlice, hex"");
     }
 
     function test_submitPenaltyProof_revertsOnNonEmptyHtlcRoot() public {
@@ -511,9 +538,10 @@ contract PaymentChannelTest is Fixtures {
 
         Adjudicator.ChannelState memory newer = _state(id, 5, 10_000_000, 70_000_000, false);
         newer.htlcsRoot = bytes32(uint256(0xAA));
-        bytes memory sigAlice = _signState(alicePk, newer);
+        bytes memory sigA = _signState(alicePk, newer);
+        bytes memory sigB = _signState(bobPk, newer);
         vm.expectRevert(bytes("htlcs!=0"));
-        channel.submitPenaltyProof(id, abi.encode(newer), sigAlice);
+        channel.submitPenaltyProof(id, abi.encode(newer), sigA, sigB);
     }
 
     function test_submitPenaltyProof_revertsOnWrongChannelId() public {
@@ -523,9 +551,10 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(cheatState), _signState(bobPk, cheatState));
 
         Adjudicator.ChannelState memory wrong = _state(bytes32(uint256(0xBAD)), 5, 1, 79_999_999, false);
-        bytes memory sigAlice = _signState(alicePk, wrong);
+        bytes memory sigA = _signState(alicePk, wrong);
+        bytes memory sigB = _signState(bobPk, wrong);
         vm.expectRevert(bytes("channelId"));
-        channel.submitPenaltyProof(id, abi.encode(wrong), sigAlice);
+        channel.submitPenaltyProof(id, abi.encode(wrong), sigA, sigB);
     }
 
     function test_submitPenaltyProof_revertsIfNotConserved() public {
@@ -535,9 +564,25 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(cheatState), _signState(bobPk, cheatState));
 
         Adjudicator.ChannelState memory newer = _state(id, 5, 1, 1, false);
-        bytes memory sigAlice = _signState(alicePk, newer);
+        bytes memory sigA = _signState(alicePk, newer);
+        bytes memory sigB = _signState(bobPk, newer);
         vm.expectRevert(bytes("!conserved"));
-        channel.submitPenaltyProof(id, abi.encode(newer), sigAlice);
+        channel.submitPenaltyProof(id, abi.encode(newer), sigA, sigB);
+    }
+
+    function test_submitPenaltyProof_revertsAfterDeadline() public {
+        bytes32 id = _openDefault();
+        Adjudicator.ChannelState memory cheatState = _state(id, 1, 70_000_000, 10_000_000, false);
+        vm.prank(alice);
+        channel.closeUnilateral(id, abi.encode(cheatState), _signState(bobPk, cheatState));
+
+        skip(channel.DISPUTE_WINDOW() + 1);
+
+        Adjudicator.ChannelState memory newer = _state(id, 5, 10_000_000, 70_000_000, false);
+        bytes memory sigA = _signState(alicePk, newer);
+        bytes memory sigB = _signState(bobPk, newer);
+        vm.expectRevert(bytes("deadline"));
+        channel.submitPenaltyProof(id, abi.encode(newer), sigA, sigB);
     }
 
     /* ====================================================================== */
@@ -588,10 +633,10 @@ contract PaymentChannelTest is Fixtures {
         vm.prank(alice);
         channel.closeUnilateral(id, abi.encode(cheat), _signState(bobPk, cheat));
 
-        // Watchtower proves cheat
+        // Watchtower proves cheat with dual-signed newer state
         Adjudicator.ChannelState memory newer = _state(id, 5, 1, 79_999_999, false);
         vm.prank(carol);
-        channel.submitPenaltyProof(id, abi.encode(newer), _signState(alicePk, newer));
+        channel.submitPenaltyProof(id, abi.encode(newer), _signState(alicePk, newer), _signState(bobPk, newer));
 
         skip(channel.DISPUTE_WINDOW() + 1);
 
@@ -612,7 +657,7 @@ contract PaymentChannelTest is Fixtures {
 
         Adjudicator.ChannelState memory newer = _state(id, 5, 79_999_999, 1, false);
         vm.prank(carol);
-        channel.submitPenaltyProof(id, abi.encode(newer), _signState(bobPk, newer));
+        channel.submitPenaltyProof(id, abi.encode(newer), _signState(alicePk, newer), _signState(bobPk, newer));
 
         skip(channel.DISPUTE_WINDOW() + 1);
 
@@ -652,13 +697,13 @@ contract PaymentChannelTest is Fixtures {
         PaymentChannel newImpl = new PaymentChannel();
         vm.prank(alice);
         vm.expectRevert();
-        channel.upgradeToAndCall(address(newImpl), "");
+        channel.upgradeTo(address(newImpl));
     }
 
     function test_upgrade_ownerSucceeds() public {
         PaymentChannel newImpl = new PaymentChannel();
         vm.prank(owner);
-        channel.upgradeToAndCall(address(newImpl), "");
+        channel.upgradeTo(address(newImpl));
         // post-upgrade: state preserved, owner unchanged
         assertEq(channel.owner(), owner);
         assertTrue(channel.allowedTokens(address(token)));
@@ -685,6 +730,19 @@ contract PaymentChannelTest is Fixtures {
             balanceB: balanceB,
             htlcsRoot: bytes32(0),
             finalized: finalized
+        });
+    }
+
+    function _coopClose(bytes32 channelId, uint256 balanceA, uint256 balanceB)
+        internal
+        view
+        returns (Adjudicator.CooperativeClose memory)
+    {
+        return Adjudicator.CooperativeClose({
+            channelId: channelId,
+            finalBalanceA: balanceA,
+            finalBalanceB: balanceB,
+            signedAt: uint64(block.timestamp)
         });
     }
 }

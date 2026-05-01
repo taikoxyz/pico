@@ -84,7 +84,8 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
     ///         match the off-chain signer.
     /// @param initialOwner Address that may authorize UUPS upgrades.
     function initialize(address initialOwner) external initializer {
-        __Ownable_init(initialOwner);
+        __Ownable_init();
+        _transferOwnership(initialOwner);
         __UUPSUpgradeable_init();
         __EIP712_init("tainnel", "1");
     }

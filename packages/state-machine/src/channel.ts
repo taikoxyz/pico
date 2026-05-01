@@ -19,6 +19,12 @@ export function validateUpdate(prev: ChannelState, update: Update): void {
   if (update.channelId !== prev.channelId) {
     throw new StateMachineError('channel id mismatch', 'CHANNEL_ID_MISMATCH');
   }
+  if (update.nextState.channelId !== update.channelId) {
+    throw new StateMachineError(
+      'nested nextState.channelId does not match wrapper channelId',
+      'CHANNEL_ID_MISMATCH',
+    );
+  }
   if (update.fromVersion !== prev.version) {
     throw new StateMachineError('fromVersion does not match prev', 'FROM_VERSION_MISMATCH');
   }

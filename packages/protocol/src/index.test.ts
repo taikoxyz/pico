@@ -4,7 +4,6 @@ import {
   NOSTR_KIND_RANGE,
   PROTOCOL_VERSION,
   SUPPORTED_CHAIN_IDS,
-  TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
   isNostrTainnelKind,
 } from './index.js';
@@ -14,9 +13,9 @@ describe('@tainnel/protocol', () => {
     expect(PROTOCOL_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  it('lists Taiko mainnet + Hoodi as supported chains', () => {
+  it('lists Taiko mainnet as a supported chain (Hoodi excluded until deployed)', () => {
     expect(SUPPORTED_CHAIN_IDS).toContain(TAIKO_MAINNET_CHAIN_ID);
-    expect(SUPPORTED_CHAIN_IDS).toContain(TAIKO_HOODI_CHAIN_ID);
+    expect(SUPPORTED_CHAIN_IDS).toHaveLength(1);
   });
 
   it('keeps every Nostr event kind inside the reserved range', () => {

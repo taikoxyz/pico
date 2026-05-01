@@ -38,18 +38,18 @@ interface IPaymentChannel {
         payable
         returns (bytes32 channelId);
 
-    /// @notice Close a channel by submitting a fully-signed final state from both parties.
-    function closeCooperative(bytes32 channelId, bytes calldata finalState, bytes calldata sigA, bytes calldata sigB)
+    /// @notice Close a channel by submitting a dual-signed `CooperativeClose` from both
+    ///         parties. The `closeData` ABI-encodes `(Adjudicator.CooperativeClose)`.
+    function closeCooperative(bytes32 channelId, bytes calldata closeData, bytes calldata sigA, bytes calldata sigB)
         external;
 
     /// @notice Begin a unilateral close with the most recent state the caller has.
     function closeUnilateral(bytes32 channelId, bytes calldata state, bytes calldata sigCounterparty) external;
 
-    /// @notice Challenge an in-progress unilateral close with a strictly newer signed state.
-    /// @dev `sigCloser` MUST be the closer's signature on `state`. Verifying any other
-    ///      party's signature would let a malicious counterparty forge a state and steal
-    ///      the channel pot.
-    function dispute(bytes32 channelId, bytes calldata state, bytes calldata sigCloser) external;
+    /// @notice Challenge an in-progress unilateral close with a strictly newer dual-signed
+    ///         state. Both parties MUST have signed `state` — a single-party signature
+    ///         would allow self-forged states. The dispute window restarts on success.
+    function dispute(bytes32 channelId, bytes calldata state, bytes calldata sigA, bytes calldata sigB) external;
 
     /// @notice After the dispute window, withdraw funds according to the latest accepted state.
     function finalize(bytes32 channelId) external;

@@ -275,13 +275,13 @@ contract AdjudicatorTest is Fixtures {
         Adjudicator newImpl = new Adjudicator();
         vm.prank(alice);
         vm.expectRevert();
-        adjudicator.upgradeToAndCall(address(newImpl), "");
+        adjudicator.upgradeTo(address(newImpl));
     }
 
     function test_upgrade_ownerSucceeds() public {
         Adjudicator newImpl = new Adjudicator();
         vm.prank(owner);
-        adjudicator.upgradeToAndCall(address(newImpl), "");
+        adjudicator.upgradeTo(address(newImpl));
         // post-upgrade state: contract still functional, owner unchanged
         assertEq(adjudicator.owner(), owner);
     }
