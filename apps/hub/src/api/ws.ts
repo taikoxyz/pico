@@ -323,12 +323,20 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       sendError(socket, msg.id, 'UNKNOWN_CHANNEL', `unknown channel ${msg.channelId}`);
       return;
     }
-    if (msg.signedState.state.htlcs.length > 0) {
+    const latest = deps.channelPool.latest(msg.channelId);
+    if (!latest) {
+      sendError(socket, msg.id, 'NO_STATE', `no signed state for channel ${msg.channelId}`);
+      return;
+    }
+    if (latest.state.htlcs.length > 0 || msg.signedState.state.htlcs.length > 0) {
       sendError(socket, msg.id, 'PENDING_HTLCS', 'cooperative close requires no in-flight HTLCs');
       return;
     }
     if (
       msg.signedState.state.channelId !== msg.channelId ||
+      msg.signedState.state.version !== latest.state.version + 1n ||
+      msg.signedState.state.balanceA !== latest.state.balanceA ||
+      msg.signedState.state.balanceB !== latest.state.balanceB ||
       msg.signedCooperativeClose.close.channelId !== msg.channelId ||
       msg.signedCooperativeClose.close.finalBalanceA !== msg.signedState.state.balanceA ||
       msg.signedCooperativeClose.close.finalBalanceB !== msg.signedState.state.balanceB ||

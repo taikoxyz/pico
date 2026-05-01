@@ -4,13 +4,20 @@ import { join } from 'node:path';
 import type {
   Channel,
   ChannelState,
+  CooperativeClose,
   Hex,
   PaymentHash,
   Signature,
   SignedState,
 } from '@tainnel/protocol';
-import { encodeHubMessage, hexToSignature, randomHtlcId, signatureToHex } from '@tainnel/sdk';
-import { buildChannelStateTypedData } from '@tainnel/state-machine';
+import {
+  decodeHubMessage,
+  encodeHubMessage,
+  hexToSignature,
+  randomHtlcId,
+  signatureToHex,
+} from '@tainnel/sdk';
+import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@tainnel/state-machine';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
@@ -49,6 +56,14 @@ async function aliceSign(state: ChannelState): Promise<Signature> {
   const account = privateKeyToAccount(ALICE_PK);
   const sig = await account.signTypedData(
     buildChannelStateTypedData(state, 31337, VERIFYING_CONTRACT),
+  );
+  return hexToSignature(sig);
+}
+
+async function aliceSignClose(close: CooperativeClose): Promise<Signature> {
+  const account = privateKeyToAccount(ALICE_PK);
+  const sig = await account.signTypedData(
+    buildCooperativeCloseTypedData(close, 31337, VERIFYING_CONTRACT),
   );
   return hexToSignature(sig);
 }
@@ -199,6 +214,54 @@ describe('buildServer integration', () => {
 
     const sigHex = signatureToHex(stored?.sigB ?? ZERO_SIG);
     expect(sigHex).not.toBe(signatureToHex(ZERO_SIG));
+  });
+
+  it('WebSocket closeRequest rejects a final balance split that differs from latest state', async () => {
+    const alice = privateKeyToAccount(ALICE_PK);
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('cd'), alice.address, hub);
+    const initial = await buildAliceState(ch, 100n, 0n);
+    await built.api.ws.registerChannel(ch, initial);
+
+    const forgedFinal: ChannelState = {
+      ...initial.state,
+      version: initial.state.version + 1n,
+      balanceA: 0n,
+      balanceB: 100n,
+      finalized: true,
+    };
+    const forgedClose: CooperativeClose = {
+      channelId: ch.id,
+      finalBalanceA: forgedFinal.balanceA,
+      finalBalanceB: forgedFinal.balanceB,
+      signedAt: 1n,
+    };
+    const aliceStateSig = await aliceSign(forgedFinal);
+    const aliceCloseSig = await aliceSignClose(forgedClose);
+
+    const ws = new WebSocket(wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+
+    const reply = new Promise<string>((resolve) => {
+      ws.on('message', (raw: Buffer) => resolve(raw.toString('utf8')));
+    });
+    ws.send(
+      encodeHubMessage({
+        id: 'close-forged',
+        kind: 'closeRequest',
+        channelId: ch.id,
+        signedState: { state: forgedFinal, sigA: aliceStateSig, sigB: ZERO_SIG },
+        signedCooperativeClose: { close: forgedClose, sigA: aliceCloseSig, sigB: ZERO_SIG },
+      }),
+    );
+    const response = decodeHubMessage(await reply);
+    ws.close();
+
+    expect(response.kind).toBe('error');
+    if (response.kind === 'error') expect(response.code).toBe('INVALID_CLOSE');
   });
 
   it('WebSocket pay against unknown channel sends an error', async () => {

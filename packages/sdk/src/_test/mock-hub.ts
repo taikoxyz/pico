@@ -43,7 +43,7 @@ export interface MockHubHandle {
   readonly url: string;
   readonly hubAddress: Address;
   pendingHtlcs(): readonly PendingHtlc[];
-  registerChannel(channel: Channel): void;
+  registerChannel(channel: Channel, initialState?: SignedState): void;
   stop(): Promise<void>;
 }
 
@@ -64,6 +64,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
 
   const channels = new Map<ChannelId, Channel>();
   for (const ch of opts.channels ?? []) channels.set(ch.id, ch);
+  const latestStates = new Map<ChannelId, SignedState>();
 
   const sessions = new Map<Address, SubscriberSession>();
   const pendingHtlcs = new Map<HtlcId, PendingHtlc>();
@@ -129,6 +130,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         signedStateBeforeHtlc: msg.signedState,
         ...(msg.keysendPayload !== undefined ? { keysendPayload: msg.keysendPayload } : {}),
       });
+      latestStates.set(msg.channelId, msg.signedState);
       const recipientSession = sessions.get(msg.recipient.toLowerCase() as Address);
       if (!recipientSession) {
         pendingHtlcs.delete(msg.htlc.id);
@@ -156,6 +158,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
       const pending = pendingHtlcs.get(msg.htlcId);
       pendingHtlcs.delete(msg.htlcId);
       if (!pending) return;
+      latestStates.set(msg.channelId, msg.signedState);
       const senderSession = sessions.get(pending.senderAddress.toLowerCase() as Address);
       if (!senderSession) return;
       send(senderSession.socket, {
@@ -173,6 +176,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
       const pending = pendingHtlcs.get(msg.htlcId);
       pendingHtlcs.delete(msg.htlcId);
       if (!pending) return;
+      if (msg.signedState) latestStates.set(msg.channelId, msg.signedState);
       const senderSession = sessions.get(pending.senderAddress.toLowerCase() as Address);
       if (!senderSession) return;
       send(senderSession.socket, {
@@ -210,6 +214,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
           sigB: hubIsA ? msg.signedState.sigB : hubSig,
         };
       }
+      latestStates.set(msg.channelId, acked);
       send(socket, {
         id: msg.id,
         kind: 'payDirectAck',
@@ -231,7 +236,18 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         });
         return;
       }
-      if (msg.signedState.state.htlcs.length > 0) {
+      const latest = latestStates.get(msg.channelId);
+      if (!latest) {
+        send(socket, {
+          id: msg.id,
+          kind: 'error',
+          code: 'NO_STATE',
+          message: `no signed state for channel ${msg.channelId}`,
+          requestId: msg.id,
+        });
+        return;
+      }
+      if (latest.state.htlcs.length > 0 || msg.signedState.state.htlcs.length > 0) {
         send(socket, {
           id: msg.id,
           kind: 'error',
@@ -243,6 +259,9 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
       }
       if (
         msg.signedState.state.channelId !== msg.channelId ||
+        msg.signedState.state.version !== latest.state.version + 1n ||
+        msg.signedState.state.balanceA !== latest.state.balanceA ||
+        msg.signedState.state.balanceB !== latest.state.balanceB ||
         msg.signedCooperativeClose.close.channelId !== msg.channelId ||
         msg.signedCooperativeClose.close.finalBalanceA !== msg.signedState.state.balanceA ||
         msg.signedCooperativeClose.close.finalBalanceB !== msg.signedState.state.balanceB ||
@@ -327,8 +346,9 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
     pendingHtlcs(): readonly PendingHtlc[] {
       return Array.from(pendingHtlcs.values());
     },
-    registerChannel(ch: Channel): void {
+    registerChannel(ch: Channel, initialState?: SignedState): void {
       channels.set(ch.id, ch);
+      if (initialState) latestStates.set(ch.id, initialState);
     },
     stop(): Promise<void> {
       return new Promise<void>((resolve) => {
