@@ -70,6 +70,8 @@ export const paymentChannelAbi = [
     name: 'ChannelClosedCooperative',
     inputs: [
       { name: 'channelId', type: 'bytes32', indexed: true },
+      { name: 'finalBalanceA', type: 'uint256', indexed: false },
+      { name: 'finalBalanceB', type: 'uint256', indexed: false },
       { name: 'signedAt', type: 'uint64', indexed: false },
     ],
   },
