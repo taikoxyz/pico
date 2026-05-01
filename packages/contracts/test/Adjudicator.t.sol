@@ -126,10 +126,7 @@ contract AdjudicatorTest is Fixtures {
 
     function test_recoverCooperativeCloseSigner_happyPath() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)),
-            finalBalanceA: 100,
-            finalBalanceB: 200,
-            signedAt: 1234
+            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
         });
         bytes memory sig = _signCoopClose(alicePk, cc);
         assertEq(adjudicator.recoverCooperativeCloseSigner(cc, sig), alice);
@@ -137,10 +134,7 @@ contract AdjudicatorTest is Fixtures {
 
     function test_verifyDualCooperativeClose_happyPath() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)),
-            finalBalanceA: 100,
-            finalBalanceB: 200,
-            signedAt: 1234
+            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
@@ -149,10 +143,7 @@ contract AdjudicatorTest is Fixtures {
 
     function test_verifyDualCooperativeClose_falseOnZeroAddress() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)),
-            finalBalanceA: 100,
-            finalBalanceB: 200,
-            signedAt: 1234
+            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
@@ -166,11 +157,7 @@ contract AdjudicatorTest is Fixtures {
 
     function test_recoverHtlcSigner_happyPath() public view {
         Adjudicator.Htlc memory htlc = Adjudicator.Htlc({
-            id: bytes32(uint256(0x01)),
-            amount: 500,
-            paymentHash: bytes32(uint256(0xAA)),
-            expiry: 100,
-            direction: 0
+            id: bytes32(uint256(0x01)), amount: 500, paymentHash: bytes32(uint256(0xAA)), expiry: 100, direction: 0
         });
         bytes memory sig = _signHtlc(alicePk, htlc);
         assertEq(adjudicator.recoverHtlcSigner(htlc, sig), alice);
@@ -204,11 +191,7 @@ contract AdjudicatorTest is Fixtures {
 
     function test_hashHtlc_matchesManualEncode() public view {
         Adjudicator.Htlc memory htlc = Adjudicator.Htlc({
-            id: bytes32(uint256(0x01)),
-            amount: 500,
-            paymentHash: bytes32(uint256(0xAA)),
-            expiry: 100,
-            direction: 0
+            id: bytes32(uint256(0x01)), amount: 500, paymentHash: bytes32(uint256(0xAA)), expiry: 100, direction: 0
         });
         bytes32 expected = keccak256(
             abi.encode(
@@ -264,10 +247,7 @@ contract AdjudicatorTest is Fixtures {
 
     function test_hashCooperativeClose_matchesManualEncode() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)),
-            finalBalanceA: 100,
-            finalBalanceB: 200,
-            signedAt: 1234
+            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
         });
         bytes32 expected = keccak256(
             abi.encode(

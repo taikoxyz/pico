@@ -737,10 +737,7 @@ contract PaymentChannelTest is Fixtures {
         returns (Adjudicator.CooperativeClose memory)
     {
         return Adjudicator.CooperativeClose({
-            channelId: channelId,
-            finalBalanceA: balanceA,
-            finalBalanceB: balanceB,
-            signedAt: uint64(block.timestamp)
+            channelId: channelId, finalBalanceA: balanceA, finalBalanceB: balanceB, signedAt: uint64(block.timestamp)
         });
     }
 }
