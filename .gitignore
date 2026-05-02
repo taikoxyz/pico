@@ -16,6 +16,8 @@ packages/contracts/lib/
 .env
 .env.*
 !.env.example
+.secrets/
+gha-creds-*.json
 
 *.log
 npm-debug.log*

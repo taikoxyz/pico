@@ -63,40 +63,32 @@ gcloud artifacts repositories create tainnel \
 gcloud auth configure-docker us-central1-docker.pkg.dev
 ```
 
-### Build + push images
+### Release images
 
-From the repo root:
+Hub and watchtower production images are built by the `gke-images` GitHub
+Actions workflow whenever a `v*` tag is pushed. The workflow builds both
+Dockerfiles with `INCLUDE_LITESTREAM=1`, pushes versioned images to Artifact
+Registry, and uploads a `gke-manifests-${tag}` artifact containing rendered
+Kubernetes manifests with exact image references.
 
-```bash
-HUB_IMG=us-central1-docker.pkg.dev/YOUR_PROJECT/tainnel/hub:v0.1.0
-WT_IMG=us-central1-docker.pkg.dev/YOUR_PROJECT/tainnel/watchtower:v0.1.0
+Configure these GitHub repository variables before pushing a release tag:
 
-docker build \
-  --build-arg INCLUDE_LITESTREAM=1 \
-  -f apps/hub/Dockerfile \
-  -t "$HUB_IMG" .
-docker push "$HUB_IMG"
-
-docker build \
-  --build-arg INCLUDE_LITESTREAM=1 \
-  -f apps/watchtower/Dockerfile \
-  -t "$WT_IMG" .
-docker push "$WT_IMG"
+```text
+GCP_PROJECT_ID=<your-project-id>
+GAR_LOCATION=us-central1
+GAR_REPOSITORY=tainnel
+GCP_WORKLOAD_IDENTITY_PROVIDER=projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+GCP_SERVICE_ACCOUNT=<service-account>@<project-id>.iam.gserviceaccount.com
 ```
 
-Then substitute the placeholders in `01-hub.yaml` and `02-watchtower.yaml`:
+The service account must be impersonable by the GitHub Workload Identity
+provider and must have permission to upload Docker images to the Artifact
+Registry repository, for example `roles/artifactregistry.writer` on the
+repository.
 
-```bash
-sed -i.bak \
-  "s|REGION-docker.pkg.dev/PROJECT/tainnel/hub:VERSION|$HUB_IMG|g" \
-  infra/k8s/01-hub.yaml
-sed -i.bak \
-  "s|REGION-docker.pkg.dev/PROJECT/tainnel/watchtower:VERSION|$WT_IMG|g" \
-  infra/k8s/02-watchtower.yaml
-```
-
-(The `.bak` files are gitignored as a safety net; remove them after
-review.)
+The source manifests keep placeholder image references. For deployment, use the
+rendered manifests from the release artifact so `01-hub.yaml` and
+`02-watchtower.yaml` point at immutable `v*-<short_sha>` image tags.
 
 ## Deploy
 
@@ -149,12 +141,15 @@ infra/k8s/secrets-bootstrap.sh --bootstrap-monitoring --env-file .secrets/monito
 
 ### 3. Workloads
 
+Download and unpack the `gke-manifests-${tag}` artifact from the release
+workflow, then apply those rendered manifests:
+
 ```bash
-kubectl apply -f infra/k8s/01-hub.yaml
-kubectl apply -f infra/k8s/02-watchtower.yaml
-kubectl apply -f infra/k8s/03-prometheus.yaml
-kubectl apply -f infra/k8s/04-alertmanager.yaml
-kubectl apply -f infra/k8s/05-grafana.yaml
+kubectl apply -f gke-manifests/01-hub.yaml
+kubectl apply -f gke-manifests/02-watchtower.yaml
+kubectl apply -f gke-manifests/03-prometheus.yaml
+kubectl apply -f gke-manifests/04-alertmanager.yaml
+kubectl apply -f gke-manifests/05-grafana.yaml
 ```
 
 Watch them come up:
@@ -174,8 +169,9 @@ curl -fsS https://hub.tainnel.dev/v1/health
 kubectl port-forward -n tainnel statefulset/tainnel-watchtower 3031:3031 &
 curl -fsS http://localhost:3031/health
 
-# Prometheus: confirm scrape targets (will report `up==0` for hub +
-# watchtower until the metrics-binding follow-up below is resolved).
+# Prometheus: confirm scrape targets. The watchtower target uses port 3031,
+# but hub + watchtower will still report `up==0` until the metrics-binding
+# follow-up below is resolved.
 kubectl port-forward -n tainnel svc/tainnel-prometheus 9090:9090 &
 open http://localhost:9090/targets
 
