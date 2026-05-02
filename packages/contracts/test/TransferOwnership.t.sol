@@ -111,7 +111,9 @@ contract TransferOwnershipTest is Test {
         // AUDIT: OZ TimelockController v5.6.1 custom error.
         vm.prank(safe);
         vm.expectRevert(
-            abi.encodeWithSelector(TimelockController.TimelockUnexpectedOperationState.selector, opId, expectedReadyBitmap)
+            abi.encodeWithSelector(
+                TimelockController.TimelockUnexpectedOperationState.selector, opId, expectedReadyBitmap
+            )
         );
         timelock.execute(address(adj), 0, upgradeCall, bytes32(0), salt);
 

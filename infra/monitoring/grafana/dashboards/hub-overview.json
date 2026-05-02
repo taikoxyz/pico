@@ -1,5 +1,5 @@
 {
-  "annotations": {"list": []},
+  "annotations": { "list": [] },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -9,20 +9,18 @@
       "id": 1,
       "type": "timeseries",
       "title": "Channels open",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        {"expr": "tainnel_hub_channels_total", "refId": "A", "legendFormat": "channels"}
+        { "expr": "tainnel_hub_channels_total", "refId": "A", "legendFormat": "channels" }
       ],
-      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 7}
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 7 }
     },
     {
       "id": 2,
       "type": "gauge",
       "title": "HTLCs in flight",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"expr": "tainnel_hub_htlcs_in_flight", "refId": "A"}
-      ],
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "tainnel_hub_htlcs_in_flight", "refId": "A" }],
       "fieldConfig": {
         "defaults": {
           "min": 0,
@@ -30,88 +28,100 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 30},
-              {"color": "red", "value": 70}
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 70 }
             ]
           }
         }
       },
-      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 7}
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 7 }
     },
     {
       "id": 3,
       "type": "stat",
       "title": "Disputes observed (cumulative)",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"expr": "tainnel_hub_disputes_total", "refId": "A"}
-      ],
-      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "background"},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "tainnel_hub_disputes_total", "refId": "A" }],
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "fields": "", "values": false },
+        "colorMode": "background"
+      },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null},
-              {"color": "red", "value": 1}
-            ]
+            "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]
           }
         }
       },
-      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 7}
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 7 }
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "Liquidity (USDC, smallest unit)",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        {"expr": "tainnel_hub_inbound_liquidity_usdc", "refId": "A", "legendFormat": "inbound"},
-        {"expr": "tainnel_hub_outbound_liquidity_usdc", "refId": "B", "legendFormat": "outbound"}
+        { "expr": "tainnel_hub_inbound_liquidity_usdc", "refId": "A", "legendFormat": "inbound" },
+        { "expr": "tainnel_hub_outbound_liquidity_usdc", "refId": "B", "legendFormat": "outbound" }
       ],
-      "fieldConfig": {"defaults": {"custom": {"stacking": {"mode": "normal"}, "fillOpacity": 30}}},
-      "gridPos": {"x": 0, "y": 7, "w": 12, "h": 8}
+      "fieldConfig": {
+        "defaults": { "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 30 } }
+      },
+      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 8 }
     },
     {
       "id": 5,
       "type": "timeseries",
       "title": "Payments by result (rate 5m)",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        {"expr": "rate(tainnel_hub_payments_total[5m])", "refId": "A", "legendFormat": "{{result}}"}
+        {
+          "expr": "rate(tainnel_hub_payments_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{result}}"
+        }
       ],
-      "gridPos": {"x": 12, "y": 7, "w": 12, "h": 8}
+      "gridPos": { "x": 12, "y": 7, "w": 12, "h": 8 }
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "Process resident memory",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        {"expr": "process_resident_memory_bytes{job=\"tainnel-hub\"}", "refId": "A", "legendFormat": "rss"}
+        {
+          "expr": "process_resident_memory_bytes{job=\"tainnel-hub\"}",
+          "refId": "A",
+          "legendFormat": "rss"
+        }
       ],
-      "fieldConfig": {"defaults": {"unit": "bytes"}},
-      "gridPos": {"x": 0, "y": 15, "w": 12, "h": 7}
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 7 }
     },
     {
       "id": 7,
       "type": "timeseries",
       "title": "Event loop lag (p99)",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        {"expr": "nodejs_eventloop_lag_p99_seconds{job=\"tainnel-hub\"}", "refId": "A", "legendFormat": "p99"}
+        {
+          "expr": "nodejs_eventloop_lag_p99_seconds{job=\"tainnel-hub\"}",
+          "refId": "A",
+          "legendFormat": "p99"
+        }
       ],
-      "fieldConfig": {"defaults": {"unit": "s"}},
-      "gridPos": {"x": 12, "y": 15, "w": 12, "h": 7}
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 7 }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
   "tags": ["tainnel", "hub"],
-  "templating": {"list": []},
-  "time": {"from": "now-6h", "to": "now"},
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",
   "title": "Tainnel — Hub Overview",
