@@ -255,6 +255,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         alreadyPenalized: meta.penalized,
       });
       if (evaluation.action === 'penalize') {
+        if (Date.now() < evaluation.submitByMs) return;
         const existingInFlight = store.getInFlight(channelId);
         const obsId =
           existingInFlight?.observationId ??
@@ -266,7 +267,6 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
             actionTaken: 'penalize',
             createdAtMs: Date.now(),
           });
-        if (Date.now() < evaluation.submitByMs) return;
         try {
           await responder.submitPenalty(channelId, evaluation.evidence, meta.closerSide, obsId);
         } catch (err) {
