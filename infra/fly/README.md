@@ -2,7 +2,7 @@
 
 Production manifests for the hub and watchtower. Single instance per service,
 single region per service (hub: `iad`, watchtower: `lhr`), persistent volume
-on each, litestream backup running in-process on the hub.
+on each, litestream backup configured as a Fly process for both services.
 
 ## Layout
 
@@ -13,7 +13,8 @@ infra/fly/
 │   ├── fly.toml                 Hub manifest (app + litestream processes).
 │   └── litestream.yml           Litestream replication config (uses Fly secrets).
 ├── watchtower/
-│   └── fly.toml                 Watchtower manifest (no public service).
+│   ├── fly.toml                 Watchtower manifest (app + litestream processes).
+│   └── litestream.yml           Litestream replication config (uses Fly secrets).
 └── secrets-bootstrap.sh         Idempotent .env → Fly secrets bootstrap.
 ```
 
@@ -69,9 +70,13 @@ flyctl deploy --remote-only --config infra/fly/watchtower/fly.toml
 
 flyctl status --app tainnel-watchtower-prod
 flyctl ssh console --app tainnel-watchtower-prod -C 'wget -qO- http://localhost:3031/health'
+flyctl ssh console --app tainnel-watchtower-prod -C 'wget -qO- http://localhost:3031/metrics | head'
+flyctl logs --app tainnel-watchtower-prod --process litestream
 ```
 
-Required secrets: `WATCHTOWER_PRIVATE_KEY`, `RPC_URL`.
+Required secrets: `WATCHTOWER_PRIVATE_KEY`, `RPC_URL`,
+`LITESTREAM_ACCESS_KEY_ID`, `LITESTREAM_SECRET_ACCESS_KEY`,
+`LITESTREAM_R2_BUCKET`, `LITESTREAM_R2_ENDPOINT`.
 
 The watchtower has **no public Fly service** — its HTTP server (port 3031)
 binds to `127.0.0.1` inside the machine. Operators access health/metrics via
@@ -111,34 +116,19 @@ flyctl deploy --remote-only \
 
 ## Follow-ups
 
-### Metrics binding (blocks the monitoring sibling)
+### Private Fly metrics scraping
 
-Both services bind their `/metrics` endpoints to `127.0.0.1`:
-
-- Hub: `apps/hub/src/server.ts:116` — `metricsApp.listen({ port:
-  config.prometheusPort, host: '127.0.0.1' })`.
-- Watchtower: `apps/watchtower/src/index.ts:239` — `http.listen({ port:
-  opts.httpPort ?? 0, host: '127.0.0.1' })`.
-
-A Prometheus running in a sibling Fly app cannot scrape these — the listener
-isn't reachable over Fly's 6PN private network. Three options for the
-observability sibling (`infra/monitoring/`):
-
-1. Patch hub + watchtower to bind metrics on `::` / `fly-local-6pn` when
-   `FLY_APP_NAME` is set, and expose port 9090 / 3031 as a private 6PN-only
-   Fly service. Cleanest, but a code change in both apps.
-2. Run Prometheus + Grafana Agent as an additional `[processes]` entry inside
-   each app machine and `remote_write` to Grafana Cloud. Avoids the bind-host
-   change but couples scraper lifecycle to app lifecycle.
-3. Run a tiny socat-style relay process that forwards `127.0.0.1:9090` to
-   `[fly-local-6pn]:9090`. Hacky.
-
-Pick one before wiring Prometheus.
+Both services support `METRICS_BIND_ADDR`. Fly keeps the default
+`127.0.0.1`, and the manifests deliberately omit public services for metrics.
+If a sibling Fly Prometheus app needs to scrape over 6PN, set
+`METRICS_BIND_ADDR=::` and add private-only Fly services for hub `9090` and
+watchtower `3031`.
 
 ### `[[files]]` flyctl version
 
-`hub/fly.toml` uses `[[files]]` with `local_path` to inject the litestream
-config. If the operator's `flyctl` is too old to parse it, fall back to
+`hub/fly.toml` and `watchtower/fly.toml` use `[[files]]` with `local_path` to
+inject the litestream config. If the operator's `flyctl` is too old to parse it,
+fall back to
 baking the file into a thin wrapper Dockerfile and rebuilding the image.
 
 ### Default values via code

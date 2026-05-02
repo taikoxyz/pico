@@ -17,6 +17,24 @@ describe('loadConfig', () => {
     expect(cfg.requireSignedEnvelope).toBe(false);
     expect(cfg.chainConfirmations).toBe(3);
     expect(cfg.chainPollingIntervalMs).toBe(4_000);
+    expect(cfg.metricsBindAddr).toBe('127.0.0.1');
+  });
+
+  it('defaults metrics bind address to wildcard inside Kubernetes', () => {
+    const cfg = loadConfig({
+      ...ANVIL_ENV,
+      KUBERNETES_SERVICE_HOST: '10.0.0.1',
+    });
+    expect(cfg.metricsBindAddr).toBe('::');
+  });
+
+  it('respects explicit METRICS_BIND_ADDR', () => {
+    const cfg = loadConfig({
+      ...ANVIL_ENV,
+      KUBERNETES_SERVICE_HOST: '10.0.0.1',
+      METRICS_BIND_ADDR: '0.0.0.0',
+    });
+    expect(cfg.metricsBindAddr).toBe('0.0.0.0');
   });
 
   it('respects DB_DRIVER=postgres', () => {

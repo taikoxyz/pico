@@ -1,0 +1,19 @@
+# Litestream replication for the Tainnel watchtower SQLite DB.
+#
+# All four ${...} placeholders come from Fly secrets set by
+# infra/fly/secrets-bootstrap.sh. Litestream resolves them at process start.
+
+dbs:
+  - path: /data/watchtower.sqlite
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_R2_BUCKET}
+        path: watchtower.sqlite
+        endpoint: ${LITESTREAM_R2_ENDPOINT}
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+        region: auto
+        sync-interval: 10s
+        snapshot-interval: 1h
+        retention: 720h
+        retention-check-interval: 24h

@@ -3,13 +3,9 @@
 # targets the headless Services for hub + watchtower so the pod IPs
 # resolve via SRV records.
 #
-# Scrape ports match the workload Services: hub exposes metrics on 9090 and
-# watchtower exposes /metrics on its HTTP port, 3031.
-#
-# Caveat: hub + watchtower still bind /metrics to 127.0.0.1 inside their pods
-# (apps/hub/src/server.ts:116, apps/watchtower/src/index.ts:359). Until the
-# separate METRICS_BIND_ADDR follow-up lets them bind on 0.0.0.0/:: for GKE,
-# these scrapes will report `up == 0` even though the pods are healthy.
+# Hub + watchtower set METRICS_BIND_ADDR=:: so in-cluster Prometheus can reach
+# their metrics listeners. Watchtower currently exposes metrics on its HTTP
+# port; see infra/k8s/README.md for the remaining scrape-port follow-up.
 
 apiVersion: v1
 kind: ServiceAccount

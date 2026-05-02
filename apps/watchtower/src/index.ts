@@ -28,6 +28,7 @@ export interface StartWatchtowerOpts {
   readonly chainId: number;
   readonly dbUrl?: string;
   readonly httpPort?: number;
+  readonly httpHost?: string;
   readonly logger?: Logger;
   readonly publicClient?: PublicClient;
   readonly pollingIntervalMs?: number;
@@ -356,7 +357,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         };
       },
     });
-    httpUrl = await http.listen({ port: opts.httpPort ?? 0, host: '127.0.0.1' });
+    httpUrl = await http.listen({ port: opts.httpPort ?? 0, host: opts.httpHost ?? '127.0.0.1' });
   }
 
   return {
@@ -401,6 +402,7 @@ export async function start(): Promise<void> {
     chainId: config.chainId,
     dbUrl: config.dbUrl,
     httpPort: config.port,
+    httpHost: config.metricsBindAddr,
     schedulerIntervalMs: config.schedulerIntervalMs,
     confirmations: config.confirmations,
     thresholdRatio: config.penaltyThreshold,

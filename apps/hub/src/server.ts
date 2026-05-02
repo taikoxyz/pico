@@ -89,9 +89,8 @@ export async function buildServer(
 
   // Metrics serving:
   //  - If PROMETHEUS_PORT is set AND differs from the main port, bind /metrics
-  //    on a separate Fastify instance on 127.0.0.1 (private network). This
-  //    keeps metrics off the public app surface and matches the documented
-  //    operational pattern.
+  //    on a separate Fastify instance. METRICS_BIND_ADDR controls whether the
+  //    listener stays loopback-only or is reachable by in-cluster scrapers.
   //  - Otherwise, gate /metrics behind the operator token (if set) or expose
   //    publicly on the main app.
   let metricsApp: FastifyInstance | undefined;
@@ -113,7 +112,7 @@ export async function buildServer(
   ) {
     metricsApp = Fastify({ logger: { level: config.logLevel } });
     metricsApp.get('/metrics', async (_req, reply) => refreshAndRender(reply));
-    await metricsApp.listen({ port: config.prometheusPort, host: '127.0.0.1' });
+    await metricsApp.listen({ port: config.prometheusPort, host: config.metricsBindAddr });
   } else {
     app.get('/metrics', async (req, reply) => {
       // If an operator token is configured, require it on the main-port path.

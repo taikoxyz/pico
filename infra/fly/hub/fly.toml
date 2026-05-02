@@ -1,10 +1,9 @@
 # Fly.io production manifest for the Tainnel hub.
 #
-# Single instance in iad. Persistent /data volume. App + litestream run as two
-# processes inside the same machine. Public service exposes 3030 with TLS;
-# metrics on 9090 are bound to 127.0.0.1 inside the app and are NOT exposed as
-# a Fly service (see infra/fly/README.md "Follow-ups" for the monitoring
-# scrape constraint).
+# Single instance in iad. Persistent /data volume. App + litestream are defined
+# as Fly processes. Public service exposes 3030 with TLS;
+# metrics on 9090 default to 127.0.0.1 inside the app and are NOT exposed as
+# a Fly service.
 #
 # Deploy from the repo root:
 #   flyctl deploy --remote-only --config infra/fly/hub/fly.toml

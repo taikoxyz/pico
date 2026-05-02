@@ -23,6 +23,7 @@ export interface HubConfig {
   readonly dbDriver: 'sqlite' | 'postgres';
   readonly dbUrl: string;
   readonly prometheusPort: number;
+  readonly metricsBindAddr: string;
   readonly chainPollingIntervalMs: number;
   readonly chainConfirmations: number;
   readonly requireSignedEnvelope: boolean;
@@ -64,6 +65,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
       env.DB_URL ??
       (driver === 'sqlite' ? './data/hub.sqlite' : 'postgres://localhost/tainnel_hub'),
     prometheusPort: Number(env.PROMETHEUS_PORT ?? 9090),
+    metricsBindAddr:
+      env.METRICS_BIND_ADDR ?? (env.KUBERNETES_SERVICE_HOST !== undefined ? '::' : '127.0.0.1'),
     chainPollingIntervalMs: Number(env.CHAIN_POLLING_INTERVAL_MS ?? 4_000),
     chainConfirmations: Number(env.CHAIN_CONFIRMATIONS ?? 3),
     requireSignedEnvelope,

@@ -1,9 +1,9 @@
 # Fly.io production manifest for the Tainnel watchtower.
 #
 # Single instance in lhr (different region from the hub for fault isolation).
-# Watchtower binds its HTTP server (3031) and metrics to 127.0.0.1 inside the
-# app, so there is NO public Fly service. Operators reach the running process
-# via `flyctl ssh console --app tainnel-watchtower-prod`.
+# App + litestream are defined as Fly processes. Watchtower has NO public Fly
+# service. Operators reach the running process via
+# `flyctl ssh console --app tainnel-watchtower-prod`.
 #
 # Deploy from the repo root:
 #   flyctl deploy --remote-only --config infra/fly/watchtower/fly.toml
@@ -13,8 +13,10 @@ primary_region = "lhr"
 
 [build]
   dockerfile = "apps/watchtower/Dockerfile"
+  [build.args]
+    INCLUDE_LITESTREAM = "1"
 
-# All secrets (WATCHTOWER_PRIVATE_KEY, RPC_URL) are set via
+# All secrets (WATCHTOWER_PRIVATE_KEY, RPC_URL, LITESTREAM_*) are set via
 # infra/fly/secrets-bootstrap.sh.
 [env]
   LOG_LEVEL  = "info"
@@ -28,8 +30,17 @@ primary_region = "lhr"
   destination  = "/data"
   initial_size = "5gb"
 
-# Process-level TCP check: machine-internal probe that the HTTP server is alive
-# on its 127.0.0.1 listener. Public services are deliberately omitted.
+# Inject the litestream config at deploy time so secrets stay out of the image.
+[[files]]
+  guest_path = "/etc/litestream.yml"
+  local_path = "infra/fly/watchtower/litestream.yml"
+
+[processes]
+  app        = "node dist/index.js"
+  litestream = "litestream replicate -config /etc/litestream.yml"
+
+# Process-level TCP check: machine-internal probe that the HTTP server is alive.
+# Public services are deliberately omitted.
 [checks]
   [checks.alive]
     type     = "tcp"
