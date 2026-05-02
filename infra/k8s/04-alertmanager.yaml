@@ -1,7 +1,8 @@
 # Alertmanager Deployment + Service. State is ephemeral so no PVC.
-# Webhook URLs are placeholders; substitute via `tainnel-monitoring-secrets`
-# (created by secrets-bootstrap.sh --bootstrap-monitoring) and a small
-# templating step before applying.
+# Webhook URLs are read from `tainnel-monitoring-secrets` at notify time via
+# Alertmanager's `url_file` directive. The Secret is created by
+# secrets-bootstrap.sh --bootstrap-monitoring and mounted read-only at
+# /etc/alertmanager/secrets. No templating step is required at apply time.
 
 apiVersion: v1
 kind: ServiceAccount
@@ -31,23 +32,23 @@ data:
           group_wait: 10s
           repeat_interval: 1h
         - matchers: [severity="warning"]
-          receiver: email
+          receiver: triage
           repeat_interval: 6h
 
     receivers:
       - name: default
         webhook_configs:
-          - url: http://localhost:5001/null  # set ALERTMANAGER_DEFAULT_WEBHOOK_URL
+          - url_file: /etc/alertmanager/secrets/ALERTMANAGER_DEFAULT_WEBHOOK_URL
             send_resolved: true
 
       - name: pager
         webhook_configs:
-          - url: http://localhost:5001/pager  # set ALERTMANAGER_PAGER_WEBHOOK_URL
+          - url_file: /etc/alertmanager/secrets/ALERTMANAGER_PAGER_WEBHOOK_URL
             send_resolved: true
 
-      - name: email
+      - name: triage
         webhook_configs:
-          - url: http://localhost:5001/email  # set ALERTMANAGER_EMAIL_WEBHOOK_URL
+          - url_file: /etc/alertmanager/secrets/ALERTMANAGER_TRIAGE_WEBHOOK_URL
             send_resolved: true
 
     inhibit_rules:
@@ -131,11 +132,25 @@ spec:
             - name: config
               mountPath: /etc/alertmanager
               readOnly: true
+            - name: webhook-secrets
+              mountPath: /etc/alertmanager/secrets
+              readOnly: true
             - name: data
               mountPath: /alertmanager
       volumes:
         - name: config
           configMap:
             name: tainnel-alertmanager-config
+        - name: webhook-secrets
+          secret:
+            secretName: tainnel-monitoring-secrets
+            defaultMode: 0400
+            items:
+              - key: ALERTMANAGER_DEFAULT_WEBHOOK_URL
+                path: ALERTMANAGER_DEFAULT_WEBHOOK_URL
+              - key: ALERTMANAGER_PAGER_WEBHOOK_URL
+                path: ALERTMANAGER_PAGER_WEBHOOK_URL
+              - key: ALERTMANAGER_TRIAGE_WEBHOOK_URL
+                path: ALERTMANAGER_TRIAGE_WEBHOOK_URL
         - name: data
           emptyDir: {}

@@ -123,8 +123,9 @@ jobs:
           cp infra/k8s/03-prometheus.yaml "$out_dir/03-prometheus.yaml"
           cp infra/k8s/04-alertmanager.yaml "$out_dir/04-alertmanager.yaml"
           cp infra/k8s/05-grafana.yaml "$out_dir/05-grafana.yaml"
+          cp infra/k8s/06-networkpolicy.yaml "$out_dir/06-networkpolicy.yaml"
 
-          if grep -R "REGION-docker.pkg.dev/PROJECT/tainnel" "$out_dir"; then
+          if grep -RE "REGION-docker\.pkg\.dev|PROJECT|:VERSION" "$out_dir"; then
             echo "::error::Rendered manifests still contain image placeholders."
             exit 1
           fi

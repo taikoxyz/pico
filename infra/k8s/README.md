@@ -21,7 +21,8 @@ infra/k8s/
 ├── 02-watchtower.yaml          Watchtower StatefulSet + headless Service (no public surface).
 ├── 03-prometheus.yaml          Prometheus StatefulSet + Service + scrape/alert ConfigMap.
 ├── 04-alertmanager.yaml        Alertmanager Deployment + Service + ConfigMap.
-└── 05-grafana.yaml             Grafana Deployment + Service + provisioning ConfigMaps.
+├── 05-grafana.yaml             Grafana Deployment + Service + provisioning ConfigMaps.
+└── 06-networkpolicy.yaml       Default-deny NetworkPolicy + documented traffic flows.
 ```
 
 ## Prerequisites
@@ -89,6 +90,8 @@ repository.
 The source manifests keep placeholder image references. For deployment, use the
 rendered manifests from the release artifact so `01-hub.yaml` and
 `02-watchtower.yaml` point at immutable `v*-<short_sha>` image tags.
+CI runs `infra/k8s/lint-images.sh` to ensure only the approved placeholders
+and pinned third-party images appear in source manifests.
 
 ## Deploy
 
@@ -128,6 +131,9 @@ LITESTREAM_R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 # .secrets/monitoring-prod.env
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=<random; rotate after first login>
+ALERTMANAGER_DEFAULT_WEBHOOK_URL=https://hooks.slack.com/services/...
+ALERTMANAGER_PAGER_WEBHOOK_URL=https://events.pagerduty.com/...
+ALERTMANAGER_TRIAGE_WEBHOOK_URL=https://api.linear.app/...
 ```
 
 Apply them via the bootstrap script. It refuses to write any value that
@@ -150,6 +156,7 @@ kubectl apply -f gke-manifests/02-watchtower.yaml
 kubectl apply -f gke-manifests/03-prometheus.yaml
 kubectl apply -f gke-manifests/04-alertmanager.yaml
 kubectl apply -f gke-manifests/05-grafana.yaml
+kubectl apply -f gke-manifests/06-networkpolicy.yaml
 ```
 
 Watch them come up:
@@ -169,8 +176,7 @@ curl -fsS https://hub.tainnel.dev/v1/health
 kubectl port-forward -n tainnel statefulset/tainnel-watchtower 3031:3031 &
 curl -fsS http://localhost:3031/health
 
-# Prometheus: confirm scrape targets. Hub should be reachable once deployed;
-# watchtower still needs the scrape-port follow-up below.
+# Prometheus: confirm hub + watchtower scrape targets are up.
 kubectl port-forward -n tainnel svc/tainnel-prometheus 9090:9090 &
 open http://localhost:9090/targets
 
@@ -181,6 +187,19 @@ open http://localhost:3000
 # Litestream: confirm a snapshot uploaded to R2.
 kubectl logs -n tainnel statefulset/tainnel-hub -c litestream --tail=50
 ```
+
+## NetworkPolicy
+
+`06-networkpolicy.yaml` applies default deny ingress and egress to the
+`tainnel` namespace, then allows only the production traffic flows:
+
+- All pods can resolve DNS through kube-dns on TCP/UDP 53.
+- GCE load balancer and health check ranges can reach hub HTTP on `3030`.
+- Prometheus can scrape hub `9090`, watchtower `3031`, and send alerts to
+  Alertmanager `9093`.
+- Grafana can query Prometheus on `9090`.
+- Hub, watchtower, and Alertmanager can make outbound HTTPS calls on `443`
+  for Taiko RPC, R2 backups, and on-call webhook delivery.
 
 ## DNS
 
@@ -217,18 +236,6 @@ for these manifests.
 
 ## Follow-ups
 
-### Watchtower scrape port
-
-Hub + watchtower now support `METRICS_BIND_ADDR`, and these manifests set it
-to `::` so in-cluster Prometheus can reach their metrics listeners.
-
-One scrape mismatch remains: Prometheus targets watchtower on `:9090`, while
-the watchtower currently exposes `/metrics` on its HTTP port, `:3031`.
-Resolve that by either repointing the watchtower scrape target to `:3031` or
-adding a dedicated watchtower metrics listener on `:9090`.
-
-This is tracked separately from the metrics bind change.
-
 ### Bucket setup
 
 R2 buckets for litestream should have:
@@ -248,10 +255,6 @@ Don't deploy from `:latest`.
 
 ### Optional add-ons not shipped here
 
-- NetworkPolicy locking pod-to-pod traffic. Autopilot supports them; a
-  policy that restricts hub ingress to the GCE LB and the Prometheus
-  pod, and watchtower ingress to the Prometheus pod only, is a sane
-  next step.
 - HorizontalPodAutoscaler. Out of scope for v1 (single-replica
   architecture).
 - Backup job that runs `infra/scripts/restore-drill.sh` against staging
