@@ -14,13 +14,16 @@ mainnet custody of real USDC; roughly 40% ready.**
 
 The repo has absorbed much of the DeepSeek audit work. CI, fork e2e, SDK state
 admission, hub safety gates, and most contract/hub/watchtower fixes are in
-place. Audit status is:
+place. The four code-only audit items that were still open at the time of the
+last readiness pass — WTW-005, WTW-006, F-10, and WTW-013 — have now been
+closed in code (PR `dantaik/wt-audit-fixes`); they await re-audit before being
+re-categorized in `docs/audit-status.md`. Audit status is:
 
 | Status | Count |
 |---|---:|
 | Fixed | 36 |
-| Patched-not-reaudited | 14 |
-| Open | 6 |
+| Patched-not-reaudited (incl. 4 just-landed code fixes) | 18 |
+| Open | 2 |
 | Total | 56 |
 
 ## Mainnet blockers
@@ -29,12 +32,28 @@ place. Audit status is:
   has not been executed.
 - No independent human audit firm has signed off on the patched contracts.
 - No real-USDC Taiko mainnet smoke channel has been run.
-- Watchtower still has two important open issues: WTW-005 signature validation
-  in `remember()` and WTW-006 penalty threshold bypass in the live path.
-- F-10 and WTW-013 remain open: public test-only SDK exports and incomplete
-  watchtower recovery tests.
+- Hub-advertised fee policy (H-10) and full liquidity-from-states (H-11) are
+  patched but not fully implemented.
 - Runbooks are written but not drilled; several still carry draft markers.
 - Security disclosure is incomplete: placeholder PGP key and unmonitored inbox.
+
+### Recently closed (in code, pending re-audit)
+
+- **WTW-005**: `remember()` now validates SignedState before storing —
+  EIP-712 sigA/sigB against on-chain `userA`/`userB`, empty HTLCs, balance
+  conservation against on-chain funding, `finalized=false`. Channel
+  invariants cached after first chain read.
+- **WTW-006**: live close-event handler now records observation but defers
+  submission to scheduler when `Date.now() < submitByMs`, so the configured
+  `PENALTY_THRESHOLD` is honored on every code path.
+- **F-10**: SDK no longer exports `./signer.test-only` or `./_test`; the
+  in-memory signer and mock hub/chain adapter live in `@tainnel/test-utils`.
+  `npm pack` tarball verified clean of test-only paths and `src/`.
+- **WTW-013**: `apps/watchtower/src/recovery.test.ts` adds 9 regression
+  scenarios covering WTW-002 restart-then-submit, WTW-003 stale-tx
+  replacement and same-nonce reuse across ticks, WTW-005 forged-sig /
+  non-empty-htlcs / balance-mismatch / finalized rejections, WTW-006
+  live-defer/scheduler-submit, and WTW-010 reverted-receipt handling.
 
 ## GKE blockers
 
@@ -49,8 +68,11 @@ restore drill.
 
 ## Recommended next work
 
-1. Fix WTW-005, WTW-006, F-10, watchtower recovery tests, and metrics binding.
-2. Start external audit engagement in parallel.
+1. Fix the metrics binding (`METRICS_BIND_ADDR`) so Prometheus can scrape hub
+   and watchtower in GKE.
+2. Start external audit engagement in parallel — the patched-not-reaudited set
+   is now larger (18 items) and includes the four just-landed watchtower / SDK
+   fixes.
 3. Deploy timelock, transfer proxy ownership, and cold-store the deployer key.
 4. Build/tag images, deploy GKE, replace placeholders, and verify monitoring,
    paging, Litestream, and restore.

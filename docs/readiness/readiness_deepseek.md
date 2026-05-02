@@ -1,8 +1,9 @@
-  Overall: Not Ready (~40%)
+  Overall: Not Ready (~45%)
 
   The system can execute a happy-path payment in local dev, but cannot safely custody real USDC on Taiko mainnet. The critical failure paths — adversarial hub, watchtower crash,
-  restart recovery, stale-state dispute, concurrent routing, and mainnet config defaults — all carry unresolved fund-loss or fund-stranding risk. No dimension of the readiness matrix
-  is fully green.
+  restart recovery, stale-state dispute, concurrent routing, and mainnet config defaults — previously carried unresolved fund-loss or fund-stranding risk; the four code-only
+  watchtower / SDK gaps from the audit have now landed (WTW-005, WTW-006, WTW-013, F-10), but the system still has not been deployed, audited by a human firm, or run real USDC.
+  No dimension of the readiness matrix is fully green.
 
   ---
 
@@ -41,10 +42,12 @@
 
   **Remaining**: hub-advertised fee policy (H-10) and full liquidity-from-states (H-11) are patched but not fully implemented.
 
-  4. Watchtower reliability gaps — **Partially fixed, 2 open**
+  4. Watchtower reliability gaps — **All code fixes landed; awaiting re-audit**
   - **Fixed**: pending event flusher (WTW-001), durable work items across restart (WTW-002), tx re-broadcast + fee bumping (WTW-003), dev key rejection (WTW-004).
-  - **Still open**: `remember()` does not validate signatures before storing state (WTW-005), and the live penalize path bypasses the configured penalty threshold (WTW-006). The happy
-    path works; the watchtower cannot yet be relied upon under production stress.
+  - **Newly patched (PR `dantaik/wt-audit-fixes`)**: WTW-005 — `remember()` now runs full SignedState validation (EIP-712 sigA/sigB against on-chain `userA`/`userB`, empty HTLCs,
+    balance conservation against on-chain funding, `finalized=false`); channel invariants cached per channelId after first chain read. WTW-006 — live close-event handler now records
+    the observation and only submits when `Date.now() >= submitByMs`, deferring otherwise so the configured `PENALTY_THRESHOLD` is honored on every code path. Both fixes are
+    regression-covered by the new `apps/watchtower/src/recovery.test.ts`.
 
   5. Contract governance — **Open** (human gate)
   - Deployer EOA still owns both UUPS proxies.
@@ -100,13 +103,20 @@
   | Status | Count |
   |--------|-------|
   | Fixed | 36 |
-  | Patched-not-reaudited | 14 |
-  | Open | 6 |
+  | Patched-not-reaudited (incl. WTW-005, WTW-006, WTW-013, F-10 just-landed) | 18 |
+  | Open | 2 |
   | Won't-fix | 0 |
   | **Total** | **56** |
 
-  The 6 open findings: PC-09 (deployer owns proxies — human gate), WTW-005 (watchtower skips signature validation), WTW-006 (penalty threshold bypass on live path), WTW-013 (recovery
-  test suite incomplete), F-10 (test-only SDK exports on public npm).
+  The 2 remaining open findings: PC-09 (deployer owns proxies — human gate) and the configured-fee-policy follow-up (H-10 / H-11). The four code-only items that previously gated
+  mainnet readiness are now closed in code:
+
+  - **WTW-005** — watchtower `remember()` validates signatures + channel invariants (`apps/watchtower/src/index.ts`).
+  - **WTW-006** — live penalize path defers to scheduler when below threshold (`apps/watchtower/src/index.ts`).
+  - **WTW-013** — 9-scenario recovery suite added (`apps/watchtower/src/recovery.test.ts`).
+  - **F-10** — `signer.test-only` and `_test` exports removed from `@tainnel/sdk`; helpers live in `@tainnel/test-utils` (verified clean via `npm pack`).
+
+  These are awaiting re-audit; `docs/audit-status.md` still labels them Open until the next reconciliation.
 
   ---
 
@@ -128,15 +138,16 @@
   - **GKE cluster creation + image builds** — the manifests are ready to apply once the metrics binding is fixed and image placeholders are substituted. An estimated ~$50/mo on
     Autopilot.
   - **Contract governance execution** — Timelock deployment and ownership transfer scripts are ready; need a human with the deployer key.
-  - **External audit firm engagement** — Spearbit / Trail of Bits / Cantina. Independent of engineering.
+  - **External audit firm engagement** — Spearbit / Trail of Bits / Cantina. Independent of engineering; the patched-not-reaudited set just grew with WTW-005/006/013 and F-10.
   - **Learning materials** — parallelizable with everything.
-  - **Watchtower WTW-005 / WTW-006 fixes** — pure code changes, no human gates.
+  - **Metrics binding fix** (`METRICS_BIND_ADDR`) — last code-only blocker for the GKE Prometheus scrape path.
 
   ---
 
   Bottom line
 
-  The codebase has absorbed the DeepSeek audit (36 of 56 findings fixed, critical path now has validation gates where it previously had none). But the system has never been deployed
-  to production, never been tested against deployed mainnet contracts with real USDC, and still carries a deployer-owned proxy and placeholder security contact. The GKE manifests are
-  well-structured but untested, blocked on a metrics binding issue and the absence of a deploy pipeline. Real-money readiness requires closing the 10 blockers above — most are
-  engineering work; the human gates (auditor, multisig, smoke channel) are the long pole.
+  The codebase has absorbed the DeepSeek audit (36 of 56 findings fixed plus 18 patched-not-reaudited; only 2 truly open). The four code-only items that were still open at the time
+  of the previous readiness pass (WTW-005, WTW-006, WTW-013, F-10) have now landed with regression coverage. But the system has never been deployed to production, never been tested
+  against deployed mainnet contracts with real USDC, and still carries a deployer-owned proxy and placeholder security contact. The GKE manifests are well-structured but untested,
+  blocked on a metrics binding issue and the absence of a deploy pipeline. Real-money readiness still requires closing the human-gate blockers above (auditor, multisig, smoke
+  channel) plus the metrics-binding code fix.
