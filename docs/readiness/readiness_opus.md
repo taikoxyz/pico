@@ -19,13 +19,18 @@
 |---|------|------|
 | 1 | Deployer EOA still owns both UUPS proxies; `DeployTimelock.s.sol` + `TransferOwnership.s.sol` exist but **not executed** on mainnet | human gate |
 | 2 | External audit firm sign-off on patched contracts (Spearbit / Trail of Bits / Cantina) — only DeepSeek (AI) has reviewed | human gate |
-| 3 | **WTW-005**: `remember()` does not validate signatures before storing state | code |
-| 4 | **WTW-006**: live penalize path bypasses configured penalty threshold | code |
-| 5 | **F-10**: test-only SDK exports still on public npm | code |
-| 6 | **WTW-013**: watchtower recovery test suite incomplete | code |
-| 7 | Smoke channel with real USDC on mainnet not yet executed | human gate |
-| 8 | 4 of 6 runbooks still carry DRAFT markers (`hub-incident.md`, `watchtower-down.md`, `dispute-response.md`, `key-rotation.md`); no operational drill performed | ops |
-| 9 | PGP key still placeholder (`pgp-key.asc.placeholder`); security inbox not monitored | ops |
+| 3 | Smoke channel with real USDC on mainnet not yet executed | human gate |
+| 4 | 4 of 6 runbooks still carry DRAFT markers (`hub-incident.md`, `watchtower-down.md`, `dispute-response.md`, `key-rotation.md`); no operational drill performed | ops |
+| 5 | PGP key still placeholder (`pgp-key.asc.placeholder`); security inbox not monitored | ops |
+
+### Just landed in code (patched-not-reaudited)
+
+| ID | Item | Where |
+|----|------|-------|
+| WTW-005 | `remember()` now validates SignedState (EIP-712 sigA/sigB against on-chain userA/userB, empty HTLCs, balance conservation, `finalized=false`); channel invariants cached per channelId | `apps/watchtower/src/index.ts` |
+| WTW-006 | Live close-event handler defers to scheduler when `Date.now() < submitByMs`; configured `PENALTY_THRESHOLD` honored on every path | `apps/watchtower/src/index.ts` |
+| F-10 | SDK no longer publishes `./signer.test-only` or `./_test`; helpers moved to `@tainnel/test-utils`; `npm pack` tarball verified clean | `packages/sdk/package.json`, `packages/test-utils/src/` |
+| WTW-013 | New 9-scenario recovery suite covering WTW-002/003/005/006/010 regressions | `apps/watchtower/src/recovery.test.ts` |
 
 ---
 
@@ -62,12 +67,12 @@
 | Status | Count |
 |--------|-------|
 | Fixed | 36 |
-| Patched-not-reaudited | 14 |
-| Open | 6 |
+| Patched-not-reaudited (incl. WTW-005, WTW-006, WTW-013, F-10 just-landed) | 18 |
+| Open | 2 |
 | Won't-fix | 0 |
 | **Total** | **56** |
 
-Open: PC-09 (deployer owns proxies — human gate), WTW-005, WTW-006, WTW-013, F-10, plus the configured-fee-policy follow-up.
+Open: PC-09 (deployer owns proxies — human gate) and the configured-fee-policy follow-up. `docs/audit-status.md` still labels the four newly-closed items as Open pending its own re-classification.
 
 ## Launch checklist gates (`docs/launch-checklist.md`)
 
@@ -85,16 +90,15 @@ Open: PC-09 (deployer owns proxies — human gate), WTW-005, WTW-006, WTW-013, F
 ## Parallelizable work that can proceed right now
 
 - **GKE cluster + image builds** — manifests are ready to apply once the metrics-binding fix lands and image placeholders are substituted.
-- **Watchtower WTW-005 / WTW-006 fixes** — pure code, no human gate.
 - **Metrics binding fix** — small code change in two apps; unlocks GKE Prometheus scrape.
 - **Timelock deploy + ownership transfer** — scripts exist; needs the deployer key holder.
-- **External audit firm engagement** — independent of engineering.
+- **External audit firm engagement** — independent of engineering; the patched-not-reaudited set just grew (WTW-005/006/013, F-10).
 - **Runbook drafts → finalize + drill** — independent of engineering velocity.
 
 ---
 
 ## Bottom line
 
-**Taiko mainnet:** ~40% ready. Engineering side is largely done; the long pole is human-gate items (independent audit firm, multisig + Timelock ownership transfer, smoke channel) plus two watchtower fixes (WTW-005/006). Until those land, the system cannot safely custody real USDC.
+**Taiko mainnet:** ~45% ready (up from ~40% after the WTW-005/006/013 + F-10 work landed). Engineering side is now substantially done; the long pole is human-gate items (independent audit firm, multisig + Timelock ownership transfer, smoke channel). The watchtower fixes that previously gated mainnet readiness are in code with regression tests; until they are re-audited and the human gates close, the system still cannot safely custody real USDC.
 
 **Google GKE:** Manifests and monitoring are well-structured and documented; the single technical blocker is the metrics-binding code fix in hub + watchtower. After that, deployment is mechanical: build + push tagged images, create the cluster, add a GKE workflow, swap webhook URLs, run a restore-drill.
