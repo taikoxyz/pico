@@ -15,7 +15,7 @@ dbs:
         region: auto
         # 10s sync window matches docker-compose.prod.yml expectations.
         sync-interval: 10s
-        # 1h snapshot, 168h (7d) retention per docs/plans/09-ops.md.
+        # 1h snapshot, 168h (7d) retention.
         snapshot-interval: 1h
         retention: 168h
         retention-check-interval: 24h

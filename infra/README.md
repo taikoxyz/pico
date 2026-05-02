@@ -2,7 +2,7 @@
 
 Production deployment manifests and supporting operational scripts. v1 targets:
 
-- **Hosting:** Fly.io (per `docs/plans/09-ops.md`).
+- **Hosting:** Fly.io.
 - **Hub:** single instance + litestream sidecar replicating SQLite to
   Cloudflare R2.
 - **Watchtower:** single instance in a different region from the hub.
@@ -27,9 +27,8 @@ infra/
 ## Status
 
 Production manifests live in `fly/` and the deploy workflow at
-`.github/workflows/deploy.yml`. See `docs/plans/09-ops.md` for the full P9
-task list and `docs/launch-checklist.md` for what gates remain before mainnet
-GA.
+`.github/workflows/deploy.yml`. Outstanding ops work is tracked under
+[issue #21](https://github.com/dantaik/tainnel/issues/21).
 
 ## Build flags
 
