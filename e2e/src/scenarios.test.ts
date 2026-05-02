@@ -391,27 +391,27 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
     });
 
     try {
-      if (v1) wt.remember(v1);
+      if (v1) await wt.remember(v1);
 
       await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
       const v2 = await alice.storage.loadLatestState(channel.id);
-      if (v2) wt.remember(v2);
+      if (v2) await wt.remember(v2);
 
       await alice.client.payDirect(channel.id, { amount: 3n * ONE_USDC });
       const v3 = await alice.storage.loadLatestState(channel.id);
-      if (v3) wt.remember(v3);
+      if (v3) await wt.remember(v3);
 
       await alice.client.payDirect(channel.id, { amount: 2n * ONE_USDC });
       const v4 = await alice.storage.loadLatestState(channel.id);
-      if (v4) wt.remember(v4);
+      if (v4) await wt.remember(v4);
 
       await alice.client.payDirect(channel.id, { amount: 4n * ONE_USDC });
       const v5 = await alice.storage.loadLatestState(channel.id);
-      if (v5) wt.remember(v5);
+      if (v5) await wt.remember(v5);
 
       await alice.client.payDirect(channel.id, { amount: 1n * ONE_USDC });
       const v6 = await alice.storage.loadLatestState(channel.id);
-      if (v6) wt.remember(v6);
+      if (v6) await wt.remember(v6);
       expect(v6?.state.version).toBe(6n);
 
       const stale = v3;

@@ -1,8 +1,8 @@
 import { TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
+import { InMemorySigner } from '@tainnel/test-utils';
 import { describe, expect, it } from 'vitest';
 import { InvoiceExpiredError, InvoiceVerificationError } from './errors.js';
 import { createInvoice, verifyInvoice } from './invoice.js';
-import { InMemorySigner } from './signer.test-only.js';
 
 const SIGNER_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const OTHER_KEY = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;

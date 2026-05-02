@@ -1,11 +1,11 @@
 import { type Address, type Channel, TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   InMemorySigner,
   MockChainAdapter,
   type MockHubHandle,
   startMockHub,
-} from './_test/index.js';
+} from '@tainnel/test-utils';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelClient } from './client.js';
 import { generateKeysendKeypair } from './keysend.js';
 import { MemoryStorage } from './storage.js';

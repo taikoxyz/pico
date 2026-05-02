@@ -309,6 +309,9 @@ importers:
         specifier: ^8.18.0
         version: 8.20.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
     devDependencies:
+      '@tainnel/test-utils':
+        specifier: workspace:*
+        version: link:../test-utils
       '@vitest/coverage-v8':
         specifier: ^2.1.8
         version: 2.1.9(vitest@2.1.9(@types/node@22.19.17)(happy-dom@15.11.7))
