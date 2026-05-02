@@ -1,65 +1,211 @@
 name: deploy
 
 on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Release tag to deploy"
+        required: true
+        type: string
+      commit_sha:
+        description: "Git SHA targeted by the release tag"
+        required: true
+        type: string
+      hub_image:
+        description: "Exact hub image reference to deploy"
+        required: true
+        type: string
+      watchtower_image:
+        description: "Exact watchtower image reference to deploy"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
-      service:
-        description: "Service to deploy"
-        required: true
-        type: choice
-        options:
-          - hub
-          - watchtower
-      commit_sha:
-        description: "Git SHA to deploy (must be tagged v*)"
+      release_tag:
+        description: "Release tag to deploy (v*)"
         required: true
         type: string
 
 permissions:
   contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GAR_LOCATION: ${{ vars.GAR_LOCATION }}
+  GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+  GAR_IMAGE_PREFIX: ${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}
+  GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
+  GKE_LOCATION: ${{ vars.GKE_LOCATION }}
+  GKE_NAMESPACE: ${{ vars.GKE_NAMESPACE || 'tainnel' }}
 
 jobs:
   deploy:
+    name: Deploy GKE manifests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    environment: production
+    concurrency:
+      group: gke-production
+      cancel-in-progress: false
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout release
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.commit_sha }}
+          ref: ${{ inputs.commit_sha || inputs.release_tag }}
           fetch-depth: 0
 
-      - name: Verify SHA is on a v* tag
+      - name: Validate configuration
         run: |
           set -euo pipefail
-          tags="$(git tag --points-at "${{ github.event.inputs.commit_sha }}" | grep -E '^v' || true)"
-          if [[ -z "$tags" ]]; then
-            echo "::error::Commit ${{ github.event.inputs.commit_sha }} is not on a v* tag. Mainnet deploys require a tagged release."
+          missing=0
+          for name in \
+            GCP_PROJECT_ID \
+            GAR_LOCATION \
+            GAR_REPOSITORY \
+            GCP_WORKLOAD_IDENTITY_PROVIDER \
+            GCP_SERVICE_ACCOUNT \
+            GKE_CLUSTER \
+            GKE_LOCATION
+          do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing GitHub repository variable: ${name}"
+              missing=1
+            fi
+          done
+
+          if [[ ! "$GKE_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
+            echo "::error::GKE_NAMESPACE must be a valid Kubernetes namespace name"
+            missing=1
+          fi
+
+          exit "$missing"
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Resolve release inputs
+        id: release
+        run: |
+          set -euo pipefail
+          release_tag="${{ inputs.release_tag }}"
+          input_commit_sha="${{ inputs.commit_sha }}"
+          hub_image="${{ inputs.hub_image }}"
+          watchtower_image="${{ inputs.watchtower_image }}"
+
+          if [[ ! "$release_tag" =~ ^v ]]; then
+            echo "::error::Release tag must start with v: $release_tag"
             exit 1
           fi
-          echo "Tag(s) found: $tags"
-          # Persist the highest-versioned tag for the image label. sort -V
-          # gives semver ordering (v1.10.0 > v1.2.0); plain sort would not.
-          highest_tag="$(echo "$tags" | sort -V | tail -n1)"
-          echo "RELEASE_TAG=$highest_tag" >> "$GITHUB_ENV"
 
-      - name: Setup flyctl
-        # Pinned to v1.6 commit SHA (https://github.com/superfly/flyctl-actions/releases).
-        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+          tag_commit_sha="$(git rev-list -n1 "$release_tag")"
+          if [[ -n "$input_commit_sha" && "$input_commit_sha" != "$tag_commit_sha" ]]; then
+            echo "::error::Release tag $release_tag points at $tag_commit_sha, not $input_commit_sha"
+            exit 1
+          fi
 
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          commit_sha="${input_commit_sha:-$tag_commit_sha}"
+          short_sha="${commit_sha::12}"
+          hub_image="${hub_image:-${GAR_IMAGE_PREFIX}/hub:${release_tag}-${short_sha}}"
+          watchtower_image="${watchtower_image:-${GAR_IMAGE_PREFIX}/watchtower:${release_tag}-${short_sha}}"
+
+          {
+            echo "release_tag=${release_tag}"
+            echo "commit_sha=${commit_sha}"
+            echo "short_sha=${short_sha}"
+            echo "hub_image=${hub_image}"
+            echo "watchtower_image=${watchtower_image}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_LOCATION }}
+
+      - name: Verify Artifact Registry images exist
         run: |
           set -euo pipefail
-          service="${{ github.event.inputs.service }}"
-          short_sha="$(echo "${{ github.event.inputs.commit_sha }}" | cut -c1-12)"
-          image_label="${RELEASE_TAG}-${short_sha}"
-          flyctl deploy \
-            --remote-only \
-            --config "infra/fly/${service}/fly.toml" \
-            --image-label "$image_label"
-          echo "## Deployed" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Service: \`$service\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Tag: \`$RELEASE_TAG\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- SHA: \`${{ github.event.inputs.commit_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Image label: \`$image_label\`" >> "$GITHUB_STEP_SUMMARY"
+          gcloud artifacts docker images describe "${{ steps.release.outputs.hub_image }}" \
+            --project "$GCP_PROJECT_ID"
+          gcloud artifacts docker images describe "${{ steps.release.outputs.watchtower_image }}" \
+            --project "$GCP_PROJECT_ID"
+
+      - name: Render manifests
+        run: |
+          set -euo pipefail
+          infra/k8s/render-manifests.sh \
+            --hub-image "${{ steps.release.outputs.hub_image }}" \
+            --watchtower-image "${{ steps.release.outputs.watchtower_image }}" \
+            --namespace "$GKE_NAMESPACE" \
+            --out-dir .context/gke-manifests
+
+      - name: Apply manifests
+        run: |
+          set -euo pipefail
+          for manifest in \
+            .context/gke-manifests/00-namespace.yaml \
+            .context/gke-manifests/01-hub.yaml \
+            .context/gke-manifests/02-watchtower.yaml \
+            .context/gke-manifests/03-prometheus.yaml \
+            .context/gke-manifests/04-alertmanager.yaml \
+            .context/gke-manifests/05-grafana.yaml
+          do
+            kubectl apply -f "$manifest"
+          done
+
+      - name: Verify rollouts
+        run: |
+          set -euo pipefail
+          kubectl rollout status statefulset/tainnel-hub -n "$GKE_NAMESPACE" --timeout=10m
+          kubectl rollout status statefulset/tainnel-watchtower -n "$GKE_NAMESPACE" --timeout=10m
+          kubectl rollout status statefulset/tainnel-prometheus -n "$GKE_NAMESPACE" --timeout=10m
+          kubectl rollout status deployment/tainnel-alertmanager -n "$GKE_NAMESPACE" --timeout=5m
+          kubectl rollout status deployment/tainnel-grafana -n "$GKE_NAMESPACE" --timeout=5m
+
+      - name: Verify deployed images
+        run: |
+          set -euo pipefail
+          actual_hub="$(kubectl get statefulset tainnel-hub -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="hub")].image}')"
+          actual_watchtower="$(kubectl get statefulset tainnel-watchtower -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="watchtower")].image}')"
+
+          if [[ "$actual_hub" != "${{ steps.release.outputs.hub_image }}" ]]; then
+            echo "::error::Hub image mismatch: expected ${{ steps.release.outputs.hub_image }}, got $actual_hub"
+            exit 1
+          fi
+
+          if [[ "$actual_watchtower" != "${{ steps.release.outputs.watchtower_image }}" ]]; then
+            echo "::error::Watchtower image mismatch: expected ${{ steps.release.outputs.watchtower_image }}, got $actual_watchtower"
+            exit 1
+          fi
+
+      - name: Verify health endpoints
+        run: |
+          set -euo pipefail
+          kubectl exec -n "$GKE_NAMESPACE" statefulset/tainnel-hub -c hub -- \
+            wget -qO- --timeout=5 http://127.0.0.1:3030/v1/health >/dev/null
+          kubectl exec -n "$GKE_NAMESPACE" statefulset/tainnel-watchtower -c watchtower -- \
+            wget -qO- --timeout=5 http://127.0.0.1:3031/health >/dev/null
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "## GKE deployment"
+            echo "- Release tag: \`${{ steps.release.outputs.release_tag }}\`"
+            echo "- Commit SHA: \`${{ steps.release.outputs.commit_sha }}\`"
+            echo "- Namespace: \`$GKE_NAMESPACE\`"
+            echo "- Hub image: \`${{ steps.release.outputs.hub_image }}\`"
+            echo "- Watchtower image: \`${{ steps.release.outputs.watchtower_image }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

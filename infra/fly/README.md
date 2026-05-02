@@ -18,7 +18,7 @@ infra/fly/
 └── secrets-bootstrap.sh         Idempotent .env → Fly secrets bootstrap.
 ```
 
-The deploy GitHub Action lives at `.github/workflows/deploy.yml`.
+The Fly deploy GitHub Action lives at `.github/workflows/fly-deploy.yml`.
 
 ## Prerequisites
 
@@ -84,7 +84,7 @@ binds to `127.0.0.1` inside the machine. Operators access health/metrics via
 
 ## Normal deploys (after first)
 
-Use the GitHub Action: `.github/workflows/deploy.yml`. Manual trigger,
+Use the GitHub Action: `.github/workflows/fly-deploy.yml`. Manual trigger,
 service + commit SHA inputs. The action verifies the SHA is on a `v*` tag
 before invoking flyctl. Mainnet deploys must come from a tagged release.
 

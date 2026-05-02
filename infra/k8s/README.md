@@ -63,13 +63,15 @@ gcloud artifacts repositories create tainnel \
 gcloud auth configure-docker us-central1-docker.pkg.dev
 ```
 
-### Release images
+### Release images and deploy
 
 Hub and watchtower production images are built by the `gke-images` GitHub
 Actions workflow whenever a `v*` tag is pushed. The workflow builds both
 Dockerfiles with `INCLUDE_LITESTREAM=1`, pushes versioned images to Artifact
 Registry, and uploads a `gke-manifests-${tag}` artifact containing rendered
-Kubernetes manifests with exact image references.
+Kubernetes manifests with exact image references. After the image push
+succeeds, it calls `.github/workflows/deploy.yml` to apply those manifests to
+GKE and verify the rollout.
 
 Configure these GitHub repository variables before pushing a release tag:
 
@@ -79,16 +81,23 @@ GAR_LOCATION=us-central1
 GAR_REPOSITORY=tainnel
 GCP_WORKLOAD_IDENTITY_PROVIDER=projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
 GCP_SERVICE_ACCOUNT=<service-account>@<project-id>.iam.gserviceaccount.com
+GKE_CLUSTER=tainnel-prod
+GKE_LOCATION=us-central1
+GKE_NAMESPACE=tainnel                 # optional; defaults to tainnel
 ```
 
 The service account must be impersonable by the GitHub Workload Identity
-provider and must have permission to upload Docker images to the Artifact
-Registry repository, for example `roles/artifactregistry.writer` on the
-repository.
+provider. It needs permission to upload Docker images to Artifact Registry
+(for example `roles/artifactregistry.writer` on the repository), read the GKE
+cluster (`roles/container.clusterViewer`), and apply resources in the target
+Kubernetes namespace. Bind Kubernetes RBAC to the Google service account before
+the first automated deploy.
 
-The source manifests keep placeholder image references. For deployment, use the
-rendered manifests from the release artifact so `01-hub.yaml` and
-`02-watchtower.yaml` point at immutable `v*-<short_sha>` image tags.
+The deploy workflow uses GitHub `environment: production`, so configure the
+environment's required reviewers/protection rules in repository settings if a
+human approval gate is required. The source manifests keep placeholder image
+references; `infra/k8s/render-manifests.sh` renders immutable
+`v*-<short_sha>` image tags at deploy time.
 
 ## Deploy
 
@@ -141,15 +150,29 @@ infra/k8s/secrets-bootstrap.sh --bootstrap-monitoring --env-file .secrets/monito
 
 ### 3. Workloads
 
-Download and unpack the `gke-manifests-${tag}` artifact from the release
-workflow, then apply those rendered manifests:
+Normal deploys are automatic: push a `v*` tag, wait for the `gke-images`
+workflow to push images, then approve the `production` environment deployment
+if protection rules are enabled.
+
+To redeploy an existing release tag, run the `deploy` GitHub Action manually
+with `release_tag=vX.Y.Z`. It derives the exact `vX.Y.Z-<short_sha>` image
+references, verifies they exist in Artifact Registry, applies manifests, and
+checks rollouts and health endpoints.
+
+For emergency local deploys, render exact image references and apply them:
 
 ```bash
-kubectl apply -f gke-manifests/01-hub.yaml
-kubectl apply -f gke-manifests/02-watchtower.yaml
-kubectl apply -f gke-manifests/03-prometheus.yaml
-kubectl apply -f gke-manifests/04-alertmanager.yaml
-kubectl apply -f gke-manifests/05-grafana.yaml
+infra/k8s/render-manifests.sh \
+  --hub-image us-central1-docker.pkg.dev/YOUR_PROJECT/tainnel/hub:vX.Y.Z-abc123def456 \
+  --watchtower-image us-central1-docker.pkg.dev/YOUR_PROJECT/tainnel/watchtower:vX.Y.Z-abc123def456 \
+  --out-dir .context/gke-manifests
+
+kubectl apply -f .context/gke-manifests/00-namespace.yaml
+kubectl apply -f .context/gke-manifests/01-hub.yaml
+kubectl apply -f .context/gke-manifests/02-watchtower.yaml
+kubectl apply -f .context/gke-manifests/03-prometheus.yaml
+kubectl apply -f .context/gke-manifests/04-alertmanager.yaml
+kubectl apply -f .context/gke-manifests/05-grafana.yaml
 ```
 
 Watch them come up:
@@ -241,10 +264,9 @@ R2 buckets for litestream should have:
 
 ### Image tag pinning
 
-The deploy workflow at `.github/workflows/deploy.yml` (Fly path) gates
-on `v*` tags. For the GKE path, recommend the same: build images
-labelled `vX.Y.Z-<short-sha>` and use that as the StatefulSet image.
-Don't deploy from `:latest`.
+The GKE image and deploy workflows gate on `v*` tags, build images labelled
+`vX.Y.Z-<short-sha>`, and verify the StatefulSets are running those exact
+references. Don't deploy from `:latest`.
 
 ### Optional add-ons not shipped here
 
