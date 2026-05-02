@@ -241,6 +241,8 @@ async function bootIntegration(): Promise<IntegrationFixture> {
       HUB_FEE_FLAT: '0',
       LOG_LEVEL: 'silent',
       PORT: '0',
+      TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
+      TAINNEL_SKIP_PROD_ASSERT: 'true',
     });
     const httpUrl = await hubServer.app.listen({ port: 0, host: '127.0.0.1' });
     const wsUrl = `${httpUrl.replace(/^http/, 'ws')}/ws`;
@@ -355,6 +357,7 @@ describe('integration: watchtower catches stale-state fraud on anvil', () => {
       pollingIntervalMs: 100,
       confirmations: 1,
       schedulerIntervalMs: 1_000,
+      thresholdRatio: 0,
       startHttp: false,
     });
     await watchtower.remember(v1);
