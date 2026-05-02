@@ -23,6 +23,24 @@ describe('loadConfig', () => {
     expect(cfg.chainId).toBe(ANVIL_DEV_CHAIN_ID);
     expect(cfg.paymentChannelAddress).toBe('0x1111111111111111111111111111111111111111');
     expect(cfg.penaltyThreshold).toBe(0.5);
+    expect(cfg.metricsBindAddr).toBe('127.0.0.1');
+  });
+
+  it('defaults metrics bind address to wildcard inside Kubernetes', () => {
+    const cfg = loadConfig({
+      ...ANVIL_ENV,
+      KUBERNETES_SERVICE_HOST: '10.0.0.1',
+    });
+    expect(cfg.metricsBindAddr).toBe('::');
+  });
+
+  it('respects explicit METRICS_BIND_ADDR', () => {
+    const cfg = loadConfig({
+      ...ANVIL_ENV,
+      KUBERNETES_SERVICE_HOST: '10.0.0.1',
+      METRICS_BIND_ADDR: '0.0.0.0',
+    });
+    expect(cfg.metricsBindAddr).toBe('0.0.0.0');
   });
 
   it('uses mainnet defaults with explicit private key', () => {

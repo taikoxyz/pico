@@ -107,6 +107,21 @@ describe('startWatchtower wiring', () => {
     expect(body.channelsWatched).toBe(0);
   });
 
+  it('uses configured HTTP host for health and metrics listener', async () => {
+    const publicClient = makeMockPublicClient();
+    handle = await startWatchtower({
+      rpcUrl: 'http://127.0.0.1:1',
+      privateKey: FAKE_PRIVATE_KEY,
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      chainId: CHAIN_ID,
+      publicClient,
+      startHttp: true,
+      httpHost: '::',
+    });
+
+    expect(handle.httpUrl).toMatch(/^http:\/\/\[::\]:\d+$/);
+  });
+
   it('remember(state) persists to both store and detector after EIP-712 validation', async () => {
     const publicClient = makeMockPublicClient();
     handle = await startWatchtower({

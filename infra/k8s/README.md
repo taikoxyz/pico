@@ -169,9 +169,8 @@ curl -fsS https://hub.tainnel.dev/v1/health
 kubectl port-forward -n tainnel statefulset/tainnel-watchtower 3031:3031 &
 curl -fsS http://localhost:3031/health
 
-# Prometheus: confirm scrape targets. The watchtower target uses port 3031,
-# but hub + watchtower will still report `up==0` until the metrics-binding
-# follow-up below is resolved.
+# Prometheus: confirm scrape targets. Hub should be reachable once deployed;
+# watchtower still needs the scrape-port follow-up below.
 kubectl port-forward -n tainnel svc/tainnel-prometheus 9090:9090 &
 open http://localhost:9090/targets
 
@@ -218,29 +217,17 @@ for these manifests.
 
 ## Follow-ups
 
-### 🛑 Metrics binding
+### Watchtower scrape port
 
-Hub + watchtower currently bind their `/metrics` listener to `127.0.0.1`
-inside the pod:
+Hub + watchtower now support `METRICS_BIND_ADDR`, and these manifests set it
+to `::` so in-cluster Prometheus can reach their metrics listeners.
 
-- Hub: `apps/hub/src/server.ts:116` — `metricsApp.listen({ port:
-  config.prometheusPort, host: '127.0.0.1' })`.
-- Watchtower: `apps/watchtower/src/index.ts:239` — `http.listen({ port:
-  opts.httpPort ?? 0, host: '127.0.0.1' })`.
+One scrape mismatch remains: Prometheus targets watchtower on `:9090`, while
+the watchtower currently exposes `/metrics` on its HTTP port, `:3031`.
+Resolve that by either repointing the watchtower scrape target to `:3031` or
+adding a dedicated watchtower metrics listener on `:9090`.
 
-Until those bindings are widened, Prometheus running in a sibling pod
-will report `up == 0` for both jobs even though the pods are healthy.
-Three options:
-
-1. Patch hub + watchtower to bind `::` (or `0.0.0.0`) when an env var
-   like `METRICS_BIND_ADDR=::` is set, then redeploy. Cleanest.
-2. Run a tiny `socat`-style sidecar in each pod that proxies
-   `127.0.0.1:9090` to the pod's eth0 interface.
-3. Run an in-pod Prometheus Agent and `remote_write` to a central
-   Prometheus or Grafana Cloud.
-
-This is the same gap documented in `infra/fly/README.md` and
-`infra/monitoring/README.md`.
+This is tracked separately from the metrics bind change.
 
 ### Bucket setup
 
