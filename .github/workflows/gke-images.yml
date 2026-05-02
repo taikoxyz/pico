@@ -15,16 +15,24 @@ env:
   GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
   GAR_REGISTRY: ${{ vars.GAR_LOCATION }}-docker.pkg.dev
   GAR_IMAGE_PREFIX: ${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}
+  GKE_NAMESPACE: ${{ vars.GKE_NAMESPACE || 'tainnel' }}
 
 jobs:
   build-push:
     name: Build and push GKE images
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      release_tag: ${{ steps.images.outputs.release_tag }}
+      commit_sha: ${{ steps.images.outputs.commit_sha }}
+      hub_image: ${{ steps.images.outputs.hub_image }}
+      watchtower_image: ${{ steps.images.outputs.watchtower_image }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate configuration
         run: |
@@ -35,7 +43,9 @@ jobs:
             GAR_LOCATION \
             GAR_REPOSITORY \
             GCP_WORKLOAD_IDENTITY_PROVIDER \
-            GCP_SERVICE_ACCOUNT
+            GCP_SERVICE_ACCOUNT \
+            GKE_CLUSTER \
+            GKE_LOCATION
           do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::Missing GitHub repository variable: ${name}"
@@ -46,6 +56,8 @@ jobs:
         env:
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
+          GKE_LOCATION: ${{ vars.GKE_LOCATION }}
 
       - name: Authenticate to Google Cloud
         id: auth
@@ -70,14 +82,16 @@ jobs:
         id: images
         run: |
           set -euo pipefail
-          short_sha="${GITHUB_SHA::12}"
           release_tag="${GITHUB_REF_NAME}"
+          commit_sha="$(git rev-list -n1 "$release_tag")"
+          short_sha="${commit_sha::12}"
           hub_image="${GAR_IMAGE_PREFIX}/hub:${release_tag}-${short_sha}"
           watchtower_image="${GAR_IMAGE_PREFIX}/watchtower:${release_tag}-${short_sha}"
 
           {
             echo "short_sha=${short_sha}"
             echo "release_tag=${release_tag}"
+            echo "commit_sha=${commit_sha}"
             echo "hub_image=${hub_image}"
             echo "watchtower_image=${watchtower_image}"
           } >> "$GITHUB_OUTPUT"
@@ -109,25 +123,11 @@ jobs:
       - name: Render GKE manifests
         run: |
           set -euo pipefail
-          out_dir=".context/gke-manifests"
-          rm -rf "$out_dir"
-          mkdir -p "$out_dir"
-
-          cp infra/k8s/00-namespace.yaml "$out_dir/00-namespace.yaml"
-          sed \
-            "s|REGION-docker.pkg.dev/PROJECT/tainnel/hub:VERSION|${{ steps.images.outputs.hub_image }}|g" \
-            infra/k8s/01-hub.yaml > "$out_dir/01-hub.yaml"
-          sed \
-            "s|REGION-docker.pkg.dev/PROJECT/tainnel/watchtower:VERSION|${{ steps.images.outputs.watchtower_image }}|g" \
-            infra/k8s/02-watchtower.yaml > "$out_dir/02-watchtower.yaml"
-          cp infra/k8s/03-prometheus.yaml "$out_dir/03-prometheus.yaml"
-          cp infra/k8s/04-alertmanager.yaml "$out_dir/04-alertmanager.yaml"
-          cp infra/k8s/05-grafana.yaml "$out_dir/05-grafana.yaml"
-
-          if grep -R "REGION-docker.pkg.dev/PROJECT/tainnel" "$out_dir"; then
-            echo "::error::Rendered manifests still contain image placeholders."
-            exit 1
-          fi
+          infra/k8s/render-manifests.sh \
+            --hub-image "${{ steps.images.outputs.hub_image }}" \
+            --watchtower-image "${{ steps.images.outputs.watchtower_image }}" \
+            --namespace "$GKE_NAMESPACE" \
+            --out-dir .context/gke-manifests
 
       - name: Upload rendered GKE manifests
         uses: actions/upload-artifact@v4
@@ -135,3 +135,14 @@ jobs:
           name: gke-manifests-${{ steps.images.outputs.release_tag }}
           path: .context/gke-manifests/
           if-no-files-found: error
+
+  deploy:
+    name: Deploy GKE manifests
+    needs: build-push
+    uses: ./.github/workflows/deploy.yml
+    with:
+      release_tag: ${{ needs.build-push.outputs.release_tag }}
+      commit_sha: ${{ needs.build-push.outputs.commit_sha }}
+      hub_image: ${{ needs.build-push.outputs.hub_image }}
+      watchtower_image: ${{ needs.build-push.outputs.watchtower_image }}
+    secrets: inherit
