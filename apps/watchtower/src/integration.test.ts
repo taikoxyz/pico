@@ -357,6 +357,7 @@ describe('integration: watchtower catches stale-state fraud on anvil', () => {
       pollingIntervalMs: 100,
       confirmations: 1,
       schedulerIntervalMs: 1_000,
+      thresholdRatio: 0,
       startHttp: false,
     });
     await watchtower.remember(v1);

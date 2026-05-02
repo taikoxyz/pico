@@ -387,6 +387,7 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
       chainId: h.chainId,
       pollingIntervalMs: 100,
       confirmations: 1,
+      thresholdRatio: 0,
       startHttp: false,
     });
 

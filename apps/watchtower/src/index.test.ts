@@ -37,21 +37,24 @@ function makeMockPublicClient(): PublicClient {
   const watchContractEvent = vi.fn(() => () => {});
   const getBlockNumber = vi.fn(async () => 1n);
   const getContractEvents = vi.fn(async () => []);
-  const readContract = vi.fn(async () => [
-    USER_A,
-    USER_B,
-    '0x0000000000000000000000000000000000000000' as Address,
-    100n,
-    200n,
-    0n,
-    0n,
-    0n,
-    0n,
-    0n,
-    false,
-    0,
-    USER_A,
-  ]);
+  const readContract = vi.fn(async (args: { functionName: string }) => {
+    if (args.functionName === 'adjudicator') return PAYMENT_CHANNEL;
+    return [
+      USER_A,
+      USER_B,
+      '0x0000000000000000000000000000000000000000' as Address,
+      100n,
+      200n,
+      0n,
+      0n,
+      0n,
+      0n,
+      0n,
+      false,
+      0,
+      USER_A,
+    ];
+  });
   return {
     watchContractEvent,
     getBlockNumber,

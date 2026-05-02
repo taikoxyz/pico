@@ -18,10 +18,13 @@ const channelsViewAbi = parseAbi([
   'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
 ]);
 
+const adjudicatorViewAbi = parseAbi(['function adjudicator() view returns (address)']);
+
 export interface StartWatchtowerOpts {
   readonly rpcUrl: string;
   readonly privateKey: Hex;
   readonly paymentChannelAddress: Address;
+  readonly adjudicatorAddress?: Address;
   readonly chainId: number;
   readonly dbUrl?: string;
   readonly httpPort?: number;
@@ -70,6 +73,11 @@ function sigToHex(sig: Signature): Hex {
   return `0x${sig.r.slice(2)}${sig.s.slice(2)}${v}` as Hex;
 }
 
+const ZERO_HEX_32 = `0x${'0'.repeat(64)}` as Hex;
+function isZeroSignature(sig: Signature): boolean {
+  return sig.r === ZERO_HEX_32 && sig.s === ZERO_HEX_32;
+}
+
 export async function startWatchtower(opts: StartWatchtowerOpts): Promise<WatchtowerHandle> {
   const log = opts.logger ?? defaultLogger;
 
@@ -112,6 +120,21 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     opts.publicClient ?? (responder as unknown as { publicClient: PublicClient }).publicClient;
 
   const channelInvariantsCache = new Map<ChannelId, ChannelInvariants>();
+
+  let adjudicatorAddressPromise: Promise<Address> | undefined;
+  async function getAdjudicatorAddress(): Promise<Address> {
+    if (opts.adjudicatorAddress) return opts.adjudicatorAddress;
+    if (!adjudicatorAddressPromise) {
+      adjudicatorAddressPromise = sharedClient
+        .readContract({
+          address: opts.paymentChannelAddress,
+          abi: adjudicatorViewAbi,
+          functionName: 'adjudicator',
+        })
+        .then((a) => a as Address);
+    }
+    return adjudicatorAddressPromise;
+  }
 
   type ChannelRow = readonly [
     Address,
@@ -195,6 +218,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         `watchtower.remember: state is finalized; not penalty-capable (channel ${state.state.channelId})`,
       );
     }
+    const verifyingContract = await getAdjudicatorAddress();
     let okA = false;
     try {
       okA = await verifyChannelStateSignature(
@@ -202,7 +226,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         sigToHex(state.sigA),
         inv.userA,
         opts.chainId as ChainId,
-        opts.paymentChannelAddress,
+        verifyingContract,
       );
     } catch {
       okA = false;
@@ -219,7 +243,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         sigToHex(state.sigB),
         inv.userB,
         opts.chainId as ChainId,
-        opts.paymentChannelAddress,
+        verifyingContract,
       );
     } catch {
       okB = false;
@@ -344,6 +368,9 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     ...(http ? { http } : {}),
     ...(httpUrl ? { httpUrl } : {}),
     async remember(state: SignedState): Promise<void> {
+      if (isZeroSignature(state.sigA) || isZeroSignature(state.sigB)) {
+        return;
+      }
       await validateSignedState(state);
       store.putSignedState(state);
       detector.remember(state);
