@@ -194,30 +194,45 @@ jobs:
 
   e2e-fork:
     runs-on: ubuntu-latest
-    if: ${{ secrets.TAIKO_MAINNET_RPC_URL != '' }}
+    env:
+      E2E_FORK_URL: ${{ secrets.TAIKO_MAINNET_RPC_URL }}
+      # Optional. When set, the value-flow + penalty-drill fork tests
+      # impersonate this account to fund Alice/Bob/Hub with real USDC.
+      # When unset, those tests skip cleanly and only bytecode-parity
+      # boot is exercised.
+      E2E_USDC_WHALE: ${{ secrets.E2E_USDC_WHALE || '' }}
     steps:
+      - name: Check fork RPC availability
+        id: gate
+        run: |
+          if [ -z "$E2E_FORK_URL" ]; then
+            echo "TAIKO_MAINNET_RPC_URL secret not set; skipping forked E2E"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
       - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - uses: foundry-rs/foundry-toolchain@v1
+        if: steps.gate.outputs.skip != 'true'
         with:
           version: v1.7.0
-      - run: pnpm install --frozen-lockfile
+      - if: steps.gate.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
       - name: Build TS packages
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm exec turbo run build --filter='!@tainnel/contracts'
       - name: Run forked E2E tests
-        env:
-          E2E_FORK_URL: ${{ secrets.TAIKO_MAINNET_RPC_URL }}
-          # Optional. When set, the value-flow + penalty-drill fork tests
-          # impersonate this account to fund Alice/Bob/Hub with real USDC.
-          # When unset, those tests skip cleanly and only bytecode-parity
-          # boot is exercised.
-          E2E_USDC_WHALE: ${{ secrets.E2E_USDC_WHALE || '' }}
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm -F @tainnel/e2e test:fork
 
   ci:
