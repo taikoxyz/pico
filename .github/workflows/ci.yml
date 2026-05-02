@@ -272,7 +272,7 @@ jobs:
 
   ci:
     if: always()
-    needs: [lint, typecheck, build, k8s-manifests, test-ts, test-solidity, e2e, coverage]
+    needs: [lint, typecheck, build, k8s-manifests, test-ts, test-solidity, e2e, e2e-fork, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs passed
