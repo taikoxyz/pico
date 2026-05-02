@@ -57,6 +57,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec turbo run build --filter='!@tainnel/contracts'
 
+  k8s-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Kubernetes image references
+        run: bash infra/k8s/lint-images.sh
+
   test-ts:
     runs-on: ubuntu-latest
     steps:
@@ -265,7 +272,7 @@ jobs:
 
   ci:
     if: always()
-    needs: [lint, typecheck, build, test-ts, test-solidity, e2e, e2e-fork, coverage]
+    needs: [lint, typecheck, build, k8s-manifests, test-ts, test-solidity, e2e, e2e-fork, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs passed

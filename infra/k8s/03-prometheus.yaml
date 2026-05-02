@@ -4,8 +4,7 @@
 # resolve via SRV records.
 #
 # Hub + watchtower set METRICS_BIND_ADDR=:: so in-cluster Prometheus can reach
-# their metrics listeners. Watchtower currently exposes metrics on its HTTP
-# port; see infra/k8s/README.md for the remaining scrape-port follow-up.
+# their metrics listeners. Watchtower exposes metrics on its HTTP port, 3031.
 
 apiVersion: v1
 kind: ServiceAccount

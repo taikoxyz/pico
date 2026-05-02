@@ -82,7 +82,7 @@ sed \
       -e "s|namespace: tainnel$|namespace: $NAMESPACE|g" \
       -e "s|\\.tainnel\\.svc|.$NAMESPACE.svc|g" \
     > "$OUT_DIR/02-watchtower.yaml"
-for manifest in 03-prometheus.yaml 04-alertmanager.yaml 05-grafana.yaml; do
+for manifest in 03-prometheus.yaml 04-alertmanager.yaml 05-grafana.yaml 06-networkpolicy.yaml; do
   sed \
     -e "s|namespace: tainnel$|namespace: $NAMESPACE|g" \
     -e "s|\\.tainnel\\.svc|.$NAMESPACE.svc|g" \
