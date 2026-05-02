@@ -1,8 +1,10 @@
-# Tainnel runbooks (DRAFT — verify before P10)
+# Tainnel runbooks (DRAFT — verify before mainnet)
 
 These runbooks are **draft** scaffolds. They list the steps an on-call operator
 should take, the files/commands involved, and the verification checks. Treat each
-as a fill-in-the-blanks template until P10 (mainnet real-money test) signs off.
+as a fill-in-the-blanks template until the mainnet smoke channel signs off.
+Finalization is tracked under
+[issue #21](https://github.com/dantaik/tainnel/issues/21).
 
 | Runbook | Trigger | Severity |
 |---|---|---|
@@ -17,13 +19,12 @@ Common touch-points:
 
 - Hub config: `apps/hub/.env.example` and `apps/hub/src/config.ts`.
 - Watchtower config: `apps/watchtower/.env.example` and `apps/watchtower/src/config.ts`.
-- Hub DB: SQLite + litestream in v1 (see `docs/plans/05-hub.md`,
-  `docs/plans/09-ops.md`).
+- Hub DB: SQLite + litestream in v1.
 - Metrics: `/metrics` on the hub; `/metrics` and `/health` on the watchtower.
 - Logs: structured pino JSON; tail with `docker logs -f` or your platform UI.
 
-Open issues / TODOs:
-
-- Replace the `TODO(infra)` / `TODO(contact)` placeholders below with real
-  endpoints once Fly.io / Discord / PagerDuty are provisioned (P9).
-- Validate each runbook with a fire drill before running real funds.
+Replace the `TODO(infra)` / `TODO(contact)` placeholders in individual
+runbooks with real endpoints once Fly.io / Discord / PagerDuty are
+provisioned, and validate each runbook with a fire drill before running
+real funds. Tracked under
+[issue #21](https://github.com/dantaik/tainnel/issues/21).

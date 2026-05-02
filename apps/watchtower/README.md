@@ -19,5 +19,4 @@ penalty transaction before the dispute window closes.
 ## Service mode (deferred)
 
 Multi-tenant, encrypted-blob ingestion service mode is **not implemented in
-v1**. Setting `MODE=service` is rejected at startup with a clear error. See
-`docs/plans/06-watchtower.md` for the roadmap.
+v1**. Setting `MODE=service` is rejected at startup with a clear error.

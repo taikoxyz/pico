@@ -149,8 +149,9 @@ Drill ID: <random-uuid>
 - [ ] Maintainer sends acknowledgement reply within 24h.
 - [ ] After confirmation, close the advisory with `[DRILL — no real vuln]`.
 
-Record drill date + outcome in your team operations log. Tick the
-`[human]` pre-flight item in `docs/plans/10-launch.md` after the first
+Record drill date + outcome in your team operations log. Close the
+corresponding sub-issue under
+[issue #21](https://github.com/dantaik/tainnel/issues/21) after the first
 successful drill.
 
 ## Open TODOs

@@ -1,10 +1,10 @@
 # Mainnet smoke (canary) scripts
 
-Operator-driven scripts that turn the manual P10 lifecycle in
-[`docs/plans/10-launch.md`](../../docs/plans/10-launch.md) into a
-guided, idempotent run. Per-channel cap 100 USDC (D10.1), hub liquidity
-ceiling 1000 USDC (D10.2), three operator wallets `alice`, `bob`, `carol`
-under `~/.tainnel/<role>/` (D10.3).
+Operator-driven scripts that turn the mainnet smoke channel lifecycle into
+a guided, idempotent run. Per-channel cap 100 USDC, hub liquidity ceiling
+1000 USDC, three operator wallets `alice`, `bob`, `carol` under
+`~/.tainnel/<role>/`. Tracked under
+[issue #21](https://github.com/dantaik/tainnel/issues/21).
 
 ## Prerequisites
 
@@ -80,9 +80,8 @@ you pre-export `LOG_DIR`.
   listener missed the event, do not retry pay — investigate the listener
   log first; the payment is durable.
 - If `04-dispute-drill.sh` aborts because the watchtower didn't penalize,
-  apply D10.5 from `docs/plans/10-launch.md`: stop, cooperative-close any
-  open channels you can, write an incident note. **Do not** retry the
-  drill until the root cause is understood.
+  stop, cooperative-close any open channels you can, write an incident
+  note. **Do not** retry the drill until the root cause is understood.
 
 ## CLI gaps documented for future work
 
