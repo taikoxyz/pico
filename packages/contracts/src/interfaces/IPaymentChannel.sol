@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 /// @title IPaymentChannel
-/// @notice Public surface for tainnel pairwise payment channels.
+/// @notice Public surface for pico pairwise payment channels.
 /// @dev Bodies are out of scope for the bootstrap; only events and signatures are stable.
 interface IPaymentChannel {
     /// @notice Emitted when a channel is funded and ready for off-chain updates.

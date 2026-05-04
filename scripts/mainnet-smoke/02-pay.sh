@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bob runs `tainnel listen` in the background; Alice creates an invoice via
+# Bob runs `pico listen` in the background; Alice creates an invoice via
 # Bob's CLI and pays it. Asserts the preimage receipt is printed and Bob's
 # listener reports settle.
 #
@@ -34,7 +34,7 @@ log "Pay flow: Alice → Bob, ${AMOUNT_USDC} USDC; logs: $LOG_DIR"
 # 1. Background Bob's listener.
 listen_log="$LOG_DIR/bob-listen.log"
 log "Bob: starting listen → $listen_log"
-( tainnel_as bob listen --hub "$HUB_URL" --log-format json >"$listen_log" 2>&1 ) &
+( pico_as bob listen --hub "$HUB_URL" --log-format json >"$listen_log" 2>&1 ) &
 LISTEN_PID=$!
 trap 'kill $LISTEN_PID 2>/dev/null || true' EXIT
 
@@ -43,7 +43,7 @@ sleep 3
 
 # 2. Bob creates an invoice.
 log "Bob: creating invoice"
-inv_json="$(tainnel_as bob invoice create --amount "$AMOUNT_USDC" --memo "mainnet-smoke" --json 2>"$LOG_DIR/bob-invoice.stderr")"
+inv_json="$(pico_as bob invoice create --amount "$AMOUNT_USDC" --memo "mainnet-smoke" --json 2>"$LOG_DIR/bob-invoice.stderr")"
 echo "$inv_json" > "$LOG_DIR/bob-invoice.json"
 INVOICE="$(echo "$inv_json" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("invoice", ""))')"
 [[ -n "$INVOICE" ]] || fail "Bob: invoice creation did not produce an invoice string; see $LOG_DIR/bob-invoice.{json,stderr}"
@@ -51,7 +51,7 @@ green "Bob: invoice created"
 
 # 3. Alice pays.
 log "Alice: paying invoice"
-pay_json="$(tainnel_as alice pay --invoice "$INVOICE" --via "$HUB_URL" --json 2>"$LOG_DIR/alice-pay.stderr")"
+pay_json="$(pico_as alice pay --invoice "$INVOICE" --via "$HUB_URL" --json 2>"$LOG_DIR/alice-pay.stderr")"
 echo "$pay_json" > "$LOG_DIR/alice-pay.json"
 status="$(echo "$pay_json" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("status", ""))')"
 if [[ "$status" != "settled" ]]; then

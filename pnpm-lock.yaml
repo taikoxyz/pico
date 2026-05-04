@@ -26,19 +26,19 @@ importers:
 
   apps/cli:
     dependencies:
-      '@tainnel/dvm-adapter':
+      '@pico/dvm-adapter':
         specifier: workspace:*
         version: link:../../packages/dvm-adapter
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@tainnel/sdk':
+      '@pico/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@tainnel/state-machine':
+      '@pico/state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine
-      '@tainnel/test-utils':
+      '@pico/test-utils':
         specifier: workspace:*
         version: link:../../packages/test-utils
       commander:
@@ -84,13 +84,13 @@ importers:
       '@fastify/websocket':
         specifier: ^11.0.1
         version: 11.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@tainnel/sdk':
+      '@pico/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@tainnel/state-machine':
+      '@pico/state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine
       better-sqlite3:
@@ -142,13 +142,13 @@ importers:
 
   apps/watchtower:
     dependencies:
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@tainnel/sdk':
+      '@pico/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@tainnel/state-machine':
+      '@pico/state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine
       better-sqlite3:
@@ -167,10 +167,10 @@ importers:
         specifier: ^2.21.0
         version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)
     devDependencies:
-      '@tainnel/hub':
+      '@pico/hub':
         specifier: workspace:*
         version: link:../hub
-      '@tainnel/test-utils':
+      '@pico/test-utils':
         specifier: workspace:*
         version: link:../../packages/test-utils
       '@types/better-sqlite3':
@@ -194,22 +194,22 @@ importers:
 
   e2e:
     dependencies:
-      '@tainnel/hub':
+      '@pico/hub':
         specifier: workspace:*
         version: link:../apps/hub
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../packages/protocol
-      '@tainnel/sdk':
+      '@pico/sdk':
         specifier: workspace:*
         version: link:../packages/sdk
-      '@tainnel/state-machine':
+      '@pico/state-machine':
         specifier: workspace:*
         version: link:../packages/state-machine
-      '@tainnel/test-utils':
+      '@pico/test-utils':
         specifier: workspace:*
         version: link:../packages/test-utils
-      '@tainnel/watchtower':
+      '@pico/watchtower':
         specifier: workspace:*
         version: link:../apps/watchtower
       viem:
@@ -228,13 +228,13 @@ importers:
 
   examples:
     dependencies:
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../packages/protocol
-      '@tainnel/sdk':
+      '@pico/sdk':
         specifier: workspace:*
         version: link:../packages/sdk
-      '@tainnel/test-utils':
+      '@pico/test-utils':
         specifier: workspace:*
         version: link:../packages/test-utils
     devDependencies:
@@ -249,10 +249,10 @@ importers:
 
   packages/dvm-adapter:
     dependencies:
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@tainnel/sdk':
+      '@pico/sdk':
         specifier: workspace:*
         version: link:../sdk
       nostr-tools:
@@ -290,10 +290,10 @@ importers:
       '@noble/hashes':
         specifier: ^1.5.0
         version: 1.8.0
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@tainnel/state-machine':
+      '@pico/state-machine':
         specifier: workspace:*
         version: link:../state-machine
       '@types/ws':
@@ -327,7 +327,7 @@ importers:
 
   packages/state-machine:
     dependencies:
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../protocol
       viem:
@@ -352,13 +352,13 @@ importers:
 
   packages/test-utils:
     dependencies:
-      '@tainnel/protocol':
+      '@pico/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@tainnel/sdk':
+      '@pico/sdk':
         specifier: workspace:*
         version: link:../sdk
-      '@tainnel/state-machine':
+      '@pico/state-machine':
         specifier: workspace:*
         version: link:../state-machine
       viem:

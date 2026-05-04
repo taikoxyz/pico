@@ -21,7 +21,7 @@
 # 1) Provision new host with same config; do NOT start the hub yet.
 # 2) Restore the database.
 litestream restore -o ./data/hub.sqlite \
-  s3://tainnel-hub-backups/hub.sqlite
+  s3://pico-hub-backups/hub.sqlite
 
 # 3) Verify schema + row counts before starting:
 sqlite3 ./data/hub.sqlite "SELECT name FROM sqlite_master WHERE type='table';"
@@ -29,7 +29,7 @@ sqlite3 ./data/hub.sqlite "SELECT count(*) FROM channels;"
 
 # 4) Start the hub. Router rehydrates in-flight HTLC routes from
 #    payment_routes + states tables on boot.
-fly machine start -a tainnel-hub
+fly machine start -a pico-hub
 ```
 
 ## Restore: watchtower from litestream
@@ -38,7 +38,7 @@ fly machine start -a tainnel-hub
 # 1) Provision new host with same config + WATCHTOWER_PRIVATE_KEY.
 # 2) Restore the database BEFORE starting the watchtower.
 litestream restore -o ./data/watchtower.sqlite \
-  s3://tainnel-watchtower-backups/watchtower.sqlite
+  s3://pico-watchtower-backups/watchtower.sqlite
 
 # 3) Verify schema + row counts before starting (see drill below).
 sqlite3 ./data/watchtower.sqlite "SELECT name FROM sqlite_master WHERE type='table';"
@@ -46,7 +46,7 @@ sqlite3 ./data/watchtower.sqlite "SELECT count(*) FROM in_flight_txs;"
 
 # 4) Start the watchtower; it will resume in-flight penalty txs from
 #    in_flight_txs and re-evaluate observations from watchtower_observations.
-fly machine start -a tainnel-watchtower
+fly machine start -a pico-watchtower
 ```
 
 ## Restore drill (quarterly, mandatory pre-launch)

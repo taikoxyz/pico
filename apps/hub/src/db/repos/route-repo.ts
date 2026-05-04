@@ -6,8 +6,8 @@ import type {
   HtlcId,
   PaymentHash,
   SignedState,
-} from '@tainnel/protocol';
-import { hexToSignature, signatureToHex } from '@tainnel/sdk';
+} from '@pico/protocol';
+import { hexToSignature, signatureToHex } from '@pico/sdk';
 import type { DbDriver } from '../types.js';
 
 export type RouteState = 'inflight' | 'settled' | 'failed';

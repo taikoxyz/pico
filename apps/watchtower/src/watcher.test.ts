@@ -1,4 +1,4 @@
-import type { Address } from '@tainnel/protocol';
+import type { Address } from '@pico/protocol';
 import { type PublicClient, TransactionReceiptNotFoundError } from 'viem';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { logger } from './logger.js';

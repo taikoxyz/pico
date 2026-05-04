@@ -1,19 +1,19 @@
 # Alertmanager Deployment + Service. State is ephemeral so no PVC.
-# Webhook URLs are placeholders; substitute via `tainnel-monitoring-secrets`
+# Webhook URLs are placeholders; substitute via `pico-monitoring-secrets`
 # (created by secrets-bootstrap.sh --bootstrap-monitoring) and a small
 # templating step before applying.
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: tainnel-alertmanager
-  namespace: tainnel
+  name: pico-alertmanager
+  namespace: pico
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-alertmanager-config
-  namespace: tainnel
+  name: pico-alertmanager-config
+  namespace: pico
 data:
   alertmanager.yml: |
     global:
@@ -58,14 +58,14 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tainnel-alertmanager
-  namespace: tainnel
+  name: pico-alertmanager
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-alertmanager
+    app.kubernetes.io/name: pico-alertmanager
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: tainnel-alertmanager
+    app.kubernetes.io/name: pico-alertmanager
   ports:
     - name: http
       port: 9093
@@ -74,21 +74,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tainnel-alertmanager
-  namespace: tainnel
+  name: pico-alertmanager
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-alertmanager
+    app.kubernetes.io/name: pico-alertmanager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-alertmanager
+      app.kubernetes.io/name: pico-alertmanager
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: tainnel-alertmanager
+        app.kubernetes.io/name: pico-alertmanager
     spec:
-      serviceAccountName: tainnel-alertmanager
+      serviceAccountName: pico-alertmanager
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -136,6 +136,6 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: tainnel-alertmanager-config
+            name: pico-alertmanager-config
         - name: data
           emptyDir: {}

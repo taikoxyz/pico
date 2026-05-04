@@ -251,7 +251,7 @@ Losing the latest signed state is a channel fund-safety issue because a counterp
 **Evidence file references**
 
 - `apps/cli/src/runtime/signer.ts:26`: `--private-key` is accepted.
-- `apps/cli/src/runtime/signer.ts:31`: `TAINNEL_PRIVATE_KEY` is accepted.
+- `apps/cli/src/runtime/signer.ts:31`: `PICO_PRIVATE_KEY` is accepted.
 - `apps/cli/src/runtime/signer.ts:69`: plaintext key files are read.
 - `apps/cli/src/runtime/signer.ts:70`: plaintext private key files are accepted.
 - `apps/cli/src/commands/keys.ts:40`: `keys import --from <hex>` puts a private key in argv.
@@ -265,7 +265,7 @@ Losing the latest signed state is a channel fund-safety issue because a counterp
 
 **Observed behavior**
 
-The CLI warns for `--private-key` and `TAINNEL_PRIVATE_KEY`, and generated encrypted key files are written `0600`. But production commands still accept secrets in argv/env/plaintext files and expose preimages/private keys in stdout.
+The CLI warns for `--private-key` and `PICO_PRIVATE_KEY`, and generated encrypted key files are written `0600`. But production commands still accept secrets in argv/env/plaintext files and expose preimages/private keys in stdout.
 
 **Impact**
 
@@ -278,7 +278,7 @@ Private keys in argv can appear in shell history and process listings. Env vars 
 - Reject plaintext key files by default; require `--unsafe-allow-plaintext-key`.
 - Avoid printing private keys; if retained, require an interactive confirmation and refuse non-TTY output.
 - Redact preimages by default; add `--reveal-preimage` for settlement output only when explicitly requested.
-- Warn when `TAINNEL_PASSPHRASE` is used outside CI/test mode.
+- Warn when `PICO_PASSPHRASE` is used outside CI/test mode.
 
 **Tests/checks needed**
 
@@ -414,7 +414,7 @@ This blurs custody boundaries and encourages production consumers to use in-memo
 
 **Recommended fix**
 
-- Move test helpers to `@tainnel/test-utils` only.
+- Move test helpers to `@pico/test-utils` only.
 - Remove `./signer.test-only` and `./_test` from published SDK exports before stable release.
 - Implement `LocalSigner` as a production module, not a subclass of a test-only class.
 - Document signer custody expectations and prefer external signer/KMS interfaces for mainnet.
@@ -423,7 +423,7 @@ This blurs custody boundaries and encourages production consumers to use in-memo
 
 - Package export snapshot excludes test-only subpaths.
 - SDK README no longer points production users to test signers.
-- CLI tests import test helpers from `@tainnel/test-utils`.
+- CLI tests import test helpers from `@pico/test-utils`.
 
 ## Readiness blockers
 

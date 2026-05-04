@@ -1,4 +1,4 @@
-import type { Address, ChannelId, Hex, SignedState } from '@tainnel/protocol';
+import type { Address, ChannelId, Hex, SignedState } from '@pico/protocol';
 import type { PublicClient } from 'viem';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type WatchtowerHandle, startWatchtower } from './index.js';

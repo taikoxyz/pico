@@ -12,8 +12,8 @@ import type {
   Signature,
   SignedCooperativeClose,
   SignedState,
-} from '@tainnel/protocol';
-import { DEFAULT_HUB_FEE_BPS, DEFAULT_HUB_FEE_FLAT } from '@tainnel/protocol';
+} from '@pico/protocol';
+import { DEFAULT_HUB_FEE_BPS, DEFAULT_HUB_FEE_FLAT } from '@pico/protocol';
 import {
   type StateAdmissionError,
   addHtlc,
@@ -24,7 +24,7 @@ import {
   failHtlc,
   preimageDigest,
   settleHtlc,
-} from '@tainnel/state-machine';
+} from '@pico/state-machine';
 import type { ChainAdapter } from './chain-adapter.js';
 import { randomHtlcId, randomNonce16 } from './crypto.js';
 import {
@@ -257,7 +257,7 @@ export class ChannelClient {
 
   /**
    * Re-establishes in-memory state from durable storage. Called explicitly
-   * by long-running CLIs (`tainnel listen`, `tainnel pay --resume`) after a
+   * by long-running CLIs (`pico listen`, `pico pay --resume`) after a
    * restart so that late settle/fail messages for HTLCs persisted before the
    * crash can still be matched. F-02.
    *

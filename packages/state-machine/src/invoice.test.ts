@@ -1,4 +1,4 @@
-import { type Invoice, TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
+import { type Invoice, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
 import { privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';
 import { buildInvoiceTypedData, hashInvoice, verifyInvoiceSignature } from './invoice.js';

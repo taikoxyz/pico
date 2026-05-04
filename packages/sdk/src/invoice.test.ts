@@ -1,4 +1,4 @@
-import { TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
+import { TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
 import { describe, expect, it } from 'vitest';
 import { InvoiceExpiredError, InvoiceVerificationError } from './errors.js';
 import { createInvoice, verifyInvoice } from './invoice.js';

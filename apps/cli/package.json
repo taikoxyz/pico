@@ -1,13 +1,13 @@
 {
-  "name": "@tainnel/cli",
+  "name": "@pico/cli",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "description": "tainnel developer/operator CLI: open and close channels, pay, query hubs, run dev fork.",
+  "description": "pico developer/operator CLI: open and close channels, pay, query hubs, run dev fork.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "tainnel": "./dist/index.js"
+    "pico": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
@@ -18,11 +18,11 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@tainnel/dvm-adapter": "workspace:*",
-    "@tainnel/protocol": "workspace:*",
-    "@tainnel/sdk": "workspace:*",
-    "@tainnel/state-machine": "workspace:*",
-    "@tainnel/test-utils": "workspace:*",
+    "@pico/dvm-adapter": "workspace:*",
+    "@pico/protocol": "workspace:*",
+    "@pico/sdk": "workspace:*",
+    "@pico/state-machine": "workspace:*",
+    "@pico/test-utils": "workspace:*",
     "commander": "^12.1.0",
     "picocolors": "^1.1.1",
     "pino": "^9.5.0",

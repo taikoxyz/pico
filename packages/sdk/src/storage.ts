@@ -5,7 +5,7 @@ import type {
   PaymentHash,
   Preimage,
   SignedState,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import type { InvoiceRecord } from './storage-shared.js';
 
 export interface ChannelStorage {

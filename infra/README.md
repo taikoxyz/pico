@@ -1,4 +1,4 @@
-# Tainnel infrastructure
+# Pico infrastructure
 
 Production deployment manifests and supporting operational scripts. v1 targets:
 

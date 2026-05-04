@@ -8,7 +8,7 @@ import type {
   PaymentHash,
   Preimage,
   SignedState,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import { randomNonce16 } from './crypto.js';
 import {
   type InvoiceRecord,

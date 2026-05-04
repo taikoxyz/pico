@@ -1,4 +1,4 @@
-import type { Channel } from '@tainnel/protocol';
+import type { Channel } from '@pico/protocol';
 import type { PaymentOptionTag } from './payment-tag.js';
 
 export interface PaymentMethodChoice {

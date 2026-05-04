@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type BuildServerResult, buildServer } from '@tainnel/hub';
-import { ANVIL_DEV_CHAIN_ID, type Channel, type SignedState } from '@tainnel/protocol';
+import { type BuildServerResult, buildServer } from '@pico/hub';
+import { ANVIL_DEV_CHAIN_ID, type Channel, type SignedState } from '@pico/protocol';
 import {
   ChannelClient,
   MemoryStorage,
@@ -11,8 +11,8 @@ import {
   encodeChannelStateForOnChain,
   localSigner,
   signatureToHex,
-} from '@tainnel/sdk';
-import { TEST_KEYS, startAnvilFork } from '@tainnel/test-utils';
+} from '@pico/sdk';
+import { TEST_KEYS, startAnvilFork } from '@pico/test-utils';
 import {
   http,
   type Abi,

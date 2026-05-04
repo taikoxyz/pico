@@ -12,8 +12,8 @@ describe('workspace utils', () => {
   it('lists every workspace package', () => {
     const packages = listWorkspacePackages();
     const names = packages.map((p) => p.name);
-    expect(names).toContain('@tainnel/protocol');
-    expect(names).toContain('@tainnel/state-machine');
-    expect(names).toContain('@tainnel/hub');
+    expect(names).toContain('@pico/protocol');
+    expect(names).toContain('@pico/state-machine');
+    expect(names).toContain('@pico/hub');
   });
 });

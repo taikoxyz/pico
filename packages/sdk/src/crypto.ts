@@ -1,4 +1,4 @@
-import type { Hex, HtlcId, Preimage } from '@tainnel/protocol';
+import type { Hex, HtlcId, Preimage } from '@pico/protocol';
 
 function toHex(bytes: Uint8Array): Hex {
   let s = '0x';

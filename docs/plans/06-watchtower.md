@@ -42,9 +42,9 @@ listen-mode recovery test is deferred to P7.
 - The hub-side watchtower MUST be on different infra from the hub itself
   (different region, ideally different cloud account) — see [09-ops.md](./09-ops.md).
 
-### Pairing with `tainnel listen` (P7)
+### Pairing with `pico listen` (P7)
 
-When an agent runs `tainnel listen` (P7), it MAY subscribe to the same chain events
+When an agent runs `pico listen` (P7), it MAY subscribe to the same chain events
 this watchtower listens to. The two are not mutually exclusive — an agent's listen
 mode is a convenience for the agent itself, while the watchtower is the canonical
 penalty submitter so users do not have to keep a CLI alive 24/7. Recovery
@@ -111,9 +111,9 @@ expectations:
 ### Operational
 - [x] `[agent]` `GET /health` (Fastify) → `{ rpc: { up, lastEventBlockNumber }, db: { up },
       channelsWatched }`. 200 if both up; 503 otherwise.
-- [x] `[agent]` `GET /metrics` (prom-client) exposes `tainnel_watchtower_channels_watched`,
-      `tainnel_watchtower_penalties_submitted_total`,
-      `tainnel_watchtower_evaluations_total{result}`, `tainnel_watchtower_rpc_up`,
+- [x] `[agent]` `GET /metrics` (prom-client) exposes `pico_watchtower_channels_watched`,
+      `pico_watchtower_penalties_submitted_total`,
+      `pico_watchtower_evaluations_total{result}`, `pico_watchtower_rpc_up`,
       plus default Node process metrics.
 - [x] `[agent]` Structured pino logs at every step (subscribe, fraud detection,
       submission, retry, inclusion, RPC down/up).
@@ -126,7 +126,7 @@ expectations:
       and `penalized=true`, then `finalize` after `timeWarp`, asserts alice gets
       100% of the channel pot and channel status = Closed.
 - [ ] **Listen-mode + watchtower recovery — DEFERRED to P7.** The "agent runs listen
-      later" test depends on the `tainnel listen` agent runtime that ships in P7.
+      later" test depends on the `pico listen` agent runtime that ships in P7.
       The watchtower's chain-history recovery path (Scheduler.catchup) is exercised
       by `scheduler.test.ts` Test D; the cross-agent state-DB reconciliation needs
       P7's listen-mode runtime to assert against. Re-open this checkbox in P7.

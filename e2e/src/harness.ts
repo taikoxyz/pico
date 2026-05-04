@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type BuildServerResult, buildServer } from '@tainnel/hub';
+import { type BuildServerResult, buildServer } from '@pico/hub';
 import {
   ANVIL_DEV_CHAIN_ID,
   CONTRACT_ADDRESSES,
@@ -11,15 +11,15 @@ import {
   type SignedState,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   ChannelClient,
   MemoryStorage,
   ViemChainAdapter,
   WebSocketTransport,
   localSigner,
-} from '@tainnel/sdk';
-import { type AnvilHandle, TEST_KEYS, startAnvilFork } from '@tainnel/test-utils';
+} from '@pico/sdk';
+import { type AnvilHandle, TEST_KEYS, startAnvilFork } from '@pico/test-utils';
 import {
   http,
   type Abi,
@@ -104,7 +104,7 @@ export interface StartRealHubArgs {
 }
 
 export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHandle> {
-  const dbDir = mkdtempSync(join(tmpdir(), 'tainnel-hub-e2e-'));
+  const dbDir = mkdtempSync(join(tmpdir(), 'pico-hub-e2e-'));
   const env: NodeJS.ProcessEnv = {
     HUB_PRIVATE_KEY: args.hubPrivateKey,
     RPC_URL: args.rpcUrl,
@@ -117,8 +117,8 @@ export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHan
     PORT: String(args.port ?? 0),
     DB_DRIVER: 'sqlite',
     DB_URL: join(dbDir, 'hub.sqlite'),
-    TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
-    TAINNEL_SKIP_PROD_ASSERT: 'true',
+    PICO_DEV_ALLOW_ZERO_ADDRESS: 'true',
+    PICO_SKIP_PROD_ASSERT: 'true',
   };
   const built: BuildServerResult = await buildServer(env);
   const url = await built.app.listen({ port: args.port ?? 0, host: '127.0.0.1' });

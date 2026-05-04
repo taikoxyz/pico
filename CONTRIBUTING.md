@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering a contribution. tainnel is in active design — the bootstrap
+Thanks for considering a contribution. pico is in active design — the bootstrap
 exists, but the protocol is not finalized. Discussions about scope and tradeoffs are
 welcome before any large change.
 

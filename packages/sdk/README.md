@@ -1,19 +1,19 @@
-# @tainnel/sdk
+# @pico/sdk
 
-Browser- and Node-compatible client SDK for opening, paying, and closing tainnel
+Browser- and Node-compatible client SDK for opening, paying, and closing pico
 1-hop payment channels on Taiko L2.
 
 ## Quickstart
 
 ```ts
-import { TAIKO_MAINNET_CHAIN_ID, CONTRACT_ADDRESSES, USDC_TOKENS } from '@tainnel/protocol';
+import { TAIKO_MAINNET_CHAIN_ID, CONTRACT_ADDRESSES, USDC_TOKENS } from '@pico/protocol';
 import {
   ChannelClient,
   FileStorage,
   ViemChainAdapter,
   WebSocketTransport,
-} from '@tainnel/sdk';
-import { InMemorySigner } from '@tainnel/test-utils'; // or your own Signer
+} from '@pico/sdk';
+import { InMemorySigner } from '@pico/test-utils'; // or your own Signer
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { taiko } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -25,7 +25,7 @@ const walletClient = createWalletClient({ chain: taiko, transport: http(), accou
 const client = new ChannelClient({
   signer: new InMemorySigner(process.env.PRIV_KEY as `0x${string}`),
   transport: new WebSocketTransport({ url: 'wss://hub.example.com/v1' }),
-  storage: new FileStorage({ root: '~/.tainnel/state' }),
+  storage: new FileStorage({ root: '~/.pico/state' }),
   chain: new ViemChainAdapter({
     publicClient,
     walletClient,
@@ -54,7 +54,7 @@ Anvil needed).
 
 - `ChannelClient` — open/pay/close + listen-mode HTLC handling + typed events.
 - `Signer` interface — single key-custody seam. v1 ships `InMemorySigner` from
-  `@tainnel/test-utils` for tests; the production hot-key backend lives in
+  `@pico/test-utils` for tests; the production hot-key backend lives in
   `apps/cli`. Phase-2 backends (KMS, Turnkey, Nitro Enclave, EIP-7702) implement
   the same interface with no SDK changes.
 - Three storage backends: `MemoryStorage`, `FileStorage` (Node, atomic-rename),
@@ -67,7 +67,7 @@ Anvil needed).
   `MockChainAdapter` (test-utils) — both let `ChannelClient` stay a pure-logic
   layer over a swappable chain seam.
 - `HubMessage` discriminated union — single source of truth for the SDK↔hub
-  wire format. The mock hub in `@tainnel/test-utils` and the production hub
+  wire format. The mock hub in `@pico/test-utils` and the production hub
   in `apps/hub` (P5) both consume this.
 - Invoice (Pattern A) + keysend (Pattern B) flows. Keysend payloads are NaCl
   sealed boxes (`tweetnacl`) addressed to a recipient X25519 pubkey published
@@ -91,7 +91,7 @@ signature must come from a key whose address matches the on-chain party.
 
 ## Not the right fit?
 
-If you don't want to write TypeScript, the `tainnel` CLI (P7, in
-`apps/cli`) shells out to the same SDK and exposes `tainnel pay`,
-`tainnel listen`, `tainnel close`. Use `--json` for structured output you can
+If you don't want to write TypeScript, the `pico` CLI (P7, in
+`apps/cli`) shells out to the same SDK and exposes `pico pay`,
+`pico listen`, `pico close`. Use `--json` for structured output you can
 parse from any language.

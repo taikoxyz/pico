@@ -55,7 +55,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec turbo run build --filter='!@tainnel/contracts'
+      - run: pnpm exec turbo run build --filter='!@pico/contracts'
 
   test-ts:
     runs-on: ubuntu-latest
@@ -95,7 +95,7 @@ jobs:
       - name: Build contract artifacts
         working-directory: packages/contracts
         run: forge build
-      - run: pnpm exec turbo run test --filter='!@tainnel/contracts' --filter='!@tainnel/e2e'
+      - run: pnpm exec turbo run test --filter='!@pico/contracts' --filter='!@pico/e2e'
 
   test-solidity:
     runs-on: ubuntu-latest
@@ -169,9 +169,9 @@ jobs:
         working-directory: packages/contracts
         run: forge build
       - name: Build TS packages
-        run: pnpm exec turbo run build --filter='!@tainnel/contracts'
+        run: pnpm exec turbo run build --filter='!@pico/contracts'
       - name: Run E2E tests
-        run: pnpm -F @tainnel/e2e test
+        run: pnpm -F @pico/e2e test
 
   coverage:
     runs-on: ubuntu-latest
@@ -186,11 +186,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Hub coverage
-        run: pnpm -F @tainnel/hub test:coverage
+        run: pnpm -F @pico/hub test:coverage
       - name: Watchtower coverage
-        run: pnpm -F @tainnel/watchtower test:coverage
+        run: pnpm -F @pico/watchtower test:coverage
       - name: CLI coverage
-        run: pnpm -F @tainnel/cli test:coverage
+        run: pnpm -F @pico/cli test:coverage
 
   e2e-fork:
     runs-on: ubuntu-latest
@@ -209,7 +209,7 @@ jobs:
           version: v1.7.0
       - run: pnpm install --frozen-lockfile
       - name: Build TS packages
-        run: pnpm exec turbo run build --filter='!@tainnel/contracts'
+        run: pnpm exec turbo run build --filter='!@pico/contracts'
       - name: Run forked E2E tests
         env:
           E2E_FORK_URL: ${{ secrets.TAIKO_MAINNET_RPC_URL }}
@@ -218,7 +218,7 @@ jobs:
           # When unset, those tests skip cleanly and only bytecode-parity
           # boot is exercised.
           E2E_USDC_WHALE: ${{ secrets.E2E_USDC_WHALE || '' }}
-        run: pnpm -F @tainnel/e2e test:fork
+        run: pnpm -F @pico/e2e test:fork
 
   ci:
     if: always()

@@ -1,4 +1,4 @@
-# @tainnel/hub
+# @pico/hub
 
 Long-running service that operates as a 1-hop payment-channel hub on Taiko. Responsible
 for: maintaining the channel pool, routing HTLCs between an inbound and outbound side,
@@ -13,5 +13,5 @@ Postgres adapter for production. Structured logging via `pino`, metrics via
 
 ```bash
 cp apps/hub/.env.example apps/hub/.env
-pnpm --filter @tainnel/hub dev
+pnpm --filter @pico/hub dev
 ```

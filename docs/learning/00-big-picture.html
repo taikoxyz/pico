@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 00 big picture</title>
+<title>pico · 00 big picture</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -223,7 +223,7 @@
 <p>Alice's agent decides to call Bob's API. The first thing it does is <em>not</em> open a channel; it asks Bob's service for a price. Bob's agent answers with an <strong>invoice</strong> — a small signed JSON envelope that includes a payment hash <code>H</code>, the amount, an expiry, and Bob's address as the intended recipient. Bob has just generated a random preimage <code>P</code>, computed <code>H = sha256(P)</code>, and stashed <code>P</code> in his local invoice store; the world only sees <code>H</code>. The invoice is the contract: "pay something hashing to <code>H</code> within the expiry, and you get the receipt that proves I was paid."</p>
 
 <p>Alice now runs:</p>
-<pre><code>tainnel pay --invoice "$INVOICE" --json</code></pre>
+<pre><code>pico pay --invoice "$INVOICE" --json</code></pre>
 
 <p>What happens next is a chain of signed messages, all of it off-chain.</p>
 
@@ -232,7 +232,7 @@
   <!-- Actor lifelines -->
   <text class="actor" x="80" y="30" text-anchor="middle">Alice CLI</text>
   <text class="actor" x="280" y="30" text-anchor="middle">Hub</text>
-  <text class="actor" x="480" y="30" text-anchor="middle">Bob (tainnel listen)</text>
+  <text class="actor" x="480" y="30" text-anchor="middle">Bob (pico listen)</text>
   <text class="actor" x="640" y="30" text-anchor="middle">Chain</text>
   <line class="lifeline" x1="80" y1="40" x2="80" y2="520" />
   <line class="lifeline" x1="280" y1="40" x2="280" y2="520" />
@@ -285,7 +285,7 @@
 
   <!-- Step 8: Receipt -->
   <line class="arrow" x1="100" y1="430" x2="460" y2="430" stroke-dasharray="4 4" marker-end="url(#arrow)" />
-  <text class="label" x="280" y="422" text-anchor="middle">GET https://bob.example/foo · Authorization: tainnel-receipt P</text>
+  <text class="label" x="280" y="422" text-anchor="middle">GET https://bob.example/foo · Authorization: pico-receipt P</text>
   <line class="arrow" x1="460" y1="450" x2="100" y2="450" stroke-dasharray="4 4" marker-end="url(#arrow)" />
   <text class="label" x="280" y="442" text-anchor="middle">200 OK · service delivered (sha256(P) matches stored H)</text>
 
@@ -317,14 +317,14 @@
 <pre><code>GET https://bob.example/quote?service=foo
 → 402 Payment Required {invoice: {H, amount, expiry, recipient, sigBob}}
 
-tainnel pay --invoice "$INVOICE" --json
+pico pay --invoice "$INVOICE" --json
 → {settled: true, preimage: P}
 
 GET https://bob.example/foo
-Authorization: tainnel-receipt P
+Authorization: pico-receipt P
 → 200 OK { ...the actual service... }</code></pre>
 <p>The trust property: only Bob can settle an invoice (only Bob holds <code>P</code>), and the preimage that comes back at the end is a <strong>cryptographic receipt</strong> Alice can show Bob's API server to authenticate the request — Bob's server just checks <code>sha256(P) == H</code> against the stored invoice and serves the resource. The HTLC pair on the channel and the HTTP receipt loop are two halves of the same transaction.</p>
-<p>tainnel also supports a second mode for cases where there's no invoice ahead of time — tipping, an agent pushing a payment to another agent it discovered on a directory, etc. With <code>tainnel pay --keysend --to 0xBob --amount 0.05</code>, <strong>Alice</strong> generates <code>P</code>, hashes it, and includes a sealed-box payload encrypted to Bob's public key alongside the HTLC. Bob's listen mode decrypts the payload, learns <code>P</code>, and settles. Same channel mechanics, no invoice round-trip; the price is that there's no automatic semantic binding to a service request — the keysend payload can carry context, but it's a free-form blob, not a signed invoice. v1 ships this behind a flag because the invoice flow is what fits paid agent APIs cleanly.</p>
+<p>pico also supports a second mode for cases where there's no invoice ahead of time — tipping, an agent pushing a payment to another agent it discovered on a directory, etc. With <code>pico pay --keysend --to 0xBob --amount 0.05</code>, <strong>Alice</strong> generates <code>P</code>, hashes it, and includes a sealed-box payload encrypted to Bob's public key alongside the HTLC. Bob's listen mode decrypts the payload, learns <code>P</code>, and settles. Same channel mechanics, no invoice round-trip; the price is that there's no automatic semantic binding to a service request — the keysend payload can carry context, but it's a free-form blob, not a signed invoice. v1 ships this behind a flag because the invoice flow is what fits paid agent APIs cleanly.</p>
 
 <h3>Where does the hub's fee come from?</h3>
 <p>From the <em>spread</em> between the two HTLCs. If Alice wants Bob to receive 0.05 USDC, she signs an upstream HTLC to the hub for <code>0.05 + fee</code> (the diagram shows 0.0501 — a 0.10% fee plus a flat dust unit, which is the v1 default in <code>apps/hub/src/fee-policy.ts</code>). The hub forwards a downstream HTLC to Bob for exactly 0.05. When the preimage reveals at the end of the round-trip, the hub claims 0.0501 from Alice's channel and pays 0.05 into Bob's channel; the 0.0001 difference is the routing fee that stays with the hub. No separate fee transfer, no extra transaction — just the asymmetric pair of HTLCs.</p>
@@ -335,7 +335,7 @@ Authorization: tainnel-receipt P
 <h2>Sad path — the hub goes silent</h2>
 
 <p>Now imagine the hub stops responding to Alice. Maybe the operator crashed, maybe they went offline, maybe they're being evil. Alice doesn't actually need their cooperation to get her money out — she has the latest state, signed by both parties, on her local disk. She runs:</p>
-<pre><code>tainnel channel close 0xchanid --unilateral</code></pre>
+<pre><code>pico channel close 0xchanid --unilateral</code></pre>
 
 <p>This posts her latest signed state to <code>PaymentChannel.sol</code> on Taiko mainnet. The contract does <em>not</em> immediately pay out. It opens a 24-hour <strong>dispute window</strong>. The window exists because the hub might want to push back: maybe Alice posted an old state that's more favorable to her, and the hub has a newer state proving the real balances.</p>
 
@@ -415,7 +415,7 @@ Authorization: tainnel-receipt P
 <p>Now you know the system at a story level. Here's how the actors map to packages and apps in this repo:</p>
 <ul>
   <li><strong>Alice's CLI</strong> = <a href="./07-agent-runtime.html">apps/cli</a>, calling into the <a href="./04-sdk.html">SDK</a>, which uses the <a href="./03-state-machine.html">state-machine</a> for off-chain rules and the <a href="./02-protocol.html">protocol</a> for the wire format.</li>
-  <li><strong>Bob's <code>tainnel listen</code></strong> = the same CLI in daemon mode, holding a WebSocket session to the hub.</li>
+  <li><strong>Bob's <code>pico listen</code></strong> = the same CLI in daemon mode, holding a WebSocket session to the hub.</li>
   <li><strong>Hub</strong> = <a href="./05-hub.html">apps/hub</a>, a Fastify + WebSocket server backed by SQLite.</li>
   <li><strong>Watchtower</strong> = <a href="./06-watchtower.html">apps/watchtower</a>, a separate Node service that subscribes to chain events and submits penalty txs.</li>
   <li><strong>Contracts</strong> = <a href="./01-contracts.html">packages/contracts</a>, deployed and verified on Taiko mainnet.</li>
@@ -432,7 +432,7 @@ Authorization: tainnel-receipt P
   <a href="./01-contracts.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 00 big picture</div>
+<div class="footer">pico · learning · 00 big picture</div>
 
 </div>
 </body>

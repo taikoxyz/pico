@@ -1,5 +1,5 @@
-import type { ChannelId } from '@tainnel/protocol';
-import { DEFAULT_DISPUTE_WINDOW_MS } from '@tainnel/protocol';
+import type { ChannelId } from '@pico/protocol';
+import { DEFAULT_DISPUTE_WINDOW_MS } from '@pico/protocol';
 import { type Address, type PublicClient, parseAbi } from 'viem';
 import type { FraudDetector } from './detector.js';
 import type { Logger } from './logger.js';

@@ -5,7 +5,7 @@ import {
   type ChainId,
   type ChannelId,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import { assertProductionConfig } from './config-validate.js';
 
 export interface WatchtowerConfig {
@@ -95,7 +95,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WatchtowerConf
     ),
   };
 
-  if (env.TAINNEL_SKIP_PROD_ASSERT !== 'true') {
+  if (env.PICO_SKIP_PROD_ASSERT !== 'true') {
     assertProductionConfig(cfg, { env, explicitPrivateKey });
   }
 

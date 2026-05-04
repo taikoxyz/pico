@@ -1,5 +1,5 @@
-import { CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
-import { startAnvilFork, startMockHub } from '@tainnel/test-utils';
+import { CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
+import { startAnvilFork, startMockHub } from '@pico/test-utils';
 import { Command } from 'commander';
 
 export interface DevDeps {

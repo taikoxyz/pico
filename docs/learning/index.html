@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · learning · index</title>
+<title>pico · learning · index</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -167,14 +167,14 @@
 <div class="wrap">
 
 <nav class="topnav">
-  <span>tainnel · learning</span>
+  <span>pico · learning</span>
   <span><a href="../README.md">⤺ repo readme</a></span>
 </nav>
 
-<h1>tainnel <span class="accent">learning</span></h1>
+<h1>pico <span class="accent">learning</span></h1>
 <p class="subtitle">A component-by-component tour of a 1-hop state channel network for AI&nbsp;agents on Taiko&nbsp;L2.</p>
 
-<p><strong>tainnel</strong> is a payments system designed for AI agents to pay each other for work — API calls, model inference, data, anything that can be priced per request. It uses <em>state channels</em>: a 2-of-2 escrow contract on Taiko, with all the actual payments happening off-chain via signed messages. On-chain you only ever see the channel <em>opening</em>, the channel <em>closing</em>, and (rarely) a <em>dispute</em>.</p>
+<p><strong>pico</strong> is a payments system designed for AI agents to pay each other for work — API calls, model inference, data, anything that can be priced per request. It uses <em>state channels</em>: a 2-of-2 escrow contract on Taiko, with all the actual payments happening off-chain via signed messages. On-chain you only ever see the channel <em>opening</em>, the channel <em>closing</em>, and (rarely) a <em>dispute</em>.</p>
 
 <p>This folder is the friendly tour: open <a href="./00-big-picture.html">00-big-picture.html</a> first if you want intuition before structure, or click through the components in order if you'd rather build the picture from the bottom up. Every page is a single self-contained file — no JavaScript, no internet required.</p>
 
@@ -218,7 +218,7 @@
   <li><a href="./07-agent-runtime.html">
     <span class="toc-num">07 · apps/cli</span>
     <span class="toc-title">Agent runtime</span>
-    <div class="toc-blurb">The CLI. tainnel pay, tainnel listen, the encrypted hot key file. The v1 agent surface.</div>
+    <div class="toc-blurb">The CLI. pico pay, pico listen, the encrypted hot key file. The v1 agent surface.</div>
   </a></li>
   <li><a href="./08-e2e.html">
     <span class="toc-num">08 · e2e/</span>
@@ -310,7 +310,7 @@
     <td>The SDK abstraction over key custody. v1 backend = encrypted hot key file. Future backends: KMS, Turnkey, Nitro Enclave, EIP-7702 delegation.</td>
   </tr>
   <tr>
-    <td><code>tainnel listen</code></td>
+    <td><code>pico listen</code></td>
     <td>A long-running CLI subcommand for receivers. Holds a WebSocket session to the hub, accepts inbound HTLCs, reveals preimages.</td>
   </tr>
   <tr>
@@ -324,11 +324,11 @@
 </table>
 
 <h2>What v1 deliberately does <em>not</em> include</h2>
-<p>For honesty: the dogfood scope is narrow on purpose. The wallet UI for humans, ERC-8004 agent-identity registration, EIP-7702 / 4337 delegation, TEE / KMS Signer backends, multi-hop routing, ETH (non-USDC) support, and the DVM / Nostr discovery layer are all <strong>Phase 2</strong>. The project explicitly does not associate with MCP or x402; if those ecosystems want to consume tainnel, an external adapter can wrap the CLI.</p>
+<p>For honesty: the dogfood scope is narrow on purpose. The wallet UI for humans, ERC-8004 agent-identity registration, EIP-7702 / 4337 delegation, TEE / KMS Signer backends, multi-hop routing, ETH (non-USDC) support, and the DVM / Nostr discovery layer are all <strong>Phase 2</strong>. The project explicitly does not associate with MCP or x402; if those ecosystems want to consume pico, an external adapter can wrap the CLI.</p>
 
 <div class="note">If you came here to learn before working on the codebase, follow the reading order. If you came here because you'll be running the system, jump to <a href="./07-agent-runtime.html">07-agent-runtime.html</a> and treat the rest as reference.</div>
 
-<div class="footer">tainnel · learning · v0.1 · self-contained · open offline</div>
+<div class="footer">pico · learning · v0.1 · self-contained · open offline</div>
 
 </div>
 </body>

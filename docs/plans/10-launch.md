@@ -31,10 +31,10 @@ and review gate yourself.
 
 ### D10.3 Test participants
 - **Default:** two wallets/agents you control: Alice sends, Bob receives via
-  `tainnel listen`. Add trusted external operators only after the single-operator flow
+  `pico listen`. Add trusted external operators only after the single-operator flow
   passes.
 - **Decision:** 3 claude-generated operator wallets (`alice`, `bob`, `carol`) on this
-  machine. Each wallet has its own encrypted key under `~/.tainnel/<role>/key.enc`
+  machine. Each wallet has its own encrypted key under `~/.pico/<role>/key.enc`
   (scrypt + xsalsa20-poly1305, perms 0600). Claude has the passphrases; user funds
   the addresses. Roles: Alice and Bob run the controlled mainnet flow (sender +
   receiver); Carol owns the dispute drill on a dedicated channel so a stale-state
@@ -47,7 +47,7 @@ and review gate yourself.
 - Decision: ☐ just you ☐ you + one trusted operator ☑ 3–5 trusted operators
 
 ### D10.4 How channels are opened
-- **Default:** self-serve from the CLI with `tainnel channel open --hub <url>
+- **Default:** self-serve from the CLI with `pico channel open --hub <url>
   --amount <usdc>`. The cold wallet does not open user channels on behalf of others.
 - Decision: ☑ self-serve via CLI ☐ manually open for each participant
 
@@ -82,27 +82,27 @@ and review gate yourself.
 
 ### Operator wallet generation (D10.3)
 
-Run on the same machine that will execute the test. The CLI's `TAINNEL_CONFIG_DIR`
-env var overrides the default `~/.config/tainnel/` path
+Run on the same machine that will execute the test. The CLI's `PICO_CONFIG_DIR`
+env var overrides the default `~/.config/pico/` path
 (`apps/cli/src/runtime/config.ts:4-8`) so each operator persona gets its own config
 dir, encrypted key file, and channel db.
 
-- [ ] `[agent]` Generate three encrypted operator keys under `~/.tainnel/`:
+- [ ] `[agent]` Generate three encrypted operator keys under `~/.pico/`:
       ```bash
-      unset TAINNEL_PASSPHRASE   # otherwise keys init reuses one passphrase for all
-      mkdir -p ~/.tainnel
+      unset PICO_PASSPHRASE   # otherwise keys init reuses one passphrase for all
+      mkdir -p ~/.pico
       for role in alice bob carol; do
-        TAINNEL_CONFIG_DIR="$HOME/.tainnel/$role" pnpm tainnel keys init
+        PICO_CONFIG_DIR="$HOME/.pico/$role" pnpm pico keys init
       done
       ```
       Use a distinct passphrase per role; record passphrases offline (paper or
       password manager). Each command prints `address: 0x…` and writes
-      `~/.tainnel/<role>/key.enc` with mode 0600.
+      `~/.pico/<role>/key.enc` with mode 0600.
 - [ ] `[agent]` Print all three addresses for funding:
       ```bash
       for role in alice bob carol; do
         echo "== $role =="
-        TAINNEL_CONFIG_DIR="$HOME/.tainnel/$role" pnpm tainnel keys show
+        PICO_CONFIG_DIR="$HOME/.pico/$role" pnpm pico keys show
       done
       ```
 - [ ] `[human]` Fund each operator address from the cold wallet on Taiko mainnet:
@@ -112,7 +112,7 @@ dir, encrypted key file, and channel db.
 - [ ] `[human]` Fund the hub hot wallet with USDC up to but not exceeding the
       1000 USDC ceiling from D10.2. Confirm against the hub hot wallet address
       from P9 on Taikoscan before transferring.
-- [ ] `[human]` Take an offline backup of `~/.tainnel/` (encrypted USB, sealed
+- [ ] `[human]` Take an offline backup of `~/.pico/` (encrypted USB, sealed
       envelope, or external password-manager attachment). The `key.enc` files are
       passphrase-encrypted, but disk loss + passphrase loss is unrecoverable.
 
@@ -120,25 +120,25 @@ dir, encrypted key file, and channel db.
 
 - [ ] `[human]` From a clean checkout or published CLI, run:
       ```bash
-      tainnel hub status <mainnet hub URL>
+      pico hub status <mainnet hub URL>
       ```
       Confirm the response reports Taiko mainnet and the expected contract addresses.
 - [ ] `[human]` Alice opens a low-value channel to the hub:
       ```bash
-      tainnel channel open --hub <mainnet hub URL> --amount <small test amount>
+      pico channel open --hub <mainnet hub URL> --amount <small test amount>
       ```
       Record the channel id and `ChannelOpened` transaction.
 - [ ] `[human]` Bob opens a low-value channel to the same hub and starts:
       ```bash
-      tainnel listen --hub <mainnet hub URL> --log-format json
+      pico listen --hub <mainnet hub URL> --log-format json
       ```
 - [ ] `[human]` Bob creates an invoice:
       ```bash
-      tainnel invoice create --amount <small payment amount> --memo "mainnet e2e test"
+      pico invoice create --amount <small payment amount> --memo "mainnet e2e test"
       ```
 - [ ] `[human]` Alice pays the invoice:
       ```bash
-      tainnel pay --invoice "$INVOICE" --via <mainnet hub URL> --json
+      pico pay --invoice "$INVOICE" --via <mainnet hub URL> --json
       ```
       Confirm Alice receives the preimage receipt, Bob settles the inbound HTLC, and
       both local channel states advance.
@@ -150,8 +150,8 @@ dir, encrypted key file, and channel db.
 - [ ] `[human]` Carol opens a fresh low-value drill channel to the hub (separate from
       the Alice/Bob channels above):
       ```bash
-      TAINNEL_CONFIG_DIR="$HOME/.tainnel/carol" \
-        tainnel channel open --hub <mainnet hub URL> --amount <small drill amount>
+      PICO_CONFIG_DIR="$HOME/.pico/carol" \
+        pico channel open --hub <mainnet hub URL> --amount <small drill amount>
       ```
 - [ ] `[human]` Carol and the hub exchange at least one signed state update so there
       is an older state and a newer state.
@@ -167,7 +167,7 @@ dir, encrypted key file, and channel db.
 - [ ] One low-value mainnet channel open succeeds against the expected deployed
       contracts.
 - [ ] One invoice-mode agent-to-agent payment succeeds with real USDC.
-- [ ] Receiver-side `tainnel listen` reveals the correct preimage and persists the
+- [ ] Receiver-side `pico listen` reveals the correct preimage and persists the
       settled state.
 - [ ] Cooperative close finalizes with expected balances.
 - [ ] Mainnet stale-state dispute drill succeeds within the dispute window.

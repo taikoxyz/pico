@@ -328,9 +328,9 @@ Severity: Info
 
 Evidence file references:
 
-- `docs/protocol-spec.md:255-263` defines domain name `tainnel`, version `1`, chain ID, and `verifyingContract: <Adjudicator address>`.
+- `docs/protocol-spec.md:255-263` defines domain name `pico`, version `1`, chain ID, and `verifyingContract: <Adjudicator address>`.
 - `packages/protocol/src/eip712.ts:3-61` implements that domain builder.
-- `packages/contracts/src/Adjudicator.sol:83-90` initializes `EIP712Upgradeable` as `("tainnel", "1")`.
+- `packages/contracts/src/Adjudicator.sol:83-90` initializes `EIP712Upgradeable` as `("pico", "1")`.
 - `packages/contracts/test/Adjudicator.t.sol:23-30` checks name, version, chain ID, and verifying contract.
 - `packages/protocol/src/eip712.test.ts:34-94` pins domain and type strings.
 - `packages/contracts/test/Oracle.t.sol:104-195` and `packages/state-machine/test/oracle.test.ts:105-153` cross-check TypeScript/Solidity digests and HTLC roots.

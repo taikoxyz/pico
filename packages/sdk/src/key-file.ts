@@ -1,5 +1,5 @@
 import { scrypt } from '@noble/hashes/scrypt';
-import type { Address, Hex } from '@tainnel/protocol';
+import type { Address, Hex } from '@pico/protocol';
 import nacl from 'tweetnacl';
 import { privateKeyToAccount } from 'viem/accounts';
 import { bytesToHex, hexToBytes, randomBytes } from './crypto.js';

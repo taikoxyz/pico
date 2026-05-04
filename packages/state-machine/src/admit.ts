@@ -8,7 +8,7 @@ import type {
   PaymentHash,
   Preimage,
   SignedState,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import { computeBalance } from './channel.js';
 import { verifyPreimage } from './preimage.js';
 import { verifyChannelStateSignature } from './signing.js';

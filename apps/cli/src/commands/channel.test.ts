@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileStorage } from '@tainnel/sdk';
+import { FileStorage } from '@pico/sdk';
 import { describe, expect, it } from 'vitest';
 import { channelCommand } from './channel.js';
 
@@ -14,21 +14,21 @@ class StubStream {
 
 const PK = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
 
-describe('tainnel channel list', () => {
+describe('pico channel list', () => {
   it('prints (no channels) when storage is empty', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-ch-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-ch-'));
     const stdout = new StubStream();
     const cmd = channelCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout,
       storageOverride: join(dir, 'db'),
     });
-    await cmd.parseAsync(['node', 'tainnel', 'list']);
+    await cmd.parseAsync(['node', 'pico', 'list']);
     expect(stdout.buf).toContain('(no channels)');
   });
 
   it('emits JSON when --json is set', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-ch-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-ch-'));
     const root = join(dir, 'db');
     const storage = new FileStorage({ root });
     await storage.saveChannel({
@@ -44,16 +44,16 @@ describe('tainnel channel list', () => {
     });
     const stdout = new StubStream();
     const cmd = channelCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout,
       storageOverride: root,
     });
-    await cmd.parseAsync(['node', 'tainnel', 'list', '--json']);
+    await cmd.parseAsync(['node', 'pico', 'list', '--json']);
     expect(stdout.buf).toContain('"id":"0xcdcd');
   });
 
   it('table format renders rows', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-ch-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-ch-'));
     const root = join(dir, 'db');
     const storage = new FileStorage({ root });
     await storage.saveChannel({
@@ -69,11 +69,11 @@ describe('tainnel channel list', () => {
     });
     const stdout = new StubStream();
     const cmd = channelCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout,
       storageOverride: root,
     });
-    await cmd.parseAsync(['node', 'tainnel', 'list']);
+    await cmd.parseAsync(['node', 'pico', 'list']);
     expect(stdout.buf).toContain('open');
   });
 });

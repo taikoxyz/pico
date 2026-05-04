@@ -1,9 +1,9 @@
 {
-  "name": "@tainnel/protocol",
+  "name": "@pico/protocol",
   "version": "0.0.0",
   "private": false,
   "license": "MIT",
-  "description": "Shared types, EIP-712 schemas, and constants for the tainnel state-channel protocol.",
+  "description": "Shared types, EIP-712 schemas, and constants for the pico state-channel protocol.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

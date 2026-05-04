@@ -1,9 +1,9 @@
 {
-  "name": "@tainnel/state-machine",
+  "name": "@pico/state-machine",
   "version": "0.0.0",
   "private": false,
   "license": "MIT",
-  "description": "Pure-function state-transition library for tainnel payment channels.",
+  "description": "Pure-function state-transition library for pico payment channels.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,7 +23,7 @@
     "clean": "rm -rf dist .turbo coverage"
   },
   "dependencies": {
-    "@tainnel/protocol": "workspace:*",
+    "@pico/protocol": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {

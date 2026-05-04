@@ -6,7 +6,7 @@
 > **deleted** from the tree to keep v1 focused. The Phase 2 starting outline lives
 > at the bottom of this file. This phase fully describes the v1 agent runtime.
 
-**Status:** 🟢 done — `pnpm --filter @tainnel/cli test` passes after workspace
+**Status:** 🟢 done — `pnpm --filter @pico/cli test` passes after workspace
 packages are built.
 `apps/cli` has keys, channel, invoice, pay, listen, hub, and dev commands, plus a
 mock-hub pay/listen integration test.
@@ -18,19 +18,19 @@ mock-hub pay/listen integration test.
 ## What this phase delivers
 
 - Extends `apps/cli` so it is the canonical agent interface for v1.
-- Adds `tainnel listen` long-running subcommand for receivers and chain-watching agents
+- Adds `pico listen` long-running subcommand for receivers and chain-watching agents
   (lnd-style, same binary, different mode).
-- Adds key-management commands (`tainnel keys init`, `tainnel keys unlock`).
+- Adds key-management commands (`pico keys init`, `pico keys unlock`).
 - Implements the v1 `Signer` backend defined in P4: passphrase-encrypted hot key file
   on disk.
-- Integration tests exercise an outbound payment from one CLI process into a `tainnel
+- Integration tests exercise an outbound payment from one CLI process into a `pico
   listen` process via a mock hub.
 
 ## Decisions
 
 ### D7.1 Agent surface
 - **Default:** CLI is the agent interface. Any-language agents shell out to
-  `pnpm tainnel pay …` or run `tainnel listen` in the background. No separate `agentd`
+  `pnpm pico pay …` or run `pico listen` in the background. No separate `agentd`
   binary, no MCP server, no x402.
 - **Why this is a decision worth recording:** the project explicitly does not associate
   with MCP or x402. If an MCP-aware agent wants to use the system, it can wrap the CLI
@@ -40,13 +40,13 @@ mock-hub pay/listen integration test.
 ### D7.2 `Signer` backend in v1
 - **Default:** passphrase-encrypted hot key file. scrypt-derived key
   (N=2^17, r=8, p=1), sealed with XSalsa20-Poly1305 via libsodium. Path defaults to
-  `$XDG_CONFIG_HOME/tainnel/key.enc`. Permissions 0600 enforced at write.
+  `$XDG_CONFIG_HOME/pico/key.enc`. Permissions 0600 enforced at write.
 - **Tradeoff:** matches Lightning's `lnd` model; sufficient for low-value dogfood.
   Production-grade signing (TEE / KMS / 7702 delegation) plugs in behind the same
   `Signer` interface in Phase 2.
 - Decision: ☐ encrypted hot key file (default) ☐ raw private key in env var (test-only)
 
-### D7.3 `tainnel listen` resilience
+### D7.3 `pico listen` resilience
 - **Default:** auto-reconnect with exponential backoff (200 ms → 30 s, jittered,
   infinite retry). Keeps a journal of in-flight HTLCs in the SDK storage so a kill-
   restart cycle resumes mid-payment. Logs `LISTEN_HUB_DOWN` every 5 minutes when
@@ -54,8 +54,8 @@ mock-hub pay/listen integration test.
 - Decision: ☐ accept default ☐ cap retries
 
 ### D7.4 Unlock model
-- **Default:** prompt for passphrase on each invocation. Inherit `TAINNEL_PASSPHRASE`
-  from env if set (test/CI use only — warn at startup). For `tainnel listen`, prompt
+- **Default:** prompt for passphrase on each invocation. Inherit `PICO_PASSPHRASE`
+  from env if set (test/CI use only — warn at startup). For `pico listen`, prompt
   once at startup; the daemon keeps the unlocked key in memory until exit.
 - Decision: ☐ per-invocation prompt (default) ☐ persistent unlock daemon (deferred)
 
@@ -69,7 +69,7 @@ The CLI now includes:
 - Invoice commands: `invoice create`, `invoice list`, and `invoice show`.
 - Payment commands for both invoice mode and keysend mode, with `--json` output for
   non-TypeScript agents.
-- `tainnel listen` as the long-running receiver process.
+- `pico listen` as the long-running receiver process.
 - `hub status`, `dev anvil-fork`, and `dev mock-hub`.
 - Unit tests for command parsing and runtime helpers, plus a mock-hub pay/listen
   integration test.
@@ -85,20 +85,20 @@ The README and learning page should make this trivially copy-pastable:
 ```bash
 # one-time setup
 pnpm install
-pnpm tainnel keys init
-pnpm tainnel channel open --hub https://hub.example.com --amount 25
+pnpm pico keys init
+pnpm pico channel open --hub https://hub.example.com --amount 25
 
 # Pattern A: invoice flow (default for paid APIs)
 #   step 1 — receiver creates an invoice and serves it from their HTTP API
-INVOICE=$(pnpm tainnel invoice create --amount 0.05 --memo "service foo")
+INVOICE=$(pnpm pico invoice create --amount 0.05 --memo "service foo")
 #   step 2 — sender pays the invoice and gets the preimage as a receipt
-pnpm tainnel pay --invoice "$INVOICE" --json
+pnpm pico pay --invoice "$INVOICE" --json
 
 # Pattern B: keysend (push payment, no prior coordination)
-pnpm tainnel pay --to 0xRecipient --amount 0.05 --keysend --recipient-pubkey 0x... --json
+pnpm pico pay --to 0xRecipient --amount 0.05 --keysend --recipient-pubkey 0x... --json
 
 # receive (run in the background; both modes settle through this)
-pnpm tainnel listen --hub https://hub.example.com &
+pnpm pico listen --hub https://hub.example.com &
 ```
 
 ## `[review]` gates
@@ -109,14 +109,14 @@ pnpm tainnel listen --hub https://hub.example.com &
 - You read `signer/hot-key-file.ts`. Confirm permissions 0600 on write, scrypt params
   match the spec, and the file refuses to load with a wrong passphrase rather than
   returning a bogus key.
-- You manually run `tainnel pay` between two local CLIs through the mock hub at least
+- You manually run `pico pay` between two local CLIs through the mock hub at least
   once before the P10 controlled mainnet real-money test.
 
 ## Done when
 
-- `pnpm --filter @tainnel/cli test` passes.
+- `pnpm --filter @pico/cli test` passes.
 - Integration test (pay → listen via mock hub) is green.
-- An any-language agent can pay another agent by shelling out to `tainnel pay --json`
+- An any-language agent can pay another agent by shelling out to `pico pay --json`
   and parsing the output.
 - The roadmap marks P7 🟢 and does not list P7 as a blocker for mainnet E2E testing.
 

@@ -1,5 +1,5 @@
 {
-  "name": "@tainnel/examples",
+  "name": "@pico/examples",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,9 @@
     "sdk-mock-flow": "tsx sdk-mock-flow.ts"
   },
   "dependencies": {
-    "@tainnel/protocol": "workspace:*",
-    "@tainnel/sdk": "workspace:*",
-    "@tainnel/test-utils": "workspace:*"
+    "@pico/protocol": "workspace:*",
+    "@pico/sdk": "workspace:*",
+    "@pico/test-utils": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

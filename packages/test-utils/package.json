@@ -1,9 +1,9 @@
 {
-  "name": "@tainnel/test-utils",
+  "name": "@pico/test-utils",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "description": "Anvil/forge fork helpers, mock hubs, and deterministic key fixtures shared by tainnel test suites.",
+  "description": "Anvil/forge fork helpers, mock hubs, and deterministic key fixtures shared by pico test suites.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,9 +21,9 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@tainnel/protocol": "workspace:*",
-    "@tainnel/sdk": "workspace:*",
-    "@tainnel/state-machine": "workspace:*",
+    "@pico/protocol": "workspace:*",
+    "@pico/sdk": "workspace:*",
+    "@pico/state-machine": "workspace:*",
     "viem": "^2.21.0",
     "ws": "^8.18.0"
   },

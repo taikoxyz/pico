@@ -12,11 +12,11 @@
 #     [--watchtower-deadline 300] \
 #     [--rpc <url>]
 #
-# CLI gap: `tainnel channel close --unilateral` closes with the *latest*
+# CLI gap: `pico channel close --unilateral` closes with the *latest*
 # state. There is no CLI command to close with an *older* state. The drill
 # therefore drops to `cast send closeUnilateral(bytes32,bytes,bytes)`
 # with the encoded older state pulled from Carol's local sqlite DB and
-# re-encoded via a tiny inline node snippet that imports @tainnel/sdk's
+# re-encoded via a tiny inline node snippet that imports @pico/sdk's
 # encodeChannelStateForOnChain + signatureToHex. The encoding step is
 # left as a documented operator step rather than executed inline because
 # it touches operator passphrases.
@@ -52,7 +52,7 @@ log "Dispute drill (Carol); deadline ${WATCHTOWER_DEADLINE}s; logs: $LOG_DIR"
 
 # 1. Open Carol's drill channel.
 log "Carol: opening drill channel (${AMOUNT_USDC} USDC)"
-open_json="$(tainnel_as carol channel open --hub "$HUB_URL" --amount "$AMOUNT_USDC" --json 2>"$LOG_DIR/carol-open.stderr")"
+open_json="$(pico_as carol channel open --hub "$HUB_URL" --amount "$AMOUNT_USDC" --json 2>"$LOG_DIR/carol-open.stderr")"
 echo "$open_json" > "$LOG_DIR/carol-open.json"
 CHANNEL_ID="$(echo "$open_json" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("id", ""))')"
 [[ -n "$CHANNEL_ID" ]] || fail "Carol: open did not return a channel id"
@@ -61,7 +61,7 @@ green "Carol: opened $CHANNEL_ID"
 # 2. Exchange a signed state by paying a tiny amount via the hub. This
 #    yields v1 (open) and v2 (post-pay) — v1 becomes the stale state.
 log "Carol: keysend 0.5 USDC to hub to advance state to v2"
-tainnel_as carol pay --to "$(echo "$open_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["counterparty"])')" --amount 0.5 --via "$HUB_URL" --json \
+pico_as carol pay --to "$(echo "$open_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["counterparty"])')" --amount 0.5 --via "$HUB_URL" --json \
   >"$LOG_DIR/carol-keysend.json" 2>"$LOG_DIR/carol-keysend.stderr" || true
 
 cat <<EOF
@@ -72,7 +72,7 @@ do this; you must pull the v1 signed state from Carol's sqlite DB at
 
 Suggested inline encoding (run from repo root):
   node --input-type=module -e "
-    import { encodeChannelStateForOnChain, signatureToHex } from '@tainnel/sdk';
+    import { encodeChannelStateForOnChain, signatureToHex } from '@pico/sdk';
     const state = { /* v1 fields from db */ };
     const sig = '0x...';  /* Alice's sigA on v1 from db */
     console.log(JSON.stringify({

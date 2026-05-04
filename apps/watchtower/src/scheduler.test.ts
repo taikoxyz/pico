@@ -1,4 +1,4 @@
-import type { Address, ChannelId, SignedState } from '@tainnel/protocol';
+import type { Address, ChannelId, SignedState } from '@pico/protocol';
 import Database from 'better-sqlite3';
 import type { PublicClient } from 'viem';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

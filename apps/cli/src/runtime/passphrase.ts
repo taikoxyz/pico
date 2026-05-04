@@ -7,8 +7,8 @@ export interface PromptDeps {
 
 export async function readPassphrase(label: string, deps: PromptDeps = {}): Promise<string> {
   const env = deps.env ?? process.env;
-  if (typeof env.TAINNEL_PASSPHRASE === 'string' && env.TAINNEL_PASSPHRASE.length > 0) {
-    return env.TAINNEL_PASSPHRASE;
+  if (typeof env.PICO_PASSPHRASE === 'string' && env.PICO_PASSPHRASE.length > 0) {
+    return env.PICO_PASSPHRASE;
   }
   if (deps.read) return deps.read(label);
   const r = await prompts({ type: 'password', name: 'p', message: label });
@@ -20,8 +20,8 @@ export async function readPassphrase(label: string, deps: PromptDeps = {}): Prom
 
 export async function readNewPassphrase(deps: PromptDeps = {}): Promise<string> {
   const env = deps.env ?? process.env;
-  if (typeof env.TAINNEL_PASSPHRASE === 'string' && env.TAINNEL_PASSPHRASE.length > 0) {
-    return env.TAINNEL_PASSPHRASE;
+  if (typeof env.PICO_PASSPHRASE === 'string' && env.PICO_PASSPHRASE.length > 0) {
+    return env.PICO_PASSPHRASE;
   }
   const a = await readPassphrase('Choose a passphrase', deps);
   const b = await readPassphrase('Confirm passphrase', deps);

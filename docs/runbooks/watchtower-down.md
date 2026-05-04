@@ -3,8 +3,8 @@
 ## When this fires
 
 - `/health` returns 503 or no response.
-- `tainnel_watchtower_oldest_pending_tx_age_ms` > `INCLUSION_TIMEOUT_MS / 2`.
-- `tainnel_watchtower_oldest_closing_deadline_remaining_ms` < dispute window / 3.
+- `pico_watchtower_oldest_pending_tx_age_ms` > `INCLUSION_TIMEOUT_MS / 2`.
+- `pico_watchtower_oldest_closing_deadline_remaining_ms` < dispute window / 3.
 - Pager: `TODO(contact)`.
 
 ## Why it matters
@@ -15,9 +15,9 @@ outage may not be penalized in time. Treat as fund-safety critical.
 ## Triage
 
 1. `curl -fsS https://watchtower.example/health`.
-2. Logs: `fly logs -a tainnel-watchtower`.
+2. Logs: `fly logs -a pico-watchtower`.
 3. Check RPC up: `cast block-number --rpc-url $WATCHTOWER_RPC_URL`.
-4. Check `tainnel_watchtower_pending_tx_count` and `..._submission_failed_total`.
+4. Check `pico_watchtower_pending_tx_count` and `..._submission_failed_total`.
 5. Check oldest closing deadline; if < 30 min, escalate to the secondary
    watchtower (if any) or manually call
    `cast send <PaymentChannel> "dispute(...)" ...` against the freshest signed
@@ -25,7 +25,7 @@ outage may not be penalized in time. Treat as fund-safety critical.
 
 ## Containment
 
-- Restart: `fly machine restart -a tainnel-watchtower`.
+- Restart: `fly machine restart -a pico-watchtower`.
 - If the watchtower private key is suspected compromised, follow
   [key-rotation.md](./key-rotation.md). The watchtower key signs penalty
   transactions; loss-of-key blocks penalties but does not move funds.

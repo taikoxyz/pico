@@ -7,14 +7,14 @@ import type {
   Htlc,
   Invoice,
   Update,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
   buildHtlcTypedData,
   buildInvoiceTypedData,
   buildUpdateTypedData,
-} from '@tainnel/state-machine';
+} from '@pico/state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import type { Signer } from './signer.js';
 

@@ -7,7 +7,7 @@ import type {
   Htlc,
   Invoice,
   Update,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 
 export interface Signer {
   address(): Promise<Address>;

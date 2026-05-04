@@ -1,4 +1,4 @@
-import type { ChannelId, Htlc, HtlcId, PaymentHash } from '@tainnel/protocol';
+import type { ChannelId, Htlc, HtlcId, PaymentHash } from '@pico/protocol';
 import type { DbDriver } from '../types.js';
 
 export type HtlcLifecycleState = 'inflight' | 'settled' | 'failed' | 'expired';

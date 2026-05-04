@@ -1,4 +1,4 @@
-import type { Address, ChainId, Channel, SignedState } from '@tainnel/protocol';
+import type { Address, ChainId, Channel, SignedState } from '@pico/protocol';
 import type { FastifyInstance } from 'fastify';
 import { http, createPublicClient } from 'viem';
 import type { ChannelPool } from '../channel-pool.js';

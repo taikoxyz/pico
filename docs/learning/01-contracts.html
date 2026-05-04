@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 01 contracts</title>
+<title>pico · 01 contracts</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -71,7 +71,7 @@
 <p class="subtitle">The trustless core. Solidity 0.8.26 on Taiko mainnet.</p>
 
 <h2>What it is</h2>
-<p>The <code>packages/contracts/</code> directory holds every line of Solidity that tainnel runs on-chain. It is small on purpose: two real contracts plus a small library, deployed behind UUPS proxies on Taiko mainnet (chainId 167000). Together they are the only thing standing between an honest user and an evil counterparty. Every off-chain signature, every state update, every HTLC eventually resolves back to a check these contracts perform — or it never gets enforced at all. If you only read one package in the repo, read this one.</p>
+<p>The <code>packages/contracts/</code> directory holds every line of Solidity that pico runs on-chain. It is small on purpose: two real contracts plus a small library, deployed behind UUPS proxies on Taiko mainnet (chainId 167000). Together they are the only thing standing between an honest user and an evil counterparty. Every off-chain signature, every state update, every HTLC eventually resolves back to a check these contracts perform — or it never gets enforced at all. If you only read one package in the repo, read this one.</p>
 
 <h2>Why it exists</h2>
 <p>State channels move payments off-chain by replacing on-chain transactions with co-signed messages. That is cheap and fast, but only if there is a credible threat that an off-chain message will be enforceable on-chain when someone refuses to cooperate. The contracts are that threat. They custody the deposited USDC, they verify EIP-712 signatures, they run a 24-hour <strong>dispute window</strong> during which a fresher state can override a stale one, and they implement the slashing rule that makes cheating strictly worse than honesty. Without this layer, the entire off-chain protocol would be a polite suggestion.</p>
@@ -218,7 +218,7 @@
 
 <p>Events emitted: <code>TokenAllowed</code>, <code>ChannelOpened</code>, <code>ChannelClosedCooperative</code>, <code>ChannelClosingUnilateral</code>, <code>DisputeRaised</code>, <code>ChannelFinalized</code>, <code>PenaltyApplied</code>. The watchtower (<a href="./06-watchtower.html">06</a>) subscribes to the unilateral / dispute / penalty events to know when to react.</p>
 
-<p>The <code>Channel</code> struct fields, in order: <code>userA</code>, <code>userB</code>, <code>token</code>, <code>amountA</code>, <code>amountB</code>, <code>openedAt</code> (uint64), <code>disputeDeadline</code> (uint64), <code>postedVersion</code>, <code>postedBalanceA</code>, <code>postedBalanceB</code>, <code>penalized</code> (bool), <code>status</code>, <code>closer</code>. The EIP-712 domain on the Adjudicator is <code>name="tainnel"</code>, <code>version="1"</code>; that exact pair is what the off-chain <a href="./02-protocol.html">protocol</a> package commits to.</p>
+<p>The <code>Channel</code> struct fields, in order: <code>userA</code>, <code>userB</code>, <code>token</code>, <code>amountA</code>, <code>amountB</code>, <code>openedAt</code> (uint64), <code>disputeDeadline</code> (uint64), <code>postedVersion</code>, <code>postedBalanceA</code>, <code>postedBalanceB</code>, <code>penalized</code> (bool), <code>status</code>, <code>closer</code>. The EIP-712 domain on the Adjudicator is <code>name="pico"</code>, <code>version="1"</code>; that exact pair is what the off-chain <a href="./02-protocol.html">protocol</a> package commits to.</p>
 
 <h3>Deployments</h3>
 <table>
@@ -257,7 +257,7 @@
     <td>17 tests on <code>hashLock</code>, <code>verifyPreimage</code>, and <code>rootOf</code> including fuzz.</td>
   </tr>
 </table>
-<p>Run with <code>pnpm --filter @tainnel/contracts test</code> (which invokes <code>forge test</code>).</p>
+<p>Run with <code>pnpm --filter @pico/contracts test</code> (which invokes <code>forge test</code>).</p>
 
 <p>The contract tests are intentionally narrow and deterministic: they prove the on-chain rules for escrow, signature recovery, HTLC hashing, dispute versioning, replay rejection, and finalization. Whole-stack behavior is covered conceptually in the <a href="./08-e2e.html">e2e</a> page, where these contracts are treated as one component in a larger system.</p>
 
@@ -279,7 +279,7 @@
   <a href="./02-protocol.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 01 contracts</div>
+<div class="footer">pico · learning · 01 contracts</div>
 
 </div>
 </body>

@@ -6,8 +6,8 @@ import {
   TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@tainnel/protocol';
-import { ChannelClient, ViemChainAdapter, WebSocketTransport, localSigner } from '@tainnel/sdk';
+} from '@pico/protocol';
+import { ChannelClient, ViemChainAdapter, WebSocketTransport, localSigner } from '@pico/sdk';
 import { Command } from 'commander';
 import { http, type Chain, createPublicClient, createWalletClient, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -57,7 +57,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
     .requiredOption('--hub <addr>', 'Hub EVM address (counterparty)')
     .requiredOption('--amount <usdc>', 'Amount in USDC base units (6 decimals)')
     .option('--via <url>', 'Hub WebSocket URL', 'ws://127.0.0.1:9050')
-    .option('--rpc <url>', 'RPC URL (defaults to TAINNEL_RPC_URL or chain default)')
+    .option('--rpc <url>', 'RPC URL (defaults to PICO_RPC_URL or chain default)')
     .option('--token <addr>', 'ERC-20 token address (defaults to USDC for chain)')
     .option('--private-key <hex>', 'Private key (test/CI only)')
     .option('--key-file <path>', 'Encrypted or plaintext key file')
@@ -79,7 +79,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
         const rpcUrl =
           deps.rpcUrlOverride ??
           opts.rpc ??
-          env.TAINNEL_RPC_URL ??
+          env.PICO_RPC_URL ??
           (chainFor(chainId).rpcUrls.default.http[0] as string);
         const privateKey = await resolvePrivateKey({
           ...(opts.privateKey !== undefined ? { privateKey: opts.privateKey } : {}),
@@ -170,7 +170,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
         const rpcUrl =
           deps.rpcUrlOverride ??
           opts.rpc ??
-          env.TAINNEL_RPC_URL ??
+          env.PICO_RPC_URL ??
           (chainFor(chainId).rpcUrls.default.http[0] as string);
         const privateKey = await resolvePrivateKey({
           ...(opts.privateKey !== undefined ? { privateKey: opts.privateKey } : {}),

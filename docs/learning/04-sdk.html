@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 04 sdk</title>
+<title>pico · 04 sdk</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -88,13 +88,13 @@
 <p>A <strong>ChannelStorage</strong> persists channels and their latest signed states. <code>MemoryStorage</code> is for tests. <code>IndexedDBStorage</code> is the browser default. <code>FileStorage</code> is the Node default and uses the atomic-rename pattern (<code>write tmp → rename</code>) with one JSON file per channel under <code>${root}/channels/${id}.json</code>. The decision matrix (D4.1) is: browser → IndexedDB, Node → file.</p>
 
 <h2>How it works</h2>
-<p>The architecture is layered. At the bottom sit the pure layers: state-machine and protocol. The SDK wraps three pluggable concerns around them. <code>ChannelClient</code> is the orchestration glue on top. Above the client sit the actual consumers — the CLI's <code>tainnel pay</code> and <code>tainnel listen</code> subcommands, and (on the operator side) the hub. Most agent authors never instantiate <code>ChannelClient</code> directly; they shell out to the CLI, which does so for them. But the surface is exactly the same in either case.</p>
+<p>The architecture is layered. At the bottom sit the pure layers: state-machine and protocol. The SDK wraps three pluggable concerns around them. <code>ChannelClient</code> is the orchestration glue on top. Above the client sit the actual consumers — the CLI's <code>pico pay</code> and <code>pico listen</code> subcommands, and (on the operator side) the hub. Most agent authors never instantiate <code>ChannelClient</code> directly; they shell out to the CLI, which does so for them. But the surface is exactly the same in either case.</p>
 
 <figure>
 <svg viewBox="0 0 700 400" width="100%" style="max-width: 700px">
   <text class="actor" x="350" y="22" text-anchor="middle">consumers</text>
   <rect class="pill pill-accent" x="80" y="38" width="240" height="40" rx="8"/>
-  <text class="pill-text" x="200" y="63" text-anchor="middle">apps/cli — tainnel pay / listen</text>
+  <text class="pill-text" x="200" y="63" text-anchor="middle">apps/cli — pico pay / listen</text>
   <rect class="pill pill-accent" x="380" y="38" width="240" height="40" rx="8"/>
   <text class="pill-text" x="500" y="63" text-anchor="middle">apps/hub</text>
 
@@ -106,7 +106,7 @@
   <text class="label" x="350" y="146" text-anchor="middle">open · pay · close · list · getBalance · on('htlc:incoming')</text>
 
   <rect class="pill" x="60" y="180" width="580" height="115" rx="8"/>
-  <text class="actor" x="350" y="205" text-anchor="middle">@tainnel/sdk</text>
+  <text class="actor" x="350" y="205" text-anchor="middle">@pico/sdk</text>
 
   <rect class="pill pill-good" x="85" y="220" width="170" height="60" rx="6"/>
   <text class="pill-text" x="170" y="246" text-anchor="middle">Signer</text>
@@ -126,10 +126,10 @@
   <line class="arrow" x1="350" y1="295" x2="350" y2="318" marker-end="url(#sdk-arrow)" />
 
   <rect class="pill" x="60" y="318" width="280" height="40" rx="8"/>
-  <text class="pill-text" x="200" y="343" text-anchor="middle">@tainnel/state-machine</text>
+  <text class="pill-text" x="200" y="343" text-anchor="middle">@pico/state-machine</text>
 
   <rect class="pill" x="360" y="318" width="280" height="40" rx="8"/>
-  <text class="pill-text" x="500" y="343" text-anchor="middle">@tainnel/protocol</text>
+  <text class="pill-text" x="500" y="343" text-anchor="middle">@pico/protocol</text>
 
   <text class="label" x="350" y="385" text-anchor="middle">pure · deterministic · I/O-free</text>
 
@@ -146,7 +146,7 @@
 
 <div class="danger"><strong>Why persist-before-send matters:</strong> if the hub gets a signature but the local store doesn't have the corresponding state, the hub can later post that state on-chain and the client cannot challenge with anything newer.</div>
 
-<p><code>open()</code> and <code>close()</code> follow the same shape. Open submits an <code>openChannel</code> tx via viem, awaits the <code>ChannelOpened</code> event, persists the channel as <code>open</code>, and subscribes to the hub WebSocket. Close has two paths: cooperative (send <code>close.request</code>, await counter-signed close-state, submit <code>closeCooperative</code>), with a 60-second timeout that falls back to <code>closeUnilateral</code> against the latest signed state on disk. The CLI's <code>tainnel listen</code> is a long-running consumer that holds a session open and emits <code>htlc:incoming</code> / <code>htlc:settled</code> events; the SDK must allow constructing a <code>ChannelClient</code> without an open channel so the daemon can subscribe based purely on storage state.</p>
+<p><code>open()</code> and <code>close()</code> follow the same shape. Open submits an <code>openChannel</code> tx via viem, awaits the <code>ChannelOpened</code> event, persists the channel as <code>open</code>, and subscribes to the hub WebSocket. Close has two paths: cooperative (send <code>close.request</code>, await counter-signed close-state, submit <code>closeCooperative</code>), with a 60-second timeout that falls back to <code>closeUnilateral</code> against the latest signed state on disk. The CLI's <code>pico listen</code> is a long-running consumer that holds a session open and emits <code>htlc:incoming</code> / <code>htlc:settled</code> events; the SDK must allow constructing a <code>ChannelClient</code> without an open channel so the daemon can subscribe based purely on storage state.</p>
 
 <h2>Public surface</h2>
 <table>
@@ -194,7 +194,7 @@
   <a href="./05-hub.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 04 sdk</div>
+<div class="footer">pico · learning · 04 sdk</div>
 
 </div>
 </body>

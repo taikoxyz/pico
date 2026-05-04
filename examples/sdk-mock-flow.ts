@@ -1,16 +1,16 @@
-// Runnable end-to-end demo of @tainnel/sdk against a mock hub + mock chain.
+// Runnable end-to-end demo of @pico/sdk against a mock hub + mock chain.
 // Usage from repo root:
-//   pnpm --filter @tainnel/sdk build && pnpm --filter @tainnel/test-utils build
+//   pnpm --filter @pico/sdk build && pnpm --filter @pico/test-utils build
 //   pnpm tsx examples/sdk-mock-flow.ts
 
-import { TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
+import { TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
 import {
   ChannelClient,
   MemoryStorage,
   WebSocketTransport,
   generateKeysendKeypair,
-} from '@tainnel/sdk';
-import { InMemorySigner, MockChainAdapter, startMockHub } from '@tainnel/test-utils';
+} from '@pico/sdk';
+import { InMemorySigner, MockChainAdapter, startMockHub } from '@pico/test-utils';
 
 const ALICE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const BOB_KEY = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   console.info(`channel opened: ${channel.id}`);
 
   console.info('bob creates an invoice for 100');
-  const { invoice } = await bob.createInvoice({ amount: 100n, memo: 'tainnel demo' });
+  const { invoice } = await bob.createInvoice({ amount: 100n, memo: 'pico demo' });
 
   console.info('alice pays the invoice');
   const paid = await alice.pay({ invoice });

@@ -11,7 +11,7 @@
   | Area | Status |
   |------|--------|
   | **Protocol design** | Frozen and well-specified. 1-hop topology, EIP-712 signing, SHA-256 HTLC. Sound for v1 scope. |
-  | **State machine** (`@tainnel/state-machine`) | Pure-function library, good test coverage, HTLC math / Merkle roots / EIP-712 cross-tested between TS and Solidity. |
+  | **State machine** (`@pico/state-machine`) | Pure-function library, good test coverage, HTLC math / Merkle roots / EIP-712 cross-tested between TS and Solidity. |
   | **SDK happy path** | `ChannelClient` with signer abstraction, storage backends, full payment lifecycle (invoice, keysend, pay, settle, close). Works. |
   | **CLI agent surface** | `keys init`, `channel open`, `pay`, `listen` — all functional. The v1 target (agents shelling out to CLI) is working. |
   | **Contracts (post-audit fixes)** | The critical and high findings from the DeepSeek audit appear patched in the tree. Not yet re-reviewed by a human auditor. |
@@ -24,7 +24,7 @@
   These are the items from `MAINNET_READINESS_EVALUATION.md` that gate the controlled mainnet test. All are blocking:
 
   1. SDK state verification — **Fixed** (was critical blocker F-01)
-  The SDK previously trusted hub-supplied `SignedState` without verifying signatures, channel, version, balances, or HTLCs. Admit gates from `@tainnel/state-machine` are now wired
+  The SDK previously trusted hub-supplied `SignedState` without verifying signatures, channel, version, balances, or HTLCs. Admit gates from `@pico/state-machine` are now wired
   into all signed-state ingestion paths (`packages/sdk/src/client.ts:20-23`).
 
   2. CLI signing domain mismatch — **Fixed** (was critical blocker EOD-01)
@@ -80,10 +80,10 @@
   **Other GKE gaps**:
   - No deploy workflow for the GKE path (`.github/workflows/deploy.yml` is Fly-only).
   - No `v*`-tagged images in Artifact Registry.
-  - No deployed cluster confirmed; all manifests carry `REGION-docker.pkg.dev/PROJECT/tainnel/hub:VERSION` placeholders.
+  - No deployed cluster confirmed; all manifests carry `REGION-docker.pkg.dev/PROJECT/pico/hub:VERSION` placeholders.
   - NetworkPolicy not applied (not blocking — the README says it's optional for v1).
   - Alertmanager webhooks point to `localhost:5001` placeholders.
-  - `SECURITY.md` contact is still `security@tainnel.dev` with "not monitored yet."
+  - `SECURITY.md` contact is still `security@pico.dev` with "not monitored yet."
 
   9. Security disclosure — **Partially patched**
   `SECURITY.md` rewritten, `pgp-key.asc.placeholder` committed, disclosure runbook exists, CI lint gate in place. But the PGP key is still a placeholder and the inbox is not

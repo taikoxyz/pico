@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 03 state machine</title>
+<title>pico · 03 state machine</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -116,7 +116,7 @@
   <text class="actor" x="350" y="215" text-anchor="middle">cross-package oracle relationship</text>
 
   <rect class="pill" x="60" y="240" width="240" height="60" rx="8"/>
-  <text class="pill-text" x="180" y="266" text-anchor="middle">@tainnel/state-machine</text>
+  <text class="pill-text" x="180" y="266" text-anchor="middle">@pico/state-machine</text>
   <text class="label" x="180" y="284" text-anchor="middle">signing.ts · hash + sign (TS)</text>
 
   <line class="arrow" x1="300" y1="270" x2="400" y2="270" marker-end="url(#sm-arrow)" stroke-dasharray="4 4" />
@@ -163,7 +163,7 @@
 </table>
 
 <h2>Verification model</h2>
-<p>The package is tested as pure logic: state transitions, replay rejection, HTLC add/settle/fail/expire flows, preimage verification, invoice helpers, EIP-712 hashing, signature recovery, and oracle fixtures. Run with <code>pnpm --filter @tainnel/state-machine test</code>.</p>
+<p>The package is tested as pure logic: state transitions, replay rejection, HTLC add/settle/fail/expire flows, preimage verification, invoice helpers, EIP-712 hashing, signature recovery, and oracle fixtures. Run with <code>pnpm --filter @pico/state-machine test</code>.</p>
 <table>
   <tr><th>File</th><th>Covers</th></tr>
   <tr><td>packages/state-machine/src/channel.test.ts</td><td>state transition logic — stale versions, balance preservation, a fast-check property test that <code>applyUpdate</code> conserves total balance under random monotonic version bumps.</td></tr>
@@ -189,7 +189,7 @@
   <a href="./04-sdk.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 03 state machine</div>
+<div class="footer">pico · learning · 03 state machine</div>
 
 </div>
 </body>

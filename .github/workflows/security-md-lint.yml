@@ -28,12 +28,12 @@ jobs:
           fi
 
           mentions_email=0
-          if grep -q 'security@tainnel\.dev' "$security_md"; then
+          if grep -q 'security@pico\.dev' "$security_md"; then
             mentions_email=1
           fi
 
           has_real_fpr=0
-          if ! grep -q '<TAINNEL_PGP_FINGERPRINT_TODO>' "$security_md"; then
+          if ! grep -q '<PICO_PGP_FINGERPRINT_TODO>' "$security_md"; then
             has_real_fpr=1
           fi
 

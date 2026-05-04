@@ -1,8 +1,8 @@
-# tainnel
+# pico
 
 > Trustless **1-hop state channel network for micro-payments on Taiko L2**.
 > v1 is an **AI-agent payments system**: the agent surface is the
-> [`tainnel` CLI](./apps/cli/), not a browser wallet.
+> [`pico` CLI](./apps/cli/), not a browser wallet.
 
 Inspired by Lightning's LSP model. Stablecoin (USDC) first in v1. **No native token.
 No governance. No bridges. No MCP / x402 association.**
@@ -13,14 +13,14 @@ No governance. No bridges. No MCP / x402 association.**
 
 ## Why 1-hop
 
-Lightning's full multi-hop topology is overkill for the workloads tainnel targets:
+Lightning's full multi-hop topology is overkill for the workloads pico targets:
 
 - AI agents paying agents
 - Clients paying DVMs
 - Streaming dust-sized payments to APIs
 
 Multi-hop adds liquidity-routing complexity, locked HTLCs, and onion-routing overhead
-without buying the marginal user anything when "1 hop through a hub" is plenty. tainnel
+without buying the marginal user anything when "1 hop through a hub" is plenty. pico
 collapses the graph: every channel terminates at a hub, every payment is `client → hub →
 recipient`. Hubs compete on liquidity, fees, and uptime — exactly like LSPs.
 
@@ -28,7 +28,7 @@ recipient`. Hubs compete on liquidity, fees, and uptime — exactly like LSPs.
 
 ```
 apps/
-  cli/          tainnel <cmd> CLI — the v1 agent runtime (pay, listen, channel ops)
+  cli/          pico <cmd> CLI — the v1 agent runtime (pay, listen, channel ops)
   hub/          Long-running hub service (Fastify + ws + sqlite/postgres)
   watchtower/   Standalone fraud monitor that posts penalty txs
 packages/
@@ -50,7 +50,7 @@ pnpm install
 pnpm build
 pnpm typecheck
 pnpm test
-pnpm tainnel hello              # smoke check; prints all package versions
+pnpm pico hello              # smoke check; prints all package versions
 forge build --root packages/contracts
 ```
 
@@ -58,10 +58,10 @@ forge build --root packages/contracts
 
 ```bash
 pnpm install
-pnpm tainnel keys init                                   # encrypted hot key
-pnpm tainnel channel open --hub https://hub.example --amount 25
-pnpm tainnel pay --to 0xRecipient --amount 0.05 --json   # one-shot payment
-pnpm tainnel listen --hub https://hub.example &          # receive payments
+pnpm pico keys init                                   # encrypted hot key
+pnpm pico channel open --hub https://hub.example --amount 25
+pnpm pico pay --to 0xRecipient --amount 0.05 --json   # one-shot payment
+pnpm pico listen --hub https://hub.example &          # receive payments
 ```
 
 Any-language agents shell out to the CLI; non-TS callers parse the `--json` output.

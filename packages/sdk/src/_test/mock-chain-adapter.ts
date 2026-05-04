@@ -1,4 +1,4 @@
-import type { Address, ChainId, Channel, ChannelId, Hex } from '@tainnel/protocol';
+import type { Address, ChainId, Channel, ChannelId, Hex } from '@pico/protocol';
 import { keccak256, toHex } from 'viem';
 import type {
   ChainAdapter,

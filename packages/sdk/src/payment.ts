@@ -1,4 +1,4 @@
-import type { Address, ChannelId, Hex, Invoice, Preimage } from '@tainnel/protocol';
+import type { Address, ChannelId, Hex, Invoice, Preimage } from '@pico/protocol';
 
 export interface PaymentRequest {
   readonly to?: Address;

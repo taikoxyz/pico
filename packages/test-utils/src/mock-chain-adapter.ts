@@ -1,2 +1,2 @@
-export type { MockChainAdapterOptions } from '@tainnel/sdk/_test';
-export { MockChainAdapter } from '@tainnel/sdk/_test';
+export type { MockChainAdapterOptions } from '@pico/sdk/_test';
+export { MockChainAdapter } from '@pico/sdk/_test';

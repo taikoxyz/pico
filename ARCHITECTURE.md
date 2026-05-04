@@ -1,6 +1,6 @@
 # Architecture
 
-This document covers the high-level shape of tainnel: the actors, what each package
+This document covers the high-level shape of pico: the actors, what each package
 does, where trust boundaries sit, and why the topology is **1-hop**.
 
 ## Components
@@ -8,14 +8,14 @@ does, where trust boundaries sit, and why the topology is **1-hop**.
 ```mermaid
 flowchart LR
     subgraph User["User device"]
-        CLI[tainnel CLI]
-        SDK[@tainnel/sdk]
-        SM[@tainnel/state-machine]
+        CLI[pico CLI]
+        SDK[@pico/sdk]
+        SM[@pico/state-machine]
     end
 
     subgraph HubInfra["Hub operator"]
-        Hub[@tainnel/hub]
-        WT[@tainnel/watchtower]
+        Hub[@pico/hub]
+        WT[@pico/watchtower]
     end
 
     subgraph Chain["Taiko L2"]

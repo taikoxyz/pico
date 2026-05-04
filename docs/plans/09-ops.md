@@ -124,10 +124,10 @@ P10 is the final cutover; P9 is everything you have to do to be ready for it.
 - [ ] `[human]` Configure Grafana Cloud Alerting: Discord contact point with
       that webhook.
 - [ ] `[agent]` Define alerts:
-      - `tainnel_watchtower_rpc_up == 0 for 5m` → page (the only fund-loss
+      - `pico_watchtower_rpc_up == 0 for 5m` → page (the only fund-loss
         risk if both this and the hub are down)
-      - `tainnel_hub_disputes_total > 0` → page (any dispute is interesting)
-      - `tainnel_hub_inbound_liquidity_usdc < 100 USDC` → warn
+      - `pico_hub_disputes_total > 0` → page (any dispute is interesting)
+      - `pico_hub_inbound_liquidity_usdc < 100 USDC` → warn
       - `health 5xx > 0 for 2m` → warn
       - `litestream replication lag > 60s` → warn
 - [ ] `[human]` Trigger a test alert: stop the watchtower for 6 minutes,

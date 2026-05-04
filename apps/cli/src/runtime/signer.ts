@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { ANVIL_DEV_CHAIN_ID, type ChainId } from '@tainnel/protocol';
+import { ANVIL_DEV_CHAIN_ID, type ChainId } from '@pico/protocol';
 import {
   type Signer,
   decryptPrivateKey,
   isEncryptedKeyFile,
   loadLocalSigner,
   parseKeyFile,
-} from '@tainnel/sdk';
+} from '@pico/sdk';
 import pc from 'picocolors';
 import { defaultKeyFilePath } from './config.js';
 import { readPassphrase } from './passphrase.js';
@@ -27,7 +27,7 @@ export function assertNonDevKeyForChain(privateKey: string, chainId: ChainId): v
   if (chainId === ANVIL_DEV_CHAIN_ID) return;
   if (KNOWN_DEV_PRIVATE_KEYS.has(privateKey.toLowerCase())) {
     throw new Error(
-      `refusing to use a well-known development private key on chainId=${chainId}; generate a real key with \`tainnel keys generate\` or use chainId=31337 for local dev`,
+      `refusing to use a well-known development private key on chainId=${chainId}; generate a real key with \`pico keys generate\` or use chainId=31337 for local dev`,
     );
   }
 }
@@ -48,17 +48,15 @@ export async function resolveSigner(opts: ResolveSignerOpts = {}): Promise<Signe
     return loadLocalSigner({ privateKey: opts.privateKey });
   }
 
-  if (typeof env.TAINNEL_PRIVATE_KEY === 'string' && env.TAINNEL_PRIVATE_KEY.length > 0) {
-    stderr.write(
-      pc.yellow('warn: TAINNEL_PRIVATE_KEY env var in use; intended for test/CI only\n'),
-    );
+  if (typeof env.PICO_PRIVATE_KEY === 'string' && env.PICO_PRIVATE_KEY.length > 0) {
+    stderr.write(pc.yellow('warn: PICO_PRIVATE_KEY env var in use; intended for test/CI only\n'));
     return loadLocalSigner({ env });
   }
 
   const keyFile = opts.keyFile ?? defaultKeyFilePath(env);
   if (!existsSync(keyFile)) {
     throw new Error(
-      `no key source: set TAINNEL_PRIVATE_KEY, pass --private-key <hex>, or run \`tainnel keys init\` (default path ${keyFile})`,
+      `no key source: set PICO_PRIVATE_KEY, pass --private-key <hex>, or run \`pico keys init\` (default path ${keyFile})`,
     );
   }
   return loadLocalSigner({
@@ -74,16 +72,16 @@ export async function resolvePrivateKey(opts: ResolveSignerOpts = {}): Promise<`
     if (!HEX_PRIVATE_KEY.test(opts.privateKey)) throw new Error('--private-key: malformed hex');
     return opts.privateKey;
   }
-  if (typeof env.TAINNEL_PRIVATE_KEY === 'string' && env.TAINNEL_PRIVATE_KEY.length > 0) {
-    if (!HEX_PRIVATE_KEY.test(env.TAINNEL_PRIVATE_KEY)) {
-      throw new Error('TAINNEL_PRIVATE_KEY: expected 0x-prefixed 32-byte hex');
+  if (typeof env.PICO_PRIVATE_KEY === 'string' && env.PICO_PRIVATE_KEY.length > 0) {
+    if (!HEX_PRIVATE_KEY.test(env.PICO_PRIVATE_KEY)) {
+      throw new Error('PICO_PRIVATE_KEY: expected 0x-prefixed 32-byte hex');
     }
-    return env.TAINNEL_PRIVATE_KEY as `0x${string}`;
+    return env.PICO_PRIVATE_KEY as `0x${string}`;
   }
   const keyFile = opts.keyFile ?? defaultKeyFilePath(env);
   if (!existsSync(keyFile)) {
     throw new Error(
-      `no key source: set TAINNEL_PRIVATE_KEY, pass --private-key <hex>, or run \`tainnel keys init\` (default path ${keyFile})`,
+      `no key source: set PICO_PRIVATE_KEY, pass --private-key <hex>, or run \`pico keys init\` (default path ${keyFile})`,
     );
   }
   const raw = readFileSync(keyFile, 'utf8').trim();

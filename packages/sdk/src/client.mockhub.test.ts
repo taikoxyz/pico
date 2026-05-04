@@ -1,4 +1,4 @@
-import { type Address, type Channel, TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
+import { type Address, type Channel, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   InMemorySigner,

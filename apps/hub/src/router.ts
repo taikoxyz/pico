@@ -9,9 +9,9 @@ import type {
   PaymentHash,
   Preimage,
   SignedState,
-} from '@tainnel/protocol';
-import { hexToSignature, randomHtlcId } from '@tainnel/sdk';
-import { addHtlc, buildChannelStateTypedData, failHtlc, settleHtlc } from '@tainnel/state-machine';
+} from '@pico/protocol';
+import { hexToSignature, randomHtlcId } from '@pico/sdk';
+import { addHtlc, buildChannelStateTypedData, failHtlc, settleHtlc } from '@pico/state-machine';
 import type { PrivateKeyAccount } from 'viem/accounts';
 import type { ChannelPool } from './channel-pool.js';
 import type { Repos } from './db/repos/index.js';

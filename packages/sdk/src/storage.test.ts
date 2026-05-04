@@ -1,4 +1,4 @@
-import type { Channel, Invoice, SignedState } from '@tainnel/protocol';
+import type { Channel, Invoice, SignedState } from '@pico/protocol';
 import { describe, expect, it } from 'vitest';
 import { MemoryStorage } from './storage.js';
 

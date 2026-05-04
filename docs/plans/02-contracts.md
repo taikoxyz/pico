@@ -57,7 +57,7 @@
 ### Adjudicator
 - [x] `[agent]` Implement `recoverStateSigner` using viem-compatible EIP-712 hashing
       (must produce identical digests to the off-chain signer in
-      `@tainnel/state-machine`).
+      `@pico/state-machine`).
       **Acceptance:** a forge test signs a state with a known private key off-chain
       (using ffi or hardcoded fixture), passes signature into the contract, recovers
       same address.
@@ -68,7 +68,7 @@
 
 ### HTLC library
 - [x] `[agent]` Implement `HTLC.hashLock(Lock memory)` returning the same 32-byte
-      hash as `@tainnel/state-machine.hashHtlc()`.
+      hash as `@pico/state-machine.hashHtlc()`.
 - [x] `[agent]` Implement `HTLC.verifyPreimage(bytes32 paymentHash, bytes preimage)`
       using the hash function picked in D1.2.
 - [x] `[agent]` Implement `HTLC.rootOf(Lock[] memory)` matching the algorithm in D1.3.

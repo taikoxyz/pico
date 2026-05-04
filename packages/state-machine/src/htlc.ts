@@ -1,4 +1,4 @@
-import type { ChannelState, Htlc, Preimage } from '@tainnel/protocol';
+import type { ChannelState, Htlc, Preimage } from '@pico/protocol';
 import { StateMachineError, UnknownHtlcError } from './errors.js';
 import { verifyPreimage } from './preimage.js';
 

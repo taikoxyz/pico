@@ -1,6 +1,6 @@
 # P4 — SDK
 
-**Status:** 🟢 done — `pnpm --filter @tainnel/sdk test` passes after workspace
+**Status:** 🟢 done — `pnpm --filter @pico/sdk test` passes after workspace
 packages are built.
 `ChannelClient`, WebSocket transport, storage adapters, signer interface, invoice
 flow, keysend flow, chain adapter, and test utilities are implemented.
@@ -13,12 +13,12 @@ flow, keysend flow, chain adapter, and test utilities are implemented.
 The SDK is consumed in v1 by:
 
 - **`apps/cli`** — the canonical agent runtime (P7). One-shot commands like
-  `tainnel pay`, plus the `tainnel listen` long-running daemon mode for receivers.
+  `pico pay`, plus the `pico listen` long-running daemon mode for receivers.
   The CLI is the primary failure surface for the dogfood launch.
 - **`apps/hub`** — uses the same state-machine and protocol types but talks to the
   network from the other side. It does not import `ChannelClient`, only the shared
   primitives.
-- **`@tainnel/test-utils`** — drives mock hubs and harnessed scenarios for unit /
+- **`@pico/test-utils`** — drives mock hubs and harnessed scenarios for unit /
   integration / e2e tests.
 
 The React wallet UI is **deferred to Phase 2** and the previous `apps/wallet-ui`
@@ -61,7 +61,7 @@ outline lives at the bottom of `docs/plans/07-agent-runtime.md`.
     signInvoice(invoice, chainId): Promise<Hex>;
   }
   ```
-  Hashing for these typed-data structs lives in `@tainnel/state-machine` (P3); the
+  Hashing for these typed-data structs lives in `@pico/state-machine` (P3); the
   Signer is purely a key-custody adapter.
 - **Documented escape hatch:** future backends — AWS Nitro Enclave, Turnkey, AWS/GCP
   KMS, EIP-7702 delegation — implement the same interface. The SDK and CLI never call
@@ -78,12 +78,12 @@ the wild; v1 ships **both**, with invoice-mode as the default.
 - **Pattern A (default) — invoice / receiver-generates `P`.**
   Bob's agent generates `P` from a CSPRNG, computes `H`, persists `{P, H, amount,
   expiry, ...}` in the SDK invoice store, hands Alice an invoice envelope (see below).
-  Alice runs `tainnel pay --invoice <invoice>`. The HTLC locks against `H`. Bob's
-  `tainnel listen` recognizes `H` from the invoice store, looks up `P`, settles. The
+  Alice runs `pico pay --invoice <invoice>`. The HTLC locks against `H`. Bob's
+  `pico listen` recognizes `H` from the invoice store, looks up `P`, settles. The
   preimage propagates upstream and ends up in Alice's `PaymentResult` as the
   cryptographic receipt of payment. This maps cleanly onto the canonical paid-API
-  flow: `GET /quote → 402 + invoice → tainnel pay → P → GET /resource Authorization:
-  tainnel-receipt <P>`.
+  flow: `GET /quote → 402 + invoice → pico pay → P → GET /resource Authorization:
+  pico-receipt <P>`.
 - **Pattern B (opt-in `--keysend`) — sender-generates `P`.**
   Alice generates `P` herself and includes a side payload encrypted to Bob's public
   key alongside the HTLC offer. The hub forwards the HTLC and the (still-encrypted)
@@ -92,7 +92,7 @@ the wild; v1 ships **both**, with invoice-mode as the default.
   and a specific service — `P` is just a number to Bob unless Alice puts service
   context in the encrypted payload.
 
-The receiver's `tainnel listen` must support both. On HTLC arrival, look up `H` in
+The receiver's `pico listen` must support both. On HTLC arrival, look up `H` in
 the invoice store first; if not found and the offer carries a keysend payload,
 decrypt it and use that `P`; otherwise reject with a typed error.
 
@@ -116,7 +116,7 @@ interface Invoice {
 
 The signature lets Alice (and the hub) verify the invoice came from the address
 that's about to receive funds. The Invoice typed-data schema is added to
-`@tainnel/protocol` alongside the existing channel schemas.
+`@pico/protocol` alongside the existing channel schemas.
 
 - Decision: ☐ Pattern A as default + Pattern B behind `--keysend` (recommended)
   ☐ Pattern A only ☐ Pattern B only
@@ -149,6 +149,6 @@ test. Remaining readiness work is in the real hub/watchtower/e2e/ops layers.
 
 ## Done when
 
-- `pnpm --filter @tainnel/sdk test` passes.
-- Quickstart exists and runs against `@tainnel/test-utils` mock hub.
+- `pnpm --filter @pico/sdk test` passes.
+- Quickstart exists and runs against `@pico/test-utils` mock hub.
 - The roadmap marks P4 🟢 and does not list P4 as a blocker for mainnet E2E testing.

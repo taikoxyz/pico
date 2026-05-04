@@ -3,7 +3,7 @@ import { loadConfig } from './config.js';
 
 const ANVIL_ENV = {
   CHAIN_ID: '31337',
-  TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
+  PICO_DEV_ALLOW_ZERO_ADDRESS: 'true',
   HUB_PRIVATE_KEY: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 } as NodeJS.ProcessEnv;
 

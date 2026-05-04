@@ -1,4 +1,4 @@
-# Tainnel runbooks (DRAFT — verify before P10)
+# Pico runbooks (DRAFT — verify before P10)
 
 These runbooks are **draft** scaffolds. They list the steps an on-call operator
 should take, the files/commands involved, and the verification checks. Treat each

@@ -1,5 +1,5 @@
 {
-  "name": "@tainnel/e2e",
+  "name": "@pico/e2e",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -13,12 +13,12 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@tainnel/hub": "workspace:*",
-    "@tainnel/protocol": "workspace:*",
-    "@tainnel/sdk": "workspace:*",
-    "@tainnel/state-machine": "workspace:*",
-    "@tainnel/test-utils": "workspace:*",
-    "@tainnel/watchtower": "workspace:*",
+    "@pico/hub": "workspace:*",
+    "@pico/protocol": "workspace:*",
+    "@pico/sdk": "workspace:*",
+    "@pico/state-machine": "workspace:*",
+    "@pico/test-utils": "workspace:*",
+    "@pico/watchtower": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {

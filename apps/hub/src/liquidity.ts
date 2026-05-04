@@ -1,4 +1,4 @@
-import type { ChannelId } from '@tainnel/protocol';
+import type { ChannelId } from '@pico/protocol';
 import type { HtlcRepo } from './db/repos/index.js';
 
 export interface LiquiditySnapshot {

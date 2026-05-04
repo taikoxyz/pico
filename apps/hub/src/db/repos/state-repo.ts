@@ -1,5 +1,5 @@
-import type { ChannelId, ChannelState, Hex, Signature, SignedState } from '@tainnel/protocol';
-import { hexToSignature, signatureToHex } from '@tainnel/sdk';
+import type { ChannelId, ChannelState, Hex, Signature, SignedState } from '@pico/protocol';
+import { hexToSignature, signatureToHex } from '@pico/sdk';
 import type { DbDriver } from '../types.js';
 
 interface StateRow {

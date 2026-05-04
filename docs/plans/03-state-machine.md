@@ -1,6 +1,6 @@
 # P3 — State machine
 
-**Status:** 🟢 done — `pnpm --filter @tainnel/state-machine test` passes after
+**Status:** 🟢 done — `pnpm --filter @pico/state-machine test` passes after
 workspace packages are built.
 `validateUpdate` / `applyUpdate` / `computeBalance`, HTLC transitions, typed-data
 hashing/signature verification, HTLC root calculation, invoice helpers, and the
@@ -47,11 +47,11 @@ These callers consume the completed `state-machine` exports:
   `htlcsRoot` byte-equivalence with the contract.
 - **P6 Watchtower** — `responder.ts` needs `verifyChannelStateSignature` to check that
   a posted state's signature is genuine before submitting a counter-state.
-- **P7 Agent runtime (CLI)** — the `tainnel listen` daemon validates inbound HTLCs
+- **P7 Agent runtime (CLI)** — the `pico listen` daemon validates inbound HTLCs
   with `validateUpdate` + `verifyHtlcSignature`.
 
 ## Done when
 
-- `pnpm --filter @tainnel/state-machine test` passes.
-- `pnpm --filter @tainnel/contracts test` passes the oracle round-trip tests.
+- `pnpm --filter @pico/state-machine test` passes.
+- `pnpm --filter @pico/contracts test` passes the oracle round-trip tests.
 - The roadmap marks P3 🟢 and does not list P3 as a blocker for mainnet E2E testing.

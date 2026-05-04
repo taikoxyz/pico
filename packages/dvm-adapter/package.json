@@ -1,9 +1,9 @@
 {
-  "name": "@tainnel/dvm-adapter",
+  "name": "@pico/dvm-adapter",
   "version": "0.0.0",
   "private": false,
   "license": "MIT",
-  "description": "Helpers for integrating tainnel channel payments with Nostr DVM events.",
+  "description": "Helpers for integrating pico channel payments with Nostr DVM events.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,8 +21,8 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@tainnel/protocol": "workspace:*",
-    "@tainnel/sdk": "workspace:*",
+    "@pico/protocol": "workspace:*",
+    "@pico/sdk": "workspace:*",
     "nostr-tools": "^2.10.4"
   },
   "devDependencies": {

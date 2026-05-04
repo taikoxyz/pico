@@ -8,8 +8,8 @@ import type {
   HtlcId,
   SignedCooperativeClose,
   SignedState,
-} from '@tainnel/protocol';
-import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@tainnel/state-machine';
+} from '@pico/protocol';
+import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@pico/state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type AddressInfo, type WebSocket, WebSocketServer } from 'ws';
 import {

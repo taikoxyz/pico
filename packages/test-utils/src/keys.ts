@@ -1,4 +1,4 @@
-import type { Address, Hex } from '@tainnel/protocol';
+import type { Address, Hex } from '@pico/protocol';
 
 export interface KeyFixture {
   readonly name: string;

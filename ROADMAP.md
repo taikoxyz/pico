@@ -1,4 +1,4 @@
-# tainnel roadmap
+# pico roadmap
 
 > **Target:** Taiko mainnet readiness for a controlled **end-to-end real-money
 > test** of the AI-agent payments flow. USDC only, full 1-hop routing, one
@@ -84,7 +84,7 @@ USDC end-to-end on mainnet until these gaps close:
 - **Watchtower:** stale-version detection exists. Real readiness still needs chain
   event watching, encrypted backup/state loading, idempotent penalty submission, and
   clear failure logging.
-- **E2E harness:** current `@tainnel/e2e` only proves the test runner boots; lifecycle
+- **E2E harness:** current `@pico/e2e` only proves the test runner boots; lifecycle
   scenarios are skipped and must run against an anvil fork before any mainnet funds
   move.
 - **Ops:** hub/watchtower deployment, separate-region placement, monitoring, alerting,
@@ -103,13 +103,13 @@ controlled real-money test path.
 
 | Phase | Decision | Default | Where |
 |---|---|---|---|
-| P4  | `Signer` hot key file format | scrypt-derived key + XSalsa20-Poly1305 sealed file at `$XDG_CONFIG_HOME/tainnel/key.enc`, perms 0600 | [04](./docs/plans/04-sdk.md#decisions) |
+| P4  | `Signer` hot key file format | scrypt-derived key + XSalsa20-Poly1305 sealed file at `$XDG_CONFIG_HOME/pico/key.enc`, perms 0600 | [04](./docs/plans/04-sdk.md#decisions) |
 | P4  | Preimage origin / payment model | Pattern A (invoice / receiver-generates) as default; Pattern B (keysend / sender-generates) behind a `--keysend` flag | [04](./docs/plans/04-sdk.md#decisions) |
 | P5  | Hub DB in production | sqlite + litestream | [05](./docs/plans/05-hub.md#decisions) |
 | P5  | Hub WebSocket auth | signed message per request | [05](./docs/plans/05-hub.md#decisions) |
 | P6  | Watchtower deployment mode | self-hosted only | [06](./docs/plans/06-watchtower.md#decisions) |
 | P6  | Penalty trigger threshold | 50% of dispute window | [06](./docs/plans/06-watchtower.md#decisions) |
-| P7  | `tainnel listen` resilience | auto-reconnect with exponential backoff (200 ms → 30 s, infinite, jittered) | [07](./docs/plans/07-agent-runtime.md#decisions) |
+| P7  | `pico listen` resilience | auto-reconnect with exponential backoff (200 ms → 30 s, infinite, jittered) | [07](./docs/plans/07-agent-runtime.md#decisions) |
 | P9  | Hosting platform | Fly.io | [09](./docs/plans/09-ops.md#decisions) |
 | P9  | Watchtower placement | separate region from hub | [09](./docs/plans/09-ops.md#decisions) |
 | P9  | Alert destination | Discord webhook | [09](./docs/plans/09-ops.md#decisions) |
@@ -176,9 +176,9 @@ For longer prose explanations and diagrams, see [`docs/learning/index.html`](./d
   storage for backup and point-in-time restore.
 - **`Signer` interface** — the SDK abstraction over key custody. v1 backend = encrypted
   hot key file. Future backends: KMS, Turnkey, Nitro Enclave, EIP-7702 delegation.
-- **`tainnel listen` mode** — a long-running CLI subcommand for receivers. Holds a
+- **`pico listen` mode** — a long-running CLI subcommand for receivers. Holds a
   WebSocket session to the hub, accepts inbound HTLCs, reveals preimages, optionally
-  watches the chain for dispute events. Same binary as the rest of `tainnel`.
+  watches the chain for dispute events. Same binary as the rest of `pico`.
 - **Encrypted hot key file** — the on-disk key store that the v1 `Signer` reads.
   Passphrase-derived (scrypt) key, sealed with XSalsa20-Poly1305. Permissions 0600.
 
@@ -192,9 +192,9 @@ gate** below is green:
 - [ ] All 11 sub-plans report status 🟢
 - [ ] Contracts deployed + verified on Taiko mainnet
 - [ ] Hub + watchtower running on production infra with monitoring + alerts
-- [ ] CLI installable via `pnpm tainnel`; agent can pay another agent end-to-end on
-      mainnet using `tainnel pay`
-- [ ] Receiver-side: `tainnel listen` accepts an inbound HTLC, reveals the preimage,
+- [ ] CLI installable via `pnpm pico`; agent can pay another agent end-to-end on
+      mainnet using `pico pay`
+- [ ] Receiver-side: `pico listen` accepts an inbound HTLC, reveals the preimage,
       and the channel state advances correctly
 - [ ] One end-to-end mainnet payment (agent → hub → agent) succeeds with real USDC
 - [ ] Dispute drill on mainnet (≤ MIN_CHANNEL_AMOUNT funds): a deliberately-stale state

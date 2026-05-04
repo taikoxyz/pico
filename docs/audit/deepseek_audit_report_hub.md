@@ -230,5 +230,5 @@ Out of scope:
 ## Validation notes
 
 - Ran read-only source inspection with `rg`, `sed`, and `nl` across `apps/hub`, SDK/state-machine/contract files used by the hub.
-- Ran `pnpm --filter @tainnel/hub test`. It failed before most suites executed because Vite could not resolve workspace package entries for `@tainnel/sdk` and `@tainnel/protocol`; those package manifests export `./dist/*`, but no `dist` directories are present. I did not run package builds because that would create/modify files outside this requested report.
+- Ran `pnpm --filter @pico/hub test`. It failed before most suites executed because Vite could not resolve workspace package entries for `@pico/sdk` and `@pico/protocol`; those package manifests export `./dist/*`, but no `dist` directories are present. I did not run package builds because that would create/modify files outside this requested report.
 - Confirmed `git status --short` was clean before writing this report. The only intended changed file is `deepseek_audit_report_hub.md`.

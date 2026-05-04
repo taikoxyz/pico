@@ -1,1 +1,1 @@
-export { InMemorySigner } from '@tainnel/sdk/_test';
+export { InMemorySigner } from '@pico/sdk/_test';

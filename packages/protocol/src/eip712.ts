@@ -1,6 +1,6 @@
 import type { Address, ChainId } from './types.js';
 
-export const EIP712_DOMAIN_NAME = 'tainnel';
+export const EIP712_DOMAIN_NAME = 'pico';
 export const EIP712_DOMAIN_VERSION = '1';
 
 export interface Eip712Domain {

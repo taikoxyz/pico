@@ -6,15 +6,15 @@ import {
   type ChainId,
   type PaymentHash,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   ChannelClient,
   type InvoiceRecord,
   type Signer,
   ViemChainAdapter,
   WebSocketTransport,
-} from '@tainnel/sdk';
-import type { FileStorage } from '@tainnel/sdk';
+} from '@pico/sdk';
+import type { FileStorage } from '@pico/sdk';
 import { Command } from 'commander';
 import { http, createPublicClient, createWalletClient } from 'viem';
 import { defaultDbDir } from '../runtime/config.js';
@@ -89,7 +89,7 @@ interface NoopChainAdapter {
 
 function noopChain(): NoopChainAdapter {
   const fail = (op: string) => async (): Promise<never> => {
-    throw new Error(`tainnel invoice: chain.${op} should not be called`);
+    throw new Error(`pico invoice: chain.${op} should not be called`);
   };
   return {
     openChannel: fail('openChannel'),
@@ -114,7 +114,7 @@ function noopTransport(): {
     async close() {},
     async send() {},
     request: async () => {
-      throw new Error('tainnel invoice: transport.request should not be called');
+      throw new Error('pico invoice: transport.request should not be called');
     },
     onMessage: () => () => {},
     onReconnect: () => () => {},

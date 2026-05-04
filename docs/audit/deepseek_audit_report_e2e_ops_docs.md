@@ -87,7 +87,7 @@ Separate `paymentChannelAddress` from `adjudicatorAddress` everywhere a client i
 - `e2e/src/harness.ts:168-170` selects fork mode only when `opts.forkUrl` is set.
 - `e2e/src/scenarios.test.ts:53-55`, `:281-285`, `:343-345`, `:474-475`, `:538-540`, and `:605-609` all call `bootE2E()` with no fork options.
 - `e2e/src/harness.ts:358-407` has fork mode, but it only sets ETH balances and `fundAndApproveParty()` throws because USDC minting needs impersonation.
-- `.github/workflows/ci.yml:141-147` runs `pnpm -F @tainnel/e2e test` and leaves `e2e-fork` as a TODO.
+- `.github/workflows/ci.yml:141-147` runs `pnpm -F @pico/e2e test` and leaves `e2e-fork` as a TODO.
 - `docs/plans/08-e2e-and-audit.md:46-58` says Phase 2 should run on an anvil fork of Taiko mainnet.
 - `docs/plans/08-e2e-and-audit.md:424-428` still lists a 24h Taiko mainnet fork soak as a done-when item.
 
@@ -105,7 +105,7 @@ Add a separate `e2e-fork` suite and GitHub Actions job gated on `secrets.TAIKO_M
 
 **Tests/checks needed:**
 
-- `pnpm -F @tainnel/e2e test:fork` or equivalent.
+- `pnpm -F @pico/e2e test:fork` or equivalent.
 - CI job skipped only when the RPC secret is absent, and required for release/mainnet-readiness branches.
 - A 24h fork soak or scheduled fork job before P10.
 
@@ -163,7 +163,7 @@ An accidental deployment can connect to Taiko mainnet with well-known private ke
 
 **Recommended fix:**
 
-Fail fast on mainnet unless private keys, RPC URL, contract addresses, operator token, and signed-envelope requirement are explicitly configured. Make examples placeholders rather than runnable known keys. Consider `NODE_ENV=production` or `TAINNEL_ENV=production` validation that rejects dummy keys, unauthenticated operator endpoints, and `HUB_REQUIRE_SIGNED_ENVELOPE=false`.
+Fail fast on mainnet unless private keys, RPC URL, contract addresses, operator token, and signed-envelope requirement are explicitly configured. Make examples placeholders rather than runnable known keys. Consider `NODE_ENV=production` or `PICO_ENV=production` validation that rejects dummy keys, unauthenticated operator endpoints, and `HUB_REQUIRE_SIGNED_ENVELOPE=false`.
 
 **Tests/checks needed:**
 
@@ -242,7 +242,7 @@ Pick one production DB target for P10 and make all docs/configs match it. If Pos
 
 **Evidence file references:**
 
-- `.github/workflows/ci.yml:60-72` runs `pnpm exec turbo run test --filter='!@tainnel/contracts' --filter='!@tainnel/e2e'`.
+- `.github/workflows/ci.yml:60-72` runs `pnpm exec turbo run test --filter='!@pico/contracts' --filter='!@pico/e2e'`.
 - `apps/hub/package.json:16-20`, `apps/watchtower/package.json:9-12`, and `apps/cli/package.json:12-15` all define `test` as `vitest run`, not `vitest run --coverage`.
 - `apps/hub/vitest.config.ts:7-10`, `apps/watchtower/vitest.config.ts:7-10`, and `apps/cli/vitest.config.ts:8-13` define coverage thresholds, but Vitest thresholds are only enforced when coverage is enabled.
 - `docs/plans/05-hub.md:7-8` and `:161-164` claim hub coverage is a readiness signal.
@@ -271,7 +271,7 @@ Add `test:coverage` scripts for apps that claim coverage gates, run them in CI f
 
 **Evidence file references:**
 
-- `SECURITY.md:5-9` asks for private reports but lists `security@tainnel.dev` as a placeholder and says PGP will be published with the first signed release.
+- `SECURITY.md:5-9` asks for private reports but lists `security@pico.dev` as a placeholder and says PGP will be published with the first signed release.
 - `SECURITY.md:11` commits to a 72-hour acknowledgment.
 
 **Observed behavior:**

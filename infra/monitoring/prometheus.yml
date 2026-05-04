@@ -15,20 +15,20 @@ alerting:
             - alertmanager:9093
 
 scrape_configs:
-  - job_name: tainnel-hub
+  - job_name: pico-hub
     metrics_path: /metrics
     static_configs:
       - targets:
           # Replace with your real metrics target. On Fly the canonical
-          # name is tainnel-hub-prod.internal:9090, BUT the hub currently
+          # name is pico-hub-prod.internal:9090, BUT the hub currently
           # binds /metrics to 127.0.0.1 inside the machine — see README.
-          - tainnel-hub-prod.internal:9090
+          - pico-hub-prod.internal:9090
 
-  - job_name: tainnel-watchtower
+  - job_name: pico-watchtower
     metrics_path: /metrics
     static_configs:
       - targets:
-          - tainnel-watchtower-prod.internal:9090
+          - pico-watchtower-prod.internal:9090
 
 # Uncomment + populate to forward to Grafana Cloud or Grafana Mimir.
 # remote_write:

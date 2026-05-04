@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Channel, Invoice, SignedState } from '@tainnel/protocol';
+import type { Channel, Invoice, SignedState } from '@pico/protocol';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IndexedDBStorage } from './storage-indexeddb.js';
@@ -51,7 +51,7 @@ describe('IndexedDBStorage', () => {
 
   beforeEach(() => {
     factory = new IDBFactory();
-    storage = new IndexedDBStorage({ dbName: 'tainnel-test', factory });
+    storage = new IndexedDBStorage({ dbName: 'pico-test', factory });
   });
 
   it('round-trips a channel', async () => {
@@ -91,7 +91,7 @@ describe('IndexedDBStorage', () => {
     await storage.saveInvoice(invoice, '0xpre');
     await storage.markInvoiceConsumed(invoice.paymentHash, 9999);
     await storage.close();
-    const reopened = new IndexedDBStorage({ dbName: 'tainnel-test', factory });
+    const reopened = new IndexedDBStorage({ dbName: 'pico-test', factory });
     const rec = await reopened.loadInvoice(invoice.paymentHash);
     expect(rec?.preimage).toBe('0xpre');
     expect(rec?.consumedAt).toBe(9999);

@@ -1,11 +1,4 @@
-import type {
-  Channel,
-  ChannelState,
-  Htlc,
-  Invoice,
-  Preimage,
-  SignedState,
-} from '@tainnel/protocol';
+import type { Channel, ChannelState, Htlc, Invoice, Preimage, SignedState } from '@pico/protocol';
 
 export interface InvoiceRecord {
   readonly invoice: Invoice;

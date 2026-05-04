@@ -4,14 +4,14 @@ import {
   type Htlc,
   TAIKO_MAINNET_CHAIN_ID,
   type Update,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   verifyChannelStateSignature,
   verifyCooperativeCloseSignature,
   verifyHtlcSignature,
   verifyInvoiceSignature,
   verifyUpdateSignature,
-} from '@tainnel/state-machine';
+} from '@pico/state-machine';
 import { describe, expect, it } from 'vitest';
 import { InMemorySigner } from './signer.test-only.js';
 

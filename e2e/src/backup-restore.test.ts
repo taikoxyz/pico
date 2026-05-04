@@ -60,7 +60,7 @@ describe.skipIf(!enabled)('backup-restore', () => {
   let replicateProc: ChildProcess | null = null;
 
   beforeAll(async () => {
-    workdir = mkdtempSync(join(tmpdir(), 'tainnel-backup-restore-'));
+    workdir = mkdtempSync(join(tmpdir(), 'pico-backup-restore-'));
     dbPath = join(workdir, 'hub.sqlite');
     replicaDir = join(workdir, 'replica');
     configPath = join(workdir, 'litestream.yml');

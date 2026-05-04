@@ -1,6 +1,6 @@
-# Tainnel mainnet launch checklist
+# Pico mainnet launch checklist
 
-The single source of truth for what must be true before tainnel custodies real
+The single source of truth for what must be true before pico custodies real
 USDC on Taiko mainnet. Each phase ends with a 🛑 GATE — do not proceed past
 that gate until every item above is checked. Items are tagged
 `[human]` / `[agent]` / `[ci]` to indicate the verifier and `verify by:` lines
@@ -65,11 +65,11 @@ contracts.
 
 ## Phase C — Operations
 
-- [ ] `[ci]` Fly apps `tainnel-hub-prod` and `tainnel-watchtower-prod`
+- [ ] `[ci]` Fly apps `pico-hub-prod` and `pico-watchtower-prod`
       deployed from a `v*` tagged release via
       `.github/workflows/deploy.yml`.
 - [ ] `[human]` Prometheus is scraping both targets (no `up == 0` flapping).
-      _verify by: Prometheus `up{job=~"tainnel-(hub|watchtower)"}`._
+      _verify by: Prometheus `up{job=~"pico-(hub|watchtower)"}`._
 - [ ] `[human]` Alertmanager paging tested via a synthetic alert that
       reaches the actual on-call channel.
 - [ ] `[ci]` Restore drill green within the last 30 days.
@@ -82,7 +82,7 @@ contracts.
 
 ## Phase D — Security disclosure
 
-- [ ] `[human]` `SECURITY.md` no longer carries the `<TAINNEL_PGP_FINGERPRINT_TODO>`
+- [ ] `[human]` `SECURITY.md` no longer carries the `<PICO_PGP_FINGERPRINT_TODO>`
       placeholder; `pgp-key.asc.placeholder` removed; `pgp-key.asc` committed.
       _verify by: `.github/workflows/security-md-lint.yml` passes on the swap
       PR._

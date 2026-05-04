@@ -7,14 +7,14 @@ import type {
   Hex,
   Htlc,
   Invoice,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
   buildHtlcTypedData,
   buildInvoiceTypedData,
   buildUpdateTypedData,
-} from '@tainnel/state-machine';
+} from '@pico/state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { decryptPrivateKey, isEncryptedKeyFile, parseKeyFile } from './key-file.js';
 import type { Signer } from './signer.js';
@@ -65,7 +65,7 @@ export class LocalSigner implements Signer {
   }
 
   signUpdate(
-    update: import('@tainnel/protocol').Update,
+    update: import('@pico/protocol').Update,
     chainId: ChainId,
     verifyingContract: Address,
   ): Promise<Hex> {
@@ -106,10 +106,10 @@ export async function loadLocalSigner(opts: LoadLocalSignerOpts = {}): Promise<S
   if (opts.privateKey) {
     return localSigner(opts.privateKey);
   }
-  const envPk = opts.env?.TAINNEL_PRIVATE_KEY;
+  const envPk = opts.env?.PICO_PRIVATE_KEY;
   if (typeof envPk === 'string' && envPk.length > 0) {
     if (!HEX_PRIVATE_KEY.test(envPk)) {
-      throw new Error('TAINNEL_PRIVATE_KEY: expected 0x-prefixed 32-byte hex');
+      throw new Error('PICO_PRIVATE_KEY: expected 0x-prefixed 32-byte hex');
     }
     return localSigner(envPk as Hex);
   }
@@ -130,6 +130,6 @@ export async function loadLocalSigner(opts: LoadLocalSignerOpts = {}): Promise<S
     return localSigner(pk);
   }
   throw new Error(
-    'loadLocalSigner: no key source (set TAINNEL_PRIVATE_KEY, pass {privateKey}, or pass {keyFile})',
+    'loadLocalSigner: no key source (set PICO_PRIVATE_KEY, pass {privateKey}, or pass {keyFile})',
   );
 }

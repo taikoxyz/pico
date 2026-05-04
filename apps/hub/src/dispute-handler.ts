@@ -1,5 +1,5 @@
-import type { Address, ChainId, ChannelId, Hex } from '@tainnel/protocol';
-import { encodeChannelStateForOnChain, paymentChannelAbi, signatureToHex } from '@tainnel/sdk';
+import type { Address, ChainId, ChannelId, Hex } from '@pico/protocol';
+import { encodeChannelStateForOnChain, paymentChannelAbi, signatureToHex } from '@pico/sdk';
 import {
   http,
   type Hash,

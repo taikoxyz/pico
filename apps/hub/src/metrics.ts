@@ -22,44 +22,44 @@ export interface GaugeSnapshot {
 
 export function buildMetrics(reg: Registry): HubMetrics {
   for (const name of [
-    'tainnel_hub_channels_total',
-    'tainnel_hub_htlcs_in_flight',
-    'tainnel_hub_inbound_liquidity_usdc',
-    'tainnel_hub_outbound_liquidity_usdc',
-    'tainnel_hub_payments_total',
-    'tainnel_hub_disputes_total',
+    'pico_hub_channels_total',
+    'pico_hub_htlcs_in_flight',
+    'pico_hub_inbound_liquidity_usdc',
+    'pico_hub_outbound_liquidity_usdc',
+    'pico_hub_payments_total',
+    'pico_hub_disputes_total',
   ]) {
     reg.removeSingleMetric(name);
   }
 
   const channelsTotal = new Gauge({
-    name: 'tainnel_hub_channels_total',
+    name: 'pico_hub_channels_total',
     help: 'Open channels held by the hub',
     registers: [reg],
   });
   const htlcsInFlight = new Gauge({
-    name: 'tainnel_hub_htlcs_in_flight',
+    name: 'pico_hub_htlcs_in_flight',
     help: 'In-flight HTLCs being routed by the hub',
     registers: [reg],
   });
   const inboundLiquidityUsdc = new Gauge({
-    name: 'tainnel_hub_inbound_liquidity_usdc',
+    name: 'pico_hub_inbound_liquidity_usdc',
     help: 'Sum of inbound liquidity across all channels (smallest USDC unit)',
     registers: [reg],
   });
   const outboundLiquidityUsdc = new Gauge({
-    name: 'tainnel_hub_outbound_liquidity_usdc',
+    name: 'pico_hub_outbound_liquidity_usdc',
     help: 'Sum of outbound liquidity across all channels (smallest USDC unit)',
     registers: [reg],
   });
   const paymentsTotal = new Counter({
-    name: 'tainnel_hub_payments_total',
+    name: 'pico_hub_payments_total',
     help: 'Total payments processed by the hub',
     labelNames: ['result'],
     registers: [reg],
   });
   const disputesTotal = new Counter({
-    name: 'tainnel_hub_disputes_total',
+    name: 'pico_hub_disputes_total',
     help: 'Total disputes observed by the hub',
     labelNames: ['outcome'],
     registers: [reg],

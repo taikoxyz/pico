@@ -1,4 +1,4 @@
-# Litestream replication for the Tainnel hub SQLite DB.
+# Litestream replication for the Pico hub SQLite DB.
 #
 # All four ${...} placeholders come from Fly secrets set by
 # infra/fly/secrets-bootstrap.sh. Litestream resolves them at process start.

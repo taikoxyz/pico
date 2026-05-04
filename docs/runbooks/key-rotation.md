@@ -21,7 +21,7 @@
    `cast wallet new` or your KMS export.
 2. Funded amounts: send minimum gas budget to the new address.
 3. Deploy the new env to the host: `fly secrets set HUB_PRIVATE_KEY=0x...`.
-4. Restart the service: `fly machine restart -a tainnel-hub`.
+4. Restart the service: `fly machine restart -a pico-hub`.
 5. Verify `/v1/health` returns 200.
 6. Once confirmed, sweep gas from the old key back to a treasury address.
 7. Document the rotation in `docs/incidents/YYYY-MM-DD-rotation.md`.
@@ -36,6 +36,6 @@
 
 ## Verification
 
-- `tainnel_hub_chain_watcher_lag_blocks` returns to baseline.
+- `pico_hub_chain_watcher_lag_blocks` returns to baseline.
 - WS subscribers can reconnect and exchange a `ping` round-trip.
 - Operator REST `GET /v1/channels` works only with the new bearer token.

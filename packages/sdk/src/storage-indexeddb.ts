@@ -5,7 +5,7 @@ import type {
   PaymentHash,
   Preimage,
   SignedState,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   type InvoiceRecord,
   type SerializedChannel,
@@ -29,7 +29,7 @@ const STORE_CHANNELS = 'channels';
 const STORE_STATES = 'states';
 const STORE_INVOICES = 'invoices';
 const SCHEMA_VERSION = 1;
-const DEFAULT_DB_NAME = 'tainnel-sdk';
+const DEFAULT_DB_NAME = 'pico-sdk';
 
 interface StoredStateRecord extends SerializedSignedState {
   readonly _channelId: string;

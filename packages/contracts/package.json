@@ -1,9 +1,9 @@
 {
-  "name": "@tainnel/contracts",
+  "name": "@pico/contracts",
   "version": "0.0.0",
   "private": false,
   "license": "MIT",
-  "description": "Solidity contracts for tainnel pairwise payment channels (PaymentChannel, HTLC, Adjudicator).",
+  "description": "Solidity contracts for pico pairwise payment channels (PaymentChannel, HTLC, Adjudicator).",
   "scripts": {
     "build": "forge build",
     "typecheck": "echo 'no-op for solidity package'",

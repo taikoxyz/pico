@@ -78,7 +78,7 @@ describeForked('Taiko mainnet fork lifecycle (gated by E2E_FORK_URL)', () => {
   it.skipIf(!HAS_WHALE)(
     'stale-state penalty drill: hub posts old state, watchtower wins (deployed contracts)',
     async () => {
-      const { startWatchtower } = await import('@tainnel/watchtower');
+      const { startWatchtower } = await import('@pico/watchtower');
 
       const env = await bootFork();
       try {
@@ -145,7 +145,7 @@ describeForked('Taiko mainnet fork lifecycle (gated by E2E_FORK_URL)', () => {
           const attackAbi = parseAbi([
             'function closeUnilateral(bytes32 channelId, bytes state, bytes sigCounterparty)',
           ]);
-          const { encodeChannelStateForOnChain, signatureToHex } = await import('@tainnel/sdk');
+          const { encodeChannelStateForOnChain, signatureToHex } = await import('@pico/sdk');
           await hubAttackerWallet.writeContract({
             address: env.paymentChannel,
             abi: attackAbi,

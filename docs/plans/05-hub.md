@@ -18,7 +18,7 @@ This phase delivers the hub's **wire protocol**: the REST + WebSocket endpoints 
 SDK clients (and therefore `apps/cli`) talk to. It is **not** the agent-facing surface
 in v1 — agents talk to the CLI, and the CLI talks to this hub via the SDK over the
 wire. Non-TS agents do not need to implement this protocol; they shell out to
-`tainnel pay --json` (P7).
+`pico pay --json` (P7).
 
 The hub's listing of REST + WS endpoints below is therefore the inter-process protocol
 that defines the network shape, not the API a Python or Rust agent reaches for first.
@@ -127,10 +127,10 @@ that defines the network shape, not the API a Python or Rust agent reaches for f
 - [x] `[agent]` `POST /v1/channels/open` — accept open request, return `channelId`
       and on-chain tx hash once mined.
 - [x] `[agent]` `POST /v1/payments` — for clients without persistent WS (e.g., a
-      one-shot `tainnel pay` invocation). Internally creates a short-lived WS session.
+      one-shot `pico pay` invocation). Internally creates a short-lived WS session.
 - [x] `[agent]` `WS /v1/ws` — bidirectional channel for state updates,
       payment.send, payment.settle, dispute notifications. **Long-lived sessions**
-      from `tainnel listen` clients are first-class; ensure `pingInterval`,
+      from `pico listen` clients are first-class; ensure `pingInterval`,
       connection limits, and per-connection memory caps accommodate one long-lived
       session per channel without reconnect storms.
 
@@ -139,10 +139,10 @@ that defines the network shape, not the API a Python or Rust agent reaches for f
       DB with a TTL of 24h to bound memory.
 
 ### Operational details
-- [x] `[agent]` `/metrics` Prometheus endpoint: `tainnel_hub_channels_total`,
-      `tainnel_hub_payments_total`, `tainnel_hub_htlcs_in_flight`,
-      `tainnel_hub_inbound_liquidity_usdc`, `tainnel_hub_outbound_liquidity_usdc`,
-      `tainnel_hub_disputes_total`.
+- [x] `[agent]` `/metrics` Prometheus endpoint: `pico_hub_channels_total`,
+      `pico_hub_payments_total`, `pico_hub_htlcs_in_flight`,
+      `pico_hub_inbound_liquidity_usdc`, `pico_hub_outbound_liquidity_usdc`,
+      `pico_hub_disputes_total`.
 - [x] `[agent]` Structured logs for every state transition, payment, dispute.
 - [x] `[agent]` Graceful shutdown: drain WS, persist all pending state, close DB.
 
@@ -165,7 +165,7 @@ that defines the network shape, not the API a Python or Rust agent reaches for f
 ## Done when
 
 - Coverage ≥ 70% lines on hub ✅ (73.07% as of this PR)
-- `pnpm --filter @tainnel/hub dev` boots locally against an anvil + deployed
+- `pnpm --filter @pico/hub dev` boots locally against an anvil + deployed
   contracts and accepts a manual channel via the CLI ✅ (server integration test
   exercises buildServer + HTTP + WebSocket end-to-end against an in-memory SQLite)
 - An end-to-end "register-pay-settle" loop works locally ✅ (covered by the
@@ -205,10 +205,10 @@ that defines the network shape, not the API a Python or Rust agent reaches for f
   sig })` with `keccak256(nonce || ts || payload)` digest, ±60s window, nonce
   TTL via `seen_nonces`. Wired into the WS dispatcher behind
   `HUB_REQUIRE_SIGNED_ENVELOPE` (default `false`).
-- `apps/hub/src/metrics.ts` — `tainnel_hub_channels_total`,
-  `tainnel_hub_htlcs_in_flight`, `tainnel_hub_inbound_liquidity_usdc`,
-  `tainnel_hub_outbound_liquidity_usdc`, `tainnel_hub_payments_total{result}`,
-  `tainnel_hub_disputes_total{outcome}`.
+- `apps/hub/src/metrics.ts` — `pico_hub_channels_total`,
+  `pico_hub_htlcs_in_flight`, `pico_hub_inbound_liquidity_usdc`,
+  `pico_hub_outbound_liquidity_usdc`, `pico_hub_payments_total{result}`,
+  `pico_hub_disputes_total{outcome}`.
 - `apps/hub/src/api/index.ts` — `GET /v1/health` with DB and chain RPC checks
   (returns 503 when degraded), `GET /v1/channels` (gated behind
   `HUB_OPERATOR_TOKEN` when set), `POST /v1/channels/open`, `POST /v1/payments`

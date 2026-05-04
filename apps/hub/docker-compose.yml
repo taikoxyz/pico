@@ -3,7 +3,7 @@ services:
     build:
       context: ../..
       dockerfile: apps/hub/Dockerfile
-    image: tainnel-hub:dev
+    image: pico-hub:dev
     env_file: .env
     ports:
       - "3030:3030"

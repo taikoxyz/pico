@@ -1,5 +1,5 @@
-import type { Address, ChannelId, Hex, SignedState } from '@tainnel/protocol';
-import { DEFAULT_DISPUTE_WINDOW_MS } from '@tainnel/protocol';
+import type { Address, ChannelId, Hex, SignedState } from '@pico/protocol';
+import { DEFAULT_DISPUTE_WINDOW_MS } from '@pico/protocol';
 import Database from 'better-sqlite3';
 import type { FastifyInstance } from 'fastify';
 import { type PublicClient, parseAbi } from 'viem';

@@ -1,7 +1,7 @@
 # P8 — E2E + internal audit
 
 **Status:** 🟢 **Phase 2 done** — 13 scenarios green
-(`pnpm -F @tainnel/e2e test` → 13 passed, 0 deferred, ~3.4s). Phase 3
+(`pnpm -F @pico/e2e test` → 13 passed, 0 deferred, ~3.4s). Phase 3
 (internal audit) is `[review]`-only — no agent tasks remaining.
 **Blocks:** P9, P10
 **Effort:** Phase 1 ~5–9h ✅. Phase 2 ~1 week ✅ (2A ✅, 2B ✅, 2C ✅,
@@ -68,23 +68,23 @@ minimal real hub: Alice opens a channel with the hub, sends one direct
 ### Test harness — `e2e/src/harness.ts`
 
 - [x] `[agent]` Spin up vanilla anvil (no fork) via the existing
-      `startAnvilFork({ chainId: 31337 })` from `@tainnel/test-utils`.
+      `startAnvilFork({ chainId: 31337 })` from `@pico/test-utils`.
 - [x] `[agent]` Deploy `packages/contracts/test/mocks/MockERC20.sol` as USDC
       (6 decimals). Mint 100 USDC to Alice and 100 USDC to Hub.
 - [x] `[agent]` Deploy `Adjudicator` + `PaymentChannel` proxies (inline viem
       deploy mirroring `script/Deploy.s.sol`) and call
       `setTokenAllowed(usdc, true)`. Alice + hub approve max USDC.
-- [x] `[agent]` Start `startMockHub` from `@tainnel/test-utils` on an
+- [x] `[agent]` Start `startMockHub` from `@pico/test-utils` on an
       ephemeral port with `hubPrivateKey = TEST_KEYS.hub.privateKey`.
 - [x] `[agent]` Return `E2EHandle { rpcUrl, chainId, usdc, paymentChannel,
       adjudicator, alice, hub, hubServer, publicClient, stop() }`. Plus
       helpers `buildAliceClient(h)` and `timeWarp(rpcUrl, seconds)`.
 
-### Minimal hub for tests — reuse `startMockHub` from `@tainnel/test-utils`
+### Minimal hub for tests — reuse `startMockHub` from `@pico/test-utils`
 
 The production `apps/hub/src/server.ts` is largely stubbed today. For Phase 1
 we reuse the existing in-memory `startMockHub` from
-`packages/sdk/src/_test/mock-hub.ts` (re-exported via `@tainnel/test-utils`)
+`packages/sdk/src/_test/mock-hub.ts` (re-exported via `@pico/test-utils`)
 rather than building a new test-server. It already handles `subscribe`, `pay`
 (HTLC), `htlcSettle`, `htlcFail`, and `closeRequest`. We extended it to also
 handle `payDirect` (with hub counter-signing when `hubPrivateKey` is set).
@@ -142,12 +142,12 @@ Each test gets a fresh harness via `beforeEach` / `afterEach`. Helpers
 
 - [x] `[agent]` Added `e2e` job to `.github/workflows/ci.yml`: installs
       Foundry, clones forge libs, runs `forge build` for artifacts, builds
-      TS packages, then `pnpm -F @tainnel/e2e test`. Added to the `ci` gate
+      TS packages, then `pnpm -F @pico/e2e test`. Added to the `ci` gate
       so merges block on e2e failure.
 
 ### Phase 1 done when ✅
 
-- [x] `pnpm -F @tainnel/e2e test` reports **6 passed, 0 failed, 3 deferred
+- [x] `pnpm -F @pico/e2e test` reports **6 passed, 0 failed, 3 deferred
       scenarios skipped, runtime ~1.7s** (well under the 30s budget).
 - [x] CI runs the e2e job on every PR (PR #9).
 - [x] Existing forge / TS unit tests still pass (107 SDK + 49 CLI green).
@@ -197,7 +197,7 @@ USDC addresses from `packages/protocol/src/constants.ts`.
 - [x] **Hub config** extended with `chainId`, `paymentChannelAddress`,
       `adjudicatorAddress`, `hubFeeBps`, `hubFeeFlat` (env-driven).
 - [x] **Harness uses real hub**: `startRealHub` boots the production
-      `buildServer()` from `@tainnel/hub` on an ephemeral port. Mock-hub
+      `buildServer()` from `@pico/hub` on an ephemeral port. Mock-hub
       stays in `packages/sdk/src/_test/` for SDK unit tests.
 - [x] **`buildClient(h, party, opts)`** generic helper in harness;
       `buildAliceClient` becomes a thin wrapper. New `bob` party plumbed
@@ -228,7 +228,7 @@ USDC addresses from `packages/protocol/src/constants.ts`.
       stop }`. On `ChannelClosingUnilateral`, looks up our latest known
       state, evaluates fraud, reads `channels(channelId).closer` to
       determine closer side, calls responder.
-- [x] **`@tainnel/sdk` dep** added to watchtower so it can reuse
+- [x] **`@pico/sdk` dep** added to watchtower so it can reuse
       `encodeChannelStateForOnChain` and `signatureToHex`.
 - [x] **`FraudDetector.getLatest(channelId)`** — exposes plaintext
       state for the responder.
@@ -300,7 +300,7 @@ components are noted for the deferred ones.
       states advance, preimage round-trips, invoice marked consumed.
 - [x] `[agent]` CLI-driven coverage of the same flow already exists in
       `apps/cli/test/integration/pay-listen.integration.test.ts` — that
-      test exercises `tainnel pay` / `tainnel listen` against the mock
+      test exercises `pico pay` / `pico listen` against the mock
       hub, complementing this real-hub e2e.
 
 ### Scenario: receiver offline then resume ✅ (Phase 2D done)
@@ -421,9 +421,9 @@ you do this yourself, even if an agent has linted/scanned everything first.
 - [x] `[agent]` (Phase 1) Added `e2e` job to `.github/workflows/ci.yml`
       that runs the vanilla-anvil 2-party scenario on every PR.
 - [x] `[agent]` (Phase 2) `e2e` job runs the full 13-scenario suite via
-      `pnpm -F @tainnel/e2e test`; the `ci` aggregator blocks merge if
+      `pnpm -F @pico/e2e test`; the `ci` aggregator blocks merge if
       any scenario fails. Filter on the `test-ts` job excludes
-      `@tainnel/e2e` so it isn't double-run without Foundry installed.
+      `@pico/e2e` so it isn't double-run without Foundry installed.
 - [x] `[agent]` Nightly `forge-nightly` workflow runs invariant + fuzz
       at high run counts under the `nightly` foundry profile.
 

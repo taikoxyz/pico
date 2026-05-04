@@ -6,7 +6,7 @@ import type {
   PaymentHash,
   Signature,
   SignedState,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelPool } from './channel-pool.js';

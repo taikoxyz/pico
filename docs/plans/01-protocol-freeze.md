@@ -44,7 +44,7 @@ defaults is fine.
   it gives the Solidity and TypeScript implementations a standard set-commitment
   shape and leaves room for future inclusion proofs without changing the wire format.
 - **Why it matters now:** identical algorithm must run in Solidity (`HTLC.rootOf`)
-  and TypeScript (`@tainnel/state-machine`).
+  and TypeScript (`@pico/state-machine`).
 - Decision: ☑ sorted-keccak Merkle ☐ single concat hash
 
 ### D1.4 Minimum channel amount

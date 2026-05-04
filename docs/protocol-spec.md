@@ -1,4 +1,4 @@
-# tainnel protocol specification (v1)
+# pico protocol specification (v1)
 
 > Status: **frozen** as of P1 (2026-04). Wire format and EIP-712 schemas in this
 > document are normative for v1 contracts, state-machine, SDK, hub, and watchtower.
@@ -141,7 +141,7 @@ The `htlcsRoot` field on `ChannelState` commits to the entire in-flight HTLC set
 htlcsRoot = htlcMerkleRoot(htlcs)
 ```
 
-**Algorithm** (identical in TypeScript `@tainnel/protocol/htlc-root.ts` and Solidity
+**Algorithm** (identical in TypeScript `@pico/protocol/htlc-root.ts` and Solidity
 `Adjudicator.htlcRootOf`):
 
 1. **Empty set**: return `bytes32(0)`.
@@ -274,7 +274,7 @@ newer state during the window, blocking the steal. See `docs/threat-model.md`
 
 ```ts
 {
-  name: 'tainnel',
+  name: 'pico',
   version: '1',
   chainId: 167000 | 167009,   // Taiko mainnet | Hoodi
   verifyingContract: <Adjudicator address>,
@@ -301,7 +301,7 @@ Field encodings follow EIP-712 standard: `bytes32`, `uint64`, `uint256`, `uint8`
 ### 6.3 Transport
 
 Off-chain messages are exchanged as JSON envelopes over the hub WebSocket. The Nostr
-event-kind range `30401–30420` is reserved for tainnel events; current allocations:
+event-kind range `30401–30420` is reserved for pico events; current allocations:
 
 | Kind | Name |
 |------|------|

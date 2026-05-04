@@ -6,7 +6,7 @@ import {
   type Signature,
   type SignedState,
   TAIKO_HOODI_CHAIN_ID,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import { privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';
 import {

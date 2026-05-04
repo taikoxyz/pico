@@ -41,7 +41,7 @@ docs/learning/
 ├── 04-sdk.html                 ChannelClient, Signer interface, transport, storage
 ├── 05-hub.html                 Routing, persistence, dispute handling, REST + WS
 ├── 06-watchtower.html          Chain watching, penalty submission, encrypted backups
-├── 07-agent-runtime.html       CLI commands, `tainnel listen`, hot key file
+├── 07-agent-runtime.html       CLI commands, `pico listen`, hot key file
 └── 08-e2e.html                 End-to-end test scenarios + how to run them
 ```
 
@@ -92,7 +92,7 @@ Every component page (`01–08`) follows the same skeleton:
       Source from `apps/hub/` and `docs/plans/05-hub.md`.
 - [ ] `[agent]` `06-watchtower.html` — detector, responder, scheduler. Source from
       `apps/watchtower/` and `docs/plans/06-watchtower.md`.
-- [ ] `[agent]` `07-agent-runtime.html` — CLI commands, `tainnel listen` daemon,
+- [ ] `[agent]` `07-agent-runtime.html` — CLI commands, `pico listen` daemon,
       hot key file format. Source from `apps/cli/` and
       `docs/plans/07-agent-runtime.md`.
 - [ ] `[agent]` `08-e2e.html` — scenarios, how to run them, what they prove. Source

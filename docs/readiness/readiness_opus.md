@@ -11,7 +11,7 @@
 - DeepSeek audit landed: **36 fixed / 14 patched-not-reaudited / 6 open** of 56 findings (`docs/audit-status.md`).
 - CI gates green on every PR: lint (Biome), typecheck (TS 5.5 strict), build (Turbo), TS tests (vitest), Solidity (`forge test`), and **USDC fork e2e** with whale impersonation (`.github/workflows/ci.yml`, `e2e/src/scenarios.fork.test.ts`).
 - Hub + watchtower production config gates fail-fast on dev keys and unsigned envelopes.
-- State admission gates from `@tainnel/state-machine` are wired into all SDK signed-state ingestion paths (`packages/sdk/src/client.ts`).
+- State admission gates from `@pico/state-machine` are wired into all SDK signed-state ingestion paths (`packages/sdk/src/client.ts`).
 
 ## Taiko mainnet — what's blocking
 
@@ -38,7 +38,7 @@
   - `03-prometheus.yaml` — StatefulSet, 20Gi PVC, 15d retention, scrape configs, alert rules
   - `04-alertmanager.yaml` — Deployment + ephemeral state, severity-routed webhooks
   - `05-grafana.yaml` — Deployment + auto-provisioned Hub Overview / Watchtower Overview dashboards
-- `secrets-bootstrap.sh` refuses known dev keys and creates `tainnel-hub-secrets` + `tainnel-watchtower-secrets`.
+- `secrets-bootstrap.sh` refuses known dev keys and creates `pico-hub-secrets` + `pico-watchtower-secrets`.
 - Litestream sidecar replicates SQLite to Cloudflare R2 with 30-day retention (parity with Fly.io path).
 - Ingress + ManagedCertificate provides automatic HTTPS for the hub; watchtower internal-only.
 - Setup, deploy, and rollback documented end-to-end in `infra/k8s/README.md`.
@@ -49,7 +49,7 @@
 |---|------|------|
 | 1 | **Metrics binding bug**: hub + watchtower bind `/metrics` to `127.0.0.1` inside the pod, so Prometheus in a sibling pod can't reach them. Both `up` targets will report 0. Need `METRICS_BIND_ADDR=::` (code change in `apps/hub/` and `apps/watchtower/`). **Single biggest GKE blocker.** Documented in `infra/k8s/README.md` and `infra/monitoring/README.md`. | code |
 | 2 | No GKE deploy workflow — `.github/workflows/deploy.yml` is Fly.io-only (flyctl) | CI |
-| 3 | No `v*`-tagged images in Artifact Registry; manifests carry `REGION-docker.pkg.dev/PROJECT/tainnel/{hub,watchtower}:VERSION` placeholders | ops |
+| 3 | No `v*`-tagged images in Artifact Registry; manifests carry `REGION-docker.pkg.dev/PROJECT/pico/{hub,watchtower}:VERSION` placeholders | ops |
 | 4 | GKE cluster not yet created; gcloud / Artifact Registry repo / R2 bucket / DNS prerequisites documented but not executed | ops |
 | 5 | Alertmanager webhooks point to `localhost:5001` placeholder; need real on-call channel URL | ops |
 | 6 | No restore-drill or paging test executed against GKE | ops |
