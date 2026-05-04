@@ -34,7 +34,7 @@ infra/k8s/
 - A Cloudflare R2 bucket (or any S3-compatible store) for litestream
   backups, and an HMAC access key + secret pair scoped to that bucket.
 - A DNS zone you control for the public hub hostname (default
-  `hub.tainnel.dev`).
+  `tainnel.taiko.xyz`).
 
 ## One-time setup
 
@@ -193,7 +193,7 @@ kubectl get pods -n tainnel -w
 ```bash
 # Hub: public via Ingress (after ManagedCertificate provisions, ~10–20 min).
 kubectl get ingress -n tainnel tainnel-hub
-curl -fsS https://hub.tainnel.dev/v1/health
+curl -fsS https://tainnel.taiko.xyz/v1/health
 
 # Watchtower: internal only.
 kubectl port-forward -n tainnel statefulset/tainnel-watchtower 3031:3031 &

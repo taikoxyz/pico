@@ -161,7 +161,8 @@ jobs:
             .context/gke-manifests/02-watchtower.yaml \
             .context/gke-manifests/03-prometheus.yaml \
             .context/gke-manifests/04-alertmanager.yaml \
-            .context/gke-manifests/05-grafana.yaml
+            .context/gke-manifests/05-grafana.yaml \
+            .context/gke-manifests/06-networkpolicy.yaml
           do
             kubectl apply -f "$manifest"
           done

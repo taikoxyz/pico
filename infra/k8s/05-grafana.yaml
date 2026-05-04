@@ -256,13 +256,13 @@ spec:
                 secretKeyRef:
                   name: tainnel-monitoring-secrets
                   key: GRAFANA_ADMIN_USER
-                  optional: true
+                  optional: false
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: tainnel-monitoring-secrets
                   key: GRAFANA_ADMIN_PASSWORD
-                  optional: true
+                  optional: false
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
           readinessProbe:
@@ -319,7 +319,7 @@ spec:
 #   namespace: tainnel
 # spec:
 #   domains:
-#     - grafana.tainnel.dev
+#     - grafana.tainnel.taiko.xyz
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
