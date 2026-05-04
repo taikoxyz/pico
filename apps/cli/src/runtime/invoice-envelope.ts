@@ -5,7 +5,7 @@ import {
   parseBigIntPositive,
   parseHex32,
   parseHex as parseHexProto,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 
 interface InvoiceWire {
   v: 1;
@@ -19,7 +19,7 @@ interface InvoiceWire {
   signature: string;
 }
 
-const PREFIX = 'tainnel1:';
+const PREFIX = 'pico1:';
 
 export function encodeInvoiceEnvelope(invoice: Invoice): string {
   const wire: InvoiceWire = {

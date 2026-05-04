@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Stage Fly secrets for the Tainnel hub or watchtower from a local .env file
+# Stage Fly secrets for the Pico hub or watchtower from a local .env file
 # and apply them in a single atomic deploy. Refuses to run if any value is a
 # known dev key, a placeholder, or empty.
 #
 # Usage:
-#   infra/fly/secrets-bootstrap.sh --service hub --env-file ./hub.env [--app tainnel-hub-prod] [--allow-non-prod]
-#   infra/fly/secrets-bootstrap.sh --service watchtower --env-file ./wt.env [--app tainnel-watchtower-prod] [--allow-non-prod]
+#   infra/fly/secrets-bootstrap.sh --service hub --env-file ./hub.env [--app pico-hub-prod] [--allow-non-prod]
+#   infra/fly/secrets-bootstrap.sh --service watchtower --env-file ./wt.env [--app pico-watchtower-prod] [--allow-non-prod]
 
 set -euo pipefail
 
@@ -35,7 +35,7 @@ done
 [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]] || { echo "--env-file required and must exist" >&2; exit 1; }
 
 if [[ -z "$APP" ]]; then
-  APP="tainnel-${SERVICE}-prod"
+  APP="pico-${SERVICE}-prod"
 fi
 
 if [[ "$ALLOW_NON_PROD" -ne 1 && "$APP" != *prod* ]]; then

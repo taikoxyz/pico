@@ -1,9 +1,9 @@
 {
-  "name": "@tainnel/watchtower",
+  "name": "@pico/watchtower",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "description": "tainnel watchtower service: detects fraudulent old-state submissions and submits penalty transactions.",
+  "description": "pico watchtower service: detects fraudulent old-state submissions and submits penalty transactions.",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
@@ -16,9 +16,9 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@tainnel/protocol": "workspace:*",
-    "@tainnel/sdk": "workspace:*",
-    "@tainnel/state-machine": "workspace:*",
+    "@pico/protocol": "workspace:*",
+    "@pico/sdk": "workspace:*",
+    "@pico/state-machine": "workspace:*",
     "better-sqlite3": "^11.5.0",
     "fastify": "^5.1.0",
     "pino": "^9.5.0",
@@ -26,8 +26,8 @@
     "viem": "^2.21.0"
   },
   "devDependencies": {
-    "@tainnel/hub": "workspace:*",
-    "@tainnel/test-utils": "workspace:*",
+    "@pico/hub": "workspace:*",
+    "@pico/test-utils": "workspace:*",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.0",
     "@vitest/coverage-v8": "^2.1.8",

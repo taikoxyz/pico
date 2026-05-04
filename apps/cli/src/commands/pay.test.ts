@@ -10,22 +10,22 @@ class StubStream {
 
 const PK = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
 
-describe('tainnel pay arg validation', () => {
+describe('pico pay arg validation', () => {
   it('rejects --invoice + --keysend', async () => {
     const cmd = payCommand({
-      env: { TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_PRIVATE_KEY: PK },
       stdout: new StubStream(),
     });
     await expect(
-      cmd.parseAsync(['node', 'tainnel', '--invoice', 'tainnel1:abc', '--keysend']),
+      cmd.parseAsync(['node', 'pico', '--invoice', 'pico1:abc', '--keysend']),
     ).rejects.toThrow(/mutually exclusive/);
   });
 
   it('rejects neither --invoice nor --keysend', async () => {
     const cmd = payCommand({
-      env: { TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_PRIVATE_KEY: PK },
       stdout: new StubStream(),
     });
-    await expect(cmd.parseAsync(['node', 'tainnel'])).rejects.toThrow(/required/);
+    await expect(cmd.parseAsync(['node', 'pico'])).rejects.toThrow(/required/);
   });
 });

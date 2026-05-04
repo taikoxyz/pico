@@ -1,4 +1,4 @@
-# Tainnel infrastructure
+# Pico infrastructure
 
 Production deployment manifests and supporting operational scripts. v1 targets:
 
@@ -33,7 +33,7 @@ pushes versioned Artifact Registry images on `v*` tags, then calls
 `.github/workflows/deploy.yml` to apply rendered manifests and verify rollout.
 The Fly.io manual deploy workflow remains available at
 `.github/workflows/fly-deploy.yml`. Outstanding ops work is tracked under
-[issue #21](https://github.com/dantaik/tainnel/issues/21).
+[issue #21](https://github.com/dantaik/pico/issues/21).
 
 ## Build flags
 

@@ -8,7 +8,7 @@ import {
   type SignedState,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   ChannelClient,
   FileStorage,
@@ -16,9 +16,9 @@ import {
   generateKeysendKeypair,
   hexToSignature,
   localSigner,
-} from '@tainnel/sdk';
-import { buildChannelStateTypedData } from '@tainnel/state-machine';
-import { type MockHubHandle, startMockHub } from '@tainnel/test-utils';
+} from '@pico/sdk';
+import { buildChannelStateTypedData } from '@pico/state-machine';
+import { type MockHubHandle, startMockHub } from '@pico/test-utils';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { invoiceCommand } from '../../src/commands/invoice.js';
@@ -109,21 +109,13 @@ describe('pay → listen integration via mock hub', () => {
     // Bob creates an invoice via the CLI command (writes envelope to stdout, persists locally).
     const bobInvoiceOut = new StubStream();
     const bobInvoice = invoiceCommand({
-      env: { TAINNEL_CONFIG_DIR: bobDir, TAINNEL_PRIVATE_KEY: BOB_PK },
+      env: { PICO_CONFIG_DIR: bobDir, PICO_PRIVATE_KEY: BOB_PK },
       stdout: bobInvoiceOut,
       storageOverride: join(bobDir, 'db'),
     });
-    await bobInvoice.parseAsync([
-      'node',
-      'tainnel',
-      'create',
-      '--amount',
-      '50000',
-      '--memo',
-      'svc',
-    ]);
+    await bobInvoice.parseAsync(['node', 'pico', 'create', '--amount', '50000', '--memo', 'svc']);
     const envelope = bobInvoiceOut.buf.trim();
-    expect(envelope.startsWith('tainnel1:')).toBe(true);
+    expect(envelope.startsWith('pico1:')).toBe(true);
     const decoded = decodeInvoiceEnvelope(envelope);
 
     // Bob runs as a listener (in-process, with the same FileStorage so he sees his own invoice).
@@ -162,17 +154,17 @@ describe('pay → listen integration via mock hub', () => {
     await bobTransport.connect();
     await bobClient.ensureSubscribed([decoded.paymentHash as never]);
 
-    // Alice runs `tainnel pay --invoice <env>` against the mock hub.
+    // Alice runs `pico pay --invoice <env>` against the mock hub.
     const aliceOut = new StubStream();
     const aliceCmd = payCommand({
-      env: { TAINNEL_CONFIG_DIR: aliceDir, TAINNEL_PRIVATE_KEY: ALICE_PK },
+      env: { PICO_CONFIG_DIR: aliceDir, PICO_PRIVATE_KEY: ALICE_PK },
       stdout: aliceOut,
       storageOverride: join(aliceDir, 'db'),
       transportOverride: { url: hub.url, autoReconnect: false },
     });
     await aliceCmd.parseAsync([
       'node',
-      'tainnel',
+      'pico',
       '--invoice',
       envelope,
       '--via',

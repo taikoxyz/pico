@@ -10,7 +10,7 @@
       "type": "stat",
       "title": "Channels watched",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "tainnel_watchtower_channels_watched", "refId": "A" }],
+      "targets": [{ "expr": "pico_watchtower_channels_watched", "refId": "A" }],
       "options": {
         "reduceOptions": { "calcs": ["last"], "fields": "", "values": false },
         "colorMode": "value"
@@ -22,7 +22,7 @@
       "type": "stat",
       "title": "RPC up",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "tainnel_watchtower_rpc_up", "refId": "A" }],
+      "targets": [{ "expr": "pico_watchtower_rpc_up", "refId": "A" }],
       "options": {
         "reduceOptions": { "calcs": ["last"], "fields": "", "values": false },
         "colorMode": "background"
@@ -51,7 +51,7 @@
       "type": "stat",
       "title": "Penalties submitted (cumulative)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "tainnel_watchtower_penalties_submitted_total", "refId": "A" }],
+      "targets": [{ "expr": "pico_watchtower_penalties_submitted_total", "refId": "A" }],
       "options": {
         "reduceOptions": { "calcs": ["last"], "fields": "", "values": false },
         "colorMode": "value"
@@ -65,7 +65,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(tainnel_watchtower_evaluations_total[5m])",
+          "expr": "rate(pico_watchtower_evaluations_total[5m])",
           "refId": "A",
           "legendFormat": "{{result}}"
         }
@@ -79,7 +79,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{job=\"tainnel-watchtower\"}",
+          "expr": "process_resident_memory_bytes{job=\"pico-watchtower\"}",
           "refId": "A",
           "legendFormat": "rss"
         }
@@ -91,13 +91,13 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["tainnel", "watchtower"],
+  "tags": ["pico", "watchtower"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "Tainnel — Watchtower Overview",
-  "uid": "tainnel-watchtower-overview",
+  "title": "Pico — Watchtower Overview",
+  "uid": "pico-watchtower-overview",
   "version": 1,
   "weekStart": ""
 }

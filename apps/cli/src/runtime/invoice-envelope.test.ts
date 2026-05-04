@@ -1,4 +1,4 @@
-import type { Invoice } from '@tainnel/protocol';
+import type { Invoice } from '@pico/protocol';
 import { describe, expect, it } from 'vitest';
 import { decodeInvoiceEnvelope, encodeInvoiceEnvelope } from './invoice-envelope.js';
 
@@ -16,7 +16,7 @@ const INV: Invoice = {
 describe('invoice envelope', () => {
   it('round-trips with all fields', () => {
     const env = encodeInvoiceEnvelope(INV);
-    expect(env.startsWith('tainnel1:')).toBe(true);
+    expect(env.startsWith('pico1:')).toBe(true);
     const back = decodeInvoiceEnvelope(env);
     expect(back).toEqual(INV);
   });
@@ -43,7 +43,7 @@ describe('invoice envelope', () => {
       nonce: '0x00',
       signature: '0x00',
     };
-    const envelope = `tainnel1:${Buffer.from(JSON.stringify(wire), 'utf8').toString('base64url')}`;
+    const envelope = `pico1:${Buffer.from(JSON.stringify(wire), 'utf8').toString('base64url')}`;
     expect(() => decodeInvoiceEnvelope(envelope)).toThrow(/version/);
   });
 });

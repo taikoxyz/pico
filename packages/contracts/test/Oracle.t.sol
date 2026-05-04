@@ -50,7 +50,7 @@ contract OracleTest is Test {
         address verifyingContract = json.readAddress(".domain.verifyingContract");
         domainSeparator = keccak256(
             abi.encode(
-                EIP712_DOMAIN_TYPEHASH, keccak256(bytes("tainnel")), keccak256(bytes("1")), chainId, verifyingContract
+                EIP712_DOMAIN_TYPEHASH, keccak256(bytes("pico")), keccak256(bytes("1")), chainId, verifyingContract
             )
         );
     }

@@ -7,15 +7,15 @@ import type {
   Htlc,
   Invoice,
   Update,
-} from '@tainnel/protocol';
-import type { Signer } from '@tainnel/sdk';
+} from '@pico/protocol';
+import type { Signer } from '@pico/sdk';
 import {
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
   buildHtlcTypedData,
   buildInvoiceTypedData,
   buildUpdateTypedData,
-} from '@tainnel/state-machine';
+} from '@pico/state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 export class InMemorySigner implements Signer {

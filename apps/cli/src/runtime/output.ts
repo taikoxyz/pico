@@ -1,4 +1,4 @@
-import type { Channel } from '@tainnel/protocol';
+import type { Channel } from '@pico/protocol';
 
 const REPLACER = (_k: string, v: unknown): unknown => (typeof v === 'bigint' ? v.toString() : v);
 

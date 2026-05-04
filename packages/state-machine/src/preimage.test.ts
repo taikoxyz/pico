@@ -1,4 +1,4 @@
-import type { PaymentHash, Preimage } from '@tainnel/protocol';
+import type { PaymentHash, Preimage } from '@pico/protocol';
 import { keccak256, sha256 } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { preimageDigest, verifyPreimage } from './preimage.js';

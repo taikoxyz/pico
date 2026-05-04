@@ -1,4 +1,4 @@
-import type { ChannelState, Signature, SignedState } from '@tainnel/protocol';
+import type { ChannelState, Signature, SignedState } from '@pico/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type TestDb, makeTestDb } from './_test-helpers.js';
 import { StaleVersionError } from './state-repo.js';

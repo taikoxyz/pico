@@ -1,4 +1,4 @@
-import type { ChannelState, Htlc, PaymentHash, Preimage } from '@tainnel/protocol';
+import type { ChannelState, Htlc, PaymentHash, Preimage } from '@pico/protocol';
 import fc from 'fast-check';
 import { sha256 } from 'viem';
 import { describe, expect, it } from 'vitest';

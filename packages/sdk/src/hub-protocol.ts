@@ -9,7 +9,7 @@ import type {
   Preimage,
   SignedCooperativeClose,
   SignedState,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 
 export interface KeysendPayload {
   readonly ciphertext: Hex;

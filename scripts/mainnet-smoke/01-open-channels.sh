@@ -8,7 +8,7 @@
 #     [--amount-usdc 10] \
 #     [--rpc <url>]
 #
-# Idempotent: skips a role if `tainnel channel list` reports an open channel
+# Idempotent: skips a role if `pico channel list` reports an open channel
 # of sufficient capacity.
 
 set -euo pipefail
@@ -40,7 +40,7 @@ log "Opening channels (amount: ${AMOUNT_USDC} USDC each); logs: $LOG_DIR"
 results=()
 for role in alice bob; do
   log "$role: checking existing channels"
-  existing="$(tainnel_as "$role" channel list --json 2>/dev/null || echo '[]')"
+  existing="$(pico_as "$role" channel list --json 2>/dev/null || echo '[]')"
   echo "$existing" > "$LOG_DIR/$role-channels-before.json"
 
   open_count="$(echo "$existing" | python3 -c '
@@ -58,7 +58,7 @@ print(sum(1 for c in arr if c.get("status") == "open"))')"
   fi
 
   log "$role: opening ${AMOUNT_USDC} USDC channel to $HUB_URL"
-  open_out="$(tainnel_as "$role" channel open --hub "$HUB_URL" --amount "$AMOUNT_USDC" --json 2>"$LOG_DIR/$role-open.stderr" || true)"
+  open_out="$(pico_as "$role" channel open --hub "$HUB_URL" --amount "$AMOUNT_USDC" --json 2>"$LOG_DIR/$role-open.stderr" || true)"
   echo "$open_out" > "$LOG_DIR/$role-open.json"
   channel_id="$(echo "$open_out" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("id", ""))' 2>/dev/null || echo "")"
   if [[ -z "$channel_id" ]]; then
@@ -72,6 +72,6 @@ joined="$(IFS=, ; echo "${results[*]:-}")"
 record "$LOG_DIR/channels.json" "[${joined}]"
 green "Done. Inspect $LOG_DIR/channels.json"
 
-# CLI gap: tainnel channel open does not print the on-chain tx hash. Recover
+# CLI gap: pico channel open does not print the on-chain tx hash. Recover
 # via `cast logs --address $PAYMENT_CHANNEL_ADDR ChannelOpened(bytes32,...)
 # --from-block <block>` and append to the log file by hand for the audit log.

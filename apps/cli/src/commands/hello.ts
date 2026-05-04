@@ -7,7 +7,7 @@ export function helloCommand(): Command {
     .description('Print every workspace package and its current version')
     .action(() => {
       const packages = listWorkspacePackages();
-      console.info(pc.bold('tainnel — workspace packages'));
+      console.info(pc.bold('pico — workspace packages'));
       for (const pkg of packages) {
         console.info(`  ${pc.cyan(pkg.name.padEnd(28))} ${pc.dim(pkg.version)}  (${pkg.path})`);
       }

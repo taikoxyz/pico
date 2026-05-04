@@ -1,6 +1,6 @@
 import type { Address, ChainId, Hex, PaymentHash } from './types.js';
 
-export const INVOICE_DOMAIN_NAME = 'tainnel-invoice';
+export const INVOICE_DOMAIN_NAME = 'pico-invoice';
 export const INVOICE_DOMAIN_VERSION = '1';
 
 export interface InvoiceDomain {

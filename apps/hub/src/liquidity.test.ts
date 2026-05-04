@@ -1,4 +1,4 @@
-import type { Htlc } from '@tainnel/protocol';
+import type { Htlc } from '@pico/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type TestDb, makeTestDb } from './db/repos/_test-helpers.js';
 import { InsufficientLiquidityError, LiquidityTracker } from './liquidity.js';

@@ -61,7 +61,7 @@ describe('buildHttpServer', () => {
       const contentType = res.headers['content-type'];
       expect(typeof contentType).toBe('string');
       expect(String(contentType).startsWith('text/plain')).toBe(true);
-      expect(res.body).toContain('tainnel_watchtower_channels_watched');
+      expect(res.body).toContain('pico_watchtower_channels_watched');
     } finally {
       await app.close();
     }

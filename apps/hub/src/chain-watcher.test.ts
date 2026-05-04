@@ -1,4 +1,4 @@
-import type { Channel, ChannelState, Signature, SignedState } from '@tainnel/protocol';
+import type { Channel, ChannelState, Signature, SignedState } from '@pico/protocol';
 import { Registry } from 'prom-client';
 import type { PublicClient } from 'viem';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

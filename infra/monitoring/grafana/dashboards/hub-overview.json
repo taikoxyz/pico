@@ -10,9 +10,7 @@
       "type": "timeseries",
       "title": "Channels open",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "tainnel_hub_channels_total", "refId": "A", "legendFormat": "channels" }
-      ],
+      "targets": [{ "expr": "pico_hub_channels_total", "refId": "A", "legendFormat": "channels" }],
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 7 }
     },
     {
@@ -20,7 +18,7 @@
       "type": "gauge",
       "title": "HTLCs in flight",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "tainnel_hub_htlcs_in_flight", "refId": "A" }],
+      "targets": [{ "expr": "pico_hub_htlcs_in_flight", "refId": "A" }],
       "fieldConfig": {
         "defaults": {
           "min": 0,
@@ -42,7 +40,7 @@
       "type": "stat",
       "title": "Disputes observed (cumulative)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "tainnel_hub_disputes_total", "refId": "A" }],
+      "targets": [{ "expr": "pico_hub_disputes_total", "refId": "A" }],
       "options": {
         "reduceOptions": { "calcs": ["last"], "fields": "", "values": false },
         "colorMode": "background"
@@ -63,8 +61,8 @@
       "title": "Liquidity (USDC, smallest unit)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "tainnel_hub_inbound_liquidity_usdc", "refId": "A", "legendFormat": "inbound" },
-        { "expr": "tainnel_hub_outbound_liquidity_usdc", "refId": "B", "legendFormat": "outbound" }
+        { "expr": "pico_hub_inbound_liquidity_usdc", "refId": "A", "legendFormat": "inbound" },
+        { "expr": "pico_hub_outbound_liquidity_usdc", "refId": "B", "legendFormat": "outbound" }
       ],
       "fieldConfig": {
         "defaults": { "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 30 } }
@@ -78,7 +76,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(tainnel_hub_payments_total[5m])",
+          "expr": "rate(pico_hub_payments_total[5m])",
           "refId": "A",
           "legendFormat": "{{result}}"
         }
@@ -92,7 +90,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{job=\"tainnel-hub\"}",
+          "expr": "process_resident_memory_bytes{job=\"pico-hub\"}",
           "refId": "A",
           "legendFormat": "rss"
         }
@@ -107,7 +105,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "nodejs_eventloop_lag_p99_seconds{job=\"tainnel-hub\"}",
+          "expr": "nodejs_eventloop_lag_p99_seconds{job=\"pico-hub\"}",
           "refId": "A",
           "legendFormat": "p99"
         }
@@ -119,13 +117,13 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["tainnel", "hub"],
+  "tags": ["pico", "hub"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "Tainnel — Hub Overview",
-  "uid": "tainnel-hub-overview",
+  "title": "Pico — Hub Overview",
+  "uid": "pico-hub-overview",
   "version": 1,
   "weekStart": ""
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 05 hub</title>
+<title>pico · 05 hub</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -116,7 +116,7 @@
 
 <h2>How it works</h2>
 
-<p>The interesting code path is the routed payment. Alice's CLI is connected to the hub over a WebSocket. Bob's CLI is connected over a different WebSocket — long-lived, because Bob is running <code>tainnel listen</code>. Both have an open channel with the hub. Alice tells the hub "pay 0.05 USDC to Bob, here is an HTLC locked under hash H, expiring at T". Several things must happen, in this order, all of them inside the hub:</p>
+<p>The interesting code path is the routed payment. Alice's CLI is connected to the hub over a WebSocket. Bob's CLI is connected over a different WebSocket — long-lived, because Bob is running <code>pico listen</code>. Both have an open channel with the hub. Alice tells the hub "pay 0.05 USDC to Bob, here is an HTLC locked under hash H, expiring at T". Several things must happen, in this order, all of them inside the hub:</p>
 
 <figure>
 <svg viewBox="0 0 700 420" width="100%" style="max-width: 700px">
@@ -178,7 +178,7 @@
 
 <p>Meanwhile, <code>chain-watcher</code> is running its own loop, calling <code>viem.watchContractEvent</code> against <code>PaymentChannel.sol</code> for the four event types the contract emits. When a <code>ChannelClosingUnilateral</code> arrives, the dispute handler is invoked: it compares the version posted on chain to the version it has in SQLite, and if its own state is fresher it builds a <code>dispute()</code> transaction, signs it with the hub's hot wallet, and submits it before the dispute window closes.</p>
 
-<div class="note"><strong>Wire protocol vs. agent surface.</strong> The hub speaks the v1 wire protocol. Agents in v1 do not implement that protocol directly — they shell out to <code>tainnel pay</code>, which uses the SDK, which uses this WebSocket. Non-TS agents reach the hub by going through the CLI, not by reimplementing the protocol.</div>
+<div class="note"><strong>Wire protocol vs. agent surface.</strong> The hub speaks the v1 wire protocol. Agents in v1 do not implement that protocol directly — they shell out to <code>pico pay</code>, which uses the SDK, which uses this WebSocket. Non-TS agents reach the hub by going through the CLI, not by reimplementing the protocol.</div>
 
 <h2>Public surface</h2>
 
@@ -192,7 +192,7 @@
     <tr><td>GET /v1/channels</td><td>List open channels (operator auth required).</td></tr>
     <tr><td>POST /v1/channels/open</td><td>Open a channel with the caller; returns channelId and tx hash.</td></tr>
     <tr><td>POST /v1/payments</td><td>Short-lived WebSocket suitable for one-shot pays from a CLI.</td></tr>
-    <tr><td>WS /v1/ws</td><td>Long-lived bidirectional session: state updates, payment.send / payment.settle, dispute notifications. Used by <code>tainnel listen</code>.</td></tr>
+    <tr><td>WS /v1/ws</td><td>Long-lived bidirectional session: state updates, payment.send / payment.settle, dispute notifications. Used by <code>pico listen</code>.</td></tr>
   </tbody>
 </table>
 
@@ -221,7 +221,7 @@
   <a href="./06-watchtower.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 05 hub</div>
+<div class="footer">pico · learning · 05 hub</div>
 
 </div>
 </body>

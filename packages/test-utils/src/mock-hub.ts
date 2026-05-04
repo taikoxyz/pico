@@ -8,7 +8,7 @@ import type {
   HtlcId,
   SignedCooperativeClose,
   SignedState,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   type ClientToHubMessage,
   type HubMessage,
@@ -17,8 +17,8 @@ import {
   decodeHubMessage,
   encodeHubMessage,
   hexToSignature,
-} from '@tainnel/sdk';
-import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@tainnel/state-machine';
+} from '@pico/sdk';
+import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@pico/state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type AddressInfo, type WebSocket, WebSocketServer } from 'ws';
 

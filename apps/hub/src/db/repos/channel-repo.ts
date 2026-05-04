@@ -1,4 +1,4 @@
-import type { ChainId, Channel, ChannelId, ChannelStatus } from '@tainnel/protocol';
+import type { ChainId, Channel, ChannelId, ChannelStatus } from '@pico/protocol';
 import type { DbDriver } from '../types.js';
 
 interface ChannelRow {

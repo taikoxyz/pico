@@ -1,4 +1,4 @@
-import type { Channel, ChannelId, Htlc, Preimage } from '@tainnel/protocol';
+import type { Channel, ChannelId, Htlc, Preimage } from '@pico/protocol';
 
 export interface SdkEventMap {
   'htlc:incoming': { channelId: ChannelId; htlc: Htlc };

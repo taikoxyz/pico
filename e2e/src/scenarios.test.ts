@@ -1,4 +1,4 @@
-import { encodeChannelStateForOnChain, generateKeysendKeypair, signatureToHex } from '@tainnel/sdk';
+import { encodeChannelStateForOnChain, generateKeysendKeypair, signatureToHex } from '@pico/sdk';
 import { http, createWalletClient, erc20Abi, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -356,7 +356,7 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
   });
 
   it('hub posts stale v3, watchtower penalty-proofs v6, finalize → alice gets 100% slash pot', async () => {
-    const { startWatchtower } = await import('@tainnel/watchtower');
+    const { startWatchtower } = await import('@pico/watchtower');
 
     const channel = await alice.client.open({
       counterparty: h.hub.address,

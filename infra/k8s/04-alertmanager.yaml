@@ -1,5 +1,5 @@
 # Alertmanager Deployment + Service. State is ephemeral so no PVC.
-# Webhook URLs are read from `tainnel-monitoring-secrets` at notify time via
+# Webhook URLs are read from `pico-monitoring-secrets` at notify time via
 # Alertmanager's `url_file` directive. The Secret is created by
 # secrets-bootstrap.sh --bootstrap-monitoring and mounted read-only at
 # /etc/alertmanager/secrets. No templating step is required at apply time.
@@ -7,14 +7,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: tainnel-alertmanager
-  namespace: tainnel
+  name: pico-alertmanager
+  namespace: pico
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-alertmanager-config
-  namespace: tainnel
+  name: pico-alertmanager-config
+  namespace: pico
 data:
   alertmanager.yml: |
     global:
@@ -59,14 +59,14 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tainnel-alertmanager
-  namespace: tainnel
+  name: pico-alertmanager
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-alertmanager
+    app.kubernetes.io/name: pico-alertmanager
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: tainnel-alertmanager
+    app.kubernetes.io/name: pico-alertmanager
   ports:
     - name: http
       port: 9093
@@ -75,21 +75,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tainnel-alertmanager
-  namespace: tainnel
+  name: pico-alertmanager
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-alertmanager
+    app.kubernetes.io/name: pico-alertmanager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-alertmanager
+      app.kubernetes.io/name: pico-alertmanager
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: tainnel-alertmanager
+        app.kubernetes.io/name: pico-alertmanager
     spec:
-      serviceAccountName: tainnel-alertmanager
+      serviceAccountName: pico-alertmanager
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -140,10 +140,10 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: tainnel-alertmanager-config
+            name: pico-alertmanager-config
         - name: webhook-secrets
           secret:
-            secretName: tainnel-monitoring-secrets
+            secretName: pico-monitoring-secrets
             defaultMode: 0400
             items:
               - key: ALERTMANAGER_DEFAULT_WEBHOOK_URL

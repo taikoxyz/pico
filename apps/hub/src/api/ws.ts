@@ -6,9 +6,9 @@ import type {
   ChannelId,
   SignedCooperativeClose,
   SignedState,
-} from '@tainnel/protocol';
-import type { ClientToHubMessage, HubMessage, HubToClientMessage } from '@tainnel/sdk';
-import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@tainnel/sdk';
+} from '@pico/protocol';
+import type { ClientToHubMessage, HubMessage, HubToClientMessage } from '@pico/sdk';
+import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@pico/sdk';
 import {
   StateAdmissionError,
   admitClose,
@@ -16,7 +16,7 @@ import {
   admitSignedState,
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
-} from '@tainnel/state-machine';
+} from '@pico/state-machine';
 import type { FastifyInstance } from 'fastify';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type SignedEnvelope, verifyEnvelope } from '../auth/envelope.js';

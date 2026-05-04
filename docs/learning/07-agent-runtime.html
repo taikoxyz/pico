@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 07 agent runtime</title>
+<title>pico · 07 agent runtime</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -71,7 +71,7 @@
 <p class="subtitle">The CLI. The v1 surface every AI agent reaches for first.</p>
 
 <h2>What is it</h2>
-<p>The <code>tainnel</code> CLI in <code>apps/cli</code> is the canonical interface for v1. It bundles every operation an agent (or its operator) needs into one binary: generate an encrypted hot key, open and close channels, send payments, and run a long-lived listen mode that accepts incoming HTLCs. There is no separate daemon, no MCP server, no React wallet UI in v1. An any-language agent shells out to <code>tainnel pay --json</code> and parses one JSON object per state transition; a receiver runs <code>tainnel listen</code> in the background.</p>
+<p>The <code>pico</code> CLI in <code>apps/cli</code> is the canonical interface for v1. It bundles every operation an agent (or its operator) needs into one binary: generate an encrypted hot key, open and close channels, send payments, and run a long-lived listen mode that accepts incoming HTLCs. There is no separate daemon, no MCP server, no React wallet UI in v1. An any-language agent shells out to <code>pico pay --json</code> and parses one JSON object per state transition; a receiver runs <code>pico listen</code> in the background.</p>
 
 <h2>Why it exists</h2>
 <p>State channels structurally need a process that holds a hot key, signs frequent off-chain messages, and (for receivers) keeps a connection open to the hub so it can accept inbound HTLCs and reveal preimages. The simplest design that satisfies all of that without locking the project into one ecosystem is a CLI with a <code>listen</code> subcommand — the same architecture Lightning's <code>lnd</code> + <code>lncli</code> uses, just slimmed to one binary. CLI-as-agent-surface gives every language ubiquitous access (any agent framework can shell out), avoids coupling to MCP or x402, and keeps the trust boundary clean: the key never leaves the local process.</p>
@@ -81,8 +81,8 @@
 <h2>Key concepts</h2>
 <ul>
   <li><strong>Signer interface</strong> — the SDK abstraction (defined in <a href="./04-sdk.html">P4</a>) over key custody. v1 ships exactly one backend, lives in this CLI: encrypted hot key file. Future backends — Nitro Enclave, Turnkey, KMS, EIP-7702 delegation — implement the same interface.</li>
-  <li><strong>Encrypted hot key file</strong> — passphrase-derived key (scrypt, N=2¹⁷, r=8, p=1) seals the raw private key with XSalsa20-Poly1305 (libsodium <code>crypto_secretbox</code>). Default path <code>$XDG_CONFIG_HOME/tainnel/key.enc</code>, permissions <code>0600</code> enforced at write.</li>
-  <li><strong><code>tainnel listen</code> mode</strong> — long-running daemon; holds a WebSocket session to the hub, accepts inbound HTLCs, reveals preimages, optionally watches chain events. Same binary as the rest of the CLI; just a different subcommand.</li>
+  <li><strong>Encrypted hot key file</strong> — passphrase-derived key (scrypt, N=2¹⁷, r=8, p=1) seals the raw private key with XSalsa20-Poly1305 (libsodium <code>crypto_secretbox</code>). Default path <code>$XDG_CONFIG_HOME/pico/key.enc</code>, permissions <code>0600</code> enforced at write.</li>
+  <li><strong><code>pico listen</code> mode</strong> — long-running daemon; holds a WebSocket session to the hub, accepts inbound HTLCs, reveals preimages, optionally watches chain events. Same binary as the rest of the CLI; just a different subcommand.</li>
   <li><strong>JSON output</strong> — every transitional command supports <code>--json</code>, printing one JSON object per state transition on its own line. Lets a Python or Rust agent parse without writing a viem stack.</li>
 </ul>
 
@@ -92,7 +92,7 @@
 <svg viewBox="0 0 700 440" width="100%" style="max-width: 700px">
   <!-- Root -->
   <rect class="pill" x="280" y="20" width="140" height="40" rx="8"/>
-  <text class="pill-text" x="350" y="45" text-anchor="middle">tainnel</text>
+  <text class="pill-text" x="350" y="45" text-anchor="middle">pico</text>
 
   <!-- Branches -->
   <line class="arrow" x1="350" y1="60" x2="80" y2="100" />
@@ -156,15 +156,15 @@
   <text class="pill-text" x="520" y="305" text-anchor="middle">receiver flow</text>
   <text class="label" x="520" y="325" text-anchor="middle">spawn listen → unlock once → loop on HTLCs</text>
 
-  <text class="label" x="350" y="380" text-anchor="middle">key file at $XDG_CONFIG_HOME/tainnel/key.enc · scrypt + XSalsa20-Poly1305 · 0600</text>
+  <text class="label" x="350" y="380" text-anchor="middle">key file at $XDG_CONFIG_HOME/pico/key.enc · scrypt + XSalsa20-Poly1305 · 0600</text>
   <text class="label" x="350" y="400" text-anchor="middle">accent boxes are the v1 critical surface — keys init, pay, listen</text>
 </svg>
 <figcaption>The command tree. Five top-level groups; the three accent-colored leaves are what every agent uses every day.</figcaption>
 </figure>
 
-<p>The sender path is straightforward: <code>tainnel pay</code> spawns, prompts for the passphrase (or reads it from <code>TAINNEL_PASSPHRASE</code> in CI), unlocks the encrypted key in memory, builds a <code>ChannelClient</code> from the SDK, calls <code>client.pay(...)</code>, prints one JSON line per state transition, and exits when the payment settles.</p>
+<p>The sender path is straightforward: <code>pico pay</code> spawns, prompts for the passphrase (or reads it from <code>PICO_PASSPHRASE</code> in CI), unlocks the encrypted key in memory, builds a <code>ChannelClient</code> from the SDK, calls <code>client.pay(...)</code>, prints one JSON line per state transition, and exits when the payment settles.</p>
 
-<p>The receiver path is the long-lived branch and is where the safety-critical logic lives. <code>tainnel listen</code> decrypts the key once at startup, connects the WebSocket to the hub, and enters a loop. For each inbound HTLC offer the hub forwards: validate with the state-machine, generate (if originating) or reveal (if forwarding) the preimage, sign the counter-state, <strong>persist before sending the ack</strong>, then ack. On disconnect/reconnect, a per-channel resume cursor in the SDK storage makes the loop idempotent — replays do not double-spend. SIGINT triggers a graceful drain: finish the in-flight HTLC if possible, persist the journal, close the WebSocket, exit zero.</p>
+<p>The receiver path is the long-lived branch and is where the safety-critical logic lives. <code>pico listen</code> decrypts the key once at startup, connects the WebSocket to the hub, and enters a loop. For each inbound HTLC offer the hub forwards: validate with the state-machine, generate (if originating) or reveal (if forwarding) the preimage, sign the counter-state, <strong>persist before sending the ack</strong>, then ack. On disconnect/reconnect, a per-channel resume cursor in the SDK storage makes the loop idempotent — replays do not double-spend. SIGINT triggers a graceful drain: finish the in-flight HTLC if possible, persist the journal, close the WebSocket, exit zero.</p>
 
 <div class="danger"><strong>The single most safety-critical line in the agent runtime</strong> is the ordering between "persist counter-state to storage" and "ack to hub." Persist first, ack second. If you ack first and crash before persist, your local state lags one version behind what the hub has — and what an evil hub could later post on chain. Reviewer attention focuses on this in <a href="./08-e2e.html">P8</a>.</div>
 
@@ -181,31 +181,31 @@
   <tr><td>listen</td><td>Daemon-mode receiver. <code>--hub URL [--channel ID...]</code>. Long-running.</td></tr>
   <tr><td>hub status</td><td>Hit <code>GET /v1/health</code> and print the result.</td></tr>
   <tr><td>dev anvil-fork</td><td>Spawn an anvil that forks Taiko mainnet at a pinned block; deploy contracts via forge.</td></tr>
-  <tr><td>dev mock-hub</td><td>Start an in-process mock hub from <code>@tainnel/test-utils</code> for local testing.</td></tr>
+  <tr><td>dev mock-hub</td><td>Start an in-process mock hub from <code>@pico/test-utils</code> for local testing.</td></tr>
 </table>
 
 <h3>Quickstart</h3>
 <pre><code>pnpm install
-pnpm tainnel keys init
-pnpm tainnel channel open --hub https://hub.example.com --amount 25
+pnpm pico keys init
+pnpm pico channel open --hub https://hub.example.com --amount 25
 
 # pay (sender, invoice mode)
-pnpm tainnel pay --invoice "$INVOICE" --json
+pnpm pico pay --invoice "$INVOICE" --json
 
 # pay (sender, keysend mode)
-pnpm tainnel pay --to 0xRecipient --amount 0.05 --keysend --recipient-pubkey 0x... --json
+pnpm pico pay --to 0xRecipient --amount 0.05 --keysend --recipient-pubkey 0x... --json
 
 # receive (run in the background)
-pnpm tainnel listen --hub https://hub.example.com &
+pnpm pico listen --hub https://hub.example.com &
 </code></pre>
 
 <h2>Verification model</h2>
-<p>Unit tests cover command parsing, output formats, key-file behavior, signer resolution, config paths, invoice envelopes, hub status, and error paths. The integration test wires two CLI-facing clients through the mock hub: Bob creates an invoice and listens, Alice pays it, and the SDK settles the HTLC using the same message shapes the real hub consumes. Run with <code>pnpm --filter @tainnel/cli test</code>.</p>
+<p>Unit tests cover command parsing, output formats, key-file behavior, signer resolution, config paths, invoice envelopes, hub status, and error paths. The integration test wires two CLI-facing clients through the mock hub: Bob creates an invoice and listens, Alice pays it, and the SDK settles the HTLC using the same message shapes the real hub consumes. Run with <code>pnpm --filter @pico/cli test</code>.</p>
 
 <h2>Design constraints</h2>
 <ul>
-  <li><strong>CLI as agent surface:</strong> any-language agents can shell out to <code>tainnel pay --json</code> instead of linking a TypeScript SDK.</li>
-  <li><strong>One binary, two modes:</strong> one-shot commands send payments and manage channels; <code>tainnel listen</code> is the long-running receiver process.</li>
+  <li><strong>CLI as agent surface:</strong> any-language agents can shell out to <code>pico pay --json</code> instead of linking a TypeScript SDK.</li>
+  <li><strong>One binary, two modes:</strong> one-shot commands send payments and manage channels; <code>pico listen</code> is the long-running receiver process.</li>
   <li><strong>Passphrase key files:</strong> the default signer backend keeps a local encrypted key on disk; raw private keys are for test/CI paths.</li>
   <li><strong>Machine-readable output:</strong> JSON mode emits parseable transition records so non-TS agents can react to settlement, receipts, and errors.</li>
   <li><strong>Dev loops stay local:</strong> <code>dev mock-hub</code> and <code>dev anvil-fork</code> give agent authors a local path before touching live services.</li>
@@ -219,7 +219,7 @@ pnpm tainnel listen --hub https://hub.example.com &
   <a href="./08-e2e.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 07 agent runtime</div>
+<div class="footer">pico · learning · 07 agent runtime</div>
 
 </div>
 </body>

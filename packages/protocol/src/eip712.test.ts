@@ -33,14 +33,14 @@ const verifyingContract = '0x1111111111111111111111111111111111111111' as Addres
 
 describe('eip712 — domain', () => {
   it('locks the domain name and version', () => {
-    expect(EIP712_DOMAIN_NAME).toBe('tainnel');
+    expect(EIP712_DOMAIN_NAME).toBe('pico');
     expect(EIP712_DOMAIN_VERSION).toBe('1');
   });
 
   it('buildDomain returns the expected shape for Hoodi', () => {
     const domain = buildDomain(TAIKO_HOODI_CHAIN_ID, verifyingContract);
     expect(domain).toEqual({
-      name: 'tainnel',
+      name: 'pico',
       version: '1',
       chainId: TAIKO_HOODI_CHAIN_ID,
       verifyingContract,

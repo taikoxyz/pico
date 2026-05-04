@@ -9,7 +9,7 @@ import {PaymentChannel} from "../../src/PaymentChannel.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
 /// @title Fixtures
-/// @notice Shared deploy + sign helpers for the tainnel contract test suite.
+/// @notice Shared deploy + sign helpers for the pico contract test suite.
 abstract contract Fixtures is Test {
     address internal owner = makeAddr("owner");
 

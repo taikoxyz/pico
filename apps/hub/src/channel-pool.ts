@@ -1,4 +1,4 @@
-import type { Channel, ChannelId, ChannelStatus, SignedState } from '@tainnel/protocol';
+import type { Channel, ChannelId, ChannelStatus, SignedState } from '@pico/protocol';
 import type { ChannelRepo, StateRepo } from './db/repos/index.js';
 import type { Logger } from './logger.js';
 import { KeyedMutex } from './mutex.js';

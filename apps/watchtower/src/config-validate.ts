@@ -3,7 +3,7 @@ import {
   CONTRACT_ADDRESSES,
   TAIKO_MAINNET_CHAIN_ID,
   ZERO_ADDRESS,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import type { WatchtowerConfig } from './config.js';
 
 export const KNOWN_DEV_PRIVATE_KEYS: ReadonlySet<string> = new Set([
@@ -24,7 +24,7 @@ export interface ProductionAssertOpts {
 export function assertProductionConfig(cfg: WatchtowerConfig, opts: ProductionAssertOpts): void {
   const { env, explicitPrivateKey } = opts;
   const isAnvil = cfg.chainId === ANVIL_DEV_CHAIN_ID;
-  const allowZero = env.TAINNEL_DEV_ALLOW_ZERO_ADDRESS === 'true';
+  const allowZero = env.PICO_DEV_ALLOW_ZERO_ADDRESS === 'true';
 
   if (!isAnvil && KNOWN_DEV_PRIVATE_KEYS.has(cfg.privateKey.toLowerCase())) {
     throw new Error(
@@ -45,7 +45,7 @@ export function assertProductionConfig(cfg: WatchtowerConfig, opts: ProductionAs
   if (!allowZero) {
     if (cfg.paymentChannelAddress === ZERO_ADDRESS) {
       throw new Error(
-        `paymentChannelAddress is the zero address for chainId=${cfg.chainId}. Set PAYMENT_CHANNEL_ADDRESS or set TAINNEL_DEV_ALLOW_ZERO_ADDRESS=true for local dev only.`,
+        `paymentChannelAddress is the zero address for chainId=${cfg.chainId}. Set PAYMENT_CHANNEL_ADDRESS or set PICO_DEV_ALLOW_ZERO_ADDRESS=true for local dev only.`,
       );
     }
     const protocolEntry = CONTRACT_ADDRESSES[cfg.chainId];

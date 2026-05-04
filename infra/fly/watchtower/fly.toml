@@ -1,14 +1,14 @@
-# Fly.io production manifest for the Tainnel watchtower.
+# Fly.io production manifest for the Pico watchtower.
 #
 # Single instance in lhr (different region from the hub for fault isolation).
 # App + litestream are defined as Fly processes. Watchtower has NO public Fly
 # service. Operators reach the running process via
-# `flyctl ssh console --app tainnel-watchtower-prod`.
+# `flyctl ssh console --app pico-watchtower-prod`.
 #
 # Deploy from the repo root:
 #   flyctl deploy --remote-only --config infra/fly/watchtower/fly.toml
 
-app            = "tainnel-watchtower-prod"
+app            = "pico-watchtower-prod"
 primary_region = "lhr"
 
 [build]

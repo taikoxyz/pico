@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Stage Kubernetes Secrets for the Tainnel hub, watchtower, or monitoring
+# Stage Kubernetes Secrets for the Pico hub, watchtower, or monitoring
 # stack from a local .env file. Refuses to apply if any value is a known
 # dev key, a placeholder, or empty. Mirrors infra/fly/secrets-bootstrap.sh.
 #
@@ -10,7 +10,7 @@
 #   infra/k8s/secrets-bootstrap.sh --bootstrap-monitoring --env-file ./.secrets/monitoring-prod.env
 #
 # Optional flags:
-#   --namespace <name>   default: tainnel (or tainnel-prod, etc.)
+#   --namespace <name>   default: pico (or pico-prod, etc.)
 #   --allow-non-prod     skip the "namespace must contain 'prod'" guard
 #   --kubectl-context    pass through to kubectl
 
@@ -18,7 +18,7 @@ set -euo pipefail
 
 SERVICE=""
 ENV_FILE=""
-NAMESPACE="tainnel"
+NAMESPACE="pico"
 ALLOW_NON_PROD=0
 BOOTSTRAP_MONITORING=0
 KUBECTL_CTX=""
@@ -49,9 +49,9 @@ fi
 
 # Production guard: namespace must contain "prod" unless explicitly overridden.
 if [[ "$ALLOW_NON_PROD" -ne 1 && "$NAMESPACE" != *prod* ]]; then
-  # The reference manifests use the bare 'tainnel' namespace; allow it without
+  # The reference manifests use the bare 'pico' namespace; allow it without
   # complaint and only block clearly-non-prod names like 'staging' or 'dev'.
-  if [[ "$NAMESPACE" != "tainnel" ]]; then
+  if [[ "$NAMESPACE" != "pico" ]]; then
     echo "Refusing to set secrets in non-prod namespace '$NAMESPACE' (use --allow-non-prod to override)" >&2
     exit 1
   fi
@@ -64,13 +64,13 @@ fi
 
 # Required keys per target. Mirror apps/{hub,watchtower}/src/config-validate.ts.
 if [[ "$BOOTSTRAP_MONITORING" -eq 1 ]]; then
-  SECRET_NAME="tainnel-monitoring-secrets"
+  SECRET_NAME="pico-monitoring-secrets"
   REQUIRED=(GRAFANA_ADMIN_USER GRAFANA_ADMIN_PASSWORD
             ALERTMANAGER_DEFAULT_WEBHOOK_URL
             ALERTMANAGER_PAGER_WEBHOOK_URL
             ALERTMANAGER_TRIAGE_WEBHOOK_URL)
 else
-  SECRET_NAME="tainnel-${SERVICE}-secrets"
+  SECRET_NAME="pico-${SERVICE}-secrets"
   case "$SERVICE" in
     hub)
       REQUIRED=(HUB_PRIVATE_KEY RPC_URL HUB_OPERATOR_TOKEN

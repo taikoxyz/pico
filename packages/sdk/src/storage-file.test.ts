@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Channel, Invoice, SignedState } from '@tainnel/protocol';
+import type { Channel, Invoice, SignedState } from '@pico/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileStorage } from './storage-file.js';
 
@@ -60,7 +60,7 @@ describe('FileStorage', () => {
   let storage: FileStorage;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'tainnel-sdk-test-'));
+    root = await mkdtemp(join(tmpdir(), 'pico-sdk-test-'));
     storage = new FileStorage({ root });
   });
 

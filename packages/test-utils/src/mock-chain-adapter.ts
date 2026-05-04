@@ -1,4 +1,4 @@
-import type { Address, ChainId, Channel, ChannelId, Hex } from '@tainnel/protocol';
+import type { Address, ChainId, Channel, ChannelId, Hex } from '@pico/protocol';
 import type {
   ChainAdapter,
   CloseCooperativeOnChainArgs,
@@ -8,7 +8,7 @@ import type {
   FinalizedResult,
   OpenChannelOnChainArgs,
   OpenChannelOnChainResult,
-} from '@tainnel/sdk';
+} from '@pico/sdk';
 import { keccak256, toHex } from 'viem';
 
 export interface MockChainAdapterOptions {

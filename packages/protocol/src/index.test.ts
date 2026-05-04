@@ -5,10 +5,10 @@ import {
   PROTOCOL_VERSION,
   SUPPORTED_CHAIN_IDS,
   TAIKO_MAINNET_CHAIN_ID,
-  isNostrTainnelKind,
+  isNostrPicoKind,
 } from './index.js';
 
-describe('@tainnel/protocol', () => {
+describe('@pico/protocol', () => {
   it('exposes a protocol version', () => {
     expect(PROTOCOL_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
@@ -20,7 +20,7 @@ describe('@tainnel/protocol', () => {
 
   it('keeps every Nostr event kind inside the reserved range', () => {
     for (const kind of Object.values(NOSTR_EVENT_KINDS)) {
-      expect(isNostrTainnelKind(kind)).toBe(true);
+      expect(isNostrPicoKind(kind)).toBe(true);
       expect(kind).toBeGreaterThanOrEqual(NOSTR_KIND_RANGE.min);
       expect(kind).toBeLessThanOrEqual(NOSTR_KIND_RANGE.max);
     }

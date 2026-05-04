@@ -1,4 +1,4 @@
-import type { Hex } from '@tainnel/protocol';
+import type { Hex } from '@pico/protocol';
 import nacl from 'tweetnacl';
 import { bytesToHex, hexToBytes } from './crypto.js';
 import type { KeysendPayload } from './hub-protocol.js';

@@ -1,4 +1,4 @@
-import type { Hex, Signature } from '@tainnel/protocol';
+import type { Hex, Signature } from '@pico/protocol';
 
 export function hexToSignature(hex: Hex): Signature {
   if (hex.length !== 132) {

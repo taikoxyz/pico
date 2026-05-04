@@ -1,9 +1,9 @@
 {
-  "name": "@tainnel/sdk",
+  "name": "@pico/sdk",
   "version": "0.0.0",
   "private": false,
   "license": "MIT",
-  "description": "Browser- and Node-compatible client SDK for opening, paying, and closing tainnel payment channels.",
+  "description": "Browser- and Node-compatible client SDK for opening, paying, and closing pico payment channels.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,15 +22,15 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.5.0",
-    "@tainnel/protocol": "workspace:*",
-    "@tainnel/state-machine": "workspace:*",
+    "@pico/protocol": "workspace:*",
+    "@pico/state-machine": "workspace:*",
     "@types/ws": "^8.5.13",
     "tweetnacl": "^1.0.3",
     "viem": "^2.21.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@tainnel/test-utils": "workspace:*",
+    "@pico/test-utils": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.13",
     "@vitest/coverage-v8": "^2.1.8",

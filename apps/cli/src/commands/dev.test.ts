@@ -8,12 +8,12 @@ class StubStream {
   }
 }
 
-describe('tainnel dev mock-hub', () => {
+describe('pico dev mock-hub', () => {
   it('spawns and exits cleanly on abort', async () => {
     const stdout = new StubStream();
     const ctrl = new AbortController();
     const cmd = devCommand({ stdout, signal: ctrl.signal });
-    const promise = cmd.parseAsync(['node', 'tainnel', 'mock-hub']);
+    const promise = cmd.parseAsync(['node', 'pico', 'mock-hub']);
     setTimeout(() => ctrl.abort(), 100);
     await promise;
     expect(stdout.buf).toContain('ws://127.0.0.1:');

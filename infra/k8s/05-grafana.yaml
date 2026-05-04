@@ -1,24 +1,24 @@
 # Grafana Deployment + Service + provisioning ConfigMaps.
 #
 # By default Grafana is reachable only via `kubectl port-forward
-# svc/tainnel-grafana 3000:3000 -n tainnel`. To expose it publicly,
+# svc/pico-grafana 3000:3000 -n pico`. To expose it publicly,
 # uncomment the Ingress + ManagedCertificate at the bottom and substitute
 # your hostname.
 #
-# Admin credentials come from `tainnel-monitoring-secrets` (set via
+# Admin credentials come from `pico-monitoring-secrets` (set via
 # secrets-bootstrap.sh --bootstrap-monitoring).
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: tainnel-grafana
-  namespace: tainnel
+  name: pico-grafana
+  namespace: pico
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-grafana-datasources
-  namespace: tainnel
+  name: pico-grafana-datasources
+  namespace: pico
 data:
   prometheus.yml: |
     apiVersion: 1
@@ -27,22 +27,22 @@ data:
         type: prometheus
         access: proxy
         uid: prometheus
-        url: http://tainnel-prometheus.tainnel.svc:9090
+        url: http://pico-prometheus.pico.svc:9090
         isDefault: true
         editable: false
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-grafana-dashboards-provider
-  namespace: tainnel
+  name: pico-grafana-dashboards-provider
+  namespace: pico
 data:
   dashboards.yml: |
     apiVersion: 1
     providers:
-      - name: tainnel
+      - name: pico
         orgId: 1
-        folder: tainnel
+        folder: pico
         type: file
         disableDeletion: false
         updateIntervalSeconds: 30
@@ -53,8 +53,8 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-grafana-dashboards
-  namespace: tainnel
+  name: pico-grafana-dashboards
+  namespace: pico
 data:
   hub-overview.json: |
     {
@@ -70,7 +70,7 @@ data:
           "title": "Channels open",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "targets": [
-            {"expr": "tainnel_hub_channels_total", "refId": "A", "legendFormat": "channels"}
+            {"expr": "pico_hub_channels_total", "refId": "A", "legendFormat": "channels"}
           ],
           "gridPos": {"x": 0, "y": 0, "w": 12, "h": 7}
         },
@@ -80,7 +80,7 @@ data:
           "title": "HTLCs in flight",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "targets": [
-            {"expr": "tainnel_hub_htlcs_in_flight", "refId": "A"}
+            {"expr": "pico_hub_htlcs_in_flight", "refId": "A"}
           ],
           "gridPos": {"x": 12, "y": 0, "w": 6, "h": 7}
         },
@@ -90,7 +90,7 @@ data:
           "title": "Disputes observed (cumulative)",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "targets": [
-            {"expr": "tainnel_hub_disputes_total", "refId": "A"}
+            {"expr": "pico_hub_disputes_total", "refId": "A"}
           ],
           "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "background"},
           "gridPos": {"x": 18, "y": 0, "w": 6, "h": 7}
@@ -101,8 +101,8 @@ data:
           "title": "Liquidity (USDC, smallest unit)",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "targets": [
-            {"expr": "tainnel_hub_inbound_liquidity_usdc", "refId": "A", "legendFormat": "inbound"},
-            {"expr": "tainnel_hub_outbound_liquidity_usdc", "refId": "B", "legendFormat": "outbound"}
+            {"expr": "pico_hub_inbound_liquidity_usdc", "refId": "A", "legendFormat": "inbound"},
+            {"expr": "pico_hub_outbound_liquidity_usdc", "refId": "B", "legendFormat": "outbound"}
           ],
           "fieldConfig": {"defaults": {"custom": {"stacking": {"mode": "normal"}, "fillOpacity": 30}}},
           "gridPos": {"x": 0, "y": 7, "w": 12, "h": 8}
@@ -113,7 +113,7 @@ data:
           "title": "Payments by result (rate 5m)",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "targets": [
-            {"expr": "rate(tainnel_hub_payments_total[5m])", "refId": "A", "legendFormat": "{{result}}"}
+            {"expr": "rate(pico_hub_payments_total[5m])", "refId": "A", "legendFormat": "{{result}}"}
           ],
           "gridPos": {"x": 12, "y": 7, "w": 12, "h": 8}
         },
@@ -123,7 +123,7 @@ data:
           "title": "Process resident memory",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "targets": [
-            {"expr": "process_resident_memory_bytes{job=\"tainnel-hub\"}", "refId": "A", "legendFormat": "rss"}
+            {"expr": "process_resident_memory_bytes{job=\"pico-hub\"}", "refId": "A", "legendFormat": "rss"}
           ],
           "fieldConfig": {"defaults": {"unit": "bytes"}},
           "gridPos": {"x": 0, "y": 15, "w": 24, "h": 7}
@@ -131,10 +131,10 @@ data:
       ],
       "refresh": "30s",
       "schemaVersion": 39,
-      "tags": ["tainnel", "hub"],
+      "tags": ["pico", "hub"],
       "time": {"from": "now-6h", "to": "now"},
-      "title": "Tainnel — Hub Overview",
-      "uid": "tainnel-hub-overview",
+      "title": "Pico — Hub Overview",
+      "uid": "pico-hub-overview",
       "version": 1
     }
   watchtower-overview.json: |
@@ -150,7 +150,7 @@ data:
           "type": "stat",
           "title": "Channels watched",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "targets": [{"expr": "tainnel_watchtower_channels_watched", "refId": "A"}],
+          "targets": [{"expr": "pico_watchtower_channels_watched", "refId": "A"}],
           "gridPos": {"x": 0, "y": 0, "w": 6, "h": 6}
         },
         {
@@ -158,7 +158,7 @@ data:
           "type": "stat",
           "title": "RPC up",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "targets": [{"expr": "tainnel_watchtower_rpc_up", "refId": "A"}],
+          "targets": [{"expr": "pico_watchtower_rpc_up", "refId": "A"}],
           "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "background"},
           "fieldConfig": {
             "defaults": {
@@ -172,7 +172,7 @@ data:
           "type": "stat",
           "title": "Penalties submitted (cumulative)",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "targets": [{"expr": "tainnel_watchtower_penalties_submitted_total", "refId": "A"}],
+          "targets": [{"expr": "pico_watchtower_penalties_submitted_total", "refId": "A"}],
           "gridPos": {"x": 12, "y": 0, "w": 6, "h": 6}
         },
         {
@@ -180,7 +180,7 @@ data:
           "type": "timeseries",
           "title": "Evaluations by result (rate 5m)",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "targets": [{"expr": "rate(tainnel_watchtower_evaluations_total[5m])", "refId": "A", "legendFormat": "{{result}}"}],
+          "targets": [{"expr": "rate(pico_watchtower_evaluations_total[5m])", "refId": "A", "legendFormat": "{{result}}"}],
           "gridPos": {"x": 0, "y": 6, "w": 18, "h": 8}
         },
         {
@@ -188,31 +188,31 @@ data:
           "type": "timeseries",
           "title": "Process resident memory",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "targets": [{"expr": "process_resident_memory_bytes{job=\"tainnel-watchtower\"}", "refId": "A", "legendFormat": "rss"}],
+          "targets": [{"expr": "process_resident_memory_bytes{job=\"pico-watchtower\"}", "refId": "A", "legendFormat": "rss"}],
           "fieldConfig": {"defaults": {"unit": "bytes"}},
           "gridPos": {"x": 0, "y": 14, "w": 18, "h": 7}
         }
       ],
       "refresh": "30s",
       "schemaVersion": 39,
-      "tags": ["tainnel", "watchtower"],
+      "tags": ["pico", "watchtower"],
       "time": {"from": "now-6h", "to": "now"},
-      "title": "Tainnel — Watchtower Overview",
-      "uid": "tainnel-watchtower-overview",
+      "title": "Pico — Watchtower Overview",
+      "uid": "pico-watchtower-overview",
       "version": 1
     }
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: tainnel-grafana
-  namespace: tainnel
+  name: pico-grafana
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-grafana
+    app.kubernetes.io/name: pico-grafana
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: tainnel-grafana
+    app.kubernetes.io/name: pico-grafana
   ports:
     - name: http
       port: 3000
@@ -221,21 +221,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tainnel-grafana
-  namespace: tainnel
+  name: pico-grafana
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-grafana
+    app.kubernetes.io/name: pico-grafana
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-grafana
+      app.kubernetes.io/name: pico-grafana
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: tainnel-grafana
+        app.kubernetes.io/name: pico-grafana
     spec:
-      serviceAccountName: tainnel-grafana
+      serviceAccountName: pico-grafana
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -254,13 +254,13 @@ spec:
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
-                  name: tainnel-monitoring-secrets
+                  name: pico-monitoring-secrets
                   key: GRAFANA_ADMIN_USER
                   optional: false
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: tainnel-monitoring-secrets
+                  name: pico-monitoring-secrets
                   key: GRAFANA_ADMIN_PASSWORD
                   optional: false
             - name: GF_USERS_ALLOW_SIGN_UP
@@ -301,13 +301,13 @@ spec:
       volumes:
         - name: datasources
           configMap:
-            name: tainnel-grafana-datasources
+            name: pico-grafana-datasources
         - name: dashboards-provider
           configMap:
-            name: tainnel-grafana-dashboards-provider
+            name: pico-grafana-dashboards-provider
         - name: dashboards
           configMap:
-            name: tainnel-grafana-dashboards
+            name: pico-grafana-dashboards
         - name: state
           emptyDir: {}
 # To expose Grafana publicly, uncomment and set the host:
@@ -315,23 +315,23 @@ spec:
 # apiVersion: networking.gke.io/v1
 # kind: ManagedCertificate
 # metadata:
-#   name: tainnel-grafana-cert
-#   namespace: tainnel
+#   name: pico-grafana-cert
+#   namespace: pico
 # spec:
 #   domains:
-#     - grafana.tainnel.taiko.xyz
+#     - grafana.pico.taiko.xyz
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: tainnel-grafana
-#   namespace: tainnel
+#   name: pico-grafana
+#   namespace: pico
 #   annotations:
 #     kubernetes.io/ingress.class: gce
-#     networking.gke.io/managed-certificates: tainnel-grafana-cert
+#     networking.gke.io/managed-certificates: pico-grafana-cert
 # spec:
 #   defaultBackend:
 #     service:
-#       name: tainnel-grafana
+#       name: pico-grafana
 #       port:
 #         number: 3000

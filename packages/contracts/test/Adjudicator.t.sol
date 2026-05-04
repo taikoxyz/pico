@@ -23,7 +23,7 @@ contract AdjudicatorTest is Fixtures {
     function test_initialize_setsDomain() public view {
         (, string memory name, string memory version, uint256 chainId, address verifyingContract,,) =
             adjudicator.eip712Domain();
-        assertEq(name, "tainnel");
+        assertEq(name, "pico");
         assertEq(version, "1");
         assertEq(chainId, block.chainid);
         assertEq(verifyingContract, address(adjudicator));

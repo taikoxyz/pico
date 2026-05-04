@@ -2,7 +2,7 @@
 
 ## Status
 
-Tainnel is **pre-launch**. Until the first signed mainnet release, treat this
+Pico is **pre-launch**. Until the first signed mainnet release, treat this
 project as research-grade software: do not custody production funds with it,
 and assume APIs and on-chain interfaces will change.
 
@@ -12,13 +12,13 @@ Please report suspected security issues **privately**. Do not open a public
 issue. Two channels, in order of preference:
 
 1. **GitHub private vulnerability advisory** —
-   <https://github.com/dantaik/tainnel/security/advisories/new>. From the CLI:
-   `gh api -X POST repos/dantaik/tainnel/security-advisories -f summary=...`.
+   <https://github.com/dantaik/pico/security/advisories/new>. From the CLI:
+   `gh api -X POST repos/dantaik/pico/security-advisories -f summary=...`.
    This routes to the maintainers without disclosing the report publicly and
    triggers a notification immediately.
 
 2. **Encrypted email** to `security@taiko.xyz` with PGP. Fingerprint:
-   `<TAINNEL_PGP_FINGERPRINT_TODO>`. Until that marker is replaced with a real
+   `<PICO_PGP_FINGERPRINT_TODO>`. Until that marker is replaced with a real
    fingerprint and `pgp-key.asc` exists at the repo root, **PGP-encrypted
    email is not yet accepted — use the GitHub advisory channel above.** See
    [`docs/runbooks/security-disclosure.md`](docs/runbooks/security-disclosure.md)
@@ -53,7 +53,7 @@ coordinate an extended embargo.
 In scope:
 
 - Smart contracts under `packages/contracts/src/` once deployed.
-- Logic in `@tainnel/state-machine` and `@tainnel/sdk` that affects fund safety.
+- Logic in `@pico/state-machine` and `@pico/sdk` that affects fund safety.
 - Hub and watchtower services in `apps/hub` and `apps/watchtower`.
 - The agent runtime CLI in `apps/cli`, including the encrypted hot key file
   format.
@@ -78,7 +78,7 @@ days**, negotiable in writing. Public release goes out via:
 
 ## Bounty
 
-Tainnel does **not** run a paid bug bounty program at v1. Reporters are
+Pico does **not** run a paid bug bounty program at v1. Reporters are
 credited in release notes and `SECURITY_HALL_OF_FAME.md`. Post-launch,
 critical-severity reports may be retroactively rewarded subject to board
 approval. Do not assume payment; report because it is the right thing to do.

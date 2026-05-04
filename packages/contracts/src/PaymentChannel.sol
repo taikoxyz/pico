@@ -13,7 +13,7 @@ import {IWatchtower} from "./interfaces/IWatchtower.sol";
 import {Adjudicator} from "./Adjudicator.sol";
 
 /// @title PaymentChannel
-/// @notice Pairwise payment channel core for the tainnel 1-hop network.
+/// @notice Pairwise payment channel core for the pico 1-hop network.
 /// @dev v1 simplifications (locked decisions):
 ///       - USDC-only. ETH (`token == address(0)`) is rejected at `openChannel`.
 ///       - Both parties co-fund: `safeTransferFrom` runs against `userA` and `userB`. Both

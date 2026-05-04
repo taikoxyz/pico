@@ -1,4 +1,4 @@
-import type { Address } from '@tainnel/protocol';
+import type { Address } from '@pico/protocol';
 import {
   http,
   type Chain,

@@ -4,15 +4,15 @@ import {
   type Htlc,
   TAIKO_MAINNET_CHAIN_ID,
   type Update,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   verifyChannelStateSignature,
   verifyCooperativeCloseSignature,
   verifyHtlcSignature,
   verifyInvoiceSignature,
   verifyUpdateSignature,
-} from '@tainnel/state-machine';
-import { InMemorySigner } from '@tainnel/test-utils';
+} from '@pico/state-machine';
+import { InMemorySigner } from '@pico/test-utils';
 import { describe, expect, it } from 'vitest';
 
 const PRIVATE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;

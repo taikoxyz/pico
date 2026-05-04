@@ -1,4 +1,4 @@
-import type { Channel, ChannelState, Signature, SignedState } from '@tainnel/protocol';
+import type { Channel, ChannelState, Signature, SignedState } from '@pico/protocol';
 import type { PublicClient, WalletClient } from 'viem';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelPool } from './channel-pool.js';

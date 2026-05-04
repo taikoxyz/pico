@@ -1,4 +1,4 @@
-# NetworkPolicy hardening for the tainnel namespace.
+# NetworkPolicy hardening for the pico namespace.
 #
 # Default deny is applied first, then documented pod-to-pod and outbound flows
 # are allowed explicitly.
@@ -7,7 +7,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny
-  namespace: tainnel
+  namespace: pico
 spec:
   podSelector: {}
   policyTypes:
@@ -18,7 +18,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-dns-egress
-  namespace: tainnel
+  namespace: pico
 spec:
   podSelector: {}
   policyTypes:
@@ -41,11 +41,11 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-hub-traffic
-  namespace: tainnel
+  namespace: pico
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-hub
+      app.kubernetes.io/name: pico-hub
   policyTypes:
     - Ingress
     - Egress
@@ -61,7 +61,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-prometheus
+              app.kubernetes.io/name: pico-prometheus
       ports:
         - protocol: TCP
           port: 9090
@@ -81,11 +81,11 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-watchtower-traffic
-  namespace: tainnel
+  namespace: pico
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-watchtower
+      app.kubernetes.io/name: pico-watchtower
   policyTypes:
     - Ingress
     - Egress
@@ -93,7 +93,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-prometheus
+              app.kubernetes.io/name: pico-prometheus
       ports:
         - protocol: TCP
           port: 3031
@@ -113,11 +113,11 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-prometheus-traffic
-  namespace: tainnel
+  namespace: pico
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-prometheus
+      app.kubernetes.io/name: pico-prometheus
   policyTypes:
     - Ingress
     - Egress
@@ -125,7 +125,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-grafana
+              app.kubernetes.io/name: pico-grafana
       ports:
         - protocol: TCP
           port: 9090
@@ -133,21 +133,21 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-hub
+              app.kubernetes.io/name: pico-hub
       ports:
         - protocol: TCP
           port: 9090
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-watchtower
+              app.kubernetes.io/name: pico-watchtower
       ports:
         - protocol: TCP
           port: 3031
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-alertmanager
+              app.kubernetes.io/name: pico-alertmanager
       ports:
         - protocol: TCP
           port: 9093
@@ -156,11 +156,11 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-alertmanager-traffic
-  namespace: tainnel
+  namespace: pico
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-alertmanager
+      app.kubernetes.io/name: pico-alertmanager
   policyTypes:
     - Ingress
     - Egress
@@ -168,7 +168,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-prometheus
+              app.kubernetes.io/name: pico-prometheus
       ports:
         - protocol: TCP
           port: 9093
@@ -188,18 +188,18 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-grafana-traffic
-  namespace: tainnel
+  namespace: pico
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-grafana
+      app.kubernetes.io/name: pico-grafana
   policyTypes:
     - Egress
   egress:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tainnel-prometheus
+              app.kubernetes.io/name: pico-prometheus
       ports:
         - protocol: TCP
           port: 9090

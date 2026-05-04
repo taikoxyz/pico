@@ -1,4 +1,4 @@
-import type { Address, Hex } from '@tainnel/protocol';
+import type { Address, Hex } from '@pico/protocol';
 import { type ByteArray, concat, hexToBytes, keccak256, recoverAddress, toHex } from 'viem';
 import type { NonceRepo } from '../db/repos/index.js';
 

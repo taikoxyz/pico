@@ -8,7 +8,7 @@ class StubStream {
   }
 }
 
-describe('tainnel hub status', () => {
+describe('pico hub status', () => {
   it('hits /v1/health and prints the body', async () => {
     const stdout = new StubStream();
     const fetchStub = (async (url: string) => {
@@ -18,7 +18,7 @@ describe('tainnel hub status', () => {
       });
     }) as typeof fetch;
     const cmd = hubCommand({ stdout, fetch: fetchStub });
-    await cmd.parseAsync(['node', 'tainnel', 'status', 'https://hub.example.com/']);
+    await cmd.parseAsync(['node', 'pico', 'status', 'https://hub.example.com/']);
     expect(stdout.buf).toContain('"status":"ok"');
   });
 
@@ -35,7 +35,7 @@ describe('tainnel hub status', () => {
       });
     }) as typeof fetch;
     const cmd = hubCommand({ stdout, fetch: fetchStub });
-    await cmd.parseAsync(['node', 'tainnel', 'status', 'http://hub.test']);
+    await cmd.parseAsync(['node', 'pico', 'status', 'http://hub.test']);
     expect(stdout.buf).toContain('"status":"ok"');
     expect(calls).toBe(2);
   });

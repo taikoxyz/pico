@@ -11,8 +11,8 @@ import { payCommand } from './commands/pay.js';
 
 const program = new Command();
 program
-  .name('tainnel')
-  .description('tainnel — agent runtime CLI for Taiko payment channels')
+  .name('pico')
+  .description('pico — agent runtime CLI for Taiko payment channels')
   .version('0.0.0');
 
 program.addCommand(helloCommand());

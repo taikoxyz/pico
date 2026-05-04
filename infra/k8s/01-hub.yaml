@@ -5,19 +5,19 @@
 # Metrics surface: 9090 inside the pod, bound to :: for in-cluster Prometheus
 # scraping.
 #
-# Required Secret: `tainnel-hub-secrets` (set via secrets-bootstrap.sh).
+# Required Secret: `pico-hub-secrets` (set via secrets-bootstrap.sh).
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: tainnel-hub
-  namespace: tainnel
+  name: pico-hub
+  namespace: pico
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-hub-config
-  namespace: tainnel
+  name: pico-hub-config
+  namespace: pico
 data:
   PORT: "3030"
   LOG_LEVEL: "info"
@@ -35,8 +35,8 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-hub-litestream
-  namespace: tainnel
+  name: pico-hub-litestream
+  namespace: pico
 data:
   litestream.yml: |
     dbs:
@@ -54,18 +54,18 @@ data:
             sync-interval: 10s
 ---
 # Headless Service so the StatefulSet pod has stable DNS for in-cluster
-# Prometheus scraping (tainnel-hub-0.tainnel-hub.tainnel.svc).
+# Prometheus scraping (pico-hub-0.pico-hub.pico.svc).
 apiVersion: v1
 kind: Service
 metadata:
-  name: tainnel-hub
-  namespace: tainnel
+  name: pico-hub
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-hub
+    app.kubernetes.io/name: pico-hub
 spec:
   clusterIP: None
   selector:
-    app.kubernetes.io/name: tainnel-hub
+    app.kubernetes.io/name: pico-hub
   ports:
     - name: http
       port: 3030
@@ -79,15 +79,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tainnel-hub-ingress
-  namespace: tainnel
+  name: pico-hub-ingress
+  namespace: pico
   annotations:
-    cloud.google.com/backend-config: '{"default": "tainnel-hub-backend"}'
+    cloud.google.com/backend-config: '{"default": "pico-hub-backend"}'
     cloud.google.com/neg: '{"ingress": true}'
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: tainnel-hub
+    app.kubernetes.io/name: pico-hub
   ports:
     - name: http
       port: 80
@@ -98,8 +98,8 @@ spec:
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
-  name: tainnel-hub-backend
-  namespace: tainnel
+  name: pico-hub-backend
+  namespace: pico
 spec:
   healthCheck:
     type: HTTP
@@ -115,8 +115,8 @@ spec:
 apiVersion: networking.gke.io/v1beta1
 kind: FrontendConfig
 metadata:
-  name: tainnel-hub-frontend
-  namespace: tainnel
+  name: pico-hub-frontend
+  namespace: pico
 spec:
   redirectToHttps:
     enabled: true
@@ -125,47 +125,47 @@ spec:
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
-  name: tainnel-hub-cert
-  namespace: tainnel
+  name: pico-hub-cert
+  namespace: pico
 spec:
   domains:
-    - tainnel.taiko.xyz
+    - pico.taiko.xyz
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: tainnel-hub
-  namespace: tainnel
+  name: pico-hub
+  namespace: pico
   annotations:
     kubernetes.io/ingress.class: gce
-    networking.gke.io/managed-certificates: tainnel-hub-cert
-    networking.gke.io/v1beta1.FrontendConfig: tainnel-hub-frontend
+    networking.gke.io/managed-certificates: pico-hub-cert
+    networking.gke.io/v1beta1.FrontendConfig: pico-hub-frontend
 spec:
   defaultBackend:
     service:
-      name: tainnel-hub-ingress
+      name: pico-hub-ingress
       port:
         number: 80
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: tainnel-hub
-  namespace: tainnel
+  name: pico-hub
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-hub
+    app.kubernetes.io/name: pico-hub
 spec:
-  serviceName: tainnel-hub
+  serviceName: pico-hub
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-hub
+      app.kubernetes.io/name: pico-hub
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: tainnel-hub
+        app.kubernetes.io/name: pico-hub
     spec:
-      serviceAccountName: tainnel-hub
+      serviceAccountName: pico-hub
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -179,7 +179,7 @@ spec:
         - name: hub
           # Replace IMAGE with your Artifact Registry path. The image must be
           # built from apps/hub/Dockerfile.
-          image: REGION-docker.pkg.dev/PROJECT/tainnel/hub:VERSION
+          image: REGION-docker.pkg.dev/PROJECT/pico/hub:VERSION
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -188,9 +188,9 @@ spec:
               containerPort: 9090
           envFrom:
             - configMapRef:
-                name: tainnel-hub-config
+                name: pico-hub-config
             - secretRef:
-                name: tainnel-hub-secrets
+                name: pico-hub-secrets
           readinessProbe:
             httpGet:
               path: /v1/health
@@ -224,7 +224,7 @@ spec:
           args: ["replicate", "-config", "/etc/litestream.yml"]
           envFrom:
             - secretRef:
-                name: tainnel-hub-secrets
+                name: pico-hub-secrets
           resources:
             requests:
               cpu: 100m
@@ -245,7 +245,7 @@ spec:
       volumes:
         - name: litestream-config
           configMap:
-            name: tainnel-hub-litestream
+            name: pico-hub-litestream
   volumeClaimTemplates:
     - metadata:
         name: data

@@ -15,7 +15,7 @@ env:
   GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
   GAR_REGISTRY: ${{ vars.GAR_LOCATION }}-docker.pkg.dev
   GAR_IMAGE_PREFIX: ${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}
-  GKE_NAMESPACE: ${{ vars.GKE_NAMESPACE || 'tainnel' }}
+  GKE_NAMESPACE: ${{ vars.GKE_NAMESPACE || 'pico' }}
 
 jobs:
   build-push:

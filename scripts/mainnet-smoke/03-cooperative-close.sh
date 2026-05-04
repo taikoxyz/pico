@@ -31,7 +31,7 @@ LOG_DIR="$(resolve_log_dir)"
 results=()
 for role in alice bob; do
   log "$role: listing channels"
-  channels="$(tainnel_as "$role" channel list --json 2>/dev/null || echo '[]')"
+  channels="$(pico_as "$role" channel list --json 2>/dev/null || echo '[]')"
   echo "$channels" > "$LOG_DIR/$role-channels-pre-close.json"
   open_ids="$(echo "$channels" | python3 -c '
 import json, sys
@@ -43,7 +43,7 @@ print(" ".join(c["id"] for c in arr if c.get("status") == "open"))')"
   fi
   for cid in $open_ids; do
     log "$role: cooperative-close $cid"
-    out="$(tainnel_as "$role" channel close "$cid" --cooperative --json 2>"$LOG_DIR/$role-close-$cid.stderr" || true)"
+    out="$(pico_as "$role" channel close "$cid" --cooperative --json 2>"$LOG_DIR/$role-close-$cid.stderr" || true)"
     echo "$out" > "$LOG_DIR/$role-close-$cid.json"
     addr="$(operator_address "$role")"
     final_usdc="$(usdc_balance "$addr" "$RPC_URL")"
@@ -56,6 +56,6 @@ joined="$(IFS=, ; echo "${results[*]:-}")"
 record "$LOG_DIR/close.json" "[${joined}]"
 green "Done. Inspect $LOG_DIR/close.json"
 
-# CLI gap: tainnel channel close does not print the on-chain
+# CLI gap: pico channel close does not print the on-chain
 # ChannelClosedCooperative tx hash. Recover via `cast logs` filtered by
 # topic + channel id and append to the log if needed for the audit log.

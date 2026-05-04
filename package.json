@@ -1,5 +1,5 @@
 {
-  "name": "tainnel",
+  "name": "pico",
   "version": "0.0.0",
   "private": true,
   "description": "Trustless 1-hop state channel network for micro-payments on Taiko L2.",
@@ -21,7 +21,7 @@
     "changeset": "changeset",
     "release": "pnpm build && changeset publish",
     "version-packages": "changeset version",
-    "tainnel": "node apps/cli/dist/index.js",
+    "pico": "node apps/cli/dist/index.js",
     "prepare": "lefthook install || true"
   },
   "devDependencies": {

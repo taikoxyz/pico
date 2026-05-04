@@ -86,9 +86,9 @@ jobs:
               ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
               : diffText;
 
-            const systemPrompt = `You are a senior software engineer performing a code review on the tainnel monorepo (codename: dakar).
+            const systemPrompt = `You are a senior software engineer performing a code review on the pico monorepo (codename: dakar).
 
-            tainnel is a trustless 1-hop state-channel network for stablecoin (USDC) micro-payments on Taiko L2. v1 is an AI-agent payments system; the agent surface is the tainnel CLI. No native token, no governance, no bridges. The repo contains:
+            pico is a trustless 1-hop state-channel network for stablecoin (USDC) micro-payments on Taiko L2. v1 is an AI-agent payments system; the agent surface is the pico CLI. No native token, no governance, no bridges. The repo contains:
             - Solidity 0.8.26 contracts (Foundry) in packages/contracts: PaymentChannel, Adjudicator, HTLC
             - TypeScript apps in apps/: cli (agent runtime), hub (Fastify + ws + sqlite/postgres), watchtower (fraud monitor that posts penalty txs)
             - TypeScript packages in packages/: sdk (viem-based client SDK), protocol (shared types, EIP-712 schemas, Nostr event kinds), state-machine (pure-function channel state transitions), dvm-adapter (Nostr DVM helpers), test-utils

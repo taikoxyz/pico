@@ -1,11 +1,11 @@
-import { ANVIL_DEV_CHAIN_ID, CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
+import { ANVIL_DEV_CHAIN_ID, CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
 
 const ANVIL_ENV = {
   CHAIN_ID: String(ANVIL_DEV_CHAIN_ID),
   PAYMENT_CHANNEL_ADDRESS: '0x1111111111111111111111111111111111111111',
-  TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
+  PICO_DEV_ALLOW_ZERO_ADDRESS: 'true',
   WATCHTOWER_PRIVATE_KEY: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 } as NodeJS.ProcessEnv;
 

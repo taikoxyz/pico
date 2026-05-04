@@ -6,7 +6,7 @@ import {
   isEncryptedKeyFile,
   parseKeyFile,
   serializeKeyFile,
-} from '@tainnel/sdk';
+} from '@pico/sdk';
 import { Command } from 'commander';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { defaultKeyFilePath } from '../runtime/config.js';
@@ -28,7 +28,7 @@ export function keysCommand(deps: KeysDeps = {}): Command {
   cmd
     .command('init')
     .description('Generate a new key, passphrase-encrypt, write to disk')
-    .option('--out <path>', 'Output path (defaults to $XDG_CONFIG_HOME/tainnel/key.enc)')
+    .option('--out <path>', 'Output path (defaults to $XDG_CONFIG_HOME/pico/key.enc)')
     .option('--force', 'Overwrite existing file', false)
     .action(async (opts: { out?: string; force: boolean }) => {
       await runInit(opts, deps);

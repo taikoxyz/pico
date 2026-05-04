@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { readNewPassphrase, readPassphrase } from './passphrase.js';
 
 describe('passphrase helpers', () => {
-  it('uses TAINNEL_PASSPHRASE if set', async () => {
-    expect(await readPassphrase('x', { env: { TAINNEL_PASSPHRASE: 'sekret' } })).toBe('sekret');
-    expect(await readNewPassphrase({ env: { TAINNEL_PASSPHRASE: 'sekret' } })).toBe('sekret');
+  it('uses PICO_PASSPHRASE if set', async () => {
+    expect(await readPassphrase('x', { env: { PICO_PASSPHRASE: 'sekret' } })).toBe('sekret');
+    expect(await readNewPassphrase({ env: { PICO_PASSPHRASE: 'sekret' } })).toBe('sekret');
   });
 
   it('prompts via injected reader when env var unset', async () => {

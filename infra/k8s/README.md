@@ -1,4 +1,4 @@
-# Tainnel on GKE Autopilot
+# Pico on GKE Autopilot
 
 Production manifests for hub + watchtower + the monitoring stack
 (Prometheus + Grafana + Alertmanager) on Google Kubernetes Engine
@@ -34,7 +34,7 @@ infra/k8s/
 - A Cloudflare R2 bucket (or any S3-compatible store) for litestream
   backups, and an HMAC access key + secret pair scoped to that bucket.
 - A DNS zone you control for the public hub hostname (default
-  `tainnel.taiko.xyz`).
+  `pico.taiko.xyz`).
 
 ## One-time setup
 
@@ -45,21 +45,21 @@ gcloud auth login
 gcloud config set project YOUR_PROJECT
 gcloud config set compute/region us-central1
 
-gcloud container clusters create-auto tainnel-prod \
+gcloud container clusters create-auto pico-prod \
   --region us-central1 \
   --release-channel regular
 
-gcloud container clusters get-credentials tainnel-prod --region us-central1
+gcloud container clusters get-credentials pico-prod --region us-central1
 kubectl config current-context  # confirm
 ```
 
 ### Artifact Registry
 
 ```bash
-gcloud artifacts repositories create tainnel \
+gcloud artifacts repositories create pico \
   --repository-format=docker \
   --location=us-central1 \
-  --description="tainnel images"
+  --description="pico images"
 
 gcloud auth configure-docker us-central1-docker.pkg.dev
 ```
@@ -79,12 +79,12 @@ Configure these GitHub repository variables before pushing a release tag:
 ```text
 GCP_PROJECT_ID=<your-project-id>
 GAR_LOCATION=us-central1
-GAR_REPOSITORY=tainnel
+GAR_REPOSITORY=pico
 GCP_WORKLOAD_IDENTITY_PROVIDER=projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
 GCP_SERVICE_ACCOUNT=<service-account>@<project-id>.iam.gserviceaccount.com
-GKE_CLUSTER=tainnel-prod
+GKE_CLUSTER=pico-prod
 GKE_LOCATION=us-central1
-GKE_NAMESPACE=tainnel                 # optional; defaults to tainnel
+GKE_NAMESPACE=pico                 # optional; defaults to pico
 ```
 
 The service account must be impersonable by the GitHub Workload Identity
@@ -122,7 +122,7 @@ RPC_URL=https://rpc.mainnet.taiko.xyz
 HUB_OPERATOR_TOKEN=...
 LITESTREAM_ACCESS_KEY_ID=...
 LITESTREAM_SECRET_ACCESS_KEY=...
-LITESTREAM_R2_BUCKET=tainnel-hub-prod
+LITESTREAM_R2_BUCKET=pico-hub-prod
 LITESTREAM_R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 ```
 
@@ -132,7 +132,7 @@ WATCHTOWER_PRIVATE_KEY=0x...
 RPC_URL=https://rpc.mainnet.taiko.xyz
 LITESTREAM_ACCESS_KEY_ID=...
 LITESTREAM_SECRET_ACCESS_KEY=...
-LITESTREAM_R2_BUCKET=tainnel-watchtower-prod
+LITESTREAM_R2_BUCKET=pico-watchtower-prod
 LITESTREAM_R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 ```
 
@@ -169,8 +169,8 @@ For emergency local deploys, render exact image references and apply them:
 
 ```bash
 infra/k8s/render-manifests.sh \
-  --hub-image us-central1-docker.pkg.dev/YOUR_PROJECT/tainnel/hub:vX.Y.Z-abc123def456 \
-  --watchtower-image us-central1-docker.pkg.dev/YOUR_PROJECT/tainnel/watchtower:vX.Y.Z-abc123def456 \
+  --hub-image us-central1-docker.pkg.dev/YOUR_PROJECT/pico/hub:vX.Y.Z-abc123def456 \
+  --watchtower-image us-central1-docker.pkg.dev/YOUR_PROJECT/pico/watchtower:vX.Y.Z-abc123def456 \
   --out-dir .context/gke-manifests
 
 kubectl apply -f .context/gke-manifests/00-namespace.yaml
@@ -185,36 +185,36 @@ kubectl apply -f .context/gke-manifests/06-networkpolicy.yaml
 Watch them come up:
 
 ```bash
-kubectl get pods -n tainnel -w
+kubectl get pods -n pico -w
 ```
 
 ## Verify
 
 ```bash
 # Hub: public via Ingress (after ManagedCertificate provisions, ~10–20 min).
-kubectl get ingress -n tainnel tainnel-hub
-curl -fsS https://tainnel.taiko.xyz/v1/health
+kubectl get ingress -n pico pico-hub
+curl -fsS https://pico.taiko.xyz/v1/health
 
 # Watchtower: internal only.
-kubectl port-forward -n tainnel statefulset/tainnel-watchtower 3031:3031 &
+kubectl port-forward -n pico statefulset/pico-watchtower 3031:3031 &
 curl -fsS http://localhost:3031/health
 
 # Prometheus: confirm hub + watchtower scrape targets are up.
-kubectl port-forward -n tainnel svc/tainnel-prometheus 9090:9090 &
+kubectl port-forward -n pico svc/pico-prometheus 9090:9090 &
 open http://localhost:9090/targets
 
 # Grafana: log in with the admin password from monitoring-prod.env.
-kubectl port-forward -n tainnel svc/tainnel-grafana 3000:3000 &
+kubectl port-forward -n pico svc/pico-grafana 3000:3000 &
 open http://localhost:3000
 
 # Litestream: confirm a snapshot uploaded to R2.
-kubectl logs -n tainnel statefulset/tainnel-hub -c litestream --tail=50
+kubectl logs -n pico statefulset/pico-hub -c litestream --tail=50
 ```
 
 ## NetworkPolicy
 
 `06-networkpolicy.yaml` applies default deny ingress and egress to the
-`tainnel` namespace, then allows only the production traffic flows:
+`pico` namespace, then allows only the production traffic flows:
 
 - All pods can resolve DNS through kube-dns on TCP/UDP 53.
 - GCE load balancer and health check ranges can reach hub HTTP on `3030`.
@@ -226,7 +226,7 @@ kubectl logs -n tainnel statefulset/tainnel-hub -c litestream --tail=50
 
 ## DNS
 
-After `kubectl describe ingress -n tainnel tainnel-hub` reports an
+After `kubectl describe ingress -n pico pico-hub` reports an
 external IP under `Address:`, point your hostname's A record at it. The
 ManagedCertificate finishes provisioning a few minutes after DNS
 resolves.
@@ -236,8 +236,8 @@ resolves.
 Image rollbacks:
 
 ```bash
-kubectl rollout undo statefulset/tainnel-hub        -n tainnel
-kubectl rollout undo statefulset/tainnel-watchtower -n tainnel
+kubectl rollout undo statefulset/pico-hub        -n pico
+kubectl rollout undo statefulset/pico-watchtower -n pico
 ```
 
 Manifest rollbacks: re-apply the previous file revision via git.

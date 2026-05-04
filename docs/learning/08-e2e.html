@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 08 end-to-end</title>
+<title>pico · 08 end-to-end</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -111,17 +111,17 @@
 
   <!-- SDK -->
   <rect class="pill" x="200" y="100" width="300" height="36" rx="6"/>
-  <text class="pill-text" x="350" y="123" text-anchor="middle">@tainnel/sdk + @tainnel/state-machine</text>
+  <text class="pill-text" x="350" y="123" text-anchor="middle">@pico/sdk + @pico/state-machine</text>
   <line class="arrow" x1="270" y1="136" x2="170" y2="158" />
   <line class="arrow" x1="430" y1="136" x2="430" y2="158" />
 
   <!-- CLI processes -->
   <rect class="pill pill-accent" x="60" y="30" width="200" height="50" rx="6"/>
-  <text class="pill-text" x="160" y="52" text-anchor="middle">tainnel pay (Alice)</text>
+  <text class="pill-text" x="160" y="52" text-anchor="middle">pico pay (Alice)</text>
   <text class="label" x="160" y="70" text-anchor="middle">forked process</text>
 
   <rect class="pill pill-accent" x="440" y="30" width="200" height="50" rx="6"/>
-  <text class="pill-text" x="540" y="52" text-anchor="middle">tainnel listen (Bob)</text>
+  <text class="pill-text" x="540" y="52" text-anchor="middle">pico listen (Bob)</text>
   <text class="label" x="540" y="70" text-anchor="middle">forked process</text>
 
   <line class="arrow" x1="200" y1="80" x2="280" y2="98" />
@@ -137,7 +137,7 @@
   <tr><th>Scenario</th><th>What it proves</th></tr>
   <tr>
     <td>agent-pay-agent</td>
-    <td>Two CLI processes (Alice + <code>tainnel listen</code> Bob); a 5-USDC payment via the hub; cooperative close; final on-chain balances match expected.</td>
+    <td>Two CLI processes (Alice + <code>pico listen</code> Bob); a 5-USDC payment via the hub; cooperative close; final on-chain balances match expected.</td>
   </tr>
   <tr>
     <td>unilateral-no-dispute</td>
@@ -149,7 +149,7 @@
   </tr>
   <tr>
     <td>receiver-offline-then-resume</td>
-    <td>Mid-payment, kill Bob's <code>tainnel listen</code>; restart it; reads the journal, reconnects, picks up the in-flight HTLC, reveals preimage, both sides settle. No double-spend, no lost preimage.</td>
+    <td>Mid-payment, kill Bob's <code>pico listen</code>; restart it; reads the journal, reconnects, picks up the in-flight HTLC, reveals preimage, both sides settle. No double-spend, no lost preimage.</td>
   </tr>
   <tr>
     <td>signer-key-rotation</td>
@@ -172,7 +172,7 @@
 <h3>How to run</h3>
 <pre><code># at repo root
 pnpm test                              # turbo runs e2e + every package
-pnpm --filter @tainnel/e2e test        # e2e scenarios alone</code></pre>
+pnpm --filter @pico/e2e test        # e2e scenarios alone</code></pre>
 
 <h3>Internal security review checklist</h3>
 <p>The manual review focuses on trust boundaries and ordering rules that automated scenarios can miss:</p>
@@ -209,7 +209,7 @@ pnpm --filter @tainnel/e2e test        # e2e scenarios alone</code></pre>
   <a href="./index.html">⤴</a>
 </div>
 
-<div class="footer">tainnel · learning · 08 end-to-end</div>
+<div class="footer">pico · learning · 08 end-to-end</div>
 
 </div>
 </body>

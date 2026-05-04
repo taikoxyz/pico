@@ -5,14 +5,14 @@ import {
   type ChannelId,
   TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import {
   ChannelClient,
   type Signer,
   ViemChainAdapter,
   WebSocketTransport,
   generateKeysendKeypair,
-} from '@tainnel/sdk';
+} from '@pico/sdk';
 import { Command } from 'commander';
 import pino from 'pino';
 import { http, type Chain, createPublicClient, createWalletClient, defineChain } from 'viem';
@@ -81,7 +81,7 @@ export function listenCommand(deps: ListenDeps = {}): Command {
         const verifyingContract =
           deps.adjudicatorAddressOverride ?? CONTRACT_ADDRESSES[chainId].Adjudicator;
         const rpcUrl =
-          opts.rpc ?? env.TAINNEL_RPC_URL ?? (chainFor(chainId).rpcUrls.default.http[0] as string);
+          opts.rpc ?? env.PICO_RPC_URL ?? (chainFor(chainId).rpcUrls.default.http[0] as string);
         const privateKey = await resolvePrivateKey({
           ...(opts.privateKey !== undefined ? { privateKey: opts.privateKey } : {}),
           ...(opts.keyFile !== undefined ? { keyFile: opts.keyFile } : {}),
@@ -101,7 +101,7 @@ export function listenCommand(deps: ListenDeps = {}): Command {
         );
         const storage = openStorage(env, deps.storageOverride);
         const signer: Signer =
-          deps.signerOverride ?? (await import('@tainnel/sdk')).localSigner(privateKey);
+          deps.signerOverride ?? (await import('@pico/sdk')).localSigner(privateKey);
         const keypair = generateKeysendKeypair();
 
         const client = new ChannelClient({

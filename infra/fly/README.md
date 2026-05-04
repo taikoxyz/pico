@@ -1,4 +1,4 @@
-# Tainnel Fly.io deployment
+# Pico Fly.io deployment
 
 Production manifests for the hub and watchtower. Single instance per service,
 single region per service (hub: `iad`, watchtower: `lhr`), persistent volume
@@ -37,8 +37,8 @@ Run all commands from the repo root.
 
 ```bash
 # 1. Create the app + persistent volume.
-flyctl apps create tainnel-hub-prod --org <your-org>
-flyctl volumes create hub_data --region iad --size 10 --app tainnel-hub-prod
+flyctl apps create pico-hub-prod --org <your-org>
+flyctl volumes create hub_data --region iad --size 10 --app pico-hub-prod
 
 # 2. Stage and deploy secrets from a local .env file. The script refuses
 #    known dev keys and placeholders.
@@ -48,9 +48,9 @@ infra/fly/secrets-bootstrap.sh --service hub --env-file ./.secrets/hub-prod.env
 flyctl deploy --remote-only --config infra/fly/hub/fly.toml
 
 # 4. Verify.
-flyctl status --app tainnel-hub-prod
-flyctl ssh console --app tainnel-hub-prod -C 'wget -qO- http://localhost:3030/v1/health'
-flyctl ssh console --app tainnel-hub-prod -C 'wget -qO- http://localhost:9090/metrics | head'
+flyctl status --app pico-hub-prod
+flyctl ssh console --app pico-hub-prod -C 'wget -qO- http://localhost:3030/v1/health'
+flyctl ssh console --app pico-hub-prod -C 'wget -qO- http://localhost:9090/metrics | head'
 ```
 
 The required hub secrets (per `apps/hub/src/config-validate.ts` +
@@ -61,17 +61,17 @@ The required hub secrets (per `apps/hub/src/config-validate.ts` +
 ### Watchtower
 
 ```bash
-flyctl apps create tainnel-watchtower-prod --org <your-org>
-flyctl volumes create watchtower_data --region lhr --size 5 --app tainnel-watchtower-prod
+flyctl apps create pico-watchtower-prod --org <your-org>
+flyctl volumes create watchtower_data --region lhr --size 5 --app pico-watchtower-prod
 
 infra/fly/secrets-bootstrap.sh --service watchtower --env-file ./.secrets/watchtower-prod.env
 
 flyctl deploy --remote-only --config infra/fly/watchtower/fly.toml
 
-flyctl status --app tainnel-watchtower-prod
-flyctl ssh console --app tainnel-watchtower-prod -C 'wget -qO- http://localhost:3031/health'
-flyctl ssh console --app tainnel-watchtower-prod -C 'wget -qO- http://localhost:3031/metrics | head'
-flyctl logs --app tainnel-watchtower-prod --process litestream
+flyctl status --app pico-watchtower-prod
+flyctl ssh console --app pico-watchtower-prod -C 'wget -qO- http://localhost:3031/health'
+flyctl ssh console --app pico-watchtower-prod -C 'wget -qO- http://localhost:3031/metrics | head'
+flyctl logs --app pico-watchtower-prod --process litestream
 ```
 
 Required secrets: `WATCHTOWER_PRIVATE_KEY`, `RPC_URL`,
@@ -107,11 +107,11 @@ infra/fly/secrets-bootstrap.sh --service hub --env-file ./.secrets/hub-prod.env
 ## Rollback
 
 ```bash
-flyctl releases --app tainnel-hub-prod
+flyctl releases --app pico-hub-prod
 # Pick the previous good image label, e.g. v0.3.1-7706169abcde
 flyctl deploy --remote-only \
   --config infra/fly/hub/fly.toml \
-  --image registry.fly.io/tainnel-hub-prod:v0.3.1-7706169abcde
+  --image registry.fly.io/pico-hub-prod:v0.3.1-7706169abcde
 ```
 
 ## Follow-ups
@@ -136,5 +136,5 @@ baking the file into a thin wrapper Dockerfile and rebuilding the image.
 `HUB_FEE_BPS`, `HUB_FEE_FLAT`, `CHAIN_POLLING_INTERVAL_MS`,
 `CHAIN_CONFIRMATIONS`, `PAYMENT_CHANNEL_ADDRESS`, `ADJUDICATOR_ADDRESS`, etc.
 are intentionally NOT set in `[env]`. The code derives defaults from
-`@tainnel/protocol`'s `CONTRACT_ADDRESSES` for `CHAIN_ID=167000`. Override
+`@pico/protocol`'s `CONTRACT_ADDRESSES` for `CHAIN_ID=167000`. Override
 via `flyctl secrets set` only when there is a specific operational reason.

@@ -1,5 +1,5 @@
-import { TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
-import { InMemorySigner } from '@tainnel/test-utils';
+import { TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
+import { InMemorySigner } from '@pico/test-utils';
 import { describe, expect, it } from 'vitest';
 import { InvoiceExpiredError, InvoiceVerificationError } from './errors.js';
 import { createInvoice, verifyInvoice } from './invoice.js';

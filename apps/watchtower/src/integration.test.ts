@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type BuildServerResult, buildServer } from '@tainnel/hub';
-import { ANVIL_DEV_CHAIN_ID, type Channel, type SignedState } from '@tainnel/protocol';
+import { type BuildServerResult, buildServer } from '@pico/hub';
+import { ANVIL_DEV_CHAIN_ID, type Channel, type SignedState } from '@pico/protocol';
 import {
   ChannelClient,
   MemoryStorage,
@@ -11,8 +11,8 @@ import {
   encodeChannelStateForOnChain,
   localSigner,
   signatureToHex,
-} from '@tainnel/sdk';
-import { TEST_KEYS, startAnvilFork } from '@tainnel/test-utils';
+} from '@pico/sdk';
+import { TEST_KEYS, startAnvilFork } from '@pico/test-utils';
 import {
   http,
   type Abi,
@@ -241,8 +241,8 @@ async function bootIntegration(): Promise<IntegrationFixture> {
       HUB_FEE_FLAT: '0',
       LOG_LEVEL: 'silent',
       PORT: '0',
-      TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
-      TAINNEL_SKIP_PROD_ASSERT: 'true',
+      PICO_DEV_ALLOW_ZERO_ADDRESS: 'true',
+      PICO_SKIP_PROD_ASSERT: 'true',
     });
     const httpUrl = await hubServer.app.listen({ port: 0, host: '127.0.0.1' });
     const wsUrl = `${httpUrl.replace(/^http/, 'ws')}/ws`;

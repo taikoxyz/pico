@@ -14,34 +14,34 @@ class StubStream {
 
 const PK = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
 
-describe('tainnel invoice', () => {
+describe('pico invoice', () => {
   it('create prints a base64 envelope that decodes back to an Invoice', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-inv-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-inv-'));
     const stdout = new StubStream();
     const cmd = invoiceCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout,
       storageOverride: join(dir, 'db'),
     });
-    await cmd.parseAsync(['node', 'tainnel', 'create', '--amount', '50000', '--memo', 'svc']);
+    await cmd.parseAsync(['node', 'pico', 'create', '--amount', '50000', '--memo', 'svc']);
     const env = stdout.buf.trim();
-    expect(env.startsWith('tainnel1:')).toBe(true);
+    expect(env.startsWith('pico1:')).toBe(true);
     const decoded = decodeInvoiceEnvelope(env);
     expect(decoded.amount).toBe(50_000n);
     expect(decoded.memo).toBe('svc');
   });
 
   it('create --json includes invoice + preimage + envelope', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-inv-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-inv-'));
     const stdout = new StubStream();
     const cmd = invoiceCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout,
       storageOverride: join(dir, 'db'),
     });
     await cmd.parseAsync([
       'node',
-      'tainnel',
+      'pico',
       'create',
       '--amount',
       '1000',
@@ -53,52 +53,52 @@ describe('tainnel invoice', () => {
       preimage: string;
       paymentHash: string;
     };
-    expect(obj.envelope.startsWith('tainnel1:')).toBe(true);
+    expect(obj.envelope.startsWith('pico1:')).toBe(true);
     expect(obj.preimage).toMatch(/^0x[0-9a-f]{64}$/);
     expect(obj.paymentHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
   it('list prints (no invoices) when empty', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-inv-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-inv-'));
     const stdout = new StubStream();
     const cmd = invoiceCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout,
       storageOverride: join(dir, 'db'),
     });
-    await cmd.parseAsync(['node', 'tainnel', 'list']);
+    await cmd.parseAsync(['node', 'pico', 'list']);
     expect(stdout.buf).toContain('(no invoices)');
   });
 
   it('list shows a created invoice', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-inv-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-inv-'));
     const root = join(dir, 'db');
     const make = invoiceCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout: new StubStream(),
       storageOverride: root,
     });
-    await make.parseAsync(['node', 'tainnel', 'create', '--amount', '777']);
+    await make.parseAsync(['node', 'pico', 'create', '--amount', '777']);
     const stdout = new StubStream();
     const list = invoiceCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout,
       storageOverride: root,
     });
-    await list.parseAsync(['node', 'tainnel', 'list']);
+    await list.parseAsync(['node', 'pico', 'list']);
     expect(stdout.buf).toContain('issued');
     expect(stdout.buf).toContain('amount=777');
   });
 
   it('show requires the paymentHash to exist', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'tainnel-inv-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pico-inv-'));
     const cmd = invoiceCommand({
-      env: { TAINNEL_CONFIG_DIR: dir, TAINNEL_PRIVATE_KEY: PK },
+      env: { PICO_CONFIG_DIR: dir, PICO_PRIVATE_KEY: PK },
       stdout: new StubStream(),
       storageOverride: join(dir, 'db'),
     });
-    await expect(
-      cmd.parseAsync(['node', 'tainnel', 'show', `0x${'aa'.repeat(32)}`]),
-    ).rejects.toThrow(/not found/);
+    await expect(cmd.parseAsync(['node', 'pico', 'show', `0x${'aa'.repeat(32)}`])).rejects.toThrow(
+      /not found/,
+    );
   });
 });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 06 watchtower</title>
+<title>pico · 06 watchtower</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -97,9 +97,9 @@
   <li><strong>D6.4 Hub-side watchtower covers all hub channels; users may additionally run their own.</strong> The hub-side watchtower MUST be hosted on different infrastructure from the hub itself — different region, ideally different cloud provider — so a single outage cannot take down both.</li>
 </ul>
 
-<h3>Pairing with <code>tainnel listen</code></h3>
+<h3>Pairing with <code>pico listen</code></h3>
 
-<p>An agent that runs <code>tainnel listen</code> as a long-lived process MAY subscribe to the same chain events that the watchtower watches; the SDK gives it everything it needs to do so. But the watchtower remains the canonical penalty submitter, because users should not need to keep their CLI alive 24/7 just to stay safe. If a user is offline during fraud, recovery is straightforward: they restart listen-mode, the SDK reads chain history, sees that the watchtower already penalized the cheater and that the channel was finalized in their favor, and proceeds. There is no remediation step left to perform.</p>
+<p>An agent that runs <code>pico listen</code> as a long-lived process MAY subscribe to the same chain events that the watchtower watches; the SDK gives it everything it needs to do so. But the watchtower remains the canonical penalty submitter, because users should not need to keep their CLI alive 24/7 just to stay safe. If a user is offline during fraud, recovery is straightforward: they restart listen-mode, the SDK reads chain history, sees that the watchtower already penalized the cheater and that the channel was finalized in their favor, and proceeds. There is no remediation step left to perform.</p>
 
 <h3>Functions to call on chain</h3>
 
@@ -197,7 +197,7 @@
   <a href="./07-agent-runtime.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 06 watchtower</div>
+<div class="footer">pico · learning · 06 watchtower</div>
 
 </div>
 </body>

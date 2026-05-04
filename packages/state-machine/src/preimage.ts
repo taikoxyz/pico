@@ -1,4 +1,4 @@
-import type { Hex, PaymentHash, Preimage } from '@tainnel/protocol';
+import type { Hex, PaymentHash, Preimage } from '@pico/protocol';
 import { sha256 } from 'viem';
 
 export function preimageDigest(preimage: Preimage): Hex {

@@ -1,10 +1,10 @@
-import { type Address, TAIKO_MAINNET_CHAIN_ID } from '@tainnel/protocol';
+import { type Address, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
 import {
   InMemorySigner,
   MockChainAdapter,
   type MockHubHandle,
   startMockHub,
-} from '@tainnel/test-utils';
+} from '@pico/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelClient } from './client.js';
 import { TransportClosedError } from './errors.js';

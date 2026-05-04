@@ -1,4 +1,4 @@
-import { DEFAULT_HUB_FEE_BPS, DEFAULT_HUB_FEE_FLAT } from '@tainnel/protocol';
+import { DEFAULT_HUB_FEE_BPS, DEFAULT_HUB_FEE_FLAT } from '@pico/protocol';
 
 export interface FeePolicy {
   quote(amount: bigint): bigint;

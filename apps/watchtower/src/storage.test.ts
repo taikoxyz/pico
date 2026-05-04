@@ -1,4 +1,4 @@
-import type { ChannelId, SignedState } from '@tainnel/protocol';
+import type { ChannelId, SignedState } from '@pico/protocol';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SqliteWatchtowerStore, type WatchtowerObservation } from './storage.js';

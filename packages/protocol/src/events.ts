@@ -13,8 +13,8 @@ export const NOSTR_EVENT_KINDS = {
 
 export type NostrEventKind = (typeof NOSTR_EVENT_KINDS)[keyof typeof NOSTR_EVENT_KINDS];
 
-export const TAINNEL_EVENT_PREFIX = 'tainnel.' as const;
+export const PICO_EVENT_PREFIX = 'pico.' as const;
 
-export function isNostrTainnelKind(kind: number): boolean {
+export function isNostrPicoKind(kind: number): boolean {
   return kind >= NOSTR_KIND_RANGE.min && kind <= NOSTR_KIND_RANGE.max;
 }

@@ -4,7 +4,7 @@
 
 services:
   watchtower:
-    image: tainnel/watchtower:latest
+    image: pico/watchtower:latest
     build:
       context: ..
       dockerfile: apps/watchtower/Dockerfile

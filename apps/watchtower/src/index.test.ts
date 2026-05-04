@@ -1,6 +1,6 @@
-import type { Address, ChannelId, ChannelState, Hex, SignedState } from '@tainnel/protocol';
-import { hexToSignature } from '@tainnel/sdk';
-import { buildChannelStateTypedData } from '@tainnel/state-machine';
+import type { Address, ChannelId, ChannelState, Hex, SignedState } from '@pico/protocol';
+import { hexToSignature } from '@pico/sdk';
+import { buildChannelStateTypedData } from '@pico/state-machine';
 import type { PublicClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, describe, expect, it, vi } from 'vitest';

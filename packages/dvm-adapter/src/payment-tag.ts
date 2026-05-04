@@ -1,4 +1,4 @@
-import { type Address, type ChainId, SUPPORTED_CHAIN_IDS } from '@tainnel/protocol';
+import { type Address, type ChainId, SUPPORTED_CHAIN_IDS } from '@pico/protocol';
 
 const HEX_ADDR = /^0x[0-9a-fA-F]{40}$/;
 
@@ -11,7 +11,7 @@ export interface PaymentOptionTag {
   readonly hubHints?: readonly string[];
 }
 
-export const TAG_NAME = 'tainnel-pay' as const;
+export const TAG_NAME = 'pico-pay' as const;
 
 export function encodePaymentOption(option: PaymentOptionTag): string[] {
   const tag: string[] = [
@@ -41,7 +41,7 @@ export function decodePaymentOption(raw: readonly string[]): PaymentOptionTag {
   const amountStr = raw[4];
   const recipient = raw[5] as Address | undefined;
   if (!token || !chainIdStr || !amountStr || !recipient) {
-    throw new Error('malformed tainnel-pay tag');
+    throw new Error('malformed pico-pay tag');
   }
   if (!HEX_ADDR.test(token)) {
     throw new Error(`invalid token address: ${token}`);

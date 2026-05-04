@@ -1,4 +1,4 @@
-import type { Channel } from '@tainnel/protocol';
+import type { Channel } from '@pico/protocol';
 import { describe, expect, it } from 'vitest';
 import { emit, formatChannelTable, jsonLine } from './output.js';
 

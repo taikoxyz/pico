@@ -7,7 +7,7 @@ import {Adjudicator} from "../src/Adjudicator.sol";
 import {PaymentChannel} from "../src/PaymentChannel.sol";
 
 /// @title Deploy
-/// @notice Foundry deployment script for tainnel `Adjudicator` + `PaymentChannel`.
+/// @notice Foundry deployment script for pico `Adjudicator` + `PaymentChannel`.
 /// @dev Both contracts are deployed behind ERC-1967 proxies (UUPS pattern). Logs the
 ///      *proxy* addresses — those are the user-facing contract entry points.
 ///      No actual broadcasting happens unless `--broadcast` is passed at the CLI.

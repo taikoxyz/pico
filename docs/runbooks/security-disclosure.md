@@ -31,11 +31,11 @@ Run on a clean, encrypted laptop. Hardware-backed storage (YubiKey OpenPGP
 applet, Nitrokey) is strongly preferred for the secret key.
 
 ```bash
-gpg --quick-generate-key 'Tainnel Security <security@taiko.xyz>' \
+gpg --quick-generate-key 'Pico Security <security@taiko.xyz>' \
   ed25519 sign 5y
 gpg --quick-add-key <FPR> cv25519 encr 5y
 gpg --armor --export <FPR> > pgp-key.asc
-gpg --armor --export-secret-keys <FPR> > /secure/offline/storage/tainnel-security.priv.asc
+gpg --armor --export-secret-keys <FPR> > /secure/offline/storage/pico-security.priv.asc
 gpg --send-keys --keyserver hkps://keys.openpgp.org <FPR>
 ```
 
@@ -46,7 +46,7 @@ Then in a single PR:
 
 - Commit `pgp-key.asc` to repo root.
 - Delete `pgp-key.asc.placeholder`.
-- Replace `<TAINNEL_PGP_FINGERPRINT_TODO>` in `SECURITY.md` with the real
+- Replace `<PICO_PGP_FINGERPRINT_TODO>` in `SECURITY.md` with the real
   fingerprint (40-char hex, spaces every 4 chars).
 - Update the **Open TODOs** section at the bottom of this runbook.
 
@@ -64,7 +64,7 @@ schedule with @dantaik on call 24/7 via:
 When a second maintainer joins, fill in:
 
 - A real PagerDuty schedule URL (e.g.
-  `https://tainnel.pagerduty.com/schedules/<id>`) or a Linear on-call rotation.
+  `https://pico.pagerduty.com/schedules/<id>`) or a Linear on-call rotation.
 - Severity → page level mapping:
   - Critical: SMS + PagerDuty page within 5 min.
   - High: email page within 1 hour.
@@ -87,17 +87,17 @@ severity differs from the worst-case assumption.
 - Send acknowledgement to reporter:
 
   ```
-  Subject: [tainnel-sec-<id>] Acknowledged — initial triage in progress
+  Subject: [pico-sec-<id>] Acknowledged — initial triage in progress
 
   Hi <name>, thanks for the report. We received it at <UTC ts> and have
   opened a private tracking advisory. Triage decision (severity + owner +
   patch ETA) within 72h.
 
-  — Tainnel security
+  — Pico security
   ```
 
 - Open a **private** GitHub Security Advisory at
-  <https://github.com/dantaik/tainnel/security/advisories/new>. Paste report
+  <https://github.com/dantaik/pico/security/advisories/new>. Paste report
   details. Add the reporter as a collaborator on the advisory (with consent).
 
 ### T+0 to T+72 hours
@@ -129,7 +129,7 @@ Validates the whole chain end-to-end without a real vulnerability.
 Operator sends from a personal address, encrypted with the published PGP key:
 
 ```
-Subject: [DRILL] Tainnel security inbox liveness check — <UTC ts>
+Subject: [DRILL] Pico security inbox liveness check — <UTC ts>
 
 This is a scheduled drill, not a real report. Please acknowledge within 24h.
 Drill ID: <random-uuid>
@@ -151,7 +151,7 @@ Drill ID: <random-uuid>
 
 Record drill date + outcome in your team operations log. Close the
 corresponding sub-issue under
-[issue #21](https://github.com/dantaik/tainnel/issues/21) after the first
+[issue #21](https://github.com/dantaik/pico/issues/21) after the first
 successful drill.
 
 ## Open TODOs
@@ -159,7 +159,7 @@ successful drill.
 Things that cannot be fixed in-repo. Replace as the operator stands them up:
 
 - [ ] PagerDuty / Linear schedule URL.
-- [ ] Real PGP fingerprint (replaces `<TAINNEL_PGP_FINGERPRINT_TODO>` in
+- [ ] Real PGP fingerprint (replaces `<PICO_PGP_FINGERPRINT_TODO>` in
       `SECURITY.md`).
 - [ ] Cloudflare Email Routing destination addresses confirmed live.
 - [ ] Backup maintainer GitHub handles in `CODEOWNERS`.

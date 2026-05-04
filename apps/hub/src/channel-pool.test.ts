@@ -1,4 +1,4 @@
-import type { Channel, ChannelState, Signature, SignedState } from '@tainnel/protocol';
+import type { Channel, ChannelState, Signature, SignedState } from '@pico/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelPool } from './channel-pool.js';
 import { type TestDb, makeTestDb } from './db/repos/_test-helpers.js';

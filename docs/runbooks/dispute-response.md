@@ -39,7 +39,7 @@ Wait for `receipt.status === "success"` before declaring success.
 ## Recovery checks
 
 - `cast call <PaymentChannel> "channelStatus(bytes32)" 0x...` returns "Disputed".
-- Hub metrics: `tainnel_hub_dispute_total{outcome="won"}` incremented.
+- Hub metrics: `pico_hub_dispute_total{outcome="won"}` incremented.
 
 ## After-action
 

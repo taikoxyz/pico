@@ -6,7 +6,7 @@ import {
   type Invoice,
   type InvoiceDomain,
   buildInvoiceDomain,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import { hashTypedData, recoverTypedDataAddress } from 'viem';
 
 export interface InvoiceTypedData {

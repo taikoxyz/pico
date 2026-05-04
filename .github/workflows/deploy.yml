@@ -37,7 +37,7 @@ env:
   GAR_IMAGE_PREFIX: ${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}
   GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
   GKE_LOCATION: ${{ vars.GKE_LOCATION }}
-  GKE_NAMESPACE: ${{ vars.GKE_NAMESPACE || 'tainnel' }}
+  GKE_NAMESPACE: ${{ vars.GKE_NAMESPACE || 'pico' }}
 
 jobs:
   deploy:
@@ -170,17 +170,17 @@ jobs:
       - name: Verify rollouts
         run: |
           set -euo pipefail
-          kubectl rollout status statefulset/tainnel-hub -n "$GKE_NAMESPACE" --timeout=10m
-          kubectl rollout status statefulset/tainnel-watchtower -n "$GKE_NAMESPACE" --timeout=10m
-          kubectl rollout status statefulset/tainnel-prometheus -n "$GKE_NAMESPACE" --timeout=10m
-          kubectl rollout status deployment/tainnel-alertmanager -n "$GKE_NAMESPACE" --timeout=5m
-          kubectl rollout status deployment/tainnel-grafana -n "$GKE_NAMESPACE" --timeout=5m
+          kubectl rollout status statefulset/pico-hub -n "$GKE_NAMESPACE" --timeout=10m
+          kubectl rollout status statefulset/pico-watchtower -n "$GKE_NAMESPACE" --timeout=10m
+          kubectl rollout status statefulset/pico-prometheus -n "$GKE_NAMESPACE" --timeout=10m
+          kubectl rollout status deployment/pico-alertmanager -n "$GKE_NAMESPACE" --timeout=5m
+          kubectl rollout status deployment/pico-grafana -n "$GKE_NAMESPACE" --timeout=5m
 
       - name: Verify deployed images
         run: |
           set -euo pipefail
-          actual_hub="$(kubectl get statefulset tainnel-hub -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="hub")].image}')"
-          actual_watchtower="$(kubectl get statefulset tainnel-watchtower -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="watchtower")].image}')"
+          actual_hub="$(kubectl get statefulset pico-hub -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="hub")].image}')"
+          actual_watchtower="$(kubectl get statefulset pico-watchtower -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="watchtower")].image}')"
 
           if [[ "$actual_hub" != "${{ steps.release.outputs.hub_image }}" ]]; then
             echo "::error::Hub image mismatch: expected ${{ steps.release.outputs.hub_image }}, got $actual_hub"
@@ -195,9 +195,9 @@ jobs:
       - name: Verify health endpoints
         run: |
           set -euo pipefail
-          kubectl exec -n "$GKE_NAMESPACE" statefulset/tainnel-hub -c hub -- \
+          kubectl exec -n "$GKE_NAMESPACE" statefulset/pico-hub -c hub -- \
             wget -qO- --timeout=5 http://127.0.0.1:3030/v1/health >/dev/null
-          kubectl exec -n "$GKE_NAMESPACE" statefulset/tainnel-watchtower -c watchtower -- \
+          kubectl exec -n "$GKE_NAMESPACE" statefulset/pico-watchtower -c watchtower -- \
             wget -qO- --timeout=5 http://127.0.0.1:3031/health >/dev/null
 
       - name: Deployment summary

@@ -1,4 +1,4 @@
-# @tainnel/watchtower
+# @pico/watchtower
 
 Standalone monitoring service that subscribes to `PaymentChannel` events on-chain,
 detects when a counterparty publishes an old (fraudulent) state, and submits a

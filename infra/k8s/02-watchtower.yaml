@@ -2,19 +2,19 @@
 # No public surface. The watchtower binds its HTTP server to :: for in-cluster
 # metrics scraping; access health locally via kubectl port-forward.
 #
-# Required Secret: `tainnel-watchtower-secrets` (set via secrets-bootstrap.sh).
+# Required Secret: `pico-watchtower-secrets` (set via secrets-bootstrap.sh).
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: tainnel-watchtower
-  namespace: tainnel
+  name: pico-watchtower
+  namespace: pico
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-watchtower-config
-  namespace: tainnel
+  name: pico-watchtower-config
+  namespace: pico
 data:
   PORT: "3031"
   LOG_LEVEL: "info"
@@ -27,8 +27,8 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tainnel-watchtower-litestream
-  namespace: tainnel
+  name: pico-watchtower-litestream
+  namespace: pico
 data:
   litestream.yml: |
     dbs:
@@ -48,14 +48,14 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tainnel-watchtower
-  namespace: tainnel
+  name: pico-watchtower
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-watchtower
+    app.kubernetes.io/name: pico-watchtower
 spec:
   clusterIP: None
   selector:
-    app.kubernetes.io/name: tainnel-watchtower
+    app.kubernetes.io/name: pico-watchtower
   ports:
     - name: http
       port: 3031
@@ -64,22 +64,22 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: tainnel-watchtower
-  namespace: tainnel
+  name: pico-watchtower
+  namespace: pico
   labels:
-    app.kubernetes.io/name: tainnel-watchtower
+    app.kubernetes.io/name: pico-watchtower
 spec:
-  serviceName: tainnel-watchtower
+  serviceName: pico-watchtower
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: tainnel-watchtower
+      app.kubernetes.io/name: pico-watchtower
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: tainnel-watchtower
+        app.kubernetes.io/name: pico-watchtower
     spec:
-      serviceAccountName: tainnel-watchtower
+      serviceAccountName: pico-watchtower
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -91,16 +91,16 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: watchtower
-          image: REGION-docker.pkg.dev/PROJECT/tainnel/watchtower:VERSION
+          image: REGION-docker.pkg.dev/PROJECT/pico/watchtower:VERSION
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3031
           envFrom:
             - configMapRef:
-                name: tainnel-watchtower-config
+                name: pico-watchtower-config
             - secretRef:
-                name: tainnel-watchtower-secrets
+                name: pico-watchtower-secrets
           # Keep exec probes on localhost so health checks do not depend on
           # Kubernetes Service routing.
           readinessProbe:
@@ -134,7 +134,7 @@ spec:
           args: ["replicate", "-config", "/etc/litestream.yml"]
           envFrom:
             - secretRef:
-                name: tainnel-watchtower-secrets
+                name: pico-watchtower-secrets
           resources:
             requests:
               cpu: 100m
@@ -155,7 +155,7 @@ spec:
       volumes:
         - name: litestream-config
           configMap:
-            name: tainnel-watchtower-litestream
+            name: pico-watchtower-litestream
   volumeClaimTemplates:
     - metadata:
         name: data

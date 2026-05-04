@@ -12,7 +12,7 @@ USAGE
 OUT_DIR=".context/gke-manifests"
 HUB_IMAGE=""
 WATCHTOWER_IMAGE=""
-NAMESPACE="tainnel"
+NAMESPACE="pico"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -65,31 +65,31 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 sed \
-  -e "s|name: tainnel$|name: $NAMESPACE|g" \
-  -e "s|namespace: tainnel$|namespace: $NAMESPACE|g" \
+  -e "s|name: pico$|name: $NAMESPACE|g" \
+  -e "s|namespace: pico$|namespace: $NAMESPACE|g" \
   "$SCRIPT_DIR/00-namespace.yaml" > "$OUT_DIR/00-namespace.yaml"
 sed \
-  "s|REGION-docker.pkg.dev/PROJECT/tainnel/hub:VERSION|$HUB_IMAGE|g" \
+  "s|REGION-docker.pkg.dev/PROJECT/pico/hub:VERSION|$HUB_IMAGE|g" \
   "$SCRIPT_DIR/01-hub.yaml" \
   | sed \
-      -e "s|namespace: tainnel$|namespace: $NAMESPACE|g" \
-      -e "s|\\.tainnel\\.svc|.$NAMESPACE.svc|g" \
+      -e "s|namespace: pico$|namespace: $NAMESPACE|g" \
+      -e "s|\\.pico\\.svc|.$NAMESPACE.svc|g" \
     > "$OUT_DIR/01-hub.yaml"
 sed \
-  "s|REGION-docker.pkg.dev/PROJECT/tainnel/watchtower:VERSION|$WATCHTOWER_IMAGE|g" \
+  "s|REGION-docker.pkg.dev/PROJECT/pico/watchtower:VERSION|$WATCHTOWER_IMAGE|g" \
   "$SCRIPT_DIR/02-watchtower.yaml" \
   | sed \
-      -e "s|namespace: tainnel$|namespace: $NAMESPACE|g" \
-      -e "s|\\.tainnel\\.svc|.$NAMESPACE.svc|g" \
+      -e "s|namespace: pico$|namespace: $NAMESPACE|g" \
+      -e "s|\\.pico\\.svc|.$NAMESPACE.svc|g" \
     > "$OUT_DIR/02-watchtower.yaml"
 for manifest in 03-prometheus.yaml 04-alertmanager.yaml 05-grafana.yaml 06-networkpolicy.yaml; do
   sed \
-    -e "s|namespace: tainnel$|namespace: $NAMESPACE|g" \
-    -e "s|\\.tainnel\\.svc|.$NAMESPACE.svc|g" \
+    -e "s|namespace: pico$|namespace: $NAMESPACE|g" \
+    -e "s|\\.pico\\.svc|.$NAMESPACE.svc|g" \
     "$SCRIPT_DIR/$manifest" > "$OUT_DIR/$manifest"
 done
 
-if grep -R "REGION-docker.pkg.dev/PROJECT/tainnel" "$OUT_DIR"; then
+if grep -R "REGION-docker.pkg.dev/PROJECT/pico" "$OUT_DIR"; then
   echo "Rendered manifests still contain image placeholders." >&2
   exit 1
 fi

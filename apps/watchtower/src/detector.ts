@@ -1,5 +1,5 @@
-import type { ChannelId, SignedState } from '@tainnel/protocol';
-import { isStrictlyNewer } from '@tainnel/state-machine';
+import type { ChannelId, SignedState } from '@pico/protocol';
+import { isStrictlyNewer } from '@pico/state-machine';
 
 export interface DetectionResult {
   readonly fraudulent: boolean;

@@ -6,7 +6,7 @@
 
 services:
   hub:
-    image: tainnel/hub:latest
+    image: pico/hub:latest
     build:
       context: ..
       dockerfile: apps/hub/Dockerfile

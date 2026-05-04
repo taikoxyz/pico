@@ -6,8 +6,8 @@ import type {
   Hex,
   SignedCooperativeClose,
   SignedState,
-} from '@tainnel/protocol';
-import { computeHtlcsRoot } from '@tainnel/state-machine';
+} from '@pico/protocol';
+import { computeHtlcsRoot } from '@pico/state-machine';
 import {
   type Hash,
   type PublicClient,

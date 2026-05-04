@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 K8S_DIR="$ROOT_DIR/infra/k8s"
 
-allowed_pattern='^(REGION-docker\.pkg\.dev/PROJECT/tainnel/(hub|watchtower):VERSION|litestream/litestream:0\.3\.13|prom/prometheus:v2\.54\.1|prom/alertmanager:v0\.27\.0|grafana/grafana:10\.4\.5)$'
+allowed_pattern='^(REGION-docker\.pkg\.dev/PROJECT/pico/(hub|watchtower):VERSION|litestream/litestream:0\.3\.13|prom/prometheus:v2\.54\.1|prom/alertmanager:v0\.27\.0|grafana/grafana:10\.4\.5)$'
 failed=0
 
 while IFS= read -r manifest; do

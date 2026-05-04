@@ -46,13 +46,13 @@ contract HtlcTest is Test {
     /* -------------------------------------------------------------------- */
 
     function test_verifyPreimage_acceptsCorrectSha256() public view {
-        bytes memory preimage = bytes("hello-tainnel");
+        bytes memory preimage = bytes("hello-pico");
         bytes32 ph = sha256(preimage);
         assertTrue(this._call_verifyPreimage(ph, preimage));
     }
 
     function test_verifyPreimage_rejectsTamperedPreimage() public view {
-        bytes memory preimage = bytes("hello-tainnel");
+        bytes memory preimage = bytes("hello-pico");
         bytes32 ph = sha256(preimage);
         bytes memory bad = bytes("hello-taintnel");
         assertFalse(this._call_verifyPreimage(ph, bad));

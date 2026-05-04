@@ -8,10 +8,10 @@ import {EIP712Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/crypt
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title Adjudicator
-/// @notice EIP-712 typed-data verifier for tainnel signed channel artefacts.
+/// @notice EIP-712 typed-data verifier for pico signed channel artefacts.
 /// @dev Pure verification — never moves funds. The companion `PaymentChannel` is the only
 ///      contract that holds and pays out USDC; this contract just answers "did A and B sign
-///      this exact thing?". Domain is `name="tainnel", version="1"` to match
+///      this exact thing?". Domain is `name="pico", version="1"` to match
 ///      `packages/protocol/src/eip712.ts`.
 contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP712Upgradeable {
     /// @notice ABI-encodable channel state. Field order matches the off-chain typed-data spec.
@@ -80,7 +80,7 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
         _disableInitializers();
     }
 
-    /// @notice Initialize the proxy. Sets the EIP-712 domain to `("tainnel", "1")` so digests
+    /// @notice Initialize the proxy. Sets the EIP-712 domain to `("pico", "1")` so digests
     ///         match the off-chain signer.
     /// @param initialOwner Address that may authorize UUPS upgrades.
     function initialize(address initialOwner) external initializer {
@@ -89,7 +89,7 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
         // intermediate `OwnershipTransferred(0, deployer)` event that OZ v4.9.6 would emit.
         _transferOwnership(initialOwner);
         __UUPSUpgradeable_init();
-        __EIP712_init("tainnel", "1");
+        __EIP712_init("pico", "1");
     }
 
     /// @notice EIP-712 struct hash of a `ChannelState`.

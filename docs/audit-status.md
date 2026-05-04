@@ -5,7 +5,7 @@ Replaces ad-hoc "X is open" / "Y was fixed" claims passed around by hand.
 
 This file is a historical reconciliation record. New production-readiness
 work — including any **Open** items below — is tracked as sub-issues under
-[issue #21](https://github.com/dantaik/tainnel/issues/21) on GitHub.
+[issue #21](https://github.com/dantaik/pico/issues/21) on GitHub.
 
 ## Methodology
 
@@ -23,7 +23,7 @@ Status values:
 
 DeepSeek is an AI auditor; further multi-agent audit passes (Claude Opus,
 GPT-5, Gemini, etc.) are tracked under
-[issue #21](https://github.com/dantaik/tainnel/issues/21) before mainnet GA.
+[issue #21](https://github.com/dantaik/pico/issues/21) before mainnet GA.
 
 ## Summary
 
@@ -50,7 +50,7 @@ commit `c4e4cd1` and PR #15.
 | PC-06 | Medium | Channel ID collision risk | Fixed | `PaymentChannel.sol:148` includes `address(this)` in the keccak input |
 | PC-07 | Medium | State machine accepted cross-channel updates | Fixed | `packages/state-machine/src/channel.ts:22` rejects mismatched `channelId` |
 | PC-08 | Medium | Hoodi listed as supported in protocol constants | Fixed | `packages/protocol/src/constants.ts:11-14` removed Hoodi from `SUPPORTED_CHAIN_IDS` |
-| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | `packages/contracts/script/Deploy.s.sol:23,27` still gives deployer ownership. Transfer scripts shipped in `packages/contracts/script/{Deploy,Transfer}Timelock.s.sol`; on-chain transfer is `[human]` per `docs/runbooks/ownership-transfer.md`. Tracked under [issue #21](https://github.com/dantaik/tainnel/issues/21) |
+| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | `packages/contracts/script/Deploy.s.sol:23,27` still gives deployer ownership. Transfer scripts shipped in `packages/contracts/script/{Deploy,Transfer}Timelock.s.sol`; on-chain transfer is `[human]` per `docs/runbooks/ownership-transfer.md`. Tracked under [issue #21](https://github.com/dantaik/pico/issues/21) |
 | PC-10 | Info | EIP-712 oracle should remain pinned and crosstested | Fixed | Oracle pinned via existing forge fuzz + crosstest; no regressions |
 
 ## Hub
@@ -99,7 +99,7 @@ Source: `deepseek_audit_report_client_runtime.md`. Closed by commit `e9bf7ec`.
 
 | ID | Severity | Description | Status | Evidence |
 |---|---|---|---|---|
-| F-01 | Critical | SDK trusts hub-supplied state without verification | Fixed | `packages/sdk/src/client.ts:20-23,348,586,744,869` admit gates from `@tainnel/state-machine` wired into all signed-state ingestion paths |
+| F-01 | Critical | SDK trusts hub-supplied state without verification | Fixed | `packages/sdk/src/client.ts:20-23,348,586,744,869` admit gates from `@pico/state-machine` wired into all signed-state ingestion paths |
 | F-02 | High | Restart consistency gaps | Patched-not-reaudited | Restart still has gaps; subscribe-ack `pendingHtlcs` consumption partial |
 | F-03 | High | Invoice replay possible | Fixed | `client.ts:379` rejects consumed invoice; `verifyInvoice` called (`client.ts:613`); `storage-file.ts:170-176` consumed-mark idempotent |
 | F-04 | Medium | Hub message decoding too permissive | Patched-not-reaudited | `packages/sdk/src/hub-protocol.ts:191-211` validates JSON shape, kind whitelist, id; full discriminated schema validation per kind not implemented; admit gates compensate downstream |

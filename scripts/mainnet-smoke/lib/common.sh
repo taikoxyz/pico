@@ -21,13 +21,13 @@ confirm() {
   [[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]]
 }
 
-# tainnel CLI resolution: prefer pnpm workspace invocation so operators don't
-# need a global install. Falls back to `tainnel` on PATH.
-tainnel_bin() {
-  if command -v tainnel >/dev/null 2>&1; then
-    echo "tainnel"
+# pico CLI resolution: prefer pnpm workspace invocation so operators don't
+# need a global install. Falls back to `pico` on PATH.
+pico_bin() {
+  if command -v pico >/dev/null 2>&1; then
+    echo "pico"
   else
-    echo "pnpm --silent -F @tainnel/cli exec tainnel"
+    echo "pnpm --silent -F @pico/cli exec pico"
   fi
 }
 

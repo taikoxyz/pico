@@ -7,7 +7,7 @@ import {
   DEFAULT_HUB_FEE_FLAT,
   type Hex,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@tainnel/protocol';
+} from '@pico/protocol';
 import { assertProductionConfig } from './config-validate.js';
 
 export interface HubConfig {
@@ -62,8 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     hubFeeFlat: env.HUB_FEE_FLAT !== undefined ? BigInt(env.HUB_FEE_FLAT) : DEFAULT_HUB_FEE_FLAT,
     dbDriver: driver,
     dbUrl:
-      env.DB_URL ??
-      (driver === 'sqlite' ? './data/hub.sqlite' : 'postgres://localhost/tainnel_hub'),
+      env.DB_URL ?? (driver === 'sqlite' ? './data/hub.sqlite' : 'postgres://localhost/pico_hub'),
     prometheusPort: Number(env.PROMETHEUS_PORT ?? 9090),
     metricsBindAddr:
       env.METRICS_BIND_ADDR ?? (env.KUBERNETES_SERVICE_HOST !== undefined ? '::' : '127.0.0.1'),
@@ -74,7 +73,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     operatorToken: env.HUB_OPERATOR_TOKEN,
   };
 
-  if (env.TAINNEL_SKIP_PROD_ASSERT !== 'true') {
+  if (env.PICO_SKIP_PROD_ASSERT !== 'true') {
     assertProductionConfig(cfg, {
       env,
       operatorToken: cfg.operatorToken,

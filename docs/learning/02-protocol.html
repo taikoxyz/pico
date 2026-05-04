@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tainnel · 02 protocol</title>
+<title>pico · 02 protocol</title>
 <style>
   :root {
     --ink: #1d1d1b;
@@ -71,7 +71,7 @@
 <p class="subtitle">The wire format. Types, EIP-712 schemas, constants, frozen at P1.</p>
 
 <h2>What it is</h2>
-<p>The <code>packages/protocol/</code> package is a tiny TypeScript library with no runtime logic. It exports type definitions, EIP-712 schemas, network constants, and HTLC root helpers. Every other package in the monorepo imports it; the on-chain Solidity in <a href="./01-contracts.html">contracts</a> mirrors the same shapes manually so that the typed-data digests on both sides of the wire match byte-for-byte. If you ever wonder where the canonical definition of "what is a channel state" lives in tainnel, this is it.</p>
+<p>The <code>packages/protocol/</code> package is a tiny TypeScript library with no runtime logic. It exports type definitions, EIP-712 schemas, network constants, and HTLC root helpers. Every other package in the monorepo imports it; the on-chain Solidity in <a href="./01-contracts.html">contracts</a> mirrors the same shapes manually so that the typed-data digests on both sides of the wire match byte-for-byte. If you ever wonder where the canonical definition of "what is a channel state" lives in pico, this is it.</p>
 
 <h2>Why it exists</h2>
 <p>State channel safety hinges on one promise: the digest a counterparty signs off-chain is the exact digest the contract recovers on-chain when something goes wrong. Drift the field order, swap a <code>uint64</code> for a <code>uint256</code>, or rename a struct, and signatures stop verifying — usually quietly, until the moment you actually need a dispute to resolve. Centralizing the wire format in a single zero-logic package is how we keep that promise. The state machine, SDK, hub, watchtower, and CLI all read the same constants from the same file. Anyone touching the wire format touches one place, sees one diff, and bumps one version.</p>
@@ -117,10 +117,10 @@
 
   <rect class="pill pill-accent" x="500" y="160" width="160" height="50" rx="8"/>
   <text class="pill-text" x="580" y="182" text-anchor="middle">cli</text>
-  <text class="label" x="580" y="200" text-anchor="middle">tainnel pay / listen</text>
+  <text class="label" x="580" y="200" text-anchor="middle">pico pay / listen</text>
 
   <rect class="pill" x="270" y="150" width="160" height="70" rx="10"/>
-  <text class="pill-text" x="350" y="178" text-anchor="middle" font-weight="600">@tainnel/protocol</text>
+  <text class="pill-text" x="350" y="178" text-anchor="middle" font-weight="600">@pico/protocol</text>
   <text class="label" x="350" y="196" text-anchor="middle">single source of truth</text>
   <text class="label" x="350" y="210" text-anchor="middle">P1 frozen</text>
 
@@ -141,7 +141,7 @@
 
 <p>Mechanically the package is small: five TypeScript files. <code>types.ts</code> defines <code>ChannelState</code>, <code>Update</code>, <code>Htlc</code>, <code>CooperativeClose</code>, and their signed wrappers. <code>eip712.ts</code> declares the typed-data domain and per-struct field arrays in the exact order the Adjudicator hashes them. <code>constants.ts</code> exposes chain id, contract addresses, and value bounds. <code>htlc-root.ts</code> implements the sorted-keccak Merkle aggregation used to commit a set of in-flight HTLCs to a single <code>bytes32</code>. <code>events.ts</code> reserves Nostr event-kind numbers for the future Phase 2 DVM payment-discovery layer (defined here so the allocation is fixed in v1 wire format and cannot drift later).</p>
 
-<p>None of these files do anything at import time. The package is a contract — in the legal sense — between every other package in the repo. Importing a constant from <code>@tainnel/protocol</code> is the project-wide signal that you are agreeing to the v1 wire format and will not silently substitute a different shape.</p>
+<p>None of these files do anything at import time. The package is a contract — in the legal sense — between every other package in the repo. Importing a constant from <code>@pico/protocol</code> is the project-wide signal that you are agreeing to the v1 wire format and will not silently substitute a different shape.</p>
 
 <h3>EIP-712 schemas</h3>
 <p>The four typed-data structs every signer and verifier shares:</p>
@@ -164,7 +164,7 @@
     <td><code>channelId</code>(bytes32), <code>version</code>(uint64), <code>finalBalanceA</code>(uint256), <code>finalBalanceB</code>(uint256), <code>token</code>(address)</td>
   </tr>
 </table>
-<p>The EIP-712 domain is fixed: <code>name="tainnel"</code>, <code>version="1"</code>, <code>chainId=167000</code>, <code>verifyingContract</code> = the Adjudicator proxy address. Signing with any other domain produces a digest the on-chain Adjudicator will not accept, by construction.</p>
+<p>The EIP-712 domain is fixed: <code>name="pico"</code>, <code>version="1"</code>, <code>chainId=167000</code>, <code>verifyingContract</code> = the Adjudicator proxy address. Signing with any other domain produces a digest the on-chain Adjudicator will not accept, by construction.</p>
 
 <h2>Public surface</h2>
 <table>
@@ -228,7 +228,7 @@
 </ul>
 
 <h2>Tests</h2>
-<p>One test file: <code>packages/protocol/src/index.test.ts</code>. Because the package is pure types and constants, the only test is a smoke check that all expected exports compile and resolve. There is no logic to unit-test here; the actual signing and verification correctness is covered by the <a href="./03-state-machine.html">state-machine</a> tests on the off-chain side and the <a href="./01-contracts.html">contracts</a> tests on the on-chain side. Run with <code>pnpm --filter @tainnel/protocol test</code> (vitest).</p>
+<p>One test file: <code>packages/protocol/src/index.test.ts</code>. Because the package is pure types and constants, the only test is a smoke check that all expected exports compile and resolve. There is no logic to unit-test here; the actual signing and verification correctness is covered by the <a href="./03-state-machine.html">state-machine</a> tests on the off-chain side and the <a href="./01-contracts.html">contracts</a> tests on the on-chain side. Run with <code>pnpm --filter @pico/protocol test</code> (vitest).</p>
 
 <p>The fact that this package has nothing to mock or stub is deliberate. Logic-free packages do not regress; only their consumers do. If a contract field is renamed or reordered, the type checker in every consuming package fails immediately.</p>
 
@@ -245,7 +245,7 @@
   <a href="./03-state-machine.html">→</a>
 </div>
 
-<div class="footer">tainnel · learning · 02 protocol</div>
+<div class="footer">pico · learning · 02 protocol</div>
 
 </div>
 </body>

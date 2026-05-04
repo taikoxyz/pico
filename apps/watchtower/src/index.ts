@@ -1,6 +1,6 @@
-import type { Address, ChainId, ChannelId, Hex, Signature, SignedState } from '@tainnel/protocol';
-import { DEFAULT_DISPUTE_WINDOW_MS } from '@tainnel/protocol';
-import { verifyChannelStateSignature } from '@tainnel/state-machine';
+import type { Address, ChainId, ChannelId, Hex, Signature, SignedState } from '@pico/protocol';
+import { DEFAULT_DISPUTE_WINDOW_MS } from '@pico/protocol';
+import { verifyChannelStateSignature } from '@pico/state-machine';
 import Database from 'better-sqlite3';
 import type { FastifyInstance } from 'fastify';
 import { type PublicClient, parseAbi } from 'viem';
