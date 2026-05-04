@@ -21,7 +21,8 @@ infra/k8s/
 ├── 02-watchtower.yaml          Watchtower StatefulSet + headless Service (no public surface).
 ├── 03-prometheus.yaml          Prometheus StatefulSet + Service + scrape/alert ConfigMap.
 ├── 04-alertmanager.yaml        Alertmanager Deployment + Service + ConfigMap.
-└── 05-grafana.yaml             Grafana Deployment + Service + provisioning ConfigMaps.
+├── 05-grafana.yaml             Grafana Deployment + Service + provisioning ConfigMaps.
+└── 06-networkpolicy.yaml       Default-deny NetworkPolicy + documented traffic flows.
 ```
 
 ## Prerequisites
@@ -33,7 +34,7 @@ infra/k8s/
 - A Cloudflare R2 bucket (or any S3-compatible store) for litestream
   backups, and an HMAC access key + secret pair scoped to that bucket.
 - A DNS zone you control for the public hub hostname (default
-  `hub.pico.dev`).
+  `pico.taiko.xyz`).
 
 ## One-time setup
 
@@ -63,40 +64,43 @@ gcloud artifacts repositories create pico \
 gcloud auth configure-docker us-central1-docker.pkg.dev
 ```
 
-### Build + push images
+### Release images and deploy
 
-From the repo root:
+Hub and watchtower production images are built by the `gke-images` GitHub
+Actions workflow whenever a `v*` tag is pushed. The workflow builds both
+Dockerfiles with `INCLUDE_LITESTREAM=1`, pushes versioned images to Artifact
+Registry, and uploads a `gke-manifests-${tag}` artifact containing rendered
+Kubernetes manifests with exact image references. After the image push
+succeeds, it calls `.github/workflows/deploy.yml` to apply those manifests to
+GKE and verify the rollout.
 
-```bash
-HUB_IMG=us-central1-docker.pkg.dev/YOUR_PROJECT/pico/hub:v0.1.0
-WT_IMG=us-central1-docker.pkg.dev/YOUR_PROJECT/pico/watchtower:v0.1.0
+Configure these GitHub repository variables before pushing a release tag:
 
-docker build \
-  --build-arg INCLUDE_LITESTREAM=1 \
-  -f apps/hub/Dockerfile \
-  -t "$HUB_IMG" .
-docker push "$HUB_IMG"
-
-docker build \
-  --build-arg INCLUDE_LITESTREAM=1 \
-  -f apps/watchtower/Dockerfile \
-  -t "$WT_IMG" .
-docker push "$WT_IMG"
+```text
+GCP_PROJECT_ID=<your-project-id>
+GAR_LOCATION=us-central1
+GAR_REPOSITORY=pico
+GCP_WORKLOAD_IDENTITY_PROVIDER=projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+GCP_SERVICE_ACCOUNT=<service-account>@<project-id>.iam.gserviceaccount.com
+GKE_CLUSTER=pico-prod
+GKE_LOCATION=us-central1
+GKE_NAMESPACE=pico                 # optional; defaults to pico
 ```
 
-Then substitute the placeholders in `01-hub.yaml` and `02-watchtower.yaml`:
+The service account must be impersonable by the GitHub Workload Identity
+provider. It needs permission to upload Docker images to Artifact Registry
+(for example `roles/artifactregistry.writer` on the repository), read the GKE
+cluster (`roles/container.clusterViewer`), and apply resources in the target
+Kubernetes namespace. Bind Kubernetes RBAC to the Google service account before
+the first automated deploy.
 
-```bash
-sed -i.bak \
-  "s|REGION-docker.pkg.dev/PROJECT/pico/hub:VERSION|$HUB_IMG|g" \
-  infra/k8s/01-hub.yaml
-sed -i.bak \
-  "s|REGION-docker.pkg.dev/PROJECT/pico/watchtower:VERSION|$WT_IMG|g" \
-  infra/k8s/02-watchtower.yaml
-```
-
-(The `.bak` files are gitignored as a safety net; remove them after
-review.)
+The deploy workflow uses GitHub `environment: production`, so configure the
+environment's required reviewers/protection rules in repository settings if a
+human approval gate is required. The source manifests keep placeholder image
+references; `infra/k8s/render-manifests.sh` renders immutable
+`v*-<short_sha>` image tags at deploy time.
+CI runs `infra/k8s/lint-images.sh` to ensure only the approved placeholders
+and pinned third-party images appear in source manifests.
 
 ## Deploy
 
@@ -136,6 +140,9 @@ LITESTREAM_R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 # .secrets/monitoring-prod.env
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=<random; rotate after first login>
+ALERTMANAGER_DEFAULT_WEBHOOK_URL=https://hooks.slack.com/services/...
+ALERTMANAGER_PAGER_WEBHOOK_URL=https://events.pagerduty.com/...
+ALERTMANAGER_TRIAGE_WEBHOOK_URL=https://api.linear.app/...
 ```
 
 Apply them via the bootstrap script. It refuses to write any value that
@@ -149,12 +156,30 @@ infra/k8s/secrets-bootstrap.sh --bootstrap-monitoring --env-file .secrets/monito
 
 ### 3. Workloads
 
+Normal deploys are automatic: push a `v*` tag, wait for the `gke-images`
+workflow to push images, then approve the `production` environment deployment
+if protection rules are enabled.
+
+To redeploy an existing release tag, run the `deploy` GitHub Action manually
+with `release_tag=vX.Y.Z`. It derives the exact `vX.Y.Z-<short_sha>` image
+references, verifies they exist in Artifact Registry, applies manifests, and
+checks rollouts and health endpoints.
+
+For emergency local deploys, render exact image references and apply them:
+
 ```bash
-kubectl apply -f infra/k8s/01-hub.yaml
-kubectl apply -f infra/k8s/02-watchtower.yaml
-kubectl apply -f infra/k8s/03-prometheus.yaml
-kubectl apply -f infra/k8s/04-alertmanager.yaml
-kubectl apply -f infra/k8s/05-grafana.yaml
+infra/k8s/render-manifests.sh \
+  --hub-image us-central1-docker.pkg.dev/YOUR_PROJECT/pico/hub:vX.Y.Z-abc123def456 \
+  --watchtower-image us-central1-docker.pkg.dev/YOUR_PROJECT/pico/watchtower:vX.Y.Z-abc123def456 \
+  --out-dir .context/gke-manifests
+
+kubectl apply -f .context/gke-manifests/00-namespace.yaml
+kubectl apply -f .context/gke-manifests/01-hub.yaml
+kubectl apply -f .context/gke-manifests/02-watchtower.yaml
+kubectl apply -f .context/gke-manifests/03-prometheus.yaml
+kubectl apply -f .context/gke-manifests/04-alertmanager.yaml
+kubectl apply -f .context/gke-manifests/05-grafana.yaml
+kubectl apply -f .context/gke-manifests/06-networkpolicy.yaml
 ```
 
 Watch them come up:
@@ -168,14 +193,13 @@ kubectl get pods -n pico -w
 ```bash
 # Hub: public via Ingress (after ManagedCertificate provisions, ~10–20 min).
 kubectl get ingress -n pico pico-hub
-curl -fsS https://hub.pico.dev/v1/health
+curl -fsS https://pico.taiko.xyz/v1/health
 
 # Watchtower: internal only.
 kubectl port-forward -n pico statefulset/pico-watchtower 3031:3031 &
 curl -fsS http://localhost:3031/health
 
-# Prometheus: confirm scrape targets (will report `up==0` for hub +
-# watchtower until the metrics-binding follow-up below is resolved).
+# Prometheus: confirm hub + watchtower scrape targets are up.
 kubectl port-forward -n pico svc/pico-prometheus 9090:9090 &
 open http://localhost:9090/targets
 
@@ -186,6 +210,19 @@ open http://localhost:3000
 # Litestream: confirm a snapshot uploaded to R2.
 kubectl logs -n pico statefulset/pico-hub -c litestream --tail=50
 ```
+
+## NetworkPolicy
+
+`06-networkpolicy.yaml` applies default deny ingress and egress to the
+`pico` namespace, then allows only the production traffic flows:
+
+- All pods can resolve DNS through kube-dns on TCP/UDP 53.
+- GCE load balancer and health check ranges can reach hub HTTP on `3030`.
+- Prometheus can scrape hub `9090`, watchtower `3031`, and send alerts to
+  Alertmanager `9093`.
+- Grafana can query Prometheus on `9090`.
+- Hub, watchtower, and Alertmanager can make outbound HTTPS calls on `443`
+  for Taiko RPC, R2 backups, and on-call webhook delivery.
 
 ## DNS
 
@@ -222,30 +259,6 @@ for these manifests.
 
 ## Follow-ups
 
-### 🛑 Metrics binding
-
-Hub + watchtower currently bind their `/metrics` listener to `127.0.0.1`
-inside the pod:
-
-- Hub: `apps/hub/src/server.ts:116` — `metricsApp.listen({ port:
-  config.prometheusPort, host: '127.0.0.1' })`.
-- Watchtower: `apps/watchtower/src/index.ts:239` — `http.listen({ port:
-  opts.httpPort ?? 0, host: '127.0.0.1' })`.
-
-Until those bindings are widened, Prometheus running in a sibling pod
-will report `up == 0` for both jobs even though the pods are healthy.
-Three options:
-
-1. Patch hub + watchtower to bind `::` (or `0.0.0.0`) when an env var
-   like `METRICS_BIND_ADDR=::` is set, then redeploy. Cleanest.
-2. Run a tiny `socat`-style sidecar in each pod that proxies
-   `127.0.0.1:9090` to the pod's eth0 interface.
-3. Run an in-pod Prometheus Agent and `remote_write` to a central
-   Prometheus or Grafana Cloud.
-
-This is the same gap documented in `infra/fly/README.md` and
-`infra/monitoring/README.md`.
-
 ### Bucket setup
 
 R2 buckets for litestream should have:
@@ -258,17 +271,12 @@ R2 buckets for litestream should have:
 
 ### Image tag pinning
 
-The deploy workflow at `.github/workflows/deploy.yml` (Fly path) gates
-on `v*` tags. For the GKE path, recommend the same: build images
-labelled `vX.Y.Z-<short-sha>` and use that as the StatefulSet image.
-Don't deploy from `:latest`.
+The GKE image and deploy workflows gate on `v*` tags, build images labelled
+`vX.Y.Z-<short-sha>`, and verify the StatefulSets are running those exact
+references. Don't deploy from `:latest`.
 
 ### Optional add-ons not shipped here
 
-- NetworkPolicy locking pod-to-pod traffic. Autopilot supports them; a
-  policy that restricts hub ingress to the GCE LB and the Prometheus
-  pod, and watchtower ingress to the Prometheus pod only, is a sane
-  next step.
 - HorizontalPodAutoscaler. Out of scope for v1 (single-replica
   architecture).
 - Backup job that runs `infra/scripts/restore-drill.sh` against staging

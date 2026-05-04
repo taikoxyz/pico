@@ -2,10 +2,11 @@
 
 Production deployment manifests and supporting operational scripts. v1 targets:
 
-- **Hosting:** Fly.io (per `docs/plans/09-ops.md`).
+- **Hosting:** GKE Autopilot primary, Fly.io preserved as a fallback path.
 - **Hub:** single instance + litestream sidecar replicating SQLite to
   Cloudflare R2.
-- **Watchtower:** single instance in a different region from the hub.
+- **Watchtower:** single instance + litestream sidecar replicating SQLite to
+  Cloudflare R2.
 - **Monitoring:** Prometheus + Grafana + Alertmanager (`infra/monitoring/`).
 
 ## Layout
@@ -20,19 +21,22 @@ infra/
 │   └── watchtower.yml              Litestream config for the watchtower DB.
 ├── scripts/
 │   └── restore-drill.sh            Restore-from-backup drill (used by CI).
+├── k8s/                            GKE Autopilot manifests — see k8s/README.md.
 ├── fly/                            Fly.io production manifests — see fly/README.md.
 └── monitoring/                     Prometheus + Grafana + Alertmanager stack.
 ```
 
 ## Status
 
-Production manifests live in `fly/` and the deploy workflow at
-`.github/workflows/deploy.yml`. See `docs/plans/09-ops.md` for the full P9
-task list and `docs/launch-checklist.md` for what gates remain before mainnet
-GA.
+The primary automated production deploy path is GKE: `gke-images` builds and
+pushes versioned Artifact Registry images on `v*` tags, then calls
+`.github/workflows/deploy.yml` to apply rendered manifests and verify rollout.
+The Fly.io manual deploy workflow remains available at
+`.github/workflows/fly-deploy.yml`. Outstanding ops work is tracked under
+[issue #21](https://github.com/dantaik/pico/issues/21).
 
 ## Build flags
 
-`apps/hub/Dockerfile` accepts a build arg `INCLUDE_LITESTREAM=1` that installs
-the litestream binary alongside the hub process. Default off so dev images
-stay small.
+`apps/hub/Dockerfile` and `apps/watchtower/Dockerfile` accept a build arg
+`INCLUDE_LITESTREAM=1` that installs the litestream binary alongside the app
+process. Default off so dev images stay small.

@@ -28,30 +28,12 @@ Edit `prometheus.yml`'s `scrape_configs` and replace
 with your real targets. Reload Prometheus with `curl -X POST
 http://prometheus:9090/-/reload` (the compose passes `--web.enable-lifecycle`).
 
-## 🛑 Deployment prerequisite — metrics binding
+## Fly private metrics scraping
 
-Both services currently bind their `/metrics` endpoints to `127.0.0.1`:
-
-- Hub: `apps/hub/src/server.ts:116` — `metricsApp.listen({ port:
-  config.prometheusPort, host: '127.0.0.1' })`.
-- Watchtower: `apps/watchtower/src/index.ts:239` — `http.listen({ port:
-  opts.httpPort ?? 0, host: '127.0.0.1' })`.
-
-A Prometheus scraper running in a sibling Fly app **cannot** scrape these —
-the listener is not reachable over Fly's 6PN private network. Pick one of
-these before flipping mainnet alerts on:
-
-1. Patch hub + watchtower to bind `/metrics` on `::` / `fly-local-6pn` when
-   `FLY_APP_NAME` is set, then expose 9090 / 3031 as a private 6PN-only Fly
-   service. Cleanest, but needs a code change in both apps.
-2. Run Prometheus + Grafana Agent as an additional `[processes]` entry
-   inside each app machine and `remote_write` to Grafana Cloud. No bind
-   change, but couples scraper lifecycle to app lifecycle.
-3. Run a small socat-style relay process that forwards `127.0.0.1:9090` to
-   `[fly-local-6pn]:9090`. Hacky.
-
-Until one of these is in place, the scrape config above will report `up == 0`
-and `HubDown` / `WatchtowerDown` will fire.
+Both services support `METRICS_BIND_ADDR`. Fly keeps the default
+`127.0.0.1`, so a Prometheus scraper running in a sibling Fly app cannot reach
+metrics unless the app manifests set `METRICS_BIND_ADDR=::` and expose
+private-only 6PN services for hub `9090` and watchtower `3031`.
 
 ## Adding a new alert
 

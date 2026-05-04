@@ -256,13 +256,13 @@ spec:
                 secretKeyRef:
                   name: pico-monitoring-secrets
                   key: GRAFANA_ADMIN_USER
-                  optional: true
+                  optional: false
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: pico-monitoring-secrets
                   key: GRAFANA_ADMIN_PASSWORD
-                  optional: true
+                  optional: false
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
           readinessProbe:
@@ -319,7 +319,7 @@ spec:
 #   namespace: pico
 # spec:
 #   domains:
-#     - grafana.pico.dev
+#     - grafana.pico.taiko.xyz
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress

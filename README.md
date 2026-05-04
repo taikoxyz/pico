@@ -93,33 +93,35 @@ Any-language agents shell out to the CLI; non-TS callers parse the `--json` outp
 ## Status
 
 Pre-GA staging. AI-audited (DeepSeek, see `deepseek_audit_report_*.md`),
-critical and high findings addressed in code; external human audit, multisig
+critical and high findings addressed in code. Multi-agent re-audit, multisig
 ownership transfer, and mainnet smoke channel still pending. Mainnet config
 gates fail-fast on dev keys and unsigned envelopes
 (`apps/{hub,watchtower}/src/config-validate.ts`); state-acceptance gates
 (`packages/state-machine/src/admit.ts`) verify hub-supplied states before
 the SDK persists them.
 
-See [`docs/launch-checklist.md`](./docs/launch-checklist.md) for the
-phase-gated path to GA and [`docs/audit-status.md`](./docs/audit-status.md)
-for the per-finding reconciliation.
+Production-readiness work is tracked on GitHub. See the master tracker
+[issue #21](https://github.com/dantaik/pico/issues/21) for the full
+sub-issue checklist and
+[`docs/audit-status.md`](./docs/audit-status.md) for the per-finding
+reconciliation.
 
 ## Documentation
 
-- [`docs/launch-checklist.md`](./docs/launch-checklist.md) — phase-gated
-  path to mainnet GA. **Start here if you want to know what's left.**
+- [Issue #21](https://github.com/dantaik/pico/issues/21) — master
+  production-readiness tracker. **Start here if you want to know what's
+  left.** Sub-issues are categorized (`code` / `test` / `gke` /
+  `taiko-contract` / `docs` / `audit` / `ci`) and prioritized
+  (`high` / `medium` / `low`).
 - [`docs/audit-status.md`](./docs/audit-status.md) — per-finding audit
   reconciliation against current code.
 - [`docs/learning/index.html`](./docs/learning/index.html) — per-component
   HTML tutorials, offline-readable.
-- [`ROADMAP.md`](./ROADMAP.md) — phase status, what to work on next, open
-  decisions, Phase 2 follow-ups.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — components, trust assumptions,
   why 1-hop.
 - [`docs/protocol-spec.md`](./docs/protocol-spec.md) — formal protocol spec.
 - [`docs/threat-model.md`](./docs/threat-model.md) — adversaries and failure
   modes.
-- [`docs/plans/`](./docs/plans/) — detailed plan per phase (P1–P11).
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — coding standards & PR process.
 - [`SECURITY.md`](./SECURITY.md) — disclosure policy.
 

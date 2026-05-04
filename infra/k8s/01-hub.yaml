@@ -2,8 +2,8 @@
 # GCE-managed TLS certificate. Single replica with a 10Gi PVC for SQLite.
 #
 # Public surface: HTTPS on the Ingress's external IP (point your DNS at it).
-# Metrics surface: 9090 inside the pod, bound to 127.0.0.1 by the app — see
-# infra/k8s/README.md "Follow-ups" before relying on cross-pod scraping.
+# Metrics surface: 9090 inside the pod, bound to :: for in-cluster Prometheus
+# scraping.
 #
 # Required Secret: `pico-hub-secrets` (set via secrets-bootstrap.sh).
 
@@ -24,6 +24,7 @@ data:
   DB_DRIVER: "sqlite"
   DB_URL: "/data/hub.sqlite"
   PROMETHEUS_PORT: "9090"
+  METRICS_BIND_ADDR: "::"
   HUB_REQUIRE_SIGNED_ENVELOPE: "true"
   CHAIN_ID: "167000"
   NODE_ENV: "production"
@@ -121,7 +122,6 @@ spec:
     enabled: true
     responseCodeName: MOVED_PERMANENTLY_DEFAULT
 ---
-# Replace `hub.pico.dev` with your real hostname before applying.
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
@@ -129,7 +129,7 @@ metadata:
   namespace: pico
 spec:
   domains:
-    - hub.pico.dev
+    - pico.taiko.xyz
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

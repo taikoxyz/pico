@@ -19,9 +19,8 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets:
-          # Replace with your real metrics target. On Fly the canonical
-          # name is pico-hub-prod.internal:9090, BUT the hub currently
-          # binds /metrics to 127.0.0.1 inside the machine — see README.
+          # Replace with your real metrics target. On Fly, set
+          # METRICS_BIND_ADDR=:: and add a private 6PN service first.
           - pico-hub-prod.internal:9090
 
   - job_name: pico-watchtower

@@ -1,11 +1,11 @@
 import { type Address, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   InMemorySigner,
   MockChainAdapter,
   type MockHubHandle,
   startMockHub,
-} from './_test/index.js';
+} from '@pico/test-utils';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelClient } from './client.js';
 import { MemoryStorage } from './storage.js';
 import { WebSocketTransport } from './transport.js';

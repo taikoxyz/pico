@@ -17,7 +17,7 @@ issue. Two channels, in order of preference:
    This routes to the maintainers without disclosing the report publicly and
    triggers a notification immediately.
 
-2. **Encrypted email** to `security@pico.dev` with PGP. Fingerprint:
+2. **Encrypted email** to `security@taiko.xyz` with PGP. Fingerprint:
    `<PICO_PGP_FINGERPRINT_TODO>`. Until that marker is replaced with a real
    fingerprint and `pgp-key.asc` exists at the repo root, **PGP-encrypted
    email is not yet accepted — use the GitHub advisory channel above.** See

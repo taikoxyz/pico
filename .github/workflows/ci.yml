@@ -57,6 +57,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec turbo run build --filter='!@pico/contracts'
 
+  k8s-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Kubernetes image references
+        run: bash infra/k8s/lint-images.sh
+
   test-ts:
     runs-on: ubuntu-latest
     steps:
@@ -184,7 +191,35 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.0
+      - name: Cache forge libraries
+        uses: actions/cache@v4
+        with:
+          path: packages/contracts/lib
+          key: forge-lib-${{ runner.os }}-${{ hashFiles('packages/contracts/remappings.txt', 'packages/contracts/foundry.toml', 'packages/contracts/foundry.lock') }}
+      - name: Install forge libraries
+        working-directory: packages/contracts
+        run: |
+          if [ ! -f lib/forge-std/src/Test.sol ]; then
+            rm -rf lib/forge-std
+            git clone --depth 1 --branch v1.16.1 https://github.com/foundry-rs/forge-std.git lib/forge-std
+          fi
+          if [ ! -f lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol ]; then
+            rm -rf lib/openzeppelin-contracts
+            git clone --depth 1 --branch v5.6.1 https://github.com/OpenZeppelin/openzeppelin-contracts.git lib/openzeppelin-contracts
+          fi
+          if [ ! -f lib/openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol ]; then
+            rm -rf lib/openzeppelin-contracts-upgradeable
+            git clone --depth 1 --branch v4.9.6 https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable.git lib/openzeppelin-contracts-upgradeable
+          fi
       - run: pnpm install --frozen-lockfile
+      - name: Build contract artifacts
+        working-directory: packages/contracts
+        run: forge build
+      - name: Build TS packages
+        run: pnpm exec turbo run build --filter='!@pico/contracts'
       - name: Hub coverage
         run: pnpm -F @pico/hub test:coverage
       - name: Watchtower coverage
@@ -194,35 +229,50 @@ jobs:
 
   e2e-fork:
     runs-on: ubuntu-latest
-    if: ${{ secrets.TAIKO_MAINNET_RPC_URL != '' }}
+    env:
+      E2E_FORK_URL: ${{ secrets.TAIKO_MAINNET_RPC_URL }}
+      # Optional. When set, the value-flow + penalty-drill fork tests
+      # impersonate this account to fund Alice/Bob/Hub with real USDC.
+      # When unset, those tests skip cleanly and only bytecode-parity
+      # boot is exercised.
+      E2E_USDC_WHALE: ${{ secrets.E2E_USDC_WHALE || '' }}
     steps:
+      - name: Check fork RPC availability
+        id: gate
+        run: |
+          if [ -z "$E2E_FORK_URL" ]; then
+            echo "TAIKO_MAINNET_RPC_URL secret not set; skipping forked E2E"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
       - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - uses: foundry-rs/foundry-toolchain@v1
+        if: steps.gate.outputs.skip != 'true'
         with:
           version: v1.7.0
-      - run: pnpm install --frozen-lockfile
+      - if: steps.gate.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
       - name: Build TS packages
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm exec turbo run build --filter='!@pico/contracts'
       - name: Run forked E2E tests
-        env:
-          E2E_FORK_URL: ${{ secrets.TAIKO_MAINNET_RPC_URL }}
-          # Optional. When set, the value-flow + penalty-drill fork tests
-          # impersonate this account to fund Alice/Bob/Hub with real USDC.
-          # When unset, those tests skip cleanly and only bytecode-parity
-          # boot is exercised.
-          E2E_USDC_WHALE: ${{ secrets.E2E_USDC_WHALE || '' }}
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm -F @pico/e2e test:fork
 
   ci:
     if: always()
-    needs: [lint, typecheck, build, test-ts, test-solidity, e2e, coverage]
+    needs: [lint, typecheck, build, k8s-manifests, test-ts, test-solidity, e2e, e2e-fork, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs passed

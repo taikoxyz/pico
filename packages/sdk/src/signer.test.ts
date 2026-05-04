@@ -12,8 +12,8 @@ import {
   verifyInvoiceSignature,
   verifyUpdateSignature,
 } from '@pico/state-machine';
+import { InMemorySigner } from '@pico/test-utils';
 import { describe, expect, it } from 'vitest';
-import { InMemorySigner } from './signer.test-only.js';
 
 const PRIVATE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const VERIFYING_CONTRACT = '0x07B32f52523Fdf0780821595422DccEF31FA2335' as const;

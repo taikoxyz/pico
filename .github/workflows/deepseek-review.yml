@@ -1,0 +1,193 @@
+name: deepseek-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  deepseek-review:
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@deepseek'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Resolve PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Gate on DEEPSEEK_API_KEY (fork PRs skip cleanly)
+        id: gate
+        run: |
+          if [ -z "${{ secrets.DEEPSEEK_API_KEY }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::DEEPSEEK_API_KEY is not available (likely a fork PR). Skipping DeepSeek review."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run DeepSeek code review
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/github-script@v8
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.pr.outputs.number }}');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const title = pr.data.title;
+            const body = pr.data.body || '';
+
+            const diffResponse = await github.request({
+              method: 'GET',
+              url: `/repos/${owner}/${repo}/pulls/${prNumber}`,
+              headers: { Accept: 'application/vnd.github.v3.diff' }
+            });
+
+            const diffText = typeof diffResponse.data === 'string'
+              ? diffResponse.data
+              : JSON.stringify(diffResponse.data);
+
+            if (!diffText || diffText.length === 0) {
+              console.log('No diff found - skipping review');
+              return 'No diff to review.';
+            }
+
+            const MAX_DIFF = 50000;
+            const truncatedDiff = diffText.length > MAX_DIFF
+              ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
+              : diffText;
+
+            const systemPrompt = `You are a senior software engineer performing a code review on the pico monorepo (codename: dakar).
+
+            pico is a trustless 1-hop state-channel network for stablecoin (USDC) micro-payments on Taiko L2. v1 is an AI-agent payments system; the agent surface is the pico CLI. No native token, no governance, no bridges. The repo contains:
+            - Solidity 0.8.26 contracts (Foundry) in packages/contracts: PaymentChannel, Adjudicator, HTLC
+            - TypeScript apps in apps/: cli (agent runtime), hub (Fastify + ws + sqlite/postgres), watchtower (fraud monitor that posts penalty txs)
+            - TypeScript packages in packages/: sdk (viem-based client SDK), protocol (shared types, EIP-712 schemas, Nostr event kinds), state-machine (pure-function channel state transitions), dvm-adapter (Nostr DVM helpers), test-utils
+
+            Provide a CONCISE code review in the following format. Skip sections that don't apply:
+
+            ### 🔴 Critical Issues
+            Issues that could lead to fund loss, channel-state corruption, signature/replay attacks, watchtower bypass, or chain halts.
+
+            ### 🟡 Warnings
+            Logic errors, missed edge cases, race conditions, or potential bugs that should be addressed.
+
+            ### 🔵 Suggestions
+            Performance improvements, style/convention fixes, better error handling, gas optimizations.
+
+            ### 🟢 What Looks Good
+            Notable correctness or design wins worth calling out. Skip if nothing stands out.
+
+            ### Review Guidelines
+            - **Solidity**: access control, reentrancy, overflow, storage layout, gas, NatSpec; channel-specific concerns: nonce/sequence-number monotonicity, signature replay across channels/chains, EIP-712 domain separation, escape-hatch / dispute-window correctness, HTLC timelocks
+            - **State machine**: transitions must be pure and deterministic; verify sequence-number advancement, settlement balance conservation, no off-by-one in dispute deadlines
+            - **SDK / hub / watchtower (TypeScript)**: signature verification before any state mutation, no double-spend across reconnects, viem usage (chain id, nonce, signer scoping), websocket auth, sqlite/postgres transaction boundaries, watchtower liveness on restart
+            - **Dependencies / supply chain**: flag new dependencies, especially crypto/RPC libs
+            - Be direct and constructive. Don't be overly polite.
+            - If there are no issues in a category, skip it entirely.`;
+
+            const userPrompt = `## PR #${prNumber}: ${title}
+
+            **Description:**
+            ${body || 'No description provided.'}
+
+            **Diff:**
+            \`\`\`diff
+            ${truncatedDiff}
+            \`\`\`
+
+            Review this PR thoroughly. Be direct - flag only real issues.`;
+
+            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+              },
+              body: JSON.stringify({
+                model: 'deepseek-v4-pro',
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userPrompt }
+                ],
+                max_tokens: 4096,
+                temperature: 0.3
+              })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
+            }
+
+            const reviewText = data.choices[0].message.content;
+
+            const triggerInfo = context.eventName === 'pull_request'
+              ? 'Automatically triggered on PR update'
+              : 'Triggered by `@deepseek` comment';
+
+            const commentBody = `## 🐋 DeepSeek Code Review
+
+            ${reviewText}
+
+            ---
+            *${triggerInfo} • [DeepSeek V4](https://deepseek.com)*`;
+
+            const comments = await github.rest.issues.listComments({
+              owner, repo,
+              issue_number: prNumber,
+              per_page: 100
+            });
+
+            const existingComment = comments.data.find(c =>
+              c.body.includes('🐋 DeepSeek Code Review') &&
+              c.user.login === 'github-actions[bot]'
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner, repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+              console.log(`✅ Updated existing review comment #${existingComment.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+              console.log('✅ Posted new review comment');
+            }
+
+            return { success: true, reviewLength: reviewText.length };

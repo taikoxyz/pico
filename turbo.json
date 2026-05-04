@@ -6,6 +6,18 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "out/**", "build/**", ".next/**", "!**/node_modules/**"]
     },
+    "@pico/sdk#build": {
+      "dependsOn": ["@pico/protocol#build", "@pico/state-machine#build"],
+      "outputs": ["dist/**", "!**/node_modules/**"]
+    },
+    "@pico/sdk#typecheck": {
+      "dependsOn": ["@pico/protocol#build", "@pico/state-machine#build"],
+      "outputs": []
+    },
+    "@pico/sdk#test": {
+      "dependsOn": ["@pico/protocol#build", "@pico/state-machine#build", "@pico/test-utils#build"],
+      "outputs": ["coverage/**"]
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []

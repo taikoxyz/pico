@@ -123,16 +123,16 @@ describeForked('Taiko mainnet fork lifecycle (gated by E2E_FORK_URL)', () => {
             amount: 100n * ONE_USDC,
           });
           const v1 = await alice.storage.loadLatestState(channel.id);
-          if (v1) wt.remember(v1);
+          if (v1) await wt.remember(v1);
           await env.hubServer.registerChannel(channel, v1 ?? undefined);
 
           await alice.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
           const v2 = await alice.storage.loadLatestState(channel.id);
-          if (v2) wt.remember(v2);
+          if (v2) await wt.remember(v2);
 
           await alice.client.payDirect(channel.id, { amount: 3n * ONE_USDC });
           const v3 = await alice.storage.loadLatestState(channel.id);
-          if (v3) wt.remember(v3);
+          if (v3) await wt.remember(v3);
 
           const stale = v2;
           if (!stale) throw new Error('no stale state');

@@ -3,8 +3,9 @@
 Single source of truth for what each DeepSeek audit finding means today.
 Replaces ad-hoc "X is open" / "Y was fixed" claims passed around by hand.
 
-For the broader launch checklist see
-[`docs/launch-checklist.md`](./launch-checklist.md).
+This file is a historical reconciliation record. New production-readiness
+work — including any **Open** items below — is tracked as sub-issues under
+[issue #21](https://github.com/dantaik/pico/issues/21) on GitHub.
 
 ## Methodology
 
@@ -20,8 +21,9 @@ Status values:
 - **Open** — the defect is still present and tracked.
 - **Won't-fix** — out of scope for v1, deferred to Phase 2.
 
-DeepSeek is an AI auditor; an external human audit firm engagement (per
-`docs/launch-checklist.md` Phase B) is still required before mainnet GA.
+DeepSeek is an AI auditor; further multi-agent audit passes (Claude Opus,
+GPT-5, Gemini, etc.) are tracked under
+[issue #21](https://github.com/dantaik/pico/issues/21) before mainnet GA.
 
 ## Summary
 
@@ -48,7 +50,7 @@ commit `c4e4cd1` and PR #15.
 | PC-06 | Medium | Channel ID collision risk | Fixed | `PaymentChannel.sol:148` includes `address(this)` in the keccak input |
 | PC-07 | Medium | State machine accepted cross-channel updates | Fixed | `packages/state-machine/src/channel.ts:22` rejects mismatched `channelId` |
 | PC-08 | Medium | Hoodi listed as supported in protocol constants | Fixed | `packages/protocol/src/constants.ts:11-14` removed Hoodi from `SUPPORTED_CHAIN_IDS` |
-| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | `packages/contracts/script/Deploy.s.sol:23,27` still gives deployer ownership. Transfer scripts shipped in `packages/contracts/script/{Deploy,Transfer}Timelock.s.sol`; on-chain transfer is `[human]` per `docs/runbooks/ownership-transfer.md` and `docs/launch-checklist.md` Phase A |
+| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | `packages/contracts/script/Deploy.s.sol:23,27` still gives deployer ownership. Transfer scripts shipped in `packages/contracts/script/{Deploy,Transfer}Timelock.s.sol`; on-chain transfer is `[human]` per `docs/runbooks/ownership-transfer.md`. Tracked under [issue #21](https://github.com/dantaik/pico/issues/21) |
 | PC-10 | Info | EIP-712 oracle should remain pinned and crosstested | Fixed | Oracle pinned via existing forge fuzz + crosstest; no regressions |
 
 ## Hub

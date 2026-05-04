@@ -11,16 +11,16 @@ Operator playbook for the disclosure flow described in
 
 ### Email forward via Cloudflare Email Routing
 
-1. Add `pico.dev` to Cloudflare. If the domain is not yet owned, register
-   it before proceeding.
+1. The disclosure address lives on `taiko.xyz`, which is operated by Taiko
+   Labs. Coordinate with the Taiko domain owner to add the email route below.
 2. Cloudflare → Email → Email Routing → Routes → Custom address
-   `security@pico.dev` → forward to maintainer mailbox(es). Multiple
+   `security@taiko.xyz` → forward to maintainer mailbox(es). Multiple
    destinations are supported and recommended once a second maintainer
    exists.
 3. The wizard adds the required MX + TXT records. Wait for DNS propagation
    (a few minutes typically).
 4. **Verify deliverability** with a real test message before announcing the
-   address. Send to `security@pico.dev` and confirm it lands in the
+   address. Send to `security@taiko.xyz` and confirm it lands in the
    maintainer inbox(es).
 5. **Forwarding only.** Never reply directly from the forward address —
    replies should come from a maintainer's signed key.
@@ -31,7 +31,7 @@ Run on a clean, encrypted laptop. Hardware-backed storage (YubiKey OpenPGP
 applet, Nitrokey) is strongly preferred for the secret key.
 
 ```bash
-gpg --quick-generate-key 'Pico Security <security@pico.dev>' \
+gpg --quick-generate-key 'Pico Security <security@taiko.xyz>' \
   ed25519 sign 5y
 gpg --quick-add-key <FPR> cv25519 encr 5y
 gpg --armor --export <FPR> > pgp-key.asc
@@ -40,7 +40,7 @@ gpg --send-keys --keyserver hkps://keys.openpgp.org <FPR>
 ```
 
 After upload, verify the key is searchable:
-<https://keys.openpgp.org/search?q=security@pico.dev>
+<https://keys.openpgp.org/search?q=security@taiko.xyz>
 
 Then in a single PR:
 
@@ -149,8 +149,9 @@ Drill ID: <random-uuid>
 - [ ] Maintainer sends acknowledgement reply within 24h.
 - [ ] After confirmation, close the advisory with `[DRILL — no real vuln]`.
 
-Record drill date + outcome in your team operations log. Tick the
-`[human]` pre-flight item in `docs/plans/10-launch.md` after the first
+Record drill date + outcome in your team operations log. Close the
+corresponding sub-issue under
+[issue #21](https://github.com/dantaik/pico/issues/21) after the first
 successful drill.
 
 ## Open TODOs

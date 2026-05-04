@@ -75,7 +75,11 @@
       "title": "Payments by result (rate 5m)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "rate(pico_hub_payments_total[5m])", "refId": "A", "legendFormat": "{{result}}" }
+        {
+          "expr": "rate(pico_hub_payments_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{result}}"
+        }
       ],
       "gridPos": { "x": 12, "y": 7, "w": 12, "h": 8 }
     },

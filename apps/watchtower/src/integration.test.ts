@@ -241,6 +241,8 @@ async function bootIntegration(): Promise<IntegrationFixture> {
       HUB_FEE_FLAT: '0',
       LOG_LEVEL: 'silent',
       PORT: '0',
+      TAINNEL_DEV_ALLOW_ZERO_ADDRESS: 'true',
+      TAINNEL_SKIP_PROD_ASSERT: 'true',
     });
     const httpUrl = await hubServer.app.listen({ port: 0, host: '127.0.0.1' });
     const wsUrl = `${httpUrl.replace(/^http/, 'ws')}/ws`;
@@ -355,35 +357,36 @@ describe('integration: watchtower catches stale-state fraud on anvil', () => {
       pollingIntervalMs: 100,
       confirmations: 1,
       schedulerIntervalMs: 1_000,
+      thresholdRatio: 0,
       startHttp: false,
     });
-    watchtower.remember(v1);
+    await watchtower.remember(v1);
 
     await fixture.client.payDirect(channel.id, { amount: 5n * ONE_USDC });
     const v2 = await fixture.clientStorage.loadLatestState(channel.id);
     if (!v2) throw new Error('no v2 state');
-    watchtower.remember(v2);
+    await watchtower.remember(v2);
 
     await fixture.client.payDirect(channel.id, { amount: 3n * ONE_USDC });
     const v3 = await fixture.clientStorage.loadLatestState(channel.id);
     if (!v3) throw new Error('no v3 state');
-    watchtower.remember(v3);
+    await watchtower.remember(v3);
 
     await fixture.client.payDirect(channel.id, { amount: 2n * ONE_USDC });
     const v4 = await fixture.clientStorage.loadLatestState(channel.id);
     if (!v4) throw new Error('no v4 state');
-    watchtower.remember(v4);
+    await watchtower.remember(v4);
 
     await fixture.client.payDirect(channel.id, { amount: 4n * ONE_USDC });
     const v5 = await fixture.clientStorage.loadLatestState(channel.id);
     if (!v5) throw new Error('no v5 state');
-    watchtower.remember(v5);
+    await watchtower.remember(v5);
 
     await fixture.client.payDirect(channel.id, { amount: 1n * ONE_USDC });
     const v6 = await fixture.clientStorage.loadLatestState(channel.id);
     if (!v6) throw new Error('no v6 state');
     expect(v6.state.version).toBe(6n);
-    watchtower.remember(v6);
+    await watchtower.remember(v6);
 
     const stale: SignedState = v3;
 

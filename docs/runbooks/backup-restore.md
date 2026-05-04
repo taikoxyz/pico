@@ -3,7 +3,7 @@
 ## v1 backup model
 
 - Hub DB: SQLite at `./data/hub.sqlite`, replicated by litestream to
-  S3-compatible object storage (Cloudflare R2 in `docs/plans/09-ops.md`).
+  S3-compatible object storage (Cloudflare R2 in production).
   Sidecar config: `infra/litestream/hub.yml`.
 - Watchtower DB: SQLite at `./data/watchtower.sqlite`, replicated to its own
   bucket (separate region) via the sidecar in

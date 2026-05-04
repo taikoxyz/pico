@@ -65,7 +65,10 @@ fi
 # Required keys per target. Mirror apps/{hub,watchtower}/src/config-validate.ts.
 if [[ "$BOOTSTRAP_MONITORING" -eq 1 ]]; then
   SECRET_NAME="pico-monitoring-secrets"
-  REQUIRED=(GRAFANA_ADMIN_USER GRAFANA_ADMIN_PASSWORD)
+  REQUIRED=(GRAFANA_ADMIN_USER GRAFANA_ADMIN_PASSWORD
+            ALERTMANAGER_DEFAULT_WEBHOOK_URL
+            ALERTMANAGER_PAGER_WEBHOOK_URL
+            ALERTMANAGER_TRIAGE_WEBHOOK_URL)
 else
   SECRET_NAME="pico-${SERVICE}-secrets"
   case "$SERVICE" in
@@ -93,7 +96,8 @@ KNOWN_DEV_KEYS=(
   "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
 )
 
-declare -A ENV_KV
+ENV_KEYS=()
+ENV_VALUES=()
 while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
   if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
@@ -101,14 +105,26 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     val="${BASH_REMATCH[2]}"
     val="${val%\"}"; val="${val#\"}"
     val="${val%\'}"; val="${val#\'}"
-    ENV_KV["$key"]="$val"
+    ENV_KEYS+=("$key")
+    ENV_VALUES+=("$val")
   fi
 done < "$ENV_FILE"
+
+env_value() {
+  local wanted="$1"
+  local i
+  for ((i=${#ENV_KEYS[@]} - 1; i >= 0; i--)); do
+    if [[ "${ENV_KEYS[$i]}" == "$wanted" ]]; then
+      printf '%s' "${ENV_VALUES[$i]}"
+      return 0
+    fi
+  done
+}
 
 LITERAL_ARGS=()
 MISSING=()
 for key in "${REQUIRED[@]}"; do
-  val="${ENV_KV[$key]:-}"
+  val="$(env_value "$key")"
   if [[ -z "$val" || "$val" == "<set via secrets>" || "$val" == "TODO" ]]; then
     MISSING+=("$key")
     continue

@@ -1,5 +1,6 @@
-import type { Address, ChannelId, Hex, SignedState } from '@pico/protocol';
+import type { Address, ChainId, ChannelId, Hex, Signature, SignedState } from '@pico/protocol';
 import { DEFAULT_DISPUTE_WINDOW_MS } from '@pico/protocol';
+import { verifyChannelStateSignature } from '@pico/state-machine';
 import Database from 'better-sqlite3';
 import type { FastifyInstance } from 'fastify';
 import { type PublicClient, parseAbi } from 'viem';
@@ -17,13 +18,17 @@ const channelsViewAbi = parseAbi([
   'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
 ]);
 
+const adjudicatorViewAbi = parseAbi(['function adjudicator() view returns (address)']);
+
 export interface StartWatchtowerOpts {
   readonly rpcUrl: string;
   readonly privateKey: Hex;
   readonly paymentChannelAddress: Address;
+  readonly adjudicatorAddress?: Address;
   readonly chainId: number;
   readonly dbUrl?: string;
   readonly httpPort?: number;
+  readonly httpHost?: string;
   readonly logger?: Logger;
   readonly publicClient?: PublicClient;
   readonly pollingIntervalMs?: number;
@@ -45,7 +50,7 @@ export interface WatchtowerHandle {
   readonly store: WatchtowerStore;
   readonly http?: FastifyInstance;
   readonly httpUrl?: string;
-  remember(state: SignedState): void;
+  remember(state: SignedState): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -54,6 +59,24 @@ interface ChannelMeta {
   readonly penalized: boolean;
   readonly disputeDeadlineMs: number;
   readonly postedVersion: bigint;
+}
+
+interface ChannelInvariants {
+  readonly userA: Address;
+  readonly userB: Address;
+  readonly totalFunding: bigint;
+}
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+
+function sigToHex(sig: Signature): Hex {
+  const v = sig.v.toString(16).padStart(2, '0');
+  return `0x${sig.r.slice(2)}${sig.s.slice(2)}${v}` as Hex;
+}
+
+const ZERO_HEX_32 = `0x${'0'.repeat(64)}` as Hex;
+function isZeroSignature(sig: Signature): boolean {
+  return sig.r === ZERO_HEX_32 && sig.s === ZERO_HEX_32;
 }
 
 export async function startWatchtower(opts: StartWatchtowerOpts): Promise<WatchtowerHandle> {
@@ -97,28 +120,60 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
   const sharedClient: PublicClient =
     opts.publicClient ?? (responder as unknown as { publicClient: PublicClient }).publicClient;
 
+  const channelInvariantsCache = new Map<ChannelId, ChannelInvariants>();
+
+  let adjudicatorAddressPromise: Promise<Address> | undefined;
+  async function getAdjudicatorAddress(): Promise<Address> {
+    if (opts.adjudicatorAddress) return opts.adjudicatorAddress;
+    if (!adjudicatorAddressPromise) {
+      adjudicatorAddressPromise = sharedClient
+        .readContract({
+          address: opts.paymentChannelAddress,
+          abi: adjudicatorViewAbi,
+          functionName: 'adjudicator',
+        })
+        .then((a) => a as Address);
+    }
+    return adjudicatorAddressPromise;
+  }
+
+  type ChannelRow = readonly [
+    Address,
+    Address,
+    Address,
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    boolean,
+    number,
+    Address,
+  ];
+
+  async function readChannelRow(channelId: ChannelId): Promise<ChannelRow> {
+    const row = (await sharedClient.readContract({
+      address: opts.paymentChannelAddress,
+      abi: channelsViewAbi,
+      functionName: 'channels',
+      args: [channelId],
+    })) as ChannelRow;
+    const userA = row[0];
+    if (userA !== ZERO_ADDRESS) {
+      channelInvariantsCache.set(channelId, {
+        userA,
+        userB: row[1],
+        totalFunding: row[3] + row[4],
+      });
+    }
+    return row;
+  }
+
   async function readChannelMeta(channelId: ChannelId): Promise<ChannelMeta | null> {
     try {
-      const row = (await sharedClient.readContract({
-        address: opts.paymentChannelAddress,
-        abi: channelsViewAbi,
-        functionName: 'channels',
-        args: [channelId],
-      })) as readonly [
-        Address,
-        Address,
-        Address,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        boolean,
-        number,
-        Address,
-      ];
+      const row = await readChannelRow(channelId);
       const userA = row[0];
       const disputeDeadline = row[6];
       const postedVersion = row[7];
@@ -133,6 +188,71 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     } catch (err) {
       log.error({ err, channelId }, 'failed to read channel meta');
       return null;
+    }
+  }
+
+  async function getChannelInvariants(channelId: ChannelId): Promise<ChannelInvariants> {
+    const cached = channelInvariantsCache.get(channelId);
+    if (cached) return cached;
+    await readChannelRow(channelId);
+    const fresh = channelInvariantsCache.get(channelId);
+    if (!fresh) {
+      throw new Error(`watchtower.remember: unknown channel ${channelId}`);
+    }
+    return fresh;
+  }
+
+  async function validateSignedState(state: SignedState): Promise<void> {
+    const inv = await getChannelInvariants(state.state.channelId);
+    if (state.state.htlcs.length !== 0) {
+      throw new Error(
+        `watchtower.remember: state has non-empty HTLCs; not penalty-capable (channel ${state.state.channelId})`,
+      );
+    }
+    if (state.state.balanceA + state.state.balanceB !== inv.totalFunding) {
+      throw new Error(
+        `watchtower.remember: balance not conserved for channel ${state.state.channelId} (got ${state.state.balanceA + state.state.balanceB}, expected ${inv.totalFunding})`,
+      );
+    }
+    if (state.state.finalized) {
+      throw new Error(
+        `watchtower.remember: state is finalized; not penalty-capable (channel ${state.state.channelId})`,
+      );
+    }
+    const verifyingContract = await getAdjudicatorAddress();
+    let okA = false;
+    try {
+      okA = await verifyChannelStateSignature(
+        state.state,
+        sigToHex(state.sigA),
+        inv.userA,
+        opts.chainId as ChainId,
+        verifyingContract,
+      );
+    } catch {
+      okA = false;
+    }
+    if (!okA) {
+      throw new Error(
+        `watchtower.remember: sigA does not verify against userA for channel ${state.state.channelId}`,
+      );
+    }
+    let okB = false;
+    try {
+      okB = await verifyChannelStateSignature(
+        state.state,
+        sigToHex(state.sigB),
+        inv.userB,
+        opts.chainId as ChainId,
+        verifyingContract,
+      );
+    } catch {
+      okB = false;
+    }
+    if (!okB) {
+      throw new Error(
+        `watchtower.remember: sigB does not verify against userB for channel ${state.state.channelId}`,
+      );
     }
   }
 
@@ -160,6 +280,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         alreadyPenalized: meta.penalized,
       });
       if (evaluation.action === 'penalize') {
+        if (Date.now() < evaluation.submitByMs) return;
         const existingInFlight = store.getInFlight(channelId);
         const obsId =
           existingInFlight?.observationId ??
@@ -236,7 +357,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
         };
       },
     });
-    httpUrl = await http.listen({ port: opts.httpPort ?? 0, host: '127.0.0.1' });
+    httpUrl = await http.listen({ port: opts.httpPort ?? 0, host: opts.httpHost ?? '127.0.0.1' });
   }
 
   return {
@@ -247,7 +368,11 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     store,
     ...(http ? { http } : {}),
     ...(httpUrl ? { httpUrl } : {}),
-    remember(state: SignedState): void {
+    async remember(state: SignedState): Promise<void> {
+      if (isZeroSignature(state.sigA) || isZeroSignature(state.sigB)) {
+        return;
+      }
+      await validateSignedState(state);
       store.putSignedState(state);
       detector.remember(state);
     },
@@ -277,6 +402,7 @@ export async function start(): Promise<void> {
     chainId: config.chainId,
     dbUrl: config.dbUrl,
     httpPort: config.port,
+    httpHost: config.metricsBindAddr,
     schedulerIntervalMs: config.schedulerIntervalMs,
     confirmations: config.confirmations,
     thresholdRatio: config.penaltyThreshold,

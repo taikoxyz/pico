@@ -14,6 +14,7 @@ export interface WatchtowerConfig {
   readonly privateKey: string;
   readonly rpcUrl: string;
   readonly dbUrl: string;
+  readonly metricsBindAddr: string;
   readonly mode: 'self-hosted' | 'service';
   readonly chainId: ChainId;
   readonly paymentChannelAddress: Address;
@@ -81,6 +82,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WatchtowerConf
     privateKey,
     rpcUrl: env.RPC_URL ?? 'https://rpc.taiko.xyz',
     dbUrl: env.DB_URL ?? './data/watchtower.sqlite',
+    metricsBindAddr:
+      env.METRICS_BIND_ADDR ?? (env.KUBERNETES_SERVICE_HOST !== undefined ? '::' : '127.0.0.1'),
     mode,
     chainId,
     paymentChannelAddress,

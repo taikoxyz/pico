@@ -3,10 +3,8 @@
 # targets the headless Services for hub + watchtower so the pod IPs
 # resolve via SRV records.
 #
-# Caveat: hub + watchtower currently bind /metrics to 127.0.0.1 inside
-# their pods (apps/hub/src/server.ts:116, apps/watchtower/src/index.ts:239).
-# Until that is patched to bind on 0.0.0.0/::, these scrapes will report
-# `up == 0` even though the pods are healthy. See infra/k8s/README.md.
+# Hub + watchtower set METRICS_BIND_ADDR=:: so in-cluster Prometheus can reach
+# their metrics listeners. Watchtower exposes metrics on its HTTP port, 3031.
 
 apiVersion: v1
 kind: ServiceAccount
@@ -48,7 +46,7 @@ data:
         metrics_path: /metrics
         static_configs:
           - targets:
-              - pico-watchtower-0.pico-watchtower.pico.svc:9090
+              - pico-watchtower-0.pico-watchtower.pico.svc:3031
 
       - job_name: prometheus
         static_configs:
@@ -119,13 +117,13 @@ data:
               description: "Sustained failure share above 10% for 15m. Check hub logs and watchtower status."
 
           - alert: HubLiquidityLow
-            expr: pico_hub_outbound_liquidity_usdc < 1e7
+            expr: pico_hub_outbound_liquidity_usdc < 100e6
             for: 10m
             labels:
               severity: warning
             annotations:
               summary: "Hub outbound liquidity is low"
-              description: "Outbound liquidity has been < 10 USDC for 10m. Top up before payments start failing."
+              description: "Outbound liquidity has been < 100 USDC for 10m. Top up before payments start failing."
 
           - alert: HubMemoryHigh
             expr: process_resident_memory_bytes{job="pico-hub"} > 524288000

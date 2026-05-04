@@ -698,6 +698,14 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     hubAccount,
     async registerChannel(channel: Channel, initialState?: SignedState): Promise<void> {
       await deps.channelPool.register(channel, initialState);
+      const seedState = initialState ?? deps.channelPool.latest(channel.id);
+      if (seedState) {
+        const hubIsA = channel.userA.toLowerCase() === hubAccount.address.toLowerCase();
+        deps.liquidity.set(channel.id, {
+          outbound: hubIsA ? seedState.state.balanceA : seedState.state.balanceB,
+          inbound: hubIsA ? seedState.state.balanceB : seedState.state.balanceA,
+        });
+      }
     },
   };
 }

@@ -1,6 +1,6 @@
 # Watchtower StatefulSet (app + litestream sidecar) and headless Service.
-# No public surface — the watchtower binds 127.0.0.1 internally; access via
-# `kubectl port-forward statefulset/pico-watchtower 3031:3031 -n pico`.
+# No public surface. The watchtower binds its HTTP server to :: for in-cluster
+# metrics scraping; access health locally via kubectl port-forward.
 #
 # Required Secret: `pico-watchtower-secrets` (set via secrets-bootstrap.sh).
 
@@ -22,6 +22,7 @@ data:
   CHAIN_ID: "167000"
   MODE: "self-hosted"
   NODE_ENV: "production"
+  METRICS_BIND_ADDR: "::"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -100,9 +101,8 @@ spec:
                 name: pico-watchtower-config
             - secretRef:
                 name: pico-watchtower-secrets
-          # The watchtower binds /health to 127.0.0.1 inside the pod, so
-          # httpGet probes (which target the pod IP) cannot reach it. Use
-          # exec probes that run inside the container's network namespace.
+          # Keep exec probes on localhost so health checks do not depend on
+          # Kubernetes Service routing.
           readinessProbe:
             exec:
               command: ["wget", "-qO-", "--timeout=5", "http://127.0.0.1:3031/health"]
