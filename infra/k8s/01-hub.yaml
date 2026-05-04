@@ -122,7 +122,6 @@ spec:
     enabled: true
     responseCodeName: MOVED_PERMANENTLY_DEFAULT
 ---
-# Replace `hub.tainnel.dev` with your real hostname before applying.
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
@@ -130,7 +129,7 @@ metadata:
   namespace: tainnel
 spec:
   domains:
-    - hub.tainnel.dev
+    - tainnel.taiko.xyz
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

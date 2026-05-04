@@ -117,13 +117,13 @@ data:
               description: "Sustained failure share above 10% for 15m. Check hub logs and watchtower status."
 
           - alert: HubLiquidityLow
-            expr: tainnel_hub_outbound_liquidity_usdc < 1e7
+            expr: tainnel_hub_outbound_liquidity_usdc < 100e6
             for: 10m
             labels:
               severity: warning
             annotations:
               summary: "Hub outbound liquidity is low"
-              description: "Outbound liquidity has been < 10 USDC for 10m. Top up before payments start failing."
+              description: "Outbound liquidity has been < 100 USDC for 10m. Top up before payments start failing."
 
           - alert: HubMemoryHigh
             expr: process_resident_memory_bytes{job="tainnel-hub"} > 524288000
