@@ -1,4 +1,4 @@
-# Litestream replication for the Tainnel watchtower SQLite DB.
+# Litestream replication for the Pico watchtower SQLite DB.
 #
 # All four ${...} placeholders come from Fly secrets set by
 # infra/fly/secrets-bootstrap.sh. Litestream resolves them at process start.
