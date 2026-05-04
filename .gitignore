@@ -40,3 +40,4 @@ Thumbs.db
 *.db-journal
 
 .context/
+.claude/
