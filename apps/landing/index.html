@@ -18,12 +18,12 @@
     <a href="/" class="logo">pico<span>/</span></a>
     <span class="status-pill"><span class="status-dot"></span> Live on Taiko</span>
     <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
+      <li><a href="#features">Design</a></li>
       <li><a href="#usdc">USDC</a></li>
       <li><a href="#cli">CLI</a></li>
       <li><a href="#hub">Hub</a></li>
       <li><a href="#how">Hop</a></li>
-      <li><a href="https://github.com/anthropics/pico" target="_blank" rel="noopener" class="nav-cta">GitHub &rarr;</a></li>
+      <li><a href="https://github.com/dantaik/pico" target="_blank" rel="noopener" class="nav-cta">GitHub &rarr;</a></li>
     </ul>
   </div>
 </nav>
@@ -37,24 +37,11 @@
   </p>
 </section>
 
-<div class="ticker">
-  <div class="ticker-inner">
-    <span>Sub-cent payments</span><span class="ticker-dot">&middot;</span>
-    <span>Off-chain privacy</span><span class="ticker-dot">&middot;</span>
-    <span>Agent-native CLI</span><span class="ticker-dot">&middot;</span>
-    <span>USDC on Taiko L2</span><span class="ticker-dot">&middot;</span>
-    <span>No wallet popup</span><span class="ticker-dot">&middot;</span>
-    <span>Trustless HTLC</span><span class="ticker-dot">&middot;</span>
-    <span>Sub-cent payments</span><span class="ticker-dot">&middot;</span>
-    <span>Off-chain privacy</span><span class="ticker-dot">&middot;</span>
-    <span>Agent-native CLI</span><span class="ticker-dot">&middot;</span>
-    <span>USDC on Taiko L2</span><span class="ticker-dot">&middot;</span>
-    <span>No wallet popup</span><span class="ticker-dot">&middot;</span>
-    <span>Trustless HTLC</span><span class="ticker-dot">&middot;</span>
-  </div>
+<div class="flow-viz">
+  <canvas id="flow-canvas"></canvas>
 </div>
 
-<div class="section-divider"><span class="section-divider-mark">// 01</span></div>
+<div class="section-divider"><span class="section-divider-mark">01</span></div>
 
 <section class="features" id="features">
 
@@ -83,7 +70,7 @@
   </div>
 </section>
 
-<div class="section-divider"><span class="section-divider-mark">// 02</span></div>
+<div class="section-divider"><span class="section-divider-mark">02</span></div>
 
 <section class="usdc" id="usdc">
   <h2 class="section-title">Circle <em>USDC</em>. No native token.</h2>
@@ -115,7 +102,7 @@
   </div>
 </section>
 
-<div class="section-divider"><span class="section-divider-mark">// 03</span></div>
+<div class="section-divider"><span class="section-divider-mark">03</span></div>
 
 <section class="cli" id="cli">
 
@@ -136,7 +123,7 @@
     <div class="cli-card">
       <div class="cli-card-label">Open a channel</div>
       <code><span class="hl">pnpm pico</span> <span class="dim">channel open \</span>
-  <span class="dim">--hub</span> https://pico.taiko.xyz \
+  <span class="dim">--hub</span> https://hub.taiko.xyz \
   <span class="dim">--amount</span> <span class="hl">25</span></code>
     </div>
     <div class="cli-card">
@@ -155,12 +142,12 @@
     <div class="cli-card">
       <div class="cli-card-label">Listen for payments</div>
       <code><span class="hl">pnpm pico</span> <span class="dim">listen \</span>
-  <span class="dim">--hub</span> wss://pico.taiko.xyz <span class="dim">&amp;</span></code>
+  <span class="dim">--hub</span> wss://hub.taiko.xyz <span class="dim">&amp;</span></code>
     </div>
   </div>
 </section>
 
-<div class="section-divider"><span class="section-divider-mark">// 04</span></div>
+<div class="section-divider"><span class="section-divider-mark">04</span></div>
 
 <section class="hub" id="hub">
 
@@ -186,16 +173,16 @@
       <div class="hub-card-tag"><span class="section-dot"></span> Self-hosted</div>
       <h3>Run your own</h3>
       <p>Bring an RPC and a hot key with USDC liquidity. Hub competes on fees, uptime, and capacity — exactly like a Lightning LSP.</p>
-      <pre class="hub-code"><span class="cmd">git clone</span> <span class="arg">https://github.com/anthropics/pico</span>
+      <pre class="hub-code"><span class="cmd">git clone</span> <span class="arg">https://github.com/dantaik/pico</span>
 <span class="cmd">cd</span> <span class="arg">pico/apps/hub</span>
 <span class="cmd">cp</span> <span class="arg">.env.example .env</span>     <span class="comment"># HUB_PRIVATE_KEY, RPC_URL, …</span>
 <span class="cmd">docker compose</span> <span class="flag">up -d</span></pre>
-      <a href="https://github.com/anthropics/pico/tree/main/apps/hub" target="_blank" rel="noopener" class="hub-link">Read the hub guide &rarr;</a>
+      <a href="https://github.com/dantaik/pico/tree/main/apps/hub" target="_blank" rel="noopener" class="hub-link">Read the hub guide &rarr;</a>
     </div>
   </div>
 </section>
 
-<div class="section-divider"><span class="section-divider-mark">// 06</span></div>
+<div class="section-divider"><span class="section-divider-mark">05</span></div>
 
 <section class="how" id="how">
 
@@ -228,9 +215,9 @@
   <div class="install-block">
     <div class="install-label">
       <span>Install</span>
-      <button class="copy-btn" data-copy="git clone https://github.com/anthropics/pico && cd pico && pnpm install && pnpm build" onclick="copyText(this)">Copy</button>
+      <button class="copy-btn" data-copy="git clone https://github.com/dantaik/pico && cd pico && pnpm install && pnpm build" onclick="copyText(this)">Copy</button>
     </div>
-    <pre><span class="prompt">$</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/anthropics/pico</span> <span class="comment"># clone the repo</span>
+    <pre><span class="prompt">$</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/dantaik/pico</span> <span class="comment"># clone the repo</span>
 <span class="prompt">$</span> <span class="cmd">cd</span> <span class="arg">pico</span>
 <span class="prompt">$</span> <span class="cmd">pnpm install && pnpm build</span>     <span class="comment"># install deps &amp; build</span>
 <span class="prompt">$</span> <span class="cmd">pnpm pico</span> <span class="flag">hello</span>                 <span class="comment"># smoke check</span></pre>
@@ -243,24 +230,17 @@
     <div class="footer-inner">
       <div class="footer-brand">
         <div class="footer-logo">pico<span>/</span></div>
-        <div class="footer-tagline">Built quiet.<br><span>Runs loud.</span></div>
-        <div class="footer-status"><span class="section-dot"></span> All systems nominal</div>
       </div>
       <div class="footer-grid">
         <div class="footer-col">
-          <h4>The Room</h4>
-          <a href="https://inferenceroom.ai" target="_blank">Inference Room</a>
-          <a href="https://tack.inferenceroom.ai" target="_blank">Tack</a>
-        </div>
-        <div class="footer-col">
           <h4>Developers</h4>
-          <a href="https://github.com/anthropics/pico" target="_blank">GitHub</a>
-          <a href="https://github.com/anthropics/pico/tree/main/docs" target="_blank">Docs</a>
+          <a href="https://github.com/dantaik/pico" target="_blank">GitHub</a>
+          <a href="https://github.com/dantaik/pico/tree/main/docs" target="_blank">Docs</a>
         </div>
         <div class="footer-col">
           <h4>Protocol</h4>
-          <a href="https://github.com/anthropics/pico/blob/main/docs/protocol-spec.md" target="_blank">Spec</a>
-          <a href="https://github.com/anthropics/pico/blob/main/docs/threat-model.md" target="_blank">Threat Model</a>
+          <a href="https://github.com/dantaik/pico/blob/main/docs/protocol-spec.md" target="_blank">Spec</a>
+          <a href="https://github.com/dantaik/pico/blob/main/docs/threat-model.md" target="_blank">Threat Model</a>
         </div>
         <div class="footer-col">
           <h4>Chain</h4>
@@ -272,8 +252,8 @@
   </div>
   <div class="footer-giant">PICO</div>
   <div class="footer-bottom">
-    <span>&copy; 2025 Inference Room</span>
-    <span>No native token. No governance. No bridges.</span>
+    <span>&copy; 2025 <a href="https://inferenceroom.ai" target="_blank" rel="noopener">Inference Room</a></span>
+
     <span>MIT License</span>
   </div>
 </footer>
@@ -289,12 +269,154 @@
     });
   }
 
-  function switchTab(name, btn) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.tab-code-block pre').forEach(p => p.style.display = 'none');
-    document.getElementById('tab-' + name).style.display = 'block';
-  }
+  (function() {
+    const canvas = document.getElementById('flow-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W, H, dpr;
+    const COLORS = [
+      [255, 190, 50],   // bright amber
+      [100, 255, 180],  // vivid green
+      [130, 170, 255],  // bright blue
+      [255, 120, 120],  // bright coral
+      [200, 150, 255],  // bright lavender
+      [80, 240, 240],   // bright cyan
+      [255, 220, 100],  // bright gold
+    ];
+    const INK_500 = [74, 80, 112];
+    const INK_700 = [30, 35, 51];
+
+    const hubDefs = [
+      { xr: -0.08, yr: 0.30, r: 5 },
+      { xr: -0.05, yr: 0.70, r: 4 },
+      { xr: 0.05, yr: 0.45, r: 5 },
+      { xr: 0.12, yr: 0.20, r: 6 },
+      { xr: 0.15, yr: 0.75, r: 5 },
+      { xr: 0.22, yr: 0.50, r: 8 },
+      { xr: 0.30, yr: 0.25, r: 6 },
+      { xr: 0.35, yr: 0.80, r: 5 },
+      { xr: 0.42, yr: 0.45, r: 9 },
+      { xr: 0.50, yr: 0.15, r: 6 },
+      { xr: 0.50, yr: 0.70, r: 7 },
+      { xr: 0.58, yr: 0.40, r: 10 },
+      { xr: 0.65, yr: 0.75, r: 6 },
+      { xr: 0.70, yr: 0.20, r: 7 },
+      { xr: 0.78, yr: 0.55, r: 9 },
+      { xr: 0.85, yr: 0.30, r: 6 },
+      { xr: 0.88, yr: 0.80, r: 5 },
+      { xr: 0.95, yr: 0.50, r: 5 },
+      { xr: 1.05, yr: 0.35, r: 4 },
+      { xr: 1.08, yr: 0.70, r: 5 },
+    ];
+
+    const routes = [
+      [0, 2], [0, 3], [1, 2], [1, 4],
+      [2, 5], [3, 5], [3, 6], [4, 5], [4, 7],
+      [5, 8], [5, 10], [6, 8], [6, 9],
+      [7, 10], [8, 11], [8, 10], [9, 11], [9, 13],
+      [10, 11], [10, 12], [11, 13], [11, 14],
+      [12, 14], [13, 14], [13, 15],
+      [14, 15], [14, 16], [14, 17],
+      [15, 17], [16, 17], [15, 18],
+      [17, 18], [17, 19], [16, 19],
+      [2, 8], [5, 11], [11, 17], [6, 13], [8, 14],
+    ];
+
+    let hubs = [];
+    let particles = [];
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      W = rect.width;
+      H = rect.height;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      hubs = hubDefs.map(h => ({ x: h.xr * W, y: h.yr * H, r: h.r }));
+    }
+
+    function spawnParticle() {
+      const route = routes[Math.floor(Math.random() * routes.length)];
+      const flip = Math.random() < 0.5;
+      const a = hubs[route[flip ? 1 : 0]], b = hubs[route[flip ? 0 : 1]];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const cx = (a.x + b.x) / 2 + (Math.random() - 0.5) * dist * 0.35;
+      const cy = (a.y + b.y) / 2 + (Math.random() - 0.5) * dist * 0.35;
+      const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      particles.push({
+        ax: a.x, ay: a.y, bx: b.x, by: b.y, cx, cy,
+        t: 0,
+        speed: 0.006 + Math.random() * 0.01,
+        size: 1.5 + Math.random() * 2.5,
+        bright: 0.7 + Math.random() * 0.3,
+        blink: 8 + Math.random() * 16,
+        color,
+      });
+    }
+
+    function bezier(ax, ay, cx, cy, bx, by, t) {
+      const u = 1 - t;
+      return {
+        x: u * u * ax + 2 * u * t * cx + t * t * bx,
+        y: u * u * ay + 2 * u * t * cy + t * t * by,
+      };
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      for (const route of routes) {
+        const a = hubs[route[0]], b = hubs[route[1]];
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(${INK_700[0]},${INK_700[1]},${INK_700[2]},0.6)`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+
+      for (const h of hubs) {
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${INK_500[0]},${INK_500[1]},${INK_500[2]},0.4)`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(${INK_500[0]},${INK_500[1]},${INK_500[2]},0.6)`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.t += p.speed;
+        if (p.t >= 1) { particles.splice(i, 1); continue; }
+        const pos = bezier(p.ax, p.ay, p.cx, p.cy, p.bx, p.by, p.t);
+        const fade = Math.sin(p.t * Math.PI);
+        const flicker = 0.5 + 0.5 * Math.sin(p.t * p.blink * Math.PI);
+        const alpha = p.bright * fade * flicker;
+        const c = p.color;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, p.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha * 0.12})`;
+        ctx.fill();
+      }
+
+      if (Math.random() < 0.55) spawnParticle();
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    for (let i = 0; i < 80; i++) spawnParticle();
+    draw();
+  })();
 </script>
 
 </body>
