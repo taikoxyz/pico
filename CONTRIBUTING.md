@@ -13,6 +13,20 @@ pnpm test
 forge build --root packages/contracts
 ```
 
+## Secret scanning
+
+Run the pinned repo scanner before publishing or rotating credentials:
+
+```bash
+pnpm secrets:scan
+pnpm secrets:scan:history
+```
+
+`pnpm secrets:scan` checks the current tree. `pnpm secrets:scan:history` scans
+the full git history and is the required pre-release/publication pass. The
+first run downloads a pinned `gitleaks` binary into `.cache/`, and `lefthook`
+runs `pnpm secrets:scan` on `pre-push`.
+
 ## Coding standards
 
 - TypeScript strict mode. No `any` without a one-line justification comment.

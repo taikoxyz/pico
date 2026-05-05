@@ -271,7 +271,7 @@ Add `test:coverage` scripts for apps that claim coverage gates, run them in CI f
 
 **Evidence file references:**
 
-- `SECURITY.md:5-9` asks for private reports but lists `security@pico.dev` as a placeholder and says PGP will be published with the first signed release.
+- `SECURITY.md:5-9` asks for private reports but listed a placeholder security email and said PGP would be published with the first signed release.
 - `SECURITY.md:11` commits to a 72-hour acknowledgment.
 
 **Observed behavior:**
