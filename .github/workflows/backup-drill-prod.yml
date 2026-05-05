@@ -1,0 +1,68 @@
+name: backup-drill-prod
+
+on:
+  schedule:
+    - cron: "0 7 1 */3 *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drill:
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [hub, watchtower]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install litestream
+        run: |
+          curl -L \
+            https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64-static.tar.gz \
+            | sudo tar -xz -C /usr/local/bin litestream
+          litestream version
+      - name: Install sqlite3
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
+      - name: Run production restore drill
+        env:
+          LITESTREAM_ACCESS_KEY_ID: ${{ secrets.PROD_LITESTREAM_ACCESS_KEY_ID }}
+          LITESTREAM_SECRET_ACCESS_KEY: ${{ secrets.PROD_LITESTREAM_SECRET_ACCESS_KEY }}
+          LITESTREAM_ENDPOINT: ${{ secrets.PROD_LITESTREAM_ENDPOINT }}
+          LITESTREAM_REGION: ${{ secrets.PROD_LITESTREAM_REGION }}
+          LITESTREAM_BUCKET_HUB: ${{ secrets.PROD_LITESTREAM_BUCKET_HUB }}
+          LITESTREAM_BUCKET_WATCHTOWER: ${{ secrets.PROD_LITESTREAM_BUCKET_WATCHTOWER }}
+        run: |
+          set -euo pipefail
+          chmod +x infra/scripts/restore-drill.sh
+          mkdir -p "${RUNNER_TEMP}/restore-logs"
+          infra/scripts/restore-drill.sh \
+            --service "${{ matrix.service }}" \
+            --target-volume "${RUNNER_TEMP}/prod-restore-${{ matrix.service }}" \
+            2>&1 | tee "${RUNNER_TEMP}/restore-logs/prod-${{ matrix.service }}.log"
+      - name: Upload restore logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-backup-drill-${{ matrix.service }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/restore-logs/
+          if-no-files-found: warn
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="prod-backup-drill: ${{ matrix.service }} failed (${GITHUB_SHA::7})"
+          EXISTING=$(gh issue list \
+            --search "prod-backup-drill: ${{ matrix.service }} failed in:title state:open" \
+            --json number --jq 'length')
+          if [ "$EXISTING" = "0" ]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+Restore logs are uploaded as the \`prod-backup-drill-${{ matrix.service }}-${{ github.run_id }}\` artifact." \
+              --label "ops,backup,prod"
+          fi

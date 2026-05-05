@@ -92,9 +92,11 @@ Any-language agents shell out to the CLI; non-TS callers parse the `--json` outp
 
 ## Status
 
-Pre-GA staging. AI-audited (DeepSeek, see `deepseek_audit_report_*.md`),
-critical and high findings addressed in code. Multi-agent re-audit, multisig
-ownership transfer, and mainnet smoke channel still pending. Mainnet config
+Pre-GA staging. AI-audited (DeepSeek, see `docs/audit/`), with critical
+and high code findings addressed or tracked. The main remaining launch gates
+are operator-controlled: verify current owner-key custody, revoke/cold-store
+the deployer key, publish the real PGP key, run restore/paging/security
+drills, and complete the real-USDC mainnet smoke channel. Mainnet config
 gates fail-fast on dev keys and unsigned envelopes
 (`apps/{hub,watchtower}/src/config-validate.ts`); state-acceptance gates
 (`packages/state-machine/src/admit.ts`) verify hub-supplied states before

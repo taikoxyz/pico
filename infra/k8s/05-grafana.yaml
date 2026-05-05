@@ -219,13 +219,14 @@ spec:
       targetPort: 3000
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: pico-grafana
   namespace: pico
   labels:
     app.kubernetes.io/name: pico-grafana
 spec:
+  serviceName: pico-grafana
   replicas: 1
   selector:
     matchLabels:
@@ -308,8 +309,15 @@ spec:
         - name: dashboards
           configMap:
             name: pico-grafana-dashboards
-        - name: state
-          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: state
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: pico-retain-pd-balanced
+        resources:
+          requests:
+            storage: 5Gi
 # To expose Grafana publicly, uncomment and set the host:
 # ---
 # apiVersion: networking.gke.io/v1

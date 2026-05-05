@@ -68,10 +68,10 @@
 </nav>
 
 <h1>End-to-<span class="accent">end</span></h1>
-<p class="subtitle">Whole-stack scenarios. The proof everything fits together.</p>
+<p class="subtitle">Whole-stack scenarios. The strongest automated signal that the pieces fit together.</p>
 
 <h2>What is it</h2>
-<p>The <code>e2e/</code> folder contains tests that drive the entire system at once: contracts running on an anvil fork of Taiko mainnet, a real <code>apps/hub</code> instance and an <code>apps/watchtower</code> instance running in-process, the SDK and the CLI talking to them, and assertions checking on-chain state alongside off-chain state. Where <a href="./03-state-machine.html">P3</a> through <a href="./07-agent-runtime.html">P7</a> verify each surface in isolation, P8 is the only place where they're verified together. It's also where the human security review happens — the sit-down-with-coffee read-through of the most safety-critical files.</p>
+<p>The <code>e2e/</code> folder contains tests that drive the entire system at once: contracts running locally or on an anvil fork of Taiko mainnet, a real <code>apps/hub</code> instance and an <code>apps/watchtower</code> instance running in-process, the SDK and the CLI talking to them, and assertions checking on-chain state alongside off-chain state. Forked-mainnet CI requires <code>TAIKO_MAINNET_RPC_URL</code>; without that secret, only the non-fork scenarios run. Where <a href="./03-state-machine.html">P3</a> through <a href="./07-agent-runtime.html">P7</a> verify each surface in isolation, P8 is the only place where they're verified together. It's also where the human security review happens — the sit-down-with-coffee read-through of the most safety-critical files.</p>
 
 <h2>Why it exists</h2>
 <p>Channel-state systems fail in the seams. Each component can be perfectly correct in its own tests and still produce silent fund loss when wired together — for example, when the SDK persists a state at version <code>N+1</code> but the hub's router expected <code>N</code> for an in-flight HTLC, or when the watchtower observes a stale-state submission but its evidence is signed under a different chain id. The way to catch those bugs is to drive the whole stack against a real EVM (anvil forking Taiko mainnet) with deterministic fixtures and time-warps, then assert that every component ends with the same state.</p>

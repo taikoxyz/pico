@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   StateAdmissionError,
   admitClose,
+  admitHtlcFail,
   admitHtlcOffer,
   admitHtlcSettle,
   admitSignedState,
@@ -138,6 +139,22 @@ describe('admitSignedState', () => {
       code: 'BAD_SIGNATURE_B',
     });
   });
+
+  it('rejects a placeholder for an explicitly required signer', async () => {
+    const next = buildState(1n, 100n, 0n);
+    const signed: SignedState = {
+      state: next,
+      sigA: await signBy(accountA, next),
+      sigB: ZERO_SIG,
+    };
+    await expect(
+      admitSignedState(signed, ctx, {
+        prev: undefined,
+        allowPartialSigs: true,
+        requireSignerAddresses: [accountB.address],
+      }),
+    ).rejects.toMatchObject({ code: 'BAD_SIGNATURE_B' });
+  });
 });
 
 describe('admitHtlcOffer', () => {
@@ -202,6 +219,32 @@ describe('admitHtlcSettle', () => {
     await expect(
       admitHtlcSettle(signed, ctx, { prev, htlcId: htlc.id, preimage }),
     ).rejects.toMatchObject({ code: 'EXPECTED_HTLC_ABSENT' });
+  });
+});
+
+describe('admitHtlcFail', () => {
+  const htlc: Htlc = {
+    id: '0x4444444444444444444444444444444444444444444444444444444444444444',
+    direction: 'AtoB',
+    amount: 10n,
+    paymentHash: '0xabababababababababababababababababababababababababababababababab',
+    expiryMs: 9_999_999_999n,
+  };
+
+  it('accepts a state where the HTLC has been removed and refunded', async () => {
+    const prev = buildState(2n, 90n, 0n, [htlc]);
+    const next = buildState(3n, 100n, 0n, []);
+    const signed = await bothSign(next);
+    await expect(admitHtlcFail(signed, ctx, { prev, htlcId: htlc.id })).resolves.toBeUndefined();
+  });
+
+  it('rejects a state where the failed HTLC is still present', async () => {
+    const prev = buildState(2n, 90n, 0n, [htlc]);
+    const next = buildState(3n, 90n, 0n, [htlc]);
+    const signed = await bothSign(next);
+    await expect(admitHtlcFail(signed, ctx, { prev, htlcId: htlc.id })).rejects.toMatchObject({
+      code: 'EXPECTED_HTLC_ABSENT',
+    });
   });
 });
 

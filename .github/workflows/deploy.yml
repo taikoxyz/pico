@@ -126,6 +126,35 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v3
 
+      - name: Resolve image digests
+        id: images
+        run: |
+          set -euo pipefail
+          resolve_digest_ref() {
+            local ref="$1"
+            if [[ "$ref" == *@sha256:* ]]; then
+              echo "$ref"
+              return
+            fi
+            local repo="${ref%%:*}"
+            local digest
+            digest="$(gcloud artifacts docker images describe "$ref" \
+              --project "$GCP_PROJECT_ID" \
+              --format='value(image_summary.digest)')"
+            if [[ -z "$digest" ]]; then
+              echo "::error::Could not resolve digest for $ref"
+              exit 1
+            fi
+            echo "${repo}@${digest}"
+          }
+
+          hub_image="$(resolve_digest_ref "${{ steps.release.outputs.hub_image }}")"
+          watchtower_image="$(resolve_digest_ref "${{ steps.release.outputs.watchtower_image }}")"
+          {
+            echo "hub_image=${hub_image}"
+            echo "watchtower_image=${watchtower_image}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v3
         with:
@@ -136,23 +165,25 @@ jobs:
       - name: Verify Artifact Registry images exist
         run: |
           set -euo pipefail
-          gcloud artifacts docker images describe "${{ steps.release.outputs.hub_image }}" \
+          gcloud artifacts docker images describe "${{ steps.images.outputs.hub_image }}" \
             --project "$GCP_PROJECT_ID"
-          gcloud artifacts docker images describe "${{ steps.release.outputs.watchtower_image }}" \
+          gcloud artifacts docker images describe "${{ steps.images.outputs.watchtower_image }}" \
             --project "$GCP_PROJECT_ID"
 
       - name: Render manifests
         run: |
           set -euo pipefail
           infra/k8s/render-manifests.sh \
-            --hub-image "${{ steps.release.outputs.hub_image }}" \
-            --watchtower-image "${{ steps.release.outputs.watchtower_image }}" \
+            --hub-image "${{ steps.images.outputs.hub_image }}" \
+            --watchtower-image "${{ steps.images.outputs.watchtower_image }}" \
             --namespace "$GKE_NAMESPACE" \
             --out-dir .context/gke-manifests
 
       - name: Apply manifests
         run: |
           set -euo pipefail
+          # Grafana moved from Deployment to StatefulSet for persistent UI state.
+          kubectl delete deployment/pico-grafana -n "$GKE_NAMESPACE" --ignore-not-found
           for manifest in \
             .context/gke-manifests/00-namespace.yaml \
             .context/gke-manifests/01-hub.yaml \
@@ -171,8 +202,8 @@ jobs:
           kubectl rollout status statefulset/pico-hub -n "$GKE_NAMESPACE" --timeout=10m
           kubectl rollout status statefulset/pico-watchtower -n "$GKE_NAMESPACE" --timeout=10m
           kubectl rollout status statefulset/pico-prometheus -n "$GKE_NAMESPACE" --timeout=10m
+          kubectl rollout status statefulset/pico-grafana -n "$GKE_NAMESPACE" --timeout=5m
           kubectl rollout status deployment/pico-alertmanager -n "$GKE_NAMESPACE" --timeout=5m
-          kubectl rollout status deployment/pico-grafana -n "$GKE_NAMESPACE" --timeout=5m
 
       - name: Verify deployed images
         run: |
@@ -180,13 +211,13 @@ jobs:
           actual_hub="$(kubectl get statefulset pico-hub -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="hub")].image}')"
           actual_watchtower="$(kubectl get statefulset pico-watchtower -n "$GKE_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[?(@.name=="watchtower")].image}')"
 
-          if [[ "$actual_hub" != "${{ steps.release.outputs.hub_image }}" ]]; then
-            echo "::error::Hub image mismatch: expected ${{ steps.release.outputs.hub_image }}, got $actual_hub"
+          if [[ "$actual_hub" != "${{ steps.images.outputs.hub_image }}" ]]; then
+            echo "::error::Hub image mismatch: expected ${{ steps.images.outputs.hub_image }}, got $actual_hub"
             exit 1
           fi
 
-          if [[ "$actual_watchtower" != "${{ steps.release.outputs.watchtower_image }}" ]]; then
-            echo "::error::Watchtower image mismatch: expected ${{ steps.release.outputs.watchtower_image }}, got $actual_watchtower"
+          if [[ "$actual_watchtower" != "${{ steps.images.outputs.watchtower_image }}" ]]; then
+            echo "::error::Watchtower image mismatch: expected ${{ steps.images.outputs.watchtower_image }}, got $actual_watchtower"
             exit 1
           fi
 
@@ -205,6 +236,6 @@ jobs:
             echo "- Release tag: \`${{ steps.release.outputs.release_tag }}\`"
             echo "- Commit SHA: \`${{ steps.release.outputs.commit_sha }}\`"
             echo "- Namespace: \`$GKE_NAMESPACE\`"
-            echo "- Hub image: \`${{ steps.release.outputs.hub_image }}\`"
-            echo "- Watchtower image: \`${{ steps.release.outputs.watchtower_image }}\`"
+            echo "- Hub image: \`${{ steps.images.outputs.hub_image }}\`"
+            echo "- Watchtower image: \`${{ steps.images.outputs.watchtower_image }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

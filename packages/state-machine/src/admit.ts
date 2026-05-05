@@ -94,7 +94,7 @@ export async function verifyBothSignatures(
   const placeholderA = isPlaceholderSig(signed.sigA);
   const placeholderB = isPlaceholderSig(signed.sigB);
 
-  if (requireA && !(allowPartial && placeholderA)) {
+  if (requireA && !(required === undefined && allowPartial && placeholderA)) {
     let okA = false;
     try {
       okA = await verifyChannelStateSignature(
@@ -112,7 +112,7 @@ export async function verifyBothSignatures(
     }
   }
 
-  if (requireB && !(allowPartial && placeholderB)) {
+  if (requireB && !(required === undefined && allowPartial && placeholderB)) {
     let okB = false;
     try {
       okB = await verifyChannelStateSignature(
@@ -266,6 +266,25 @@ export async function admitHtlcSettle(
     throw new StateAdmissionError(
       'PREIMAGE_MISMATCH',
       'preimage does not hash to expectedPaymentHash',
+    );
+  }
+}
+
+export interface AdmitHtlcFailOpts extends AdmitSignedStateOpts {
+  readonly htlcId: HtlcId;
+}
+
+export async function admitHtlcFail(
+  signed: SignedState,
+  ctx: AdmitContext,
+  opts: AdmitHtlcFailOpts,
+): Promise<void> {
+  await admitSignedState(signed, ctx, opts);
+  const stillPresent = signed.state.htlcs.some((h) => h.id === opts.htlcId);
+  if (stillPresent) {
+    throw new StateAdmissionError(
+      'EXPECTED_HTLC_ABSENT',
+      `HTLC id=${opts.htlcId} should be absent in failed state`,
     );
   }
 }

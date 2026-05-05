@@ -25,8 +25,8 @@ jobs:
     outputs:
       release_tag: ${{ steps.images.outputs.release_tag }}
       commit_sha: ${{ steps.images.outputs.commit_sha }}
-      hub_image: ${{ steps.images.outputs.hub_image }}
-      watchtower_image: ${{ steps.images.outputs.watchtower_image }}
+      hub_image: ${{ steps.digest.outputs.hub_image }}
+      watchtower_image: ${{ steps.digest.outputs.watchtower_image }}
 
     steps:
       - name: Checkout
@@ -84,20 +84,20 @@ jobs:
           set -euo pipefail
           release_tag="${GITHUB_REF_NAME}"
           commit_sha="$(git rev-list -n1 "$release_tag")"
-          hub_image="${GAR_IMAGE_PREFIX}/hub:${release_tag}"
-          watchtower_image="${GAR_IMAGE_PREFIX}/watchtower:${release_tag}"
+          hub_tag="${GAR_IMAGE_PREFIX}/hub:${release_tag}"
+          watchtower_tag="${GAR_IMAGE_PREFIX}/watchtower:${release_tag}"
 
           {
             echo "release_tag=${release_tag}"
             echo "commit_sha=${commit_sha}"
-            echo "hub_image=${hub_image}"
-            echo "watchtower_image=${watchtower_image}"
+            echo "hub_tag=${hub_tag}"
+            echo "watchtower_tag=${watchtower_tag}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Guard against tag overwrite
         run: |
           set -euo pipefail
-          for img in "${{ steps.images.outputs.hub_image }}" "${{ steps.images.outputs.watchtower_image }}"; do
+          for img in "${{ steps.images.outputs.hub_tag }}" "${{ steps.images.outputs.watchtower_tag }}"; do
             if gcloud artifacts docker images describe "$img" --project "$GCP_PROJECT_ID" 2>/dev/null; then
               echo "::error::Image $img already exists in Artifact Registry. Delete the tag or cut a new release."
               exit 1
@@ -105,6 +105,7 @@ jobs:
           done
 
       - name: Build and push hub
+        id: hub_build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -112,9 +113,10 @@ jobs:
           push: true
           build-args: |
             INCLUDE_LITESTREAM=1
-          tags: ${{ steps.images.outputs.hub_image }}
+          tags: ${{ steps.images.outputs.hub_tag }}
 
       - name: Build and push watchtower
+        id: watchtower_build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -122,14 +124,25 @@ jobs:
           push: true
           build-args: |
             INCLUDE_LITESTREAM=1
-          tags: ${{ steps.images.outputs.watchtower_image }}
+          tags: ${{ steps.images.outputs.watchtower_tag }}
+
+      - name: Compute digest image references
+        id: digest
+        run: |
+          set -euo pipefail
+          hub_image="${GAR_IMAGE_PREFIX}/hub@${{ steps.hub_build.outputs.digest }}"
+          watchtower_image="${GAR_IMAGE_PREFIX}/watchtower@${{ steps.watchtower_build.outputs.digest }}"
+          {
+            echo "hub_image=${hub_image}"
+            echo "watchtower_image=${watchtower_image}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Render GKE manifests
         run: |
           set -euo pipefail
           infra/k8s/render-manifests.sh \
-            --hub-image "${{ steps.images.outputs.hub_image }}" \
-            --watchtower-image "${{ steps.images.outputs.watchtower_image }}" \
+            --hub-image "${{ steps.digest.outputs.hub_image }}" \
+            --watchtower-image "${{ steps.digest.outputs.watchtower_image }}" \
             --namespace "$GKE_NAMESPACE" \
             --out-dir .context/gke-manifests
 

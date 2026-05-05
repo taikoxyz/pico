@@ -1,21 +1,25 @@
-# Mainnet ownership transfer to multisig + timelock
+# Mainnet ownership verification and timelock transfer
 
-Closes audit finding **PC-09**. After deployment via `script/Deploy.s.sol`, the
-deployer EOA is the sole owner of both `Adjudicator` and `PaymentChannel` UUPS
-proxies. The owner can upgrade implementations and toggle the
-`PaymentChannel.allowedTokens` allowlist. This runbook hands that authority to a
-Safe-multisig-controlled `TimelockController`.
+Closes audit finding **PC-09** only after on-chain ownership and key custody are
+verified. New deployments via `script/Deploy.s.sol` transfer both UUPS proxies to
+`OWNER_ADDRESS` before the broadcast ends, and the script rejects owner
+addresses with no code unless `ALLOW_EOA_OWNER=true` is set for an emergency.
+If the current owner is a Safe, this runbook verifies Safe custody first and can
+later hand authority to a Safe-controlled `TimelockController`.
 
 ## Why
 
 | Attack surface today | After this handoff |
 |---|---|
-| 1 EOA can upgrade either proxy at any block | Safe quorum must propose; queued op waits `MIN_DELAY`; Safe quorum must execute |
-| 1 EOA can allowlist arbitrary tokens | Same delay-and-quorum pattern |
-| 1 EOA compromise = total protocol takeover | Compromise of N/M Safe signers + survival of `MIN_DELAY` window |
+| Owner EOA or undeployed owner address can upgrade either proxy at any block | Owner is a deployed Safe or timelock with verified signer custody |
+| Safe can upgrade immediately | Safe quorum must propose; queued op waits `MIN_DELAY`; Safe quorum must execute |
+| Owner-key compromise = total protocol takeover | Compromise of N/M Safe signers + survival of `MIN_DELAY` window |
 
 ## Prerequisites
 
+- Current owner address has contract code on Taiko mainnet. If `cast code
+  $CURRENT_OWNER` returns `0x`, stop and identify the controlling key before
+  moving real funds.
 - Safe multisig deployed on Taiko mainnet. Recommended threshold: **3 of 5**
   signers minimum, with signers held on independent hardware wallets.
 - `MIN_DELAY` decided. Recommended for mainnet: **48 hours** (172800 sec). The
@@ -30,6 +34,23 @@ Safe-multisig-controlled `TimelockController`.
 - Foundry toolchain present (`foundryup`).
 
 ## Step-by-step (mainnet)
+
+### 0. Verify current owner custody
+
+```bash
+export ADJUDICATOR_PROXY=0x...
+export PAYMENT_CHANNEL_PROXY=0x...
+export CURRENT_OWNER=0x...
+
+cast call $ADJUDICATOR_PROXY "owner()(address)" --rpc-url taiko_mainnet
+cast call $PAYMENT_CHANNEL_PROXY "owner()(address)" --rpc-url taiko_mainnet
+cast code $CURRENT_OWNER --rpc-url taiko_mainnet
+```
+
+Both `owner()` calls must equal `$CURRENT_OWNER`, and `$CURRENT_OWNER` must have
+code unless the deployment is intentionally in an emergency EOA-owner state. If
+the owner has no code, do not run the real-USDC smoke test until key custody is
+documented in `docs/launch-log.md`.
 
 ### 1. Deploy the timelock
 
@@ -74,6 +95,7 @@ All three must return the expected values: delay = `$MIN_DELAY`, both roles =
 export ADJUDICATOR_PROXY=0x...          # from `Deploy.s.sol` output
 export PAYMENT_CHANNEL_PROXY=0x...
 export NEW_OWNER=$TIMELOCK
+export SAFE_ADDRESS=0x...               # optional but recommended; validates roles
 
 forge script script/TransferOwnership.s.sol \
   --rpc-url taiko_mainnet \
@@ -111,8 +133,9 @@ contracts-upgradeable v4.9.6. If `NEW_OWNER` is wrong:
   channels via cooperative close, freeze new opens, prepare a coordinated
   migration to a fresh deployment.
 - The `TransferOwnership.s.sol` script asserts `newOwner.code.length > 0`
-  before broadcasting; this catches the most common mistake (handing to an
-  EOA). The mandatory testnet dry-run is the real defence.
+  before broadcasting and verifies `TimelockController.getMinDelay() >= 48h`;
+  this catches common mistakes. The mandatory testnet dry-run is the real
+  defence.
 
 ## Routine governed upgrade (post-handoff)
 
@@ -136,16 +159,17 @@ queued, wait `MIN_DELAY`, then executed. Both calls go through the Safe.
             $PAYMENT_CHANNEL_PROXY 0 \
             $(cast calldata "upgradeTo(address)" $NEW_IMPL) \
             0x0000000000000000000000000000000000000000000000000000000000000000 \
-            0x000000000000000000000000000000000000000000000000000000000000000N \
+            0x0000000000000000000000000000000000000000000000000000000000000001 \
             $MIN_DELAY
    ```
-   The `0x...0N` salt should be a unique nonce per operation. Sign + execute.
+   The salt should be a unique `bytes32` nonce per operation. Sign + execute.
 3. Wait `MIN_DELAY` seconds. Anyone can monitor:
    ```bash
    OP_ID=$(cast call $TIMELOCK "hashOperation(address,uint256,bytes,bytes32,bytes32)(bytes32)" \
      $PAYMENT_CHANNEL_PROXY 0 \
      $(cast calldata "upgradeTo(address)" $NEW_IMPL) \
-     0x00...0 0x...0N)
+     0x0000000000000000000000000000000000000000000000000000000000000000 \
+     0x0000000000000000000000000000000000000000000000000000000000000001)
    cast call $TIMELOCK "isOperationReady(bytes32)(bool)" $OP_ID
    ```
 4. In the Safe UI, propose `Timelock.execute(...)` with the same args. Sign +

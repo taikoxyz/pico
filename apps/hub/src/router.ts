@@ -196,11 +196,19 @@ export class Router {
     return this.signOnIncomingChannel(incoming, settled, incomingChannel);
   }
 
-  async failIncoming(incoming: InflightHtlc): Promise<SignedState> {
+  async failIncoming(
+    incoming: InflightHtlc,
+    recipientFailedOutgoingState: SignedState,
+  ): Promise<SignedState> {
     const incomingChannel = this.deps.channelPool.get(incoming.incomingChannelId);
     if (!incomingChannel) {
       throw new Error(`router: lost incoming channel ${incoming.incomingChannelId}`);
     }
+    await this.deps.channelPool.recordState(
+      incoming.outgoingChannelId,
+      recipientFailedOutgoingState,
+    );
+
     const failed = failHtlc(incoming.incomingSignedState.state, incoming.incomingHtlcId);
     return this.signOnIncomingChannel(incoming, failed, incomingChannel);
   }

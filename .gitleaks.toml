@@ -4,6 +4,12 @@ title = "pico gitleaks config"
 useDefault = true
 
 [[allowlists]]
+description = "Vendored third-party libraries"
+paths = [
+  '''packages/contracts/lib/''',
+]
+
+[[allowlists]]
 description = "Public development keys intentionally committed for tests and startup guardrails"
 regexTarget = "match"
 regexes = [

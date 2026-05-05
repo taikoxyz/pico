@@ -178,6 +178,7 @@ export class ChainEventWatcher {
     return this.headBlock;
   }
 
+  /** @internal Test-only hook for forcing the confirmation buffer to flush. */
   async __forFlush(): Promise<void> {
     await this.flushConfirmed();
   }

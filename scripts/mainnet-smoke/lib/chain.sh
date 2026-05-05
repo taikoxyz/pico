@@ -39,6 +39,28 @@ contract_codesize() {
   echo $(( (${#code} - 2) / 2 ))
 }
 
+contract_owner() {
+  local addr="$1" rpc="$2"
+  cast call "$addr" "owner()(address)" --rpc-url "$rpc"
+}
+
+token_allowed() {
+  local token="$1" rpc="$2"
+  cast call "$PAYMENT_CHANNEL_ADDR" "allowedTokens(address)(bool)" "$token" --rpc-url "$rpc"
+}
+
+timelock_delay() {
+  local addr="$1" rpc="$2"
+  cast call "$addr" "getMinDelay()(uint256)" --rpc-url "$rpc"
+}
+
+timelock_has_role() {
+  local addr="$1" role_sig="$2" account="$3" rpc="$4"
+  local role
+  role="$(cast call "$addr" "$role_sig()(bytes32)" --rpc-url "$rpc")"
+  cast call "$addr" "hasRole(bytes32,address)(bool)" "$role" "$account" --rpc-url "$rpc"
+}
+
 # Best-effort: resolve the most recent ChannelOpened tx hash for a given
 # channel id by scanning recent blocks. Slow on a fresh fork; fine after
 # the actual open since the operator has the block range narrowed.

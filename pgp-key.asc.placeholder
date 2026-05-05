@@ -4,7 +4,7 @@ This file is a placeholder. The real ASCII-armored PGP public key for
 security@taiko.xyz has not been generated yet.
 
 Until pgp-key.asc exists in this directory and SECURITY.md lists a real
-PGP fingerprint, **PGP-encrypted reports cannot be processed**. Use the
+PGP fingerprint, PGP-encrypted reports cannot be processed. Use the
 GitHub private vulnerability advisory channel instead:
 
   https://github.com/dantaik/pico/security/advisories/new

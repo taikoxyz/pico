@@ -53,7 +53,11 @@ function makeChannel(
 }
 
 async function aliceSign(state: ChannelState): Promise<Signature> {
-  const account = privateKeyToAccount(ALICE_PK);
+  return signStateBy(ALICE_PK, state);
+}
+
+async function signStateBy(privateKey: `0x${string}`, state: ChannelState): Promise<Signature> {
+  const account = privateKeyToAccount(privateKey);
   const sig = await account.signTypedData(
     buildChannelStateTypedData(state, 31337, VERIFYING_CONTRACT),
   );
@@ -83,6 +87,31 @@ async function buildAliceState(
     finalized: false,
   };
   return { state, sigA: await aliceSign(state), sigB: ZERO_SIG };
+}
+
+async function openWs(url: string): Promise<WebSocket> {
+  const ws = new WebSocket(url);
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`websocket open timed out for ${url}`)), 1_000);
+    ws.on('open', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    ws.on('error', reject);
+    ws.on('unexpected-response', (_req, res) => {
+      reject(new Error(`unexpected websocket response ${res.statusCode}`));
+    });
+    ws.on('close', (code, reason) => {
+      reject(new Error(`websocket closed before open ${code} ${reason.toString('utf8')}`));
+    });
+  });
+  return ws;
+}
+
+function nextHubMessage(ws: WebSocket): Promise<ReturnType<typeof decodeHubMessage>> {
+  return new Promise((resolve) => {
+    ws.once('message', (raw: Buffer) => resolve(decodeHubMessage(raw.toString('utf8'))));
+  });
 }
 
 describe('buildServer integration', () => {

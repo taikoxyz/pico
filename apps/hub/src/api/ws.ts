@@ -12,7 +12,9 @@ import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@pico/sdk';
 import {
   StateAdmissionError,
   admitClose,
+  admitHtlcFail,
   admitHtlcOffer,
+  admitHtlcSettle,
   admitSignedState,
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
@@ -127,6 +129,15 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
 
   function knownPartiesForChannel(channel: Channel): ReadonlySet<Address> {
     return new Set([channel.userA, channel.userB] as Address[]);
+  }
+
+  function requireExpectedSigner(
+    signer: Address | undefined,
+    expected: Address,
+  ): { ok: true } | { ok: false; reason: string } {
+    if (signer === undefined) return { ok: true };
+    if (signer.toLowerCase() === expected.toLowerCase()) return { ok: true };
+    return { ok: false, reason: `signer ${signer} is not expected recipient ${expected}` };
   }
 
   async function handleSubscribe(
@@ -338,6 +349,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   async function handleHtlcSettle(
     socket: WsWebSocket,
     msg: Extract<ClientToHubMessage, { kind: 'htlcSettle' }>,
+    signer: Address | undefined,
   ): Promise<void> {
     const inflight = router.peekByOutgoingId(msg.htlcId);
     if (!inflight) {
@@ -354,13 +366,18 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       );
       return;
     }
+    const auth = requireExpectedSigner(signer, inflight.recipient);
+    if (!auth.ok) {
+      sendError(socket, msg.id, 'UNAUTHORIZED', auth.reason);
+      return;
+    }
     const outgoingChannel = deps.channelPool.get(inflight.outgoingChannelId);
     if (!outgoingChannel) {
       sendError(socket, msg.id, 'UNKNOWN_CHANNEL', 'outgoing channel missing');
       return;
     }
     try {
-      await admitSignedState(
+      await admitHtlcSettle(
         msg.signedState,
         {
           channel: outgoingChannel,
@@ -372,6 +389,9 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
           allowEqualVersion: true,
           allowPartialSigs: true,
           requireSignerAddresses: [inflight.recipient],
+          htlcId: msg.htlcId,
+          preimage: msg.preimage,
+          expectedPaymentHash: inflight.outgoingHtlc.paymentHash,
         },
       );
     } catch (err) {
@@ -419,6 +439,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   async function handleHtlcFail(
     socket: WsWebSocket,
     msg: Extract<ClientToHubMessage, { kind: 'htlcFail' }>,
+    signer: Address | undefined,
   ): Promise<void> {
     const inflight = router.peekByOutgoingId(msg.htlcId);
     if (!inflight) {
@@ -435,6 +456,41 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       );
       return;
     }
+    const auth = requireExpectedSigner(signer, inflight.recipient);
+    if (!auth.ok) {
+      sendError(socket, msg.id, 'UNAUTHORIZED', auth.reason);
+      return;
+    }
+    if (msg.signedState === undefined) {
+      sendError(socket, msg.id, 'MISSING_STATE', 'htlcFail requires signedState');
+      return;
+    }
+    const outgoingChannel = deps.channelPool.get(inflight.outgoingChannelId);
+    if (!outgoingChannel) {
+      sendError(socket, msg.id, 'UNKNOWN_CHANNEL', 'outgoing channel missing');
+      return;
+    }
+    try {
+      await admitHtlcFail(
+        msg.signedState,
+        {
+          channel: outgoingChannel,
+          chainId: deps.chainId,
+          verifyingContract: deps.verifyingContract,
+        },
+        {
+          prev: inflight.outgoingHubSigned.state,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [inflight.recipient],
+          htlcId: msg.htlcId,
+        },
+      );
+    } catch (err) {
+      const code = err instanceof StateAdmissionError ? err.code : 'INVALID_STATE';
+      sendError(socket, msg.id, code, (err as Error).message);
+      return;
+    }
     router.takeByOutgoingId(msg.htlcId);
     try {
       await deps.repos.routes.markFailed(inflight.outgoingHtlcId);
@@ -444,7 +500,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         'route already marked or missing; continuing fail',
       );
     }
-    const failedIncoming = await router.failIncoming(inflight);
+    const failedIncoming = await router.failIncoming(inflight, msg.signedState);
     await deps.channelPool.recordState(inflight.incomingChannelId, failedIncoming);
     deps.liquidity.releaseReservation(inflight.outgoingChannelId, inflight.outgoingHtlc.amount);
     await deps.repos.htlcs.setState(inflight.incomingHtlcId, 'failed');
@@ -639,9 +695,9 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         return handlePay(socket, msg);
       }
       case 'htlcSettle':
-        return handleHtlcSettle(socket, msg);
+        return handleHtlcSettle(socket, msg, signer);
       case 'htlcFail':
-        return handleHtlcFail(socket, msg);
+        return handleHtlcFail(socket, msg, signer);
       case 'payDirect': {
         const auth = authorizedSignerForChannel(signer, msg.channelId);
         if (!auth.ok) {

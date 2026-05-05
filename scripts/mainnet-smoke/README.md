@@ -26,6 +26,8 @@ a guided, idempotent run. Per-channel cap 100 USDC, hub liquidity ceiling
   - ~0.005 ETH for gas (channel open + state updates + cooperative close)
 - Hub hot wallet has been funded with USDC up to but not exceeding the
   1000 USDC ceiling.
+- The expected proxy owner address is known and verified. For v1 this should
+  be a deployed Safe or timelock contract, not an undeployed address.
 - `cast` (Foundry) and `python3` on PATH.
 - The hub URL is reachable from this machine.
 
@@ -40,11 +42,14 @@ deadline of 5 minutes for the watchtower to win.
 ```bash
 scripts/mainnet-smoke/run-all.sh \
   --hub https://hub.example.com \
-  --hub-hot-wallet 0xHubHotWalletAddress
+  --hub-hot-wallet 0xHubHotWalletAddress \
+  --expected-owner 0xSafeOrTimelockAddress
 ```
 
 Pass `--yes` to skip phase prompts (CI / dry runs only). Set `RPC_URL`
-to override the Taiko mainnet RPC default.
+to override the Taiko mainnet RPC default. If ownership has moved to a
+timelock, also pass `--timelock 0x... --safe 0x...` so precheck verifies the
+48h delay and Safe proposer/executor roles.
 
 ## Phase scripts
 
@@ -52,7 +57,7 @@ Each can be invoked individually (useful for re-running just one phase).
 
 | Phase | Script | What it does |
 |---|---|---|
-| 00 | `00-precheck.sh` | Verifies key files, hub liveness, chainId, contract bytecode, USDC + ETH balances, and the 1000 USDC hub ceiling. Exits non-zero on any failure. |
+| 00 | `00-precheck.sh` | Verifies key files, hub liveness, chainId, contract bytecode, proxy ownership, owner code, USDC allowlist, optional timelock roles, USDC + ETH balances, and the 1000 USDC hub ceiling. Exits non-zero on any failure. |
 | 01 | `01-open-channels.sh` | Opens Alice + Bob channels (10 USDC default). Idempotent: skips if a role already has an open channel. |
 | 02 | `02-pay.sh` | Backgrounds Bob's `pico listen`, Alice creates an invoice via Bob, Alice pays it. Asserts settle. |
 | 03 | `03-cooperative-close.sh` | Cooperatively closes every open channel for Alice + Bob; records final on-chain USDC balances. |

@@ -17,7 +17,12 @@ contract Deploy is Script {
         address deployer = vm.addr(deployerKey);
         address usdc = vm.envAddress("USDC_ADDRESS");
         address newOwner = vm.envAddress("OWNER_ADDRESS");
+        bool allowEoaOwner = vm.envOr("ALLOW_EOA_OWNER", false);
         require(newOwner != address(0), "OWNER_ADDRESS must be set");
+        require(
+            newOwner.code.length > 0 || allowEoaOwner,
+            "OWNER_ADDRESS has no code; set ALLOW_EOA_OWNER=true only for an emergency EOA owner"
+        );
 
         vm.startBroadcast(deployerKey);
 
@@ -42,5 +47,8 @@ contract Deploy is Script {
         console2.log("PaymentChannel proxy:", paymentChannelProxy);
         console2.log("USDC token allowed  :", usdc);
         console2.log("Owner of both proxies:", newOwner);
+        if (newOwner.code.length == 0) {
+            console2.log("WARNING: owner has no code; ALLOW_EOA_OWNER=true was used");
+        }
     }
 }
