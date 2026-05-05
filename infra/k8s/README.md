@@ -15,6 +15,7 @@ Ingress + ManagedCertificate. Backups via litestream to Cloudflare R2.
 ```
 infra/k8s/
 ├── README.md                   This file.
+├── bootstrap-gcp.sh            One-time GCP/GKE/WIF bootstrap (idempotent).
 ├── secrets-bootstrap.sh        .env → kubectl Secret. Refuses known dev keys.
 ├── 00-namespace.yaml           Namespace + LimitRange.
 ├── 01-hub.yaml                 Hub StatefulSet + Service + Ingress + ManagedCertificate.
@@ -36,32 +37,52 @@ infra/k8s/
 - A DNS zone you control for the public hub hostname (default
   `pico.taiko.xyz`).
 
-## One-time setup
+## One-time GCP bootstrap
 
-### Cluster
+Production runs in GCP project `pico-mainnet`, region `asia-southeast1`,
+on a GKE Autopilot cluster `pico-prod`. The bootstrap is automated by
+`infra/k8s/bootstrap-gcp.sh` (idempotent — safe to re-run). Tracked in
+[#58](https://github.com/dantaik/pico/issues/58).
 
 ```bash
-gcloud auth login
-gcloud config set project YOUR_PROJECT
-gcloud config set compute/region us-central1
+gcloud auth login                # account with Owner or Editor on pico-mainnet
+gh auth login                    # account with admin on dantaik/pico
 
-gcloud container clusters create-auto pico-prod \
-  --region us-central1 \
-  --release-channel regular
-
-gcloud container clusters get-credentials pico-prod --region us-central1
-kubectl config current-context  # confirm
+infra/k8s/bootstrap-gcp.sh --dry-run   # print the plan
+infra/k8s/bootstrap-gcp.sh             # apply
 ```
 
-### Artifact Registry
+The script:
+
+1. Enables the required APIs (`container`, `artifactregistry`, `compute`, `iam`, `iamcredentials`, `dns`).
+2. Creates the Artifact Registry Docker repo `pico` in `asia-southeast1`.
+3. Creates the GKE Autopilot cluster `pico-prod` in `asia-southeast1`.
+4. Creates the deployer service account `gha-pico-deployer@pico-mainnet.iam.gserviceaccount.com` and grants `roles/artifactregistry.writer`, `roles/container.developer`, `roles/container.viewer`.
+5. Creates the Workload Identity Federation pool `gha-pool` and the OIDC provider `gha-github` trusting `dantaik/pico`, then binds the service account via `roles/iam.workloadIdentityUser`.
+6. Sets the seven GitHub repo variables that `gke-images.yml` and `deploy.yml` validate at the start of every run:
+
+   ```text
+   GCP_PROJECT_ID=pico-mainnet
+   GAR_LOCATION=asia-southeast1
+   GAR_REPOSITORY=pico
+   GCP_WORKLOAD_IDENTITY_PROVIDER=projects/<project-number>/locations/global/workloadIdentityPools/gha-pool/providers/gha-github
+   GCP_SERVICE_ACCOUNT=gha-pico-deployer@pico-mainnet.iam.gserviceaccount.com
+   GKE_CLUSTER=pico-prod
+   GKE_LOCATION=asia-southeast1
+   ```
+
+   `GKE_NAMESPACE` is optional and defaults to `pico` in both workflows.
+
+7. Pulls cluster credentials and applies `00-namespace.yaml` + `06-networkpolicy.yaml`.
+
+Override defaults with env vars (`GCP_PROJECT_ID`, `REGION`, `CLUSTER_NAME`,
+`GAR_REPO`, `SA_NAME`, `WIF_POOL`, `WIF_PROVIDER`, `GITHUB_REPO`).
+
+After the script finishes, configure Docker auth for local pushes (only
+needed for emergency local builds):
 
 ```bash
-gcloud artifacts repositories create pico \
-  --repository-format=docker \
-  --location=us-central1 \
-  --description="pico images"
-
-gcloud auth configure-docker us-central1-docker.pkg.dev
+gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 ```
 
 ### Release images and deploy
@@ -74,25 +95,11 @@ Kubernetes manifests with exact image references. After the image push
 succeeds, it calls `.github/workflows/deploy.yml` to apply those manifests to
 GKE and verify the rollout.
 
-Configure these GitHub repository variables before pushing a release tag:
-
-```text
-GCP_PROJECT_ID=<your-project-id>
-GAR_LOCATION=us-central1
-GAR_REPOSITORY=pico
-GCP_WORKLOAD_IDENTITY_PROVIDER=projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
-GCP_SERVICE_ACCOUNT=<service-account>@<project-id>.iam.gserviceaccount.com
-GKE_CLUSTER=pico-prod
-GKE_LOCATION=us-central1
-GKE_NAMESPACE=pico                 # optional; defaults to pico
-```
-
-The service account must be impersonable by the GitHub Workload Identity
-provider. It needs permission to upload Docker images to Artifact Registry
-(for example `roles/artifactregistry.writer` on the repository), read the GKE
-cluster (`roles/container.clusterViewer`), and apply resources in the target
-Kubernetes namespace. Bind Kubernetes RBAC to the Google service account before
-the first automated deploy.
+The bootstrap script grants the deployer service account
+`roles/artifactregistry.writer` (push images), `roles/container.developer`
+(apply resources), and `roles/container.viewer` (read cluster). Bind any
+additional Kubernetes RBAC to the Google service account before the first
+automated deploy if your manifests need it.
 
 The deploy workflow uses GitHub `environment: production`, so configure the
 environment's required reviewers/protection rules in repository settings if a
