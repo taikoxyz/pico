@@ -161,7 +161,7 @@ export class PaymentRepo {
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (
                PARTITION BY incoming_channel_id
-               ORDER BY CAST(created_at AS INTEGER) DESC, id DESC
+               ORDER BY CAST(created_at AS BIGINT) DESC, id DESC
              ) AS rn
              FROM payments
              WHERE incoming_channel_id IS NOT NULL
@@ -171,7 +171,7 @@ export class PaymentRepo {
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (
                PARTITION BY outgoing_channel_id
-               ORDER BY CAST(created_at AS INTEGER) DESC, id DESC
+               ORDER BY CAST(created_at AS BIGINT) DESC, id DESC
              ) AS rn
              FROM payments
              WHERE outgoing_channel_id IS NOT NULL
