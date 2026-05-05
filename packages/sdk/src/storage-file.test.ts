@@ -1,17 +1,24 @@
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Channel, Invoice, SignedState } from '@pico/protocol';
+import {
+  CONTRACT_ADDRESSES,
+  type Channel,
+  type Invoice,
+  type SignedState,
+  TAIKO_MAINNET_CHAIN_ID,
+  USDC_TOKENS,
+} from '@pico/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileStorage } from './storage-file.js';
 
 const channelA: Channel = {
   id: '0x0000000000000000000000000000000000000000000000000000000000000001',
-  chainId: 167000,
-  contract: '0x07B32f52523Fdf0780821595422DccEF31FA2335',
+  chainId: TAIKO_MAINNET_CHAIN_ID,
+  contract: CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID].PaymentChannel,
   userA: '0x00000000000000000000000000000000000000a1',
   userB: '0x00000000000000000000000000000000000000b0',
-  token: '0x07d83526730c7438048D55A4fc0b850e2aaB6f0b',
+  token: USDC_TOKENS[TAIKO_MAINNET_CHAIN_ID].address,
   status: 'open',
   openedAt: 1_700_000_000n,
   disputeWindowMs: 86_400_000,

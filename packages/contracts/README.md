@@ -35,19 +35,15 @@ environment.
 
 | Artifact | Address |
 |---|---|
-| **Adjudicator proxy** | [`0x775904054b4A97b3925f1Dd60aE61fBc81567dB9`](https://taikoscan.io/address/0x775904054b4A97b3925f1Dd60aE61fBc81567dB9) |
-| **PaymentChannel proxy** | [`0x07B32f52523Fdf0780821595422DccEF31FA2335`](https://taikoscan.io/address/0x07B32f52523Fdf0780821595422DccEF31FA2335) |
-| Adjudicator implementation | [`0x3abe77c8fEd229e1A150b3a81758Af191D3272Af`](https://taikoscan.io/address/0x3abe77c8fEd229e1A150b3a81758Af191D3272Af) |
-| PaymentChannel implementation (current) | [`0xe798e1e6D0f2cF9b2dd4B53B2ad18b9D7654Ba14`](https://taikoscan.io/address/0xe798e1e6D0f2cF9b2dd4B53B2ad18b9D7654Ba14) |
-| PaymentChannel implementation (v1, superseded) | [`0xd72793eE80fFb6E02Cb4C747FAb8C66601FD4347`](https://taikoscan.io/address/0xd72793eE80fFb6E02Cb4C747FAb8C66601FD4347) |
+| **Adjudicator proxy** | [`0xee660F9c471d833f092Bc79f5c8F9943469b0e05`](https://taikoscan.io/address/0xee660F9c471d833f092Bc79f5c8F9943469b0e05) |
+| **PaymentChannel proxy** | [`0xCDEF7911155c8db64Ef810Ae8C538024550594D7`](https://taikoscan.io/address/0xCDEF7911155c8db64Ef810Ae8C538024550594D7) |
+| Adjudicator implementation | [`0x227AF78680f8E225A285E220C8165FD6e9312f08`](https://taikoscan.io/address/0x227AF78680f8E225A285E220C8165FD6e9312f08) |
+| PaymentChannel implementation | [`0x51e44d4dcfccB37ac1C80941713e1417c21E9df1`](https://taikoscan.io/address/0x51e44d4dcfccB37ac1C80941713e1417c21E9df1) |
 | USDC (allowlisted, Circle native) | [`0x07d83526730c7438048D55A4fc0b850e2aaB6f0b`](https://taikoscan.io/address/0x07d83526730c7438048D55A4fc0b850e2aaB6f0b) |
 
-All five contracts have verified source on Taikoscan (the proxies share the
-`ERC1967Proxy` source). The `PaymentChannel` proxy was upgraded from the v1
-impl to the current impl to ship the `dispute()` signature-verification fix —
-the v1 impl verified the non-closer's signature, which let the non-closer
-redirect funds during a unilateral close. All proxy storage was preserved;
-the Adjudicator and HTLC library were unchanged.
+All four contracts have verified source on Taikoscan via the Etherscan V2
+unified API (the proxies share the `ERC1967Proxy` source). Owner of both
+proxies: [`0x4757D97449acA795510b9f3152C6a9019A3545c3`](https://taikoscan.io/address/0x4757D97449acA795510b9f3152C6a9019A3545c3).
 
 Configured constants: `DISPUTE_WINDOW = 86400s` (24h),
 `MIN_CHANNEL_AMOUNT = 10 USDC`. The proxies use 1-step `OwnableUpgradeable`;
@@ -66,7 +62,7 @@ broadcast must be sent from the proxy owner.
 ```bash
 cd packages/contracts
 export DEPLOYER_PRIVATE_KEY=0x...                     # current proxy owner
-export PAYMENT_CHANNEL_PROXY=0x07B32f52523Fdf0780821595422DccEF31FA2335
+export PAYMENT_CHANNEL_PROXY=0xCDEF7911155c8db64Ef810Ae8C538024550594D7
 export TAIKO_MAINNET_RPC_URL=https://rpc.mainnet.taiko.xyz
 
 # Dry-run

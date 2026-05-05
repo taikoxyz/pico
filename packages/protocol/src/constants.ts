@@ -18,8 +18,8 @@ export const CONTRACT_ADDRESSES: Record<
   Record<'PaymentChannel' | 'Adjudicator', Address>
 > = {
   [TAIKO_MAINNET_CHAIN_ID]: {
-    PaymentChannel: '0x07B32f52523Fdf0780821595422DccEF31FA2335' as Address,
-    Adjudicator: '0x775904054b4A97b3925f1Dd60aE61fBc81567dB9' as Address,
+    PaymentChannel: '0xCDEF7911155c8db64Ef810Ae8C538024550594D7' as Address,
+    Adjudicator: '0xee660F9c471d833f092Bc79f5c8F9943469b0e05' as Address,
   },
   [TAIKO_HOODI_CHAIN_ID]: {
     PaymentChannel: ZERO_ADDRESS,

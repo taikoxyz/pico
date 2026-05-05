@@ -3,7 +3,7 @@
 //   pnpm --filter @pico/sdk build && pnpm --filter @pico/test-utils build
 //   pnpm tsx examples/sdk-mock-flow.ts
 
-import { TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
+import { CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID, USDC_TOKENS } from '@pico/protocol';
 import {
   ChannelClient,
   MemoryStorage,
@@ -15,8 +15,8 @@ import { InMemorySigner, MockChainAdapter, startMockHub } from '@pico/test-utils
 const ALICE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const BOB_KEY = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
 const CHAIN_ID = TAIKO_MAINNET_CHAIN_ID;
-const VERIFYING_CONTRACT = '0x07B32f52523Fdf0780821595422DccEF31FA2335' as const;
-const TOKEN = '0x07d83526730c7438048D55A4fc0b850e2aaB6f0b' as const;
+const VERIFYING_CONTRACT = CONTRACT_ADDRESSES[CHAIN_ID].PaymentChannel;
+const TOKEN = USDC_TOKENS[CHAIN_ID].address;
 
 async function main(): Promise<void> {
   const hub = await startMockHub({ chainId: CHAIN_ID, verifyingContract: VERIFYING_CONTRACT });
