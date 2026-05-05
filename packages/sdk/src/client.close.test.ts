@@ -18,7 +18,7 @@ import { WebSocketTransport } from './transport.js';
 const ALICE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const BOB_KEY = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
 const CHAIN_ID = TAIKO_MAINNET_CHAIN_ID;
-const VC: Address = CONTRACT_ADDRESSES[CHAIN_ID].PaymentChannel;
+const VC = CONTRACT_ADDRESSES[CHAIN_ID].PaymentChannel;
 const TOKEN: Address = USDC_TOKENS[CHAIN_ID].address;
 
 describe('ChannelClient.close fallback paths', () => {

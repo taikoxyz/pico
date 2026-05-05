@@ -17,6 +17,7 @@ contract Deploy is Script {
         address deployer = vm.addr(deployerKey);
         address usdc = vm.envAddress("USDC_ADDRESS");
         address newOwner = vm.envAddress("OWNER_ADDRESS");
+        require(newOwner != address(0), "OWNER_ADDRESS must be set");
 
         vm.startBroadcast(deployerKey);
 
