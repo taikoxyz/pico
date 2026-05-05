@@ -28,6 +28,7 @@ export interface HubConfig {
   readonly chainConfirmations: number;
   readonly requireSignedEnvelope: boolean;
   readonly nonceWindowMs: number;
+  readonly paymentRetentionPerChannel: number;
   readonly operatorToken: string | undefined;
 }
 
@@ -70,6 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     chainConfirmations: Number(env.CHAIN_CONFIRMATIONS ?? 3),
     requireSignedEnvelope,
     nonceWindowMs: Number(env.HUB_NONCE_WINDOW_MS ?? 60_000),
+    paymentRetentionPerChannel: Number(env.HUB_PAYMENT_RETENTION_PER_CHANNEL ?? 100),
     operatorToken: env.HUB_OPERATOR_TOKEN,
   };
 

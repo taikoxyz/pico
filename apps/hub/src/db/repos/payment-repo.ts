@@ -145,4 +145,40 @@ export class PaymentRepo {
     for (const r of rows) out[r.status] = Number(r.n);
     return out;
   }
+
+  // Deletes terminal-state (settled/failed) rows that have fallen out of the
+  // top `keep` (by created_at DESC) of BOTH their incoming and outgoing
+  // channels. A row survives as long as at least one of its two channels
+  // still considers it recent. This bounds total rows at <= keep * num_channels.
+  // In-flight / pending rows are never pruned.
+  async prunePerChannel(keep: number): Promise<number> {
+    if (keep <= 0) return 0;
+    const k = Math.floor(keep);
+    const r = await this.db.exec(
+      `DELETE FROM payments
+       WHERE status IN ('settled','failed')
+         AND id NOT IN (
+           SELECT id FROM (
+             SELECT id, ROW_NUMBER() OVER (
+               PARTITION BY incoming_channel_id
+               ORDER BY CAST(created_at AS INTEGER) DESC, id DESC
+             ) AS rn
+             FROM payments
+             WHERE incoming_channel_id IS NOT NULL
+           ) WHERE rn <= ?
+         )
+         AND id NOT IN (
+           SELECT id FROM (
+             SELECT id, ROW_NUMBER() OVER (
+               PARTITION BY outgoing_channel_id
+               ORDER BY CAST(created_at AS INTEGER) DESC, id DESC
+             ) AS rn
+             FROM payments
+             WHERE outgoing_channel_id IS NOT NULL
+           ) WHERE rn <= ?
+         )`,
+      [k, k],
+    );
+    return r.changes;
+  }
 }

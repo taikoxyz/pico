@@ -49,6 +49,7 @@ export interface WsDeps {
   readonly hubFeeFlat: bigint;
   readonly requireSignedEnvelope: boolean;
   readonly nonceWindowMs: number;
+  readonly paymentRetentionPerChannel: number;
 }
 
 export interface WsHandle {
@@ -370,6 +371,13 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
       msg.preimage,
     );
+    if (deps.paymentRetentionPerChannel > 0) {
+      try {
+        await deps.repos.payments.prunePerChannel(deps.paymentRetentionPerChannel);
+      } catch (err) {
+        deps.logger.warn({ err: (err as Error).message }, 'payment retention prune failed');
+      }
+    }
     deps.metrics.paymentsTotal.inc({ result: 'settled' });
 
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());
@@ -424,6 +432,13 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
       msg.reason,
     );
+    if (deps.paymentRetentionPerChannel > 0) {
+      try {
+        await deps.repos.payments.prunePerChannel(deps.paymentRetentionPerChannel);
+      } catch (err) {
+        deps.logger.warn({ err: (err as Error).message }, 'payment retention prune failed');
+      }
+    }
     deps.metrics.paymentsTotal.inc({ result: 'failed' });
 
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());
