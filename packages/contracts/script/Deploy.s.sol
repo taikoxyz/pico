@@ -16,6 +16,7 @@ contract Deploy is Script {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
         address usdc = vm.envAddress("USDC_ADDRESS");
+        address newOwner = vm.envAddress("OWNER_ADDRESS");
 
         vm.startBroadcast(deployerKey);
 
@@ -29,6 +30,9 @@ contract Deploy is Script {
 
         PaymentChannel(paymentChannelProxy).setTokenAllowed(usdc, true);
 
+        Adjudicator(adjudicatorProxy).transferOwnership(newOwner);
+        PaymentChannel(paymentChannelProxy).transferOwnership(newOwner);
+
         vm.stopBroadcast();
 
         console2.log("Adjudicator impl :", address(adjImpl));
@@ -36,10 +40,6 @@ contract Deploy is Script {
         console2.log("PaymentChannel impl :", address(pcImpl));
         console2.log("PaymentChannel proxy:", paymentChannelProxy);
         console2.log("USDC token allowed  :", usdc);
-
-        console2.log("");
-        console2.log("WARNING: deployer currently owns both proxies (deployer:", deployer, ").");
-        console2.log("WARNING: run script/TransferOwnership.s.sol to hand ownership to a Timelock+Safe");
-        console2.log("WARNING: BEFORE any mainnet payment activity. See docs/runbooks/ownership-transfer.md.");
+        console2.log("Owner of both proxies:", newOwner);
     }
 }

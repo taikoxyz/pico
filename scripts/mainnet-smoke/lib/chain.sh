@@ -3,12 +3,14 @@
 
 set -euo pipefail
 
-# Pinned mainnet constants (mirror packages/protocol/src/constants.ts).
+# Mainnet defaults mirror packages/protocol/src/constants.ts. Override any of
+# these via env to point the smoke harness at a different deployment without
+# editing source — same env-var names that hub/watchtower honor.
 TAIKO_MAINNET_CHAIN_ID=167000
 TAIKO_MAINNET_RPC_DEFAULT="https://rpc.mainnet.taiko.xyz"
-PAYMENT_CHANNEL_ADDR="0x07B32f52523Fdf0780821595422DccEF31FA2335"
-ADJUDICATOR_ADDR="0x775904054b4A97b3925f1Dd60aE61fBc81567dB9"
-USDC_ADDR="0x07d83526730c7438048D55A4fc0b850e2aaB6f0b"
+PAYMENT_CHANNEL_ADDR="${PAYMENT_CHANNEL_ADDRESS:-0xCDEF7911155c8db64Ef810Ae8C538024550594D7}"
+ADJUDICATOR_ADDR="${ADJUDICATOR_ADDRESS:-0xee660F9c471d833f092Bc79f5c8F9943469b0e05}"
+USDC_ADDR="${USDC_ADDRESS:-0x07d83526730c7438048D55A4fc0b850e2aaB6f0b}"
 USDC_DECIMALS=6
 
 require_cast() {

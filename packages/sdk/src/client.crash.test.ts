@@ -1,4 +1,9 @@
-import { type Address, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
+import {
+  type Address,
+  CONTRACT_ADDRESSES,
+  TAIKO_MAINNET_CHAIN_ID,
+  USDC_TOKENS,
+} from '@pico/protocol';
 import {
   InMemorySigner,
   MockChainAdapter,
@@ -14,8 +19,8 @@ import { WebSocketTransport } from './transport.js';
 const ALICE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const BOB_KEY = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;
 const CHAIN_ID = TAIKO_MAINNET_CHAIN_ID;
-const VERIFYING_CONTRACT = '0x07B32f52523Fdf0780821595422DccEF31FA2335' as Address;
-const TOKEN = '0x07d83526730c7438048D55A4fc0b850e2aaB6f0b' as Address;
+const VERIFYING_CONTRACT: Address = CONTRACT_ADDRESSES[CHAIN_ID].PaymentChannel;
+const TOKEN: Address = USDC_TOKENS[CHAIN_ID].address;
 
 describe('persist-before-send', () => {
   let hub: MockHubHandle;
