@@ -138,6 +138,7 @@ metadata:
   namespace: pico
   annotations:
     kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: pico-hub-ip
     networking.gke.io/managed-certificates: pico-hub-cert
     networking.gke.io/v1beta1.FrontendConfig: pico-hub-frontend
 spec:

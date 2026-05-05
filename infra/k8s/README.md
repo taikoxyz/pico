@@ -73,7 +73,8 @@ The script:
 
    `GKE_NAMESPACE` is optional and defaults to `pico` in both workflows.
 
-7. Pulls cluster credentials and applies `00-namespace.yaml` + `06-networkpolicy.yaml`.
+7. Reserves the global static IP `pico-hub-ip` used by the hub Ingress (must exist before DNS for `pico.taiko.xyz` is pointed and before ManagedCertificate provisions). The IP survives Ingress, namespace, and cluster recreations.
+8. Pulls cluster credentials and applies `00-namespace.yaml` + `06-networkpolicy.yaml`.
 
 Override defaults with env vars (`GCP_PROJECT_ID`, `REGION`, `CLUSTER_NAME`,
 `GAR_REPO`, `SA_NAME`, `WIF_POOL`, `WIF_PROVIDER`, `GITHUB_REPO`).
@@ -84,6 +85,17 @@ needed for emergency local builds):
 ```bash
 gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 ```
+
+Read back the reserved hub IP for the DNS A record on `pico.taiko.xyz`:
+
+```bash
+gcloud compute addresses describe pico-hub-ip --global \
+  --project pico-mainnet --format='value(address)'
+```
+
+The IP must be pointed at `pico.taiko.xyz` *before* the hub Ingress is
+applied — otherwise the ManagedCertificate's HTTP-01 challenge will fail
+for ~10–20 min until DNS reconciles.
 
 ### Release images and deploy
 

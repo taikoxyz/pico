@@ -75,7 +75,7 @@ echo
 
 gcloud projects describe "${GCP_PROJECT_ID}" >/dev/null
 
-echo "==> 1/8 Enable APIs"
+echo "==> 1/9 Enable APIs"
 run gcloud services enable \
   container.googleapis.com \
   artifactregistry.googleapis.com \
@@ -85,7 +85,7 @@ run gcloud services enable \
   dns.googleapis.com \
   --project "${GCP_PROJECT_ID}"
 
-echo "==> 2/8 Artifact Registry repo"
+echo "==> 2/9 Artifact Registry repo"
 if gcloud artifacts repositories describe "${GAR_REPO}" \
   --location "${REGION}" --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
   echo "  already exists"
@@ -97,7 +97,7 @@ else
     --project "${GCP_PROJECT_ID}"
 fi
 
-echo "==> 3/8 GKE Autopilot cluster"
+echo "==> 3/9 GKE Autopilot cluster"
 if gcloud container clusters describe "${CLUSTER_NAME}" \
   --region "${REGION}" --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
   echo "  already exists"
@@ -110,7 +110,7 @@ fi
 
 SA_EMAIL="${SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
 
-echo "==> 4/8 Deployer service account"
+echo "==> 4/9 Deployer service account"
 if gcloud iam service-accounts describe "${SA_EMAIL}" \
   --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
   echo "  already exists"
@@ -120,7 +120,7 @@ else
     --project "${GCP_PROJECT_ID}"
 fi
 
-echo "==> 5/8 IAM roles on project"
+echo "==> 5/9 IAM roles on project"
 for role in \
   roles/artifactregistry.writer \
   roles/container.developer \
@@ -132,7 +132,7 @@ do
     --condition=None >/dev/null
 done
 
-echo "==> 6/8 Workload Identity Federation pool + provider"
+echo "==> 6/9 Workload Identity Federation pool + provider"
 if gcloud iam workload-identity-pools describe "${WIF_POOL}" \
   --location=global --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
   echo "  pool already exists"
@@ -171,7 +171,7 @@ run gcloud iam service-accounts add-iam-policy-binding "${SA_EMAIL}" \
   --member="principalSet://iam.googleapis.com/${POOL_RESOURCE}/attribute.repository/${GITHUB_REPO}" \
   --project "${GCP_PROJECT_ID}" >/dev/null
 
-echo "==> 7/8 GitHub repo variables"
+echo "==> 7/9 GitHub repo variables"
 run gh variable set GCP_PROJECT_ID                 -R "${GITHUB_REPO}" -b "${GCP_PROJECT_ID}"
 run gh variable set GAR_LOCATION                   -R "${GITHUB_REPO}" -b "${REGION}"
 run gh variable set GAR_REPOSITORY                 -R "${GITHUB_REPO}" -b "${GAR_REPO}"
@@ -180,7 +180,16 @@ run gh variable set GCP_SERVICE_ACCOUNT            -R "${GITHUB_REPO}" -b "${SA_
 run gh variable set GKE_CLUSTER                    -R "${GITHUB_REPO}" -b "${CLUSTER_NAME}"
 run gh variable set GKE_LOCATION                   -R "${GITHUB_REPO}" -b "${REGION}"
 
-echo "==> 8/8 Apply base manifests"
+echo "==> 8/9 Reserve global static IP for hub Ingress"
+if gcloud compute addresses describe pico-hub-ip --global \
+  --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+  echo "  already exists"
+else
+  run gcloud compute addresses create pico-hub-ip \
+    --global --project "${GCP_PROJECT_ID}"
+fi
+
+echo "==> 9/9 Apply base manifests"
 run gcloud container clusters get-credentials "${CLUSTER_NAME}" \
   --region "${REGION}" --project "${GCP_PROJECT_ID}"
 run kubectl apply -f infra/k8s/00-namespace.yaml
