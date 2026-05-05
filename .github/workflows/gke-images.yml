@@ -94,6 +94,16 @@ jobs:
             echo "watchtower_image=${watchtower_image}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Guard against tag overwrite
+        run: |
+          set -euo pipefail
+          for img in "${{ steps.images.outputs.hub_image }}" "${{ steps.images.outputs.watchtower_image }}"; do
+            if gcloud artifacts docker images describe "$img" --project "$GCP_PROJECT_ID" 2>/dev/null; then
+              echo "::error::Image $img already exists in Artifact Registry. Delete the tag or cut a new release."
+              exit 1
+            fi
+          done
+
       - name: Build and push hub
         uses: docker/build-push-action@v7
         with:

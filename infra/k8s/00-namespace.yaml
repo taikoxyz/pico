@@ -30,3 +30,20 @@ spec:
         cpu: 250m
         memory: 512Mi
         ephemeral-storage: 1Gi
+---
+# pd-balanced StorageClass with Retain reclaim policy. Cluster-scoped, so
+# applying it during namespace bootstrap is safe and idempotent. Used by
+# pico-hub, pico-watchtower, and pico-prometheus for their data PVCs so
+# the underlying GCE Persistent Disks survive PVC deletion (which can
+# happen on namespace teardown or accidental kubectl delete pvc). Live
+# data is also continuously replicated by litestream to Cloudflare R2.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: pico-retain-pd-balanced
+provisioner: pd.csi.storage.gke.io
+parameters:
+  type: pd-balanced
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true

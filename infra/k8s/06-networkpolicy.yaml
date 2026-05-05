@@ -24,13 +24,15 @@ spec:
   policyTypes:
     - Egress
   egress:
+    # GKE Autopilot uses NodeLocal DNSCache. Pods resolve via the link-local
+    # cache on each node (169.254.20.10) and fall back to the kube-dns Service
+    # ClusterIP (34.118.224.10). NetworkPolicy podSelectors can't match either,
+    # so allow egress to both IPs on UDP/TCP 53 directly.
     - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
+        - ipBlock:
+            cidr: 169.254.20.10/32
+        - ipBlock:
+            cidr: 34.118.224.10/32
       ports:
         - protocol: UDP
           port: 53

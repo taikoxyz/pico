@@ -116,8 +116,8 @@ automated deploy if your manifests need it.
 The deploy workflow uses GitHub `environment: production`, so configure the
 environment's required reviewers/protection rules in repository settings if a
 human approval gate is required. The source manifests keep placeholder image
-references; `infra/k8s/render-manifests.sh` renders immutable
-`v*-<short_sha>` image tags at deploy time.
+references; `infra/k8s/render-manifests.sh` renders exact
+`v*` image tags at deploy time.
 CI runs `infra/k8s/lint-images.sh` to ensure only the approved placeholders
 and pinned third-party images appear in source manifests.
 
@@ -180,9 +180,9 @@ workflow to push images, then approve the `production` environment deployment
 if protection rules are enabled.
 
 To redeploy an existing release tag, run the `deploy` GitHub Action manually
-with `release_tag=vX.Y.Z`. It derives the exact `vX.Y.Z-<short_sha>` image
-references, verifies they exist in Artifact Registry, applies manifests, and
-checks rollouts and health endpoints.
+with `release_tag=vX.Y.Z`. It resolves the matching image reference, verifies
+it exists in Artifact Registry, applies manifests, and checks rollouts and
+health endpoints.
 
 For emergency local deploys, render exact image references and apply them:
 
@@ -290,9 +290,9 @@ R2 buckets for litestream should have:
 
 ### Image tag pinning
 
-The GKE image and deploy workflows gate on `v*` tags, build images labelled
-`vX.Y.Z-<short-sha>`, and verify the StatefulSets are running those exact
-references. Don't deploy from `:latest`.
+The GKE image and deploy workflows gate on `v*` tags, build images tagged
+`vX.Y.Z`, and verify the StatefulSets are running those exact references.
+Don't deploy from `:latest`.
 
 ### Optional add-ons not shipped here
 
