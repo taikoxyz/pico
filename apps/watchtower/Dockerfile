@@ -6,12 +6,12 @@ COPY apps/watchtower/package.json ./apps/watchtower/
 COPY packages/protocol/package.json ./packages/protocol/
 COPY packages/state-machine/package.json ./packages/state-machine/
 COPY packages/sdk/package.json ./packages/sdk/
-RUN pnpm install --frozen-lockfile --filter @tainnel/watchtower...
+RUN pnpm install --frozen-lockfile --filter @pico/watchtower...
 COPY . .
-RUN pnpm --filter @tainnel/protocol build && \
-    pnpm --filter @tainnel/state-machine build && \
-    pnpm --filter @tainnel/sdk build && \
-    pnpm --filter @tainnel/watchtower build
+RUN pnpm --filter @pico/protocol build && \
+    pnpm --filter @pico/state-machine build && \
+    pnpm --filter @pico/sdk build && \
+    pnpm --filter @pico/watchtower build
 
 FROM node:20-alpine
 ARG INCLUDE_LITESTREAM=0

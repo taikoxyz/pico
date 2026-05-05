@@ -145,9 +145,12 @@ spec:
               memory: 128Mi
               ephemeral-storage: 256Mi
           volumeMounts:
+            # Litestream needs RW on the SQLite file because it writes a
+            # _litestream_seq table to track replication sequence. ReadOnly
+            # mounts make replication fail with "attempt to write a readonly
+            # database" every second.
             - name: data
               mountPath: /data
-              readOnly: true
             - name: litestream-config
               mountPath: /etc/litestream.yml
               subPath: litestream.yml
@@ -161,6 +164,7 @@ spec:
         name: data
       spec:
         accessModes: [ReadWriteOnce]
+        storageClassName: pico-retain-pd-balanced
         resources:
           requests:
-            storage: 5Gi
+            storage: 2Gi

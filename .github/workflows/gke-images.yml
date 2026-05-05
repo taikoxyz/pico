@@ -84,17 +84,25 @@ jobs:
           set -euo pipefail
           release_tag="${GITHUB_REF_NAME}"
           commit_sha="$(git rev-list -n1 "$release_tag")"
-          short_sha="${commit_sha::12}"
-          hub_image="${GAR_IMAGE_PREFIX}/hub:${release_tag}-${short_sha}"
-          watchtower_image="${GAR_IMAGE_PREFIX}/watchtower:${release_tag}-${short_sha}"
+          hub_image="${GAR_IMAGE_PREFIX}/hub:${release_tag}"
+          watchtower_image="${GAR_IMAGE_PREFIX}/watchtower:${release_tag}"
 
           {
-            echo "short_sha=${short_sha}"
             echo "release_tag=${release_tag}"
             echo "commit_sha=${commit_sha}"
             echo "hub_image=${hub_image}"
             echo "watchtower_image=${watchtower_image}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Guard against tag overwrite
+        run: |
+          set -euo pipefail
+          for img in "${{ steps.images.outputs.hub_image }}" "${{ steps.images.outputs.watchtower_image }}"; do
+            if gcloud artifacts docker images describe "$img" --project "$GCP_PROJECT_ID" 2>/dev/null; then
+              echo "::error::Image $img already exists in Artifact Registry. Delete the tag or cut a new release."
+              exit 1
+            fi
+          done
 
       - name: Build and push hub
         uses: docker/build-push-action@v7
@@ -104,9 +112,7 @@ jobs:
           push: true
           build-args: |
             INCLUDE_LITESTREAM=1
-          tags: |
-            ${{ env.GAR_IMAGE_PREFIX }}/hub:${{ steps.images.outputs.release_tag }}
-            ${{ steps.images.outputs.hub_image }}
+          tags: ${{ steps.images.outputs.hub_image }}
 
       - name: Build and push watchtower
         uses: docker/build-push-action@v7
@@ -116,9 +122,7 @@ jobs:
           push: true
           build-args: |
             INCLUDE_LITESTREAM=1
-          tags: |
-            ${{ env.GAR_IMAGE_PREFIX }}/watchtower:${{ steps.images.outputs.release_tag }}
-            ${{ steps.images.outputs.watchtower_image }}
+          tags: ${{ steps.images.outputs.watchtower_image }}
 
       - name: Render GKE manifests
         run: |

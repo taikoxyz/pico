@@ -236,6 +236,7 @@ spec:
         name: data
       spec:
         accessModes: [ReadWriteOnce]
+        storageClassName: pico-retain-pd-balanced
         resources:
           requests:
-            storage: 20Gi
+            storage: 5Gi
