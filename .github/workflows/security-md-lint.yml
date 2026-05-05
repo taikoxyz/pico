@@ -27,11 +27,6 @@ jobs:
             exit 1
           fi
 
-          mentions_email=0
-          if grep -q 'security@pico\.dev' "$security_md"; then
-            mentions_email=1
-          fi
-
           has_real_fpr=0
           if ! grep -q '<PICO_PGP_FINGERPRINT_TODO>' "$security_md"; then
             has_real_fpr=1
@@ -43,19 +38,18 @@ jobs:
           real_key_present=0
           [ -f "$real_key" ] && real_key_present=1
 
-          echo "mentions_email=$mentions_email"
           echo "has_real_fpr=$has_real_fpr"
           echo "placeholder_present=$placeholder_present"
           echo "real_key_present=$real_key_present"
 
           # Atomic-swap rule 1: real fingerprint => placeholder must be gone.
-          if [ "$mentions_email" = "1" ] && [ "$has_real_fpr" = "1" ] && [ "$placeholder_present" = "1" ]; then
+          if [ "$has_real_fpr" = "1" ] && [ "$placeholder_present" = "1" ]; then
             echo "::error::SECURITY.md publishes a real PGP fingerprint but pgp-key.asc.placeholder still exists. Delete the placeholder and commit pgp-key.asc in the same PR."
             exit 1
           fi
 
           # Atomic-swap rule 2: real fingerprint => real key file must exist.
-          if [ "$mentions_email" = "1" ] && [ "$has_real_fpr" = "1" ] && [ "$real_key_present" = "0" ]; then
+          if [ "$has_real_fpr" = "1" ] && [ "$real_key_present" = "0" ]; then
             echo "::error::SECURITY.md publishes a real PGP fingerprint but pgp-key.asc is missing from the repo root."
             exit 1
           fi

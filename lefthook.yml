@@ -6,6 +6,11 @@ pre-commit:
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
 
+pre-push:
+  commands:
+    secrets:
+      run: pnpm secrets:scan
+
 commit-msg:
   commands:
     conventional:

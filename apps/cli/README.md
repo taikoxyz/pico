@@ -4,11 +4,11 @@ The agent runtime for pico. Open and close payment channels on Taiko, send and
 receive USDC payments via invoice or keysend, and run a long-lived listener that
 settles inbound HTLCs as they arrive.
 
-## Quickstart (env-var key, fastest path)
+## Quickstart (encrypted key, recommended)
 
 ```bash
-export PICO_PRIVATE_KEY=0x…   # 32-byte hex; warn-printed at startup
 pnpm install
+pnpm pico keys init                    # generate + passphrase-encrypt
 pnpm pico hello
 
 # Pattern A — invoice flow
@@ -23,13 +23,26 @@ pnpm pico pay --keysend --to 0xRecipient --amount 50000 \
 pnpm pico listen --hub ws://hub.example.com:9050
 ```
 
-## Persistent encrypted key
+## Key management
 
 ```bash
-pnpm pico keys init                    # generate + passphrase-encrypt
+pnpm pico keys init
 pnpm pico keys show                    # print address only
 pnpm pico keys import --from 0x…       # import an existing key
 pnpm pico keys show --reveal-private   # passphrase-prompted
+```
+
+The default encrypted key path is `$XDG_CONFIG_HOME/pico/key.enc` (or
+`~/.config/pico/key.enc` when `XDG_CONFIG_HOME` is unset). The file format is
+`scrypt(N=2^17,r=8,p=1)` + `xsalsa20-poly1305` (libsodium-compatible) sealed
+inside a small JSON envelope.
+
+## Test/CI shortcut (raw keys, not recommended for operators)
+
+```bash
+export PICO_PRIVATE_KEY=0x…   # 32-byte hex; warns to stderr
+pnpm install
+pnpm pico hello
 ```
 
 The CLI resolves the signing key in this order:
@@ -39,9 +52,8 @@ The CLI resolves the signing key in this order:
 3. `--key-file <path>` argument
 4. `$XDG_CONFIG_HOME/pico/key.enc` (default location)
 
-The first two are intended for test/CI use. The encrypted file format is
-`scrypt(N=2^17,r=8,p=1)` + `xsalsa20-poly1305` (libsodium-compatible) sealed
-inside a small JSON envelope.
+The first two are intended for test/CI use. Production/operator workflows
+should prefer encrypted key files.
 
 ## Commands
 
@@ -70,7 +82,7 @@ pnpm --filter @pico/cli test --coverage
 
 Coverage thresholds: 70% lines / 60% branches / 70% functions / 70% statements.
 
-## Demo (one terminal)
+## Demo (test keys; one terminal)
 
 ```bash
 # Terminal 1 — start a mock hub
