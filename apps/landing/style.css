@@ -147,6 +147,7 @@ nav {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-top: 14px;
   font-family: var(--f-mono);
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -751,7 +752,6 @@ section {
   .usdc-meta { grid-template-columns: 1fr; }
   .hub-grid { grid-template-columns: 1fr; }
   .nav-links a:not(.nav-cta) { display: none; }
-  .status-pill { display: none; }
   .footer-inner { grid-template-columns: 1fr; gap: 32px; }
   .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
 }
