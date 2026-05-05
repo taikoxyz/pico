@@ -49,6 +49,7 @@ export interface WsDeps {
   readonly hubFeeFlat: bigint;
   readonly requireSignedEnvelope: boolean;
   readonly nonceWindowMs: number;
+  readonly paymentRetentionPerChannel: number;
 }
 
 export interface WsHandle {
@@ -95,6 +96,33 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
 
   function sendError(socket: WsWebSocket, requestId: string, code: string, message: string): void {
     send(socket, { id: requestId, kind: 'error', code, message, requestId });
+  }
+
+  let paymentPruneRunning = false;
+  let paymentPruneQueued = false;
+
+  function schedulePaymentPrune(): void {
+    if (deps.paymentRetentionPerChannel <= 0) return;
+    paymentPruneQueued = true;
+    if (paymentPruneRunning) return;
+    paymentPruneRunning = true;
+    void runQueuedPaymentPrunes();
+  }
+
+  async function runQueuedPaymentPrunes(): Promise<void> {
+    try {
+      while (paymentPruneQueued) {
+        paymentPruneQueued = false;
+        try {
+          await deps.repos.payments.prunePerChannel(deps.paymentRetentionPerChannel);
+        } catch (err) {
+          deps.logger.warn({ err: (err as Error).message }, 'payment retention prune failed');
+        }
+      }
+    } finally {
+      paymentPruneRunning = false;
+      if (paymentPruneQueued) schedulePaymentPrune();
+    }
   }
 
   function knownPartiesForChannel(channel: Channel): ReadonlySet<Address> {
@@ -370,6 +398,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
       msg.preimage,
     );
+    schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'settled' });
 
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());
@@ -424,6 +453,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
       msg.reason,
     );
+    schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'failed' });
 
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());

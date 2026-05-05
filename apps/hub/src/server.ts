@@ -84,6 +84,7 @@ export async function buildServer(
     hubFeeFlat: config.hubFeeFlat,
     requireSignedEnvelope: config.requireSignedEnvelope,
     nonceWindowMs: config.nonceWindowMs,
+    paymentRetentionPerChannel: config.paymentRetentionPerChannel,
     operatorToken: config.operatorToken,
   });
 
