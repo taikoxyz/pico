@@ -24,6 +24,7 @@ export interface ApiDeps {
   readonly hubFeeFlat: bigint;
   readonly requireSignedEnvelope: boolean;
   readonly nonceWindowMs: number;
+  readonly paymentRetentionPerChannel: number;
   readonly operatorToken: string | undefined;
 }
 
@@ -187,6 +188,7 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     hubFeeFlat: deps.hubFeeFlat,
     requireSignedEnvelope: deps.requireSignedEnvelope,
     nonceWindowMs: deps.nonceWindowMs,
+    paymentRetentionPerChannel: deps.paymentRetentionPerChannel,
   });
 
   return { ws };
