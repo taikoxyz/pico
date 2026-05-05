@@ -12,6 +12,8 @@ import {TimelockController} from "@openzeppelin/contracts/governance/TimelockCon
 /// @dev Run with `--broadcast --verify` and the env block documented in
 ///      `docs/runbooks/ownership-transfer.md`. Pair with `TransferOwnership.s.sol`.
 contract DeployTimelock is Script {
+    uint256 internal constant MIN_MAINNET_DELAY = 48 hours;
+
     function run() external returns (address timelock) {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address safe = vm.envAddress("SAFE_ADDRESS");
@@ -19,7 +21,7 @@ contract DeployTimelock is Script {
 
         require(safe != address(0), "SAFE_ADDRESS=0");
         require(safe.code.length > 0, "SAFE_ADDRESS not a contract");
-        require(minDelay >= 1 hours, "MIN_DELAY too low");
+        require(minDelay >= MIN_MAINNET_DELAY, "MIN_DELAY below 48h");
 
         address[] memory proposers = new address[](1);
         proposers[0] = safe;

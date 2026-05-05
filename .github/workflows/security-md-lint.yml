@@ -28,7 +28,7 @@ jobs:
           fi
 
           mentions_email=0
-          if grep -q 'security@pico\.dev' "$security_md"; then
+          if grep -q 'security@taiko\.xyz' "$security_md"; then
             mentions_email=1
           fi
 

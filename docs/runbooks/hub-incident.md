@@ -11,13 +11,17 @@
 
 1. Capture the incident timestamp and recent commit SHA from the deploy logs.
 2. `curl -fsS https://hub.example/v1/health` and record the response.
-3. Tail logs: `fly logs -a pico-hub` (or your platform equivalent).
+3. Tail logs:
+   - GKE: `kubectl logs -n pico statefulset/pico-hub -c hub --tail=200`.
+   - Fly: `fly logs -a pico-hub`.
 4. Check chain liveness: `cast block-number --rpc-url $RPC_URL`.
 5. Check open channels and oldest pending HTLC age via `/metrics`.
 
 ## Containment
 
-- If the process is unhealthy but the DB is intact, restart: `fly machine restart -a pico-hub`.
+- If the process is unhealthy but the DB is intact, restart:
+  - GKE: `kubectl rollout restart statefulset/pico-hub -n pico`.
+  - Fly: `fly machine restart -a pico-hub`.
 - If the chain RPC is down, fail over to the secondary RPC (set `RPC_URL` and restart).
 - If the hub key is suspected compromised, follow [key-rotation.md](./key-rotation.md)
   immediately.

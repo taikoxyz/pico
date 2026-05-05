@@ -239,9 +239,15 @@ jobs:
     steps:
       - name: Check fork RPC availability
         id: gate
+        env:
+          REF_PROTECTED: ${{ github.ref_protected }}
         run: |
           if [ -z "$E2E_FORK_URL" ]; then
-            echo "TAIKO_MAINNET_RPC_URL secret not set; skipping forked E2E"
+            if [[ "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == refs/tags/v* || "$REF_PROTECTED" == "true" ]]; then
+              echo "::error::TAIKO_MAINNET_RPC_URL secret is required on protected, main, and release refs"
+              exit 1
+            fi
+            echo "TAIKO_MAINNET_RPC_URL secret not set; skipping forked E2E for non-protected ref"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"

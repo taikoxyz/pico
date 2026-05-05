@@ -29,9 +29,9 @@ GPT-5, Gemini, etc.) are tracked under
 
 | Status | Count |
 |---|---|
-| Fixed | 36 |
-| Patched-not-reaudited | 14 |
-| Open | 6 |
+| Fixed | 39 |
+| Patched-not-reaudited | 16 |
+| Open | 1 |
 | Won't-fix | 0 |
 | **Total** | **56** |
 
@@ -50,7 +50,7 @@ commit `c4e4cd1` and PR #15.
 | PC-06 | Medium | Channel ID collision risk | Fixed | `PaymentChannel.sol:148` includes `address(this)` in the keccak input |
 | PC-07 | Medium | State machine accepted cross-channel updates | Fixed | `packages/state-machine/src/channel.ts:22` rejects mismatched `channelId` |
 | PC-08 | Medium | Hoodi listed as supported in protocol constants | Fixed | `packages/protocol/src/constants.ts:11-14` removed Hoodi from `SUPPORTED_CHAIN_IDS` |
-| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | `packages/contracts/script/Deploy.s.sol:23,27` still gives deployer ownership. Transfer scripts shipped in `packages/contracts/script/{Deploy,Transfer}Timelock.s.sol`; on-chain transfer is `[human]` per `docs/runbooks/ownership-transfer.md`. Tracked under [issue #21](https://github.com/dantaik/pico/issues/21) |
+| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | Deploy/transfer scripts now require contract owners and 48h timelock checks (`packages/contracts/script/{Deploy,DeployTimelock,TransferOwnership}.s.sol`), but on-chain owner-code/key-custody evidence is still an operator gate tracked under [issue #21](https://github.com/dantaik/pico/issues/21) and #35 |
 | PC-10 | Info | EIP-712 oracle should remain pinned and crosstested | Fixed | Oracle pinned via existing forge fuzz + crosstest; no regressions |
 
 ## Hub
@@ -65,7 +65,7 @@ Source: `deepseek_audit_report_hub.md`. Closed by commit `e9bf7ec`.
 | H-04 | High | Concurrent route signing race | Fixed | Per-channel mutex around route construction in `apps/hub/src/router.ts` (e9bf7ec) |
 | H-05 | High | Reservations could occur after durable state | Fixed | `migrations/002_payment_routes.sql` + `apps/hub/src/route-repo.ts:208 loadInflight` + transactional pay path |
 | H-06 | High | Router lost in-flight routes on restart | Fixed | `apps/hub/src/router.ts:140-156` `loadInflight` rehydrates routes; logs "router: hydrated inflight routes from db" |
-| H-07 | High | Settle/fail not bound to persisted route + signer | Fixed | `apps/hub/src/api/ws.ts` settle/fail paths bound to persisted route + signer (e9bf7ec) |
+| H-07 | High | Settle/fail not bound to persisted route + signer | Fixed | `apps/hub/src/api/ws.ts` validates settle/fail against the persisted route, expected recipient signer, recipient-signed outgoing state, and route HTLC id/payment hash |
 | H-08 | High | Dispute handler wrong state selection | Fixed | `apps/hub/src/dispute-handler.ts` selects dispute-eligible empty-HTLC state; receipt status checked |
 | H-09 | Medium | Chain watcher had reorg + chunking gaps | Fixed | `apps/hub/src/chain-watcher.ts` rewritten with `rewindForReorg`, deploy-block init, chunked log scans |
 | H-10 | Medium | SDK didn't honor hub-advertised fees | Patched-not-reaudited | SDK defaults to `DEFAULT_HUB_FEE_BPS/FLAT` from protocol constants (`packages/sdk/src/client.ts:111`); full hub-advertised fee policy not implemented |
@@ -83,15 +83,15 @@ Source: `deepseek_audit_report_watchtower.md`. Closed by commit `e9bf7ec`.
 | WTW-002 | Critical | Deferred penalties lost on restart | Fixed | Scheduler persists durable closing observations before advancing cursor |
 | WTW-003 | Critical | Dropped txs never re-broadcast | Fixed | `apps/watchtower/src/responder.ts:111-145` replaces stuck tx with same nonce + bumped fee after `inclusionTimeoutMs` |
 | WTW-004 | Critical | Watchtower started with deterministic keys if env empty | Fixed | `apps/watchtower/src/config-validate.ts` rejects known dev keys on non-anvil; mainnet gates explicit |
-| WTW-005 | High | `remember()` doesn't validate signatures | **Open** | `apps/watchtower/src/index.ts:250-253` — calls `store.putSignedState` + `detector.remember` without `verifyChannelStateSignature` or balance/HTLC checks. No watchtower-side admission gate |
-| WTW-006 | High | Live path bypasses penalty threshold timing | **Open** | `apps/watchtower/src/index.ts:154-179` — live event submits immediately on `evaluation.action === 'penalize'`; detector's `submitByMs` is not gating the live path. Scheduler path respects threshold. Inconsistent timing remains |
+| WTW-005 | High | `remember()` doesn't validate signatures | Fixed | `apps/watchtower/src/index.ts:371-377` rejects placeholder signatures, calls `validateSignedState`, then persists/remembers only validated states |
+| WTW-006 | High | Live path bypasses penalty threshold timing | Fixed | `apps/watchtower/src/index.ts:274-296` computes `submitByMs` and returns early while `Date.now() < evaluation.submitByMs`; scheduler remains the delayed path |
 | WTW-007 | Medium | Plaintext SQLite DB | Patched-not-reaudited | README clarifies SQLite plaintext + filesystem encryption requirement; encrypted-at-rest implementation deferred to Phase 2 |
 | WTW-008 | Medium | `MODE=service` shouldn't be allowed in v1 | Patched-not-reaudited | `config-validate.ts` rejects `MODE=service` |
 | WTW-009 | Medium | Confirmations + reorg handling gaps | Fixed | Scheduler applies `confirmations`; storage block-hash rewind |
 | WTW-010 | Medium | Tx receipt status not checked | Fixed | `responder.ts:235, :144` checks `receipt.status === 'success'` |
 | WTW-011 | Low | Config parser too permissive | Fixed | `config-validate.ts` parses with explicit ranges/checks |
 | WTW-012 | Low | Health endpoint shallow | Patched-not-reaudited | Health includes scheduler tick + pending-tx age + RPC; full DB probe partial |
-| WTW-013 | Low | Recovery test suite incomplete | **Open** | Happy-path test exists; recovery-focused suite still partial |
+| WTW-013 | Low | Recovery test suite incomplete | Fixed | `apps/watchtower/src/recovery.test.ts` covers watchtower restart/recovery scenarios for deferred observations and in-flight submissions |
 
 ## Client runtime (SDK + CLI)
 
@@ -108,7 +108,7 @@ Source: `deepseek_audit_report_client_runtime.md`. Closed by commit `e9bf7ec`.
 | F-07 | Medium | SDK didn't apply default hub fees | Fixed | SDK defaults to `DEFAULT_HUB_FEE_BPS/FLAT` from protocol constants; hub-advertised quote tracked under H-10 |
 | F-08 | Low | DVM adapter shipped as if production-ready | Fixed | `dvm-adapter/src/listener.ts:2,22-25` `@experimental` markers, throws on use; `SelectOpts` cleaned up |
 | F-09 | Low | Zero-address allowed for contract addresses | Fixed | Hub `config-validate.ts:54-71` rejects zero addresses; CLI uses `Adjudicator` for verifyingContract |
-| F-10 | Low | Test-only SDK exports public on npm | **Open** | `packages/sdk/package.json:15-21` still exports `./signer.test-only` and `./_test`. `LocalSigner` extends `InMemorySigner` from test-only path |
+| F-10 | Low | Test-only SDK exports public on npm | Fixed | `packages/sdk/package.json:10-15` exports only the public package root; test helpers live outside the npm export surface |
 
 ## E2E / Ops / Docs
 
@@ -124,7 +124,7 @@ plus the Tier B / C / D agent commits in this branch.
 | EOD-05 | High | No runbooks for incident response | Patched-not-reaudited | Runbooks shipped under `docs/runbooks/` (README + 6 runbooks). Full operational drills pending Phase B/C completion |
 | EOD-06 | Medium | No SQLite + litestream backup baseline | Fixed | Code defaults to SQLite + litestream (`apps/{hub,watchtower}/Dockerfile` + `infra/docker-compose.{prod,watchtower}.yml`) |
 | EOD-07 | Medium | No coverage tracking in CI | Patched-not-reaudited | CI runs `vitest run --coverage` per `.github/workflows/ci.yml`; coverage thresholds not yet enforced |
-| EOD-08 | High | SECURITY.md placeholder; no PGP key | Fixed | New `SECURITY.md` + `pgp-key.asc.placeholder` + `docs/runbooks/security-disclosure.md` + atomic-swap CI gate at `.github/workflows/security-md-lint.yml` |
+| EOD-08 | High | SECURITY.md placeholder; no PGP key | Patched-not-reaudited | `SECURITY.md`, `pgp-key.asc.placeholder`, `docs/runbooks/security-disclosure.md`, and `.github/workflows/security-md-lint.yml` are aligned on `security@taiko.xyz`, but the real PGP key/fingerprint remains an operator gate |
 | EOD-09 | Low | ROADMAP.md status drift | Fixed | This commit syncs P8/P9/P10 statuses |
 | EOD-10 | Low | Watchtower DB encryption-at-rest unclear | Patched-not-reaudited | README + watchtower runbook clarify SQLite plaintext + filesystem encryption requirement |
 | EOD-11 | Low | README links broken | Fixed | README links updated to `docs/learning/` |
@@ -133,12 +133,12 @@ plus the Tier B / C / D agent commits in this branch.
 
 | Item | Status | Notes |
 |---|---|---|
-| `ROADMAP.md` P8 row | Fixed in this commit | Was "🔵 not started" while `e2e/src/scenarios.test.ts` runs full lifecycle |
+| `ROADMAP.md` P8 row | Superseded | No `ROADMAP.md` exists in this checkout; launch state now lives in issue #21 plus `docs/launch-log.md` |
 | `SECURITY.md` "research-grade" framing | Fixed | Replaced with operable disclosure surface |
 | `docs/runbooks/*.md` `DRAFT` markers | Patched | `backup-restore.md` updated; remaining four (`hub-incident.md`, `watchtower-down.md`, `dispute-response.md`, `key-rotation.md`) still carry the README-level DRAFT marker pending operational drills |
 | `infra/README.md` `(TODO P9)` placeholder | Fixed | Replaced with `fly/README.md` pointer |
 | `e2e/src/scenarios.fork.test.ts` USDC TODO | Fixed | WS-16 closed by whale impersonation |
-| `docs/plans/10-launch.md` "⚪ planning only" | Fixed in this commit | Flipped to 🟡 in progress with footnote to launch-checklist.md |
+| `docs/plans/10-launch.md` "⚪ planning only" | Superseded | No `docs/plans/10-launch.md` exists in this checkout; v1 release notes draft is `docs/release-notes-v1.0-draft.md` |
 
 ## Provenance
 

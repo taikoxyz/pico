@@ -21,10 +21,10 @@ Common touch-points:
 - Watchtower config: `apps/watchtower/.env.example` and `apps/watchtower/src/config.ts`.
 - Hub DB: SQLite + litestream in v1.
 - Metrics: `/metrics` on the hub; `/metrics` and `/health` on the watchtower.
-- Logs: structured pino JSON; tail with `docker logs -f` or your platform UI.
+- Logs: structured pino JSON; tail with `kubectl logs -n pico ...` on GKE,
+  `docker logs -f` locally, or the platform UI.
 
 Replace the `TODO(infra)` / `TODO(contact)` placeholders in individual
-runbooks with real endpoints once Fly.io / Discord / PagerDuty are
-provisioned, and validate each runbook with a fire drill before running
-real funds. Tracked under
+runbooks with real GKE, PagerDuty/Linear, and maintainer endpoints, and
+validate each runbook with a fire drill before running real funds. Tracked under
 [issue #21](https://github.com/dantaik/pico/issues/21).

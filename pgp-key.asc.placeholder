@@ -1,17 +1,17 @@
-TAINNEL PGP KEY PLACEHOLDER
+PICO PGP KEY PLACEHOLDER
 
 This file is a placeholder. The real ASCII-armored PGP public key for
-security@tainnel.dev has not been generated yet.
+security@taiko.xyz has not been generated yet.
 
 Until pgp-key.asc exists in this directory and SECURITY.md lists a real
-PGP fingerprint, **PGP-encrypted reports cannot be processed**. Use the
+PGP fingerprint, PGP-encrypted reports cannot be processed. Use the
 GitHub private vulnerability advisory channel instead:
 
-  https://github.com/dantaik/tainnel/security/advisories/new
+  https://github.com/dantaik/pico/security/advisories/new
 
 To replace this placeholder (operator only):
 
-  gpg --quick-generate-key 'Tainnel Security <security@tainnel.dev>' \
+  gpg --quick-generate-key 'Pico Security <security@taiko.xyz>' \
     ed25519 sign 5y
   gpg --quick-add-key <FPR> cv25519 encr 5y
   gpg --armor --export <FPR> > pgp-key.asc
@@ -20,7 +20,7 @@ To replace this placeholder (operator only):
 Then in the same PR:
 
   - Delete this placeholder file (`git rm pgp-key.asc.placeholder`).
-  - Replace `<TAINNEL_PGP_FINGERPRINT_TODO>` in SECURITY.md with the real
+  - Replace `<PICO_PGP_FINGERPRINT_TODO>` in SECURITY.md with the real
     fingerprint (40-char hex with spaces every 4 chars).
   - Update docs/runbooks/security-disclosure.md "Open TODOs" section.
 

@@ -8,6 +8,8 @@
 #   scripts/mainnet-smoke/00-precheck.sh \
 #     --hub <https://hub.example> \
 #     --hub-hot-wallet <0x...> \
+#     --expected-owner <0xSafeOrTimelock> \
+#     [--timelock <0xTimelock> --safe <0xSafe>] \
 #     [--rpc <url>]
 #
 # Exits non-zero on any failure with a colored summary.
@@ -24,6 +26,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 HUB_URL=""
 HUB_HOT_WALLET=""
+EXPECTED_OWNER="${EXPECTED_OWNER:-}"
+TIMELOCK_ADDRESS="${TIMELOCK_ADDRESS:-}"
+SAFE_ADDRESS="${SAFE_ADDRESS:-}"
 RPC_URL="${RPC_URL:-$TAIKO_MAINNET_RPC_DEFAULT}"
 
 usage() { sed -n '/^# Usage/,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -32,6 +37,9 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --hub) HUB_URL="$2"; shift 2 ;;
     --hub-hot-wallet) HUB_HOT_WALLET="$2"; shift 2 ;;
+    --expected-owner) EXPECTED_OWNER="$2"; shift 2 ;;
+    --timelock) TIMELOCK_ADDRESS="$2"; shift 2 ;;
+    --safe) SAFE_ADDRESS="$2"; shift 2 ;;
     --rpc) RPC_URL="$2"; shift 2 ;;
     -h|--help) usage ;;
     *) red "unknown arg: $1"; usage ;;
@@ -40,6 +48,7 @@ done
 
 [[ -n "$HUB_URL" ]] || fail "--hub is required"
 [[ -n "$HUB_HOT_WALLET" ]] || fail "--hub-hot-wallet is required (CLI gap: hub /v1/health does not expose its hot-wallet address)"
+[[ -n "$EXPECTED_OWNER" ]] || fail "--expected-owner is required"
 require_cast
 
 LOG_DIR="$(resolve_log_dir)"
@@ -79,7 +88,7 @@ else
 fi
 
 # --- Contract bytecode parity ---
-yellow "[4/5] Contract bytecode"
+yellow "[4/6] Contract bytecode + governance"
 for pair in "PaymentChannel:$PAYMENT_CHANNEL_ADDR" "Adjudicator:$ADJUDICATOR_ADDR" "USDC:$USDC_ADDR"; do
   name="${pair%%:*}"; addr="${pair##*:}"
   size="$(contract_codesize "$addr" "$RPC_URL")"
@@ -90,8 +99,50 @@ for pair in "PaymentChannel:$PAYMENT_CHANNEL_ADDR" "Adjudicator:$ADJUDICATOR_ADD
   fi
 done
 
+owner_pc="$(contract_owner "$PAYMENT_CHANNEL_ADDR" "$RPC_URL")"
+owner_adj="$(contract_owner "$ADJUDICATOR_ADDR" "$RPC_URL")"
+if [[ "${owner_pc,,}" == "${EXPECTED_OWNER,,}" && "${owner_adj,,}" == "${EXPECTED_OWNER,,}" ]]; then
+  ok "Both proxies owned by expected owner $EXPECTED_OWNER"
+else
+  bad "Proxy owner mismatch: PaymentChannel=$owner_pc Adjudicator=$owner_adj expected=$EXPECTED_OWNER"
+fi
+
+owner_code_size="$(contract_codesize "$EXPECTED_OWNER" "$RPC_URL")"
+if [[ "$owner_code_size" -gt 0 ]]; then
+  ok "Expected owner has contract code (${owner_code_size} bytes)"
+else
+  bad "Expected owner $EXPECTED_OWNER has no code; verify Safe/timelock deployment before real funds"
+fi
+
+if [[ "$(token_allowed "$USDC_ADDR" "$RPC_URL")" == "true" ]]; then
+  ok "PaymentChannel allows canonical USDC $USDC_ADDR"
+else
+  bad "PaymentChannel does not allow canonical USDC $USDC_ADDR"
+fi
+
+if [[ -n "$TIMELOCK_ADDRESS" ]]; then
+  delay="$(timelock_delay "$TIMELOCK_ADDRESS" "$RPC_URL")"
+  if (( $(python3 -c "print(1 if int('$delay') >= 172800 else 0)") )); then
+    ok "Timelock delay >= 48h (raw seconds: $delay)"
+  else
+    bad "Timelock delay below 48h (raw seconds: $delay)"
+  fi
+  if [[ -n "$SAFE_ADDRESS" ]]; then
+    if [[ "$(timelock_has_role "$TIMELOCK_ADDRESS" PROPOSER_ROLE "$SAFE_ADDRESS" "$RPC_URL")" == "true" ]]; then
+      ok "Safe has Timelock PROPOSER_ROLE"
+    else
+      bad "Safe lacks Timelock PROPOSER_ROLE"
+    fi
+    if [[ "$(timelock_has_role "$TIMELOCK_ADDRESS" EXECUTOR_ROLE "$SAFE_ADDRESS" "$RPC_URL")" == "true" ]]; then
+      ok "Safe has Timelock EXECUTOR_ROLE"
+    else
+      bad "Safe lacks Timelock EXECUTOR_ROLE"
+    fi
+  fi
+fi
+
 # --- Balances ---
-yellow "[5/5] Balances"
+yellow "[5/6] Balances"
 MIN_USDC_OPERATOR=$((100 * 10**USDC_DECIMALS))
 MIN_ETH_WEI=$(python3 -c 'print(int(0.005 * 10**18))')
 HUB_USDC_CEILING=$((1000 * 10**USDC_DECIMALS))
@@ -124,6 +175,7 @@ else
 fi
 
 # --- Summary ---
+yellow "[6/6] Summary"
 echo
 if (( fail_count == 0 )); then
   green "Precheck OK — proceed to 01-open-channels.sh"

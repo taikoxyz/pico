@@ -76,6 +76,7 @@ describe('ChannelClient integration with MockHub', () => {
     hub = await startMockHub({
       chainId: CHAIN_ID,
       verifyingContract: VERIFYING_CONTRACT,
+      hubPrivateKey: BOB_KEY,
     });
     alice = await makeParty(ALICE_KEY, hub.url);
     const bobKeysend = generateKeysendKeypair();

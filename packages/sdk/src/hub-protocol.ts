@@ -69,7 +69,7 @@ export interface HtlcFailMessage {
   readonly channelId: ChannelId;
   readonly htlcId: HtlcId;
   readonly reason: string;
-  readonly signedState?: SignedState;
+  readonly signedState: SignedState;
 }
 
 export interface PaymentSettleMessage {

@@ -17,6 +17,8 @@ Adjudicator before the dispute window closes.
 
 1. Identify the channel id from the alert payload or `chain_watcher` logs.
 2. Pull our latest dispute-eligible signed state:
+   - GKE hub: `kubectl exec -n pico statefulset/pico-hub -c hub -- sqlite3 /data/hub.sqlite "SELECT * FROM signed_states WHERE channel_id='0x...' ORDER BY version DESC LIMIT 5"`.
+   - GKE watchtower: `kubectl exec -n pico statefulset/pico-watchtower -c watchtower -- sqlite3 /data/watchtower.sqlite "SELECT * FROM signed_states WHERE channel_id='0x...' ORDER BY version DESC LIMIT 5"`.
    - hub: `sqlite3 data/hub.sqlite "SELECT * FROM signed_states WHERE channel_id='0x...' ORDER BY version DESC LIMIT 5"`.
    - watchtower: `sqlite3 data/watchtower.sqlite "SELECT * FROM signed_states ..."`.
 3. Confirm the state has empty `htlcs` and conserved balances; if not, surface
