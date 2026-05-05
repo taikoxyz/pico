@@ -32,12 +32,23 @@ describe('runMigrations', () => {
       'disputes',
       'htlcs',
       'kv',
+      'payment_routes',
       'payments',
       'seen_nonces',
       'signed_states',
     ]) {
       expect(names).toContain(expected);
     }
+  });
+
+  it('creates payment retention indexes', async () => {
+    await runMigrations(driver);
+    const indexes = await driver.query<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='index' ORDER BY name",
+    );
+    const names = indexes.map((i) => i.name);
+    expect(names).toContain('idx_payments_incoming_recent');
+    expect(names).toContain('idx_payments_outgoing_recent');
   });
 
   it('is idempotent — running twice does not throw', async () => {

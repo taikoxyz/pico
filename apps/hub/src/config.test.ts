@@ -53,6 +53,25 @@ describe('loadConfig', () => {
     expect(cfg.hubFeeFlat).toBe(7n);
   });
 
+  it('parses payment retention as a non-negative integer', () => {
+    const cfg = loadConfig({
+      ...ANVIL_ENV,
+      HUB_PAYMENT_RETENTION_PER_CHANNEL: '0',
+    });
+    expect(cfg.paymentRetentionPerChannel).toBe(0);
+  });
+
+  it('rejects invalid payment retention values', () => {
+    for (const raw of ['inf', 'NaN', '1.5', '-1']) {
+      expect(() =>
+        loadConfig({
+          ...ANVIL_ENV,
+          HUB_PAYMENT_RETENTION_PER_CHANNEL: raw,
+        }),
+      ).toThrow(/HUB_PAYMENT_RETENTION_PER_CHANNEL/);
+    }
+  });
+
   it('rejects unsupported chain ids', () => {
     expect(() => loadConfig({ CHAIN_ID: '99999' } as NodeJS.ProcessEnv)).toThrow(/unsupported/);
   });

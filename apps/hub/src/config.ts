@@ -38,6 +38,19 @@ function parseChainId(raw: string | undefined): ChainId {
   throw new Error(`unsupported CHAIN_ID: ${raw}`);
 }
 
+function parseNonNegativeIntegerEnv(
+  name: string,
+  raw: string | undefined,
+  defaultValue: number,
+): number {
+  if (raw === undefined || raw === '') return defaultValue;
+  const n = Number(raw);
+  if (!Number.isSafeInteger(n) || n < 0) {
+    throw new Error(`${name} must be a non-negative safe integer`);
+  }
+  return n;
+}
+
 const DEV_DEFAULT_KEY = '0x0000000000000000000000000000000000000000000000000000000000000001';
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
@@ -71,7 +84,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     chainConfirmations: Number(env.CHAIN_CONFIRMATIONS ?? 3),
     requireSignedEnvelope,
     nonceWindowMs: Number(env.HUB_NONCE_WINDOW_MS ?? 60_000),
-    paymentRetentionPerChannel: Number(env.HUB_PAYMENT_RETENTION_PER_CHANNEL ?? 100),
+    paymentRetentionPerChannel: parseNonNegativeIntegerEnv(
+      'HUB_PAYMENT_RETENTION_PER_CHANNEL',
+      env.HUB_PAYMENT_RETENTION_PER_CHANNEL,
+      100,
+    ),
     operatorToken: env.HUB_OPERATOR_TOKEN,
   };
 

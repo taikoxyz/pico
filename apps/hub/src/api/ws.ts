@@ -98,6 +98,33 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     send(socket, { id: requestId, kind: 'error', code, message, requestId });
   }
 
+  let paymentPruneRunning = false;
+  let paymentPruneQueued = false;
+
+  function schedulePaymentPrune(): void {
+    if (deps.paymentRetentionPerChannel <= 0) return;
+    paymentPruneQueued = true;
+    if (paymentPruneRunning) return;
+    paymentPruneRunning = true;
+    void runQueuedPaymentPrunes();
+  }
+
+  async function runQueuedPaymentPrunes(): Promise<void> {
+    try {
+      while (paymentPruneQueued) {
+        paymentPruneQueued = false;
+        try {
+          await deps.repos.payments.prunePerChannel(deps.paymentRetentionPerChannel);
+        } catch (err) {
+          deps.logger.warn({ err: (err as Error).message }, 'payment retention prune failed');
+        }
+      }
+    } finally {
+      paymentPruneRunning = false;
+      if (paymentPruneQueued) schedulePaymentPrune();
+    }
+  }
+
   function knownPartiesForChannel(channel: Channel): ReadonlySet<Address> {
     return new Set([channel.userA, channel.userB] as Address[]);
   }
@@ -371,13 +398,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
       msg.preimage,
     );
-    if (deps.paymentRetentionPerChannel > 0) {
-      try {
-        await deps.repos.payments.prunePerChannel(deps.paymentRetentionPerChannel);
-      } catch (err) {
-        deps.logger.warn({ err: (err as Error).message }, 'payment retention prune failed');
-      }
-    }
+    schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'settled' });
 
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());
@@ -432,13 +453,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
       msg.reason,
     );
-    if (deps.paymentRetentionPerChannel > 0) {
-      try {
-        await deps.repos.payments.prunePerChannel(deps.paymentRetentionPerChannel);
-      } catch (err) {
-        deps.logger.warn({ err: (err as Error).message }, 'payment retention prune failed');
-      }
-    }
+    schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'failed' });
 
     const senderSession = sessions.get(inflight.incomingSenderAddress.toLowerCase());

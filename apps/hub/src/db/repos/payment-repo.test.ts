@@ -159,6 +159,14 @@ describe('PaymentRepo', () => {
       expect(removed).toBe(0);
       expect(await countPayments(h)).toBe(2);
     });
+
+    it('non-finite keep is a no-op', async () => {
+      await seed(h, { id: 'p1', incoming: A, outgoing: B });
+      await seed(h, { id: 'p2', incoming: A, outgoing: B });
+      const removed = await h.repos.payments.prunePerChannel(Number.NaN);
+      expect(removed).toBe(0);
+      expect(await countPayments(h)).toBe(2);
+    });
   });
 
   it('counts payments by status', async () => {

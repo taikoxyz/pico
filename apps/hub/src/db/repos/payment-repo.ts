@@ -152,7 +152,7 @@ export class PaymentRepo {
   // still considers it recent. This bounds total rows at <= keep * num_channels.
   // In-flight / pending rows are never pruned.
   async prunePerChannel(keep: number): Promise<number> {
-    if (keep <= 0) return 0;
+    if (!Number.isFinite(keep) || keep <= 0) return 0;
     const k = Math.floor(keep);
     const r = await this.db.exec(
       `DELETE FROM payments
