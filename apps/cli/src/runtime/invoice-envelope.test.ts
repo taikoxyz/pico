@@ -1,4 +1,4 @@
-import type { Invoice } from '@pico/protocol';
+import type { Invoice } from '@inferenceroom/pico-protocol';
 import { describe, expect, it } from 'vitest';
 import { decodeInvoiceEnvelope, encodeInvoiceEnvelope } from './invoice-envelope.js';
 

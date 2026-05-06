@@ -6,7 +6,7 @@ import {
   isEncryptedKeyFile,
   parseKeyFile,
   serializeKeyFile,
-} from '@pico/sdk';
+} from '@inferenceroom/pico-sdk';
 import { Command } from 'commander';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { defaultKeyFilePath } from '../runtime/config.js';

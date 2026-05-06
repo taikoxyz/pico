@@ -5,7 +5,7 @@ import type {
   PaymentHash,
   Preimage,
   SignedState,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import type { InvoiceRecord } from './storage-shared.js';
 
 export interface ChannelStorage {

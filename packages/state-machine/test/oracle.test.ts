@@ -9,7 +9,7 @@ import {
   type Htlc,
   type Update,
   htlcMerkleRoot,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { describe, expect, it } from 'vitest';
 import { hashChannelState, hashCooperativeClose, hashHtlc, hashUpdate } from '../src/signing.js';
 

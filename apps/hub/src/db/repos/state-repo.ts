@@ -1,5 +1,11 @@
-import type { ChannelId, ChannelState, Hex, Signature, SignedState } from '@pico/protocol';
-import { hexToSignature, signatureToHex } from '@pico/sdk';
+import type {
+  ChannelId,
+  ChannelState,
+  Hex,
+  Signature,
+  SignedState,
+} from '@inferenceroom/pico-protocol';
+import { hexToSignature, signatureToHex } from '@inferenceroom/pico-sdk';
 import type { DbDriver } from '../types.js';
 
 interface StateRow {

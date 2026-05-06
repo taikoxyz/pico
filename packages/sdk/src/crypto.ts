@@ -1,4 +1,4 @@
-import type { Hex, HtlcId, Preimage } from '@pico/protocol';
+import type { Hex, HtlcId, Preimage } from '@inferenceroom/pico-protocol';
 
 function toHex(bytes: Uint8Array): Hex {
   let s = '0x';

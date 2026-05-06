@@ -1,4 +1,4 @@
-import type { Address, ChannelId, PaymentHash } from '@pico/protocol';
+import type { Address, ChannelId, PaymentHash } from '@inferenceroom/pico-protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type TestDb, makeTestDb } from './_test-helpers.js';
 

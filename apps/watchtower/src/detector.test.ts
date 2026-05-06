@@ -1,4 +1,4 @@
-import type { ChannelId, SignedState } from '@pico/protocol';
+import type { ChannelId, SignedState } from '@inferenceroom/pico-protocol';
 import { describe, expect, it } from 'vitest';
 import { FraudDetector } from './detector.js';
 

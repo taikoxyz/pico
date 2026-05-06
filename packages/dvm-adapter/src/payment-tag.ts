@@ -1,4 +1,4 @@
-import { type Address, type ChainId, SUPPORTED_CHAIN_IDS } from '@pico/protocol';
+import { type Address, type ChainId, SUPPORTED_CHAIN_IDS } from '@inferenceroom/pico-protocol';
 
 const HEX_ADDR = /^0x[0-9a-fA-F]{40}$/;
 

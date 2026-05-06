@@ -26,19 +26,19 @@ importers:
 
   apps/cli:
     dependencies:
-      '@pico/dvm-adapter':
+      '@inferenceroom/pico-dvm-adapter':
         specifier: workspace:*
         version: link:../../packages/dvm-adapter
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@pico/sdk':
+      '@inferenceroom/pico-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@pico/state-machine':
+      '@inferenceroom/pico-state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine
-      '@pico/test-utils':
+      '@inferenceroom/pico-test-utils':
         specifier: workspace:*
         version: link:../../packages/test-utils
       commander:
@@ -84,13 +84,13 @@ importers:
       '@fastify/websocket':
         specifier: ^11.0.1
         version: 11.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@pico/sdk':
+      '@inferenceroom/pico-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@pico/state-machine':
+      '@inferenceroom/pico-state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine
       better-sqlite3:
@@ -144,13 +144,13 @@ importers:
 
   apps/watchtower:
     dependencies:
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@pico/sdk':
+      '@inferenceroom/pico-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@pico/state-machine':
+      '@inferenceroom/pico-state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine
       better-sqlite3:
@@ -169,10 +169,10 @@ importers:
         specifier: ^2.21.0
         version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)
     devDependencies:
-      '@pico/hub':
+      '@inferenceroom/pico-hub':
         specifier: workspace:*
         version: link:../hub
-      '@pico/test-utils':
+      '@inferenceroom/pico-test-utils':
         specifier: workspace:*
         version: link:../../packages/test-utils
       '@types/better-sqlite3':
@@ -196,22 +196,22 @@ importers:
 
   e2e:
     dependencies:
-      '@pico/hub':
+      '@inferenceroom/pico-hub':
         specifier: workspace:*
         version: link:../apps/hub
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../packages/protocol
-      '@pico/sdk':
+      '@inferenceroom/pico-sdk':
         specifier: workspace:*
         version: link:../packages/sdk
-      '@pico/state-machine':
+      '@inferenceroom/pico-state-machine':
         specifier: workspace:*
         version: link:../packages/state-machine
-      '@pico/test-utils':
+      '@inferenceroom/pico-test-utils':
         specifier: workspace:*
         version: link:../packages/test-utils
-      '@pico/watchtower':
+      '@inferenceroom/pico-watchtower':
         specifier: workspace:*
         version: link:../apps/watchtower
       viem:
@@ -230,13 +230,13 @@ importers:
 
   examples:
     dependencies:
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../packages/protocol
-      '@pico/sdk':
+      '@inferenceroom/pico-sdk':
         specifier: workspace:*
         version: link:../packages/sdk
-      '@pico/test-utils':
+      '@inferenceroom/pico-test-utils':
         specifier: workspace:*
         version: link:../packages/test-utils
     devDependencies:
@@ -251,10 +251,10 @@ importers:
 
   packages/dvm-adapter:
     dependencies:
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@pico/sdk':
+      '@inferenceroom/pico-sdk':
         specifier: workspace:*
         version: link:../sdk
       nostr-tools:
@@ -289,15 +289,15 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@inferenceroom/pico-protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@inferenceroom/pico-state-machine':
+        specifier: workspace:*
+        version: link:../state-machine
       '@noble/hashes':
         specifier: ^1.5.0
         version: 1.8.0
-      '@pico/protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@pico/state-machine':
-        specifier: workspace:*
-        version: link:../state-machine
       '@types/ws':
         specifier: ^8.5.13
         version: 8.18.1
@@ -311,7 +311,7 @@ importers:
         specifier: ^8.18.0
         version: 8.20.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
     devDependencies:
-      '@pico/test-utils':
+      '@inferenceroom/pico-test-utils':
         specifier: workspace:*
         version: link:../test-utils
       '@types/node':
@@ -335,7 +335,7 @@ importers:
 
   packages/state-machine:
     dependencies:
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../protocol
       viem:
@@ -360,13 +360,13 @@ importers:
 
   packages/test-utils:
     dependencies:
-      '@pico/protocol':
+      '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@pico/sdk':
+      '@inferenceroom/pico-sdk':
         specifier: workspace:*
         version: link:../sdk
-      '@pico/state-machine':
+      '@inferenceroom/pico-state-machine':
         specifier: workspace:*
         version: link:../state-machine
       viem:

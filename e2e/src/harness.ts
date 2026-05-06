@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type BuildServerResult, buildServer } from '@pico/hub';
+import { type BuildServerResult, buildServer } from '@inferenceroom/pico-hub';
 import {
   ANVIL_DEV_CHAIN_ID,
   CONTRACT_ADDRESSES,
@@ -11,15 +11,15 @@ import {
   type SignedState,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
   MemoryStorage,
   ViemChainAdapter,
   WebSocketTransport,
   localSigner,
-} from '@pico/sdk';
-import { type AnvilHandle, TEST_KEYS, startAnvilFork } from '@pico/test-utils';
+} from '@inferenceroom/pico-sdk';
+import { type AnvilHandle, TEST_KEYS, startAnvilFork } from '@inferenceroom/pico-test-utils';
 import {
   http,
   type Abi,

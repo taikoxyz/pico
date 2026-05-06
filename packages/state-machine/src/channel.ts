@@ -1,4 +1,4 @@
-import type { ChannelState, Update } from '@pico/protocol';
+import type { ChannelState, Update } from '@inferenceroom/pico-protocol';
 import { BalanceMismatchError, StateMachineError } from './errors.js';
 import { ensureMonotonicVersion } from './replay.js';
 

@@ -5,7 +5,7 @@ import {
   parseBigIntPositive,
   parseHex32,
   parseHex as parseHexProto,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 
 interface InvoiceWire {
   v: 1;

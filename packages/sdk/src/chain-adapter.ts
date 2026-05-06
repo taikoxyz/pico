@@ -6,8 +6,8 @@ import type {
   Hex,
   SignedCooperativeClose,
   SignedState,
-} from '@pico/protocol';
-import { computeHtlcsRoot } from '@pico/state-machine';
+} from '@inferenceroom/pico-protocol';
+import { computeHtlcsRoot } from '@inferenceroom/pico-state-machine';
 import {
   type Hash,
   type PublicClient,

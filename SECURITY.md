@@ -53,7 +53,7 @@ coordinate an extended embargo.
 In scope:
 
 - Smart contracts under `packages/contracts/src/` once deployed.
-- Logic in `@pico/state-machine` and `@pico/sdk` that affects fund safety.
+- Logic in `@inferenceroom/pico-state-machine` and `@inferenceroom/pico-sdk` that affects fund safety.
 - Hub and watchtower services in `apps/hub` and `apps/watchtower`.
 - The agent runtime CLI in `apps/cli`, including the encrypted hot key file
   format.

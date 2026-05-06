@@ -1,4 +1,4 @@
-import type { Channel } from '@pico/protocol';
+import type { Channel } from '@inferenceroom/pico-protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type TestDb, makeTestDb } from './_test-helpers.js';
 

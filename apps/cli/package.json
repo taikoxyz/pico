@@ -1,5 +1,5 @@
 {
-  "name": "@taikoxyz/pico-cli",
+  "name": "@inferenceroom/pico-cli",
   "version": "0.0.0",
   "license": "MIT",
   "description": "pico developer/operator CLI: open and close channels, pay, query hubs, run dev fork.",
@@ -18,11 +18,11 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@pico/dvm-adapter": "workspace:*",
-    "@pico/protocol": "workspace:*",
-    "@pico/sdk": "workspace:*",
-    "@pico/state-machine": "workspace:*",
-    "@pico/test-utils": "workspace:*",
+    "@inferenceroom/pico-dvm-adapter": "workspace:*",
+    "@inferenceroom/pico-protocol": "workspace:*",
+    "@inferenceroom/pico-sdk": "workspace:*",
+    "@inferenceroom/pico-state-machine": "workspace:*",
+    "@inferenceroom/pico-test-utils": "workspace:*",
     "commander": "^12.1.0",
     "picocolors": "^1.1.1",
     "pino": "^9.5.0",

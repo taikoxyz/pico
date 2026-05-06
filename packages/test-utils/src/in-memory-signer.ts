@@ -7,15 +7,15 @@ import type {
   Htlc,
   Invoice,
   Update,
-} from '@pico/protocol';
-import type { Signer } from '@pico/sdk';
+} from '@inferenceroom/pico-protocol';
+import type { Signer } from '@inferenceroom/pico-sdk';
 import {
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
   buildHtlcTypedData,
   buildInvoiceTypedData,
   buildUpdateTypedData,
-} from '@pico/state-machine';
+} from '@inferenceroom/pico-state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 export class InMemorySigner implements Signer {

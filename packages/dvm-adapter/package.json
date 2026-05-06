@@ -1,5 +1,5 @@
 {
-  "name": "@pico/dvm-adapter",
+  "name": "@inferenceroom/pico-dvm-adapter",
   "version": "0.0.0",
   "private": false,
   "license": "MIT",
@@ -21,8 +21,8 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@pico/protocol": "workspace:*",
-    "@pico/sdk": "workspace:*",
+    "@inferenceroom/pico-protocol": "workspace:*",
+    "@inferenceroom/pico-sdk": "workspace:*",
     "nostr-tools": "^2.10.4"
   },
   "devDependencies": {

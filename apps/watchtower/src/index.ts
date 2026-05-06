@@ -1,6 +1,13 @@
-import type { Address, ChainId, ChannelId, Hex, Signature, SignedState } from '@pico/protocol';
-import { DEFAULT_DISPUTE_WINDOW_MS } from '@pico/protocol';
-import { verifyChannelStateSignature } from '@pico/state-machine';
+import type {
+  Address,
+  ChainId,
+  ChannelId,
+  Hex,
+  Signature,
+  SignedState,
+} from '@inferenceroom/pico-protocol';
+import { DEFAULT_DISPUTE_WINDOW_MS } from '@inferenceroom/pico-protocol';
+import { verifyChannelStateSignature } from '@inferenceroom/pico-state-machine';
 import Database from 'better-sqlite3';
 import type { FastifyInstance } from 'fastify';
 import { type PublicClient, parseAbi } from 'viem';

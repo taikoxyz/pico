@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { encryptPrivateKey, serializeKeyFile } from '@pico/sdk';
+import { encryptPrivateKey, serializeKeyFile } from '@inferenceroom/pico-sdk';
 import { privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';
 import { resolvePrivateKey, resolveSigner } from './signer.js';

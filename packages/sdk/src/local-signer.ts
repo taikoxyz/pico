@@ -7,14 +7,14 @@ import type {
   Hex,
   Htlc,
   Invoice,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
   buildHtlcTypedData,
   buildInvoiceTypedData,
   buildUpdateTypedData,
-} from '@pico/state-machine';
+} from '@inferenceroom/pico-state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { decryptPrivateKey, isEncryptedKeyFile, parseKeyFile } from './key-file.js';
 import type { Signer } from './signer.js';
@@ -65,7 +65,7 @@ export class LocalSigner implements Signer {
   }
 
   signUpdate(
-    update: import('@pico/protocol').Update,
+    update: import('@inferenceroom/pico-protocol').Update,
     chainId: ChainId,
     verifyingContract: Address,
   ): Promise<Hex> {

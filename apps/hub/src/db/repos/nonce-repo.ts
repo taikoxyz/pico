@@ -1,4 +1,4 @@
-import type { Address, Hex } from '@pico/protocol';
+import type { Address, Hex } from '@inferenceroom/pico-protocol';
 import type { DbDriver } from '../types.js';
 
 export class DuplicateNonceError extends Error {

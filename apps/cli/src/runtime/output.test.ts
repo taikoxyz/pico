@@ -1,4 +1,4 @@
-import type { Channel } from '@pico/protocol';
+import type { Channel } from '@inferenceroom/pico-protocol';
 import { describe, expect, it } from 'vitest';
 import { emit, formatChannelTable, jsonLine } from './output.js';
 

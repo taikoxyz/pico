@@ -1,8 +1,8 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
-import { type MockHubHandle, startMockHub } from '@pico/test-utils';
+import { CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID } from '@inferenceroom/pico-protocol';
+import { type MockHubHandle, startMockHub } from '@inferenceroom/pico-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { listenCommand } from './listen.js';
 

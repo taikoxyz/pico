@@ -1,4 +1,4 @@
-# @pico/state-machine
+# @inferenceroom/pico-state-machine
 
 Pure-function library implementing the channel state-transition rules: balance updates,
 HTLC add/settle/fail, version/replay protection, and EIP-712 hash construction. Every

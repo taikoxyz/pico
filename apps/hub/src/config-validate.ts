@@ -5,7 +5,7 @@ import {
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
   ZERO_ADDRESS,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import type { HubConfig } from './config.js';
 
 export const KNOWN_DEV_PRIVATE_KEYS: ReadonlySet<string> = new Set([

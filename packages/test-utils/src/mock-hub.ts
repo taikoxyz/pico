@@ -8,7 +8,7 @@ import type {
   HtlcId,
   SignedCooperativeClose,
   SignedState,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   type ClientToHubMessage,
   type HubMessage,
@@ -17,8 +17,11 @@ import {
   decodeHubMessage,
   encodeHubMessage,
   hexToSignature,
-} from '@pico/sdk';
-import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@pico/state-machine';
+} from '@inferenceroom/pico-sdk';
+import {
+  buildChannelStateTypedData,
+  buildCooperativeCloseTypedData,
+} from '@inferenceroom/pico-state-machine';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type AddressInfo, type WebSocket, WebSocketServer } from 'ws';
 

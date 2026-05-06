@@ -8,7 +8,7 @@ import {
   isNostrPicoKind,
 } from './index.js';
 
-describe('@pico/protocol', () => {
+describe('@inferenceroom/pico-protocol', () => {
   it('exposes a protocol version', () => {
     expect(PROTOCOL_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });

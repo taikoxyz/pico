@@ -3,13 +3,13 @@ import {
   CONTRACT_ADDRESSES,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   InMemorySigner,
   MockChainAdapter,
   type MockHubHandle,
   startMockHub,
-} from '@pico/test-utils';
+} from '@inferenceroom/pico-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelClient } from './client.js';
 import { MemoryStorage } from './storage.js';

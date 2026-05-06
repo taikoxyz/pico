@@ -1,5 +1,5 @@
-import type { Address, ChannelId, Hex, SignedState } from '@pico/protocol';
-import { encodeChannelStateForOnChain, signatureToHex } from '@pico/sdk';
+import type { Address, ChannelId, Hex, SignedState } from '@inferenceroom/pico-protocol';
+import { encodeChannelStateForOnChain, signatureToHex } from '@inferenceroom/pico-sdk';
 import {
   http,
   type Chain,

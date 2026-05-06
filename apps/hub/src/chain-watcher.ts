@@ -1,5 +1,5 @@
-import type { Address, ChainId } from '@pico/protocol';
-import { paymentChannelAbi } from '@pico/sdk';
+import type { Address, ChainId } from '@inferenceroom/pico-protocol';
+import { paymentChannelAbi } from '@inferenceroom/pico-sdk';
 import { http, type PublicClient, createPublicClient, parseAbiItem } from 'viem';
 import type { ChannelPool } from './channel-pool.js';
 import type { Repos } from './db/repos/index.js';

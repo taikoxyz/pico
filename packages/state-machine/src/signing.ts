@@ -15,7 +15,7 @@ import {
   htlcDirectionByte,
   htlcExpirySeconds,
   htlcMerkleRoot,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { hashTypedData, recoverTypedDataAddress } from 'viem';
 
 export const computeHtlcsRoot = htlcMerkleRoot;

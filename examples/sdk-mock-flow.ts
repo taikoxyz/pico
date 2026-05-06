@@ -1,16 +1,20 @@
-// Runnable end-to-end demo of @pico/sdk against a mock hub + mock chain.
+// Runnable end-to-end demo of @inferenceroom/pico-sdk against a mock hub + mock chain.
 // Usage from repo root:
-//   pnpm --filter @pico/sdk build && pnpm --filter @pico/test-utils build
+//   pnpm --filter @inferenceroom/pico-sdk build && pnpm --filter @inferenceroom/pico-test-utils build
 //   pnpm tsx examples/sdk-mock-flow.ts
 
-import { CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID, USDC_TOKENS } from '@pico/protocol';
+import {
+  CONTRACT_ADDRESSES,
+  TAIKO_MAINNET_CHAIN_ID,
+  USDC_TOKENS,
+} from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
   MemoryStorage,
   WebSocketTransport,
   generateKeysendKeypair,
-} from '@pico/sdk';
-import { InMemorySigner, MockChainAdapter, startMockHub } from '@pico/test-utils';
+} from '@inferenceroom/pico-sdk';
+import { InMemorySigner, MockChainAdapter, startMockHub } from '@inferenceroom/pico-test-utils';
 
 const ALICE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;
 const BOB_KEY = '0x0000000000000000000000000000000000000000000000000000000000000b0b' as const;

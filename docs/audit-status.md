@@ -99,7 +99,7 @@ Source: `deepseek_audit_report_client_runtime.md`. Closed by commit `e9bf7ec`.
 
 | ID | Severity | Description | Status | Evidence |
 |---|---|---|---|---|
-| F-01 | Critical | SDK trusts hub-supplied state without verification | Fixed | `packages/sdk/src/client.ts:20-23,348,586,744,869` admit gates from `@pico/state-machine` wired into all signed-state ingestion paths |
+| F-01 | Critical | SDK trusts hub-supplied state without verification | Fixed | `packages/sdk/src/client.ts:20-23,348,586,744,869` admit gates from `@inferenceroom/pico-state-machine` wired into all signed-state ingestion paths |
 | F-02 | High | Restart consistency gaps | Patched-not-reaudited | Restart still has gaps; subscribe-ack `pendingHtlcs` consumption partial |
 | F-03 | High | Invoice replay possible | Fixed | `client.ts:379` rejects consumed invoice; `verifyInvoice` called (`client.ts:613`); `storage-file.ts:170-176` consumed-mark idempotent |
 | F-04 | Medium | Hub message decoding too permissive | Patched-not-reaudited | `packages/sdk/src/hub-protocol.ts:191-211` validates JSON shape, kind whitelist, id; full discriminated schema validation per kind not implemented; admit gates compensate downstream |

@@ -102,7 +102,7 @@ gaps belong on a follow-up tracking ticket:
    `ChannelClosedCooperative` tx hash. Same workaround.
 4. There is no CLI command to submit `closeUnilateral` with an *older*
    state. The dispute drill drops to raw `cast send` and an inline
-   `node -e` snippet that imports `@pico/sdk`'s
+   `node -e` snippet that imports `@inferenceroom/pico-sdk`'s
    `encodeChannelStateForOnChain` + `signatureToHex` from the operator's
    local sqlite DB.
 5. There is no `pico watchtower status`. The drill polls the on-chain

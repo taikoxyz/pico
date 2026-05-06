@@ -136,5 +136,5 @@ baking the file into a thin wrapper Dockerfile and rebuilding the image.
 `HUB_FEE_BPS`, `HUB_FEE_FLAT`, `CHAIN_POLLING_INTERVAL_MS`,
 `CHAIN_CONFIRMATIONS`, `PAYMENT_CHANNEL_ADDRESS`, `ADJUDICATOR_ADDRESS`, etc.
 are intentionally NOT set in `[env]`. The code derives defaults from
-`@pico/protocol`'s `CONTRACT_ADDRESSES` for `CHAIN_ID=167000`. Override
+`@inferenceroom/pico-protocol`'s `CONTRACT_ADDRESSES` for `CHAIN_ID=167000`. Override
 via `flyctl secrets set` only when there is a specific operational reason.

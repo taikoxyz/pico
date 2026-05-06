@@ -9,13 +9,13 @@ does, where trust boundaries sit, and why the topology is **1-hop**.
 flowchart LR
     subgraph User["User device"]
         CLI[pico CLI]
-        SDK[@pico/sdk]
-        SM[@pico/state-machine]
+        SDK[@inferenceroom/pico-sdk]
+        SM[@inferenceroom/pico-state-machine]
     end
 
     subgraph HubInfra["Hub operator"]
-        Hub[@pico/hub]
-        WT[@pico/watchtower]
+        Hub[@inferenceroom/pico-hub]
+        WT[@inferenceroom/pico-watchtower]
     end
 
     subgraph Chain["Taiko L2"]

@@ -6,8 +6,13 @@ import {
   TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@pico/protocol';
-import { ChannelClient, ViemChainAdapter, WebSocketTransport, localSigner } from '@pico/sdk';
+} from '@inferenceroom/pico-protocol';
+import {
+  ChannelClient,
+  ViemChainAdapter,
+  WebSocketTransport,
+  localSigner,
+} from '@inferenceroom/pico-sdk';
 import { Command } from 'commander';
 import { http, type Chain, createPublicClient, createWalletClient, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';

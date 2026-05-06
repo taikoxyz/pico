@@ -1,5 +1,5 @@
-import type { ChannelId, SignedState } from '@pico/protocol';
-import { isStrictlyNewer } from '@pico/state-machine';
+import type { ChannelId, SignedState } from '@inferenceroom/pico-protocol';
+import { isStrictlyNewer } from '@inferenceroom/pico-state-machine';
 
 export interface DetectionResult {
   readonly fraudulent: boolean;

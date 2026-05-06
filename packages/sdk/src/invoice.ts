@@ -1,5 +1,11 @@
-import type { Address, ChainId, Invoice, PaymentHash, Preimage } from '@pico/protocol';
-import { preimageDigest, verifyInvoiceSignature } from '@pico/state-machine';
+import type {
+  Address,
+  ChainId,
+  Invoice,
+  PaymentHash,
+  Preimage,
+} from '@inferenceroom/pico-protocol';
+import { preimageDigest, verifyInvoiceSignature } from '@inferenceroom/pico-state-machine';
 import { randomNonce16, randomPreimage } from './crypto.js';
 import { InvoiceExpiredError, InvoiceVerificationError } from './errors.js';
 import type { Signer } from './signer.js';

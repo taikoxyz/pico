@@ -8,7 +8,7 @@ import {
   type SignedState,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
   FileStorage,
@@ -16,9 +16,9 @@ import {
   generateKeysendKeypair,
   hexToSignature,
   localSigner,
-} from '@pico/sdk';
-import { buildChannelStateTypedData } from '@pico/state-machine';
-import { type MockHubHandle, startMockHub } from '@pico/test-utils';
+} from '@inferenceroom/pico-sdk';
+import { buildChannelStateTypedData } from '@inferenceroom/pico-state-machine';
+import { type MockHubHandle, startMockHub } from '@inferenceroom/pico-test-utils';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { invoiceCommand } from '../../src/commands/invoice.js';

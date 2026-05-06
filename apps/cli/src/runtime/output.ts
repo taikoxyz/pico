@@ -1,4 +1,4 @@
-import type { Channel } from '@pico/protocol';
+import type { Channel } from '@inferenceroom/pico-protocol';
 
 const REPLACER = (_k: string, v: unknown): unknown => (typeof v === 'bigint' ? v.toString() : v);
 

@@ -1,4 +1,11 @@
-import type { Channel, ChannelState, Htlc, Invoice, Preimage, SignedState } from '@pico/protocol';
+import type {
+  Channel,
+  ChannelState,
+  Htlc,
+  Invoice,
+  Preimage,
+  SignedState,
+} from '@inferenceroom/pico-protocol';
 
 export interface InvoiceRecord {
   readonly invoice: Invoice;

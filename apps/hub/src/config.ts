@@ -7,7 +7,7 @@ import {
   DEFAULT_HUB_FEE_FLAT,
   type Hex,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { assertProductionConfig } from './config-validate.js';
 
 export interface HubConfig {

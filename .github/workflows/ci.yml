@@ -55,7 +55,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec turbo run build --filter='!@pico/contracts'
+      - run: pnpm exec turbo run build --filter='!@inferenceroom/pico-contracts'
 
   k8s-manifests:
     runs-on: ubuntu-latest
@@ -102,7 +102,7 @@ jobs:
       - name: Build contract artifacts
         working-directory: packages/contracts
         run: forge build
-      - run: pnpm exec turbo run test --filter='!@pico/contracts' --filter='!@pico/e2e'
+      - run: pnpm exec turbo run test --filter='!@inferenceroom/pico-contracts' --filter='!@inferenceroom/pico-e2e'
 
   test-solidity:
     runs-on: ubuntu-latest
@@ -176,9 +176,9 @@ jobs:
         working-directory: packages/contracts
         run: forge build
       - name: Build TS packages
-        run: pnpm exec turbo run build --filter='!@pico/contracts'
+        run: pnpm exec turbo run build --filter='!@inferenceroom/pico-contracts'
       - name: Run E2E tests
-        run: pnpm -F @pico/e2e test
+        run: pnpm -F @inferenceroom/pico-e2e test
 
   coverage:
     runs-on: ubuntu-latest
@@ -219,13 +219,13 @@ jobs:
         working-directory: packages/contracts
         run: forge build
       - name: Build TS packages
-        run: pnpm exec turbo run build --filter='!@pico/contracts'
+        run: pnpm exec turbo run build --filter='!@inferenceroom/pico-contracts'
       - name: Hub coverage
-        run: pnpm -F @pico/hub test:coverage
+        run: pnpm -F @inferenceroom/pico-hub test:coverage
       - name: Watchtower coverage
-        run: pnpm -F @pico/watchtower test:coverage
+        run: pnpm -F @inferenceroom/pico-watchtower test:coverage
       - name: CLI coverage
-        run: pnpm -F @pico/cli test:coverage
+        run: pnpm -F @inferenceroom/pico-cli test:coverage
 
   e2e-fork:
     runs-on: ubuntu-latest
@@ -271,10 +271,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build TS packages
         if: steps.gate.outputs.skip != 'true'
-        run: pnpm exec turbo run build --filter='!@pico/contracts'
+        run: pnpm exec turbo run build --filter='!@inferenceroom/pico-contracts'
       - name: Run forked E2E tests
         if: steps.gate.outputs.skip != 'true'
-        run: pnpm -F @pico/e2e test:fork
+        run: pnpm -F @inferenceroom/pico-e2e test:fork
 
   ci:
     if: always()

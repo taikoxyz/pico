@@ -6,15 +6,15 @@ import {
   type ChainId,
   type PaymentHash,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
   type InvoiceRecord,
   type Signer,
   ViemChainAdapter,
   WebSocketTransport,
-} from '@pico/sdk';
-import type { FileStorage } from '@pico/sdk';
+} from '@inferenceroom/pico-sdk';
+import type { FileStorage } from '@inferenceroom/pico-sdk';
 import { Command } from 'commander';
 import { http, createPublicClient, createWalletClient } from 'viem';
 import { defaultDbDir } from '../runtime/config.js';

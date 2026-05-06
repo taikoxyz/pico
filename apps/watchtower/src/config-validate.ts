@@ -3,7 +3,7 @@ import {
   CONTRACT_ADDRESSES,
   TAIKO_MAINNET_CHAIN_ID,
   ZERO_ADDRESS,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import type { WatchtowerConfig } from './config.js';
 
 export const KNOWN_DEV_PRIVATE_KEYS: ReadonlySet<string> = new Set([

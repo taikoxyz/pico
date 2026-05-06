@@ -1,5 +1,5 @@
 {
-  "name": "@pico/e2e",
+  "name": "@inferenceroom/pico-e2e",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -13,12 +13,12 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@pico/hub": "workspace:*",
-    "@pico/protocol": "workspace:*",
-    "@pico/sdk": "workspace:*",
-    "@pico/state-machine": "workspace:*",
-    "@pico/test-utils": "workspace:*",
-    "@pico/watchtower": "workspace:*",
+    "@inferenceroom/pico-hub": "workspace:*",
+    "@inferenceroom/pico-protocol": "workspace:*",
+    "@inferenceroom/pico-sdk": "workspace:*",
+    "@inferenceroom/pico-state-machine": "workspace:*",
+    "@inferenceroom/pico-test-utils": "workspace:*",
+    "@inferenceroom/pico-watchtower": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {

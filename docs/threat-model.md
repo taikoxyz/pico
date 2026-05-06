@@ -37,7 +37,7 @@ over their key, willing to submit on-chain transactions and withhold cooperation
   successful dispute is by definition proof that a strictly-newer dual-signed state
   existed at close time, which is the on-chain definition of stale-state cheating.
 - All transitions require both signatures over the resulting `ChannelState`; the
-  state-machine in `@pico/state-machine` enforces strict version monotonicity
+  state-machine in `@inferenceroom/pico-state-machine` enforces strict version monotonicity
   (`replay.ts:ensureMonotonicVersion`).
 - v1 does not implement on-chain HTLC settlement. The contracts reject unilateral
   close/dispute/penalty states with non-empty `htlcsRoot`; cooperative close is

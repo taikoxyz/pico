@@ -12,8 +12,8 @@ import type {
   Signature,
   SignedCooperativeClose,
   SignedState,
-} from '@pico/protocol';
-import { DEFAULT_HUB_FEE_BPS, DEFAULT_HUB_FEE_FLAT } from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
+import { DEFAULT_HUB_FEE_BPS, DEFAULT_HUB_FEE_FLAT } from '@inferenceroom/pico-protocol';
 import {
   type StateAdmissionError,
   addHtlc,
@@ -24,7 +24,7 @@ import {
   failHtlc,
   preimageDigest,
   settleHtlc,
-} from '@pico/state-machine';
+} from '@inferenceroom/pico-state-machine';
 import type { ChainAdapter } from './chain-adapter.js';
 import { randomHtlcId, randomNonce16 } from './crypto.js';
 import {
