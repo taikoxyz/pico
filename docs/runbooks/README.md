@@ -4,7 +4,7 @@ These runbooks are **draft** scaffolds. They list the steps an on-call operator
 should take, the files/commands involved, and the verification checks. Treat each
 as a fill-in-the-blanks template until the mainnet smoke channel signs off.
 Finalization is tracked under
-[issue #21](https://github.com/dantaik/pico/issues/21).
+[issue #21](https://github.com/taikoxyz/pico/issues/21).
 
 | Runbook | Trigger | Severity |
 |---|---|---|
@@ -27,4 +27,4 @@ Common touch-points:
 Replace the `TODO(infra)` / `TODO(contact)` placeholders in individual
 runbooks with real GKE, PagerDuty/Linear, and maintainer endpoints, and
 validate each runbook with a fire drill before running real funds. Tracked under
-[issue #21](https://github.com/dantaik/pico/issues/21).
+[issue #21](https://github.com/taikoxyz/pico/issues/21).

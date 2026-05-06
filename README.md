@@ -103,14 +103,14 @@ gates fail-fast on dev keys and unsigned envelopes
 the SDK persists them.
 
 Production-readiness work is tracked on GitHub. See the master tracker
-[issue #21](https://github.com/dantaik/pico/issues/21) for the full
+[issue #21](https://github.com/taikoxyz/pico/issues/21) for the full
 sub-issue checklist and
 [`docs/audit-status.md`](./docs/audit-status.md) for the per-finding
 reconciliation.
 
 ## Documentation
 
-- [Issue #21](https://github.com/dantaik/pico/issues/21) — master
+- [Issue #21](https://github.com/taikoxyz/pico/issues/21) — master
   production-readiness tracker. **Start here if you want to know what's
   left.** Sub-issues are categorized (`code` / `test` / `gke` /
   `taiko-contract` / `docs` / `audit` / `ci`) and prioritized

@@ -7,7 +7,7 @@ Until pgp-key.asc exists in this directory and SECURITY.md lists a real
 PGP fingerprint, PGP-encrypted reports cannot be processed. Use the
 GitHub private vulnerability advisory channel instead:
 
-  https://github.com/dantaik/pico/security/advisories/new
+  https://github.com/taikoxyz/pico/security/advisories/new
 
 To replace this placeholder (operator only):
 

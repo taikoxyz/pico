@@ -68,6 +68,7 @@ metadata:
   namespace: pico
   labels:
     app.kubernetes.io/name: pico-watchtower
+    app.kubernetes.io/version: RELEASE_TAG
 spec:
   serviceName: pico-watchtower
   replicas: 1
@@ -78,6 +79,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: pico-watchtower
+        app.kubernetes.io/version: RELEASE_TAG
     spec:
       serviceAccountName: pico-watchtower
       automountServiceAccountToken: false
