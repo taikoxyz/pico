@@ -35,7 +35,7 @@ infra/k8s/
 - A Cloudflare R2 bucket (or any S3-compatible store) for litestream
   backups, and an HMAC access key + secret pair scoped to that bucket.
 - A DNS zone you control for the public hub hostname (default
-  `pico.taiko.xyz`).
+  `hub.pico.taiko.xyz`).
 
 ## One-time GCP bootstrap
 
@@ -73,7 +73,7 @@ The script:
 
    `GKE_NAMESPACE` is optional and defaults to `pico` in both workflows.
 
-7. Reserves the global static IP `pico-hub-ip` used by the hub Ingress (must exist before DNS for `pico.taiko.xyz` is pointed and before ManagedCertificate provisions). The IP survives Ingress, namespace, and cluster recreations.
+7. Reserves the global static IP `pico-hub-ip` used by the hub Ingress (must exist before DNS for `hub.pico.taiko.xyz` is pointed and before ManagedCertificate provisions). The IP survives Ingress, namespace, and cluster recreations.
 8. Pulls cluster credentials and applies `00-namespace.yaml` + `06-networkpolicy.yaml`.
 
 Override defaults with env vars (`GCP_PROJECT_ID`, `REGION`, `CLUSTER_NAME`,
@@ -86,14 +86,14 @@ needed for emergency local builds):
 gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 ```
 
-Read back the reserved hub IP for the DNS A record on `pico.taiko.xyz`:
+Read back the reserved hub IP for the DNS A record on `hub.pico.taiko.xyz`:
 
 ```bash
 gcloud compute addresses describe pico-hub-ip --global \
   --project pico-mainnet --format='value(address)'
 ```
 
-The IP must be pointed at `pico.taiko.xyz` *before* the hub Ingress is
+The IP must be pointed at `hub.pico.taiko.xyz` *before* the hub Ingress is
 applied — otherwise the ManagedCertificate's HTTP-01 challenge will fail
 for ~10–20 min until DNS reconciles.
 
@@ -212,7 +212,7 @@ kubectl get pods -n pico -w
 ```bash
 # Hub: public via Ingress (after ManagedCertificate provisions, ~10–20 min).
 kubectl get ingress -n pico pico-hub
-curl -fsS https://pico.taiko.xyz/v1/health
+curl -fsS https://hub.pico.taiko.xyz/v1/health
 
 # Watchtower: internal only.
 kubectl port-forward -n pico statefulset/pico-watchtower 3031:3031 &
