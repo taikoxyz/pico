@@ -64,4 +64,20 @@ export class ChannelRepo {
   async setStatus(id: ChannelId, status: ChannelStatus): Promise<void> {
     await this.db.exec('UPDATE channels SET status = ? WHERE id = ?', [status, id]);
   }
+
+  async countByStatus(): Promise<Record<ChannelStatus, number>> {
+    const rows = await this.db.query<{ status: ChannelStatus; n: number }>(
+      'SELECT status, COUNT(*) as n FROM channels GROUP BY status',
+    );
+    const out: Record<ChannelStatus, number> = {
+      pending: 0,
+      open: 0,
+      'closing-cooperative': 0,
+      'closing-unilateral': 0,
+      disputed: 0,
+      closed: 0,
+    };
+    for (const r of rows) out[r.status] = Number(r.n);
+    return out;
+  }
 }

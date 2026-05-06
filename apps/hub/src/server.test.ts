@@ -203,6 +203,74 @@ describe('buildServer integration', () => {
     expect(r.status).toBe(501);
   });
 
+  it('GET /v1/stats reports channel breakdown and lifetime counters', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const open = makeChannel(bytes32('a1'), alice, hub, 'open');
+    const closed = makeChannel(bytes32('a2'), alice, hub, 'closed');
+    await built.api.ws.registerChannel(open, await buildAliceState(open, 100n, 0n));
+    await built.api.ws.registerChannel(closed, await buildAliceState(closed, 100n, 0n));
+
+    await built.repos.stats.addBigint('payments_settled', 3n);
+    await built.repos.stats.addBigint('payments_failed', 1n);
+    await built.repos.stats.addBigint('usdc_settled', 1_234_567n);
+    await built.repos.stats.addBigint('fees_collected', 89n);
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      version: number;
+      channels: {
+        total: number;
+        open: number;
+        byStatus: Record<string, number>;
+      };
+      payments: { total: number; settled: number; failed: number; inFlightHtlcs: number };
+      usdc: { settled: string; feesCollected: string };
+      disputes: { total: number };
+    };
+    expect(r.status).toBe(200);
+    expect(json.version).toBe(1);
+    expect(json.channels.total).toBe(2);
+    expect(json.channels.open).toBe(1);
+    expect(json.channels.byStatus.open).toBe(1);
+    expect(json.channels.byStatus.closed).toBe(1);
+    expect(json.payments).toEqual({ total: 4, settled: 3, failed: 1, inFlightHtlcs: 0 });
+    expect(json.usdc).toEqual({ settled: '1234567', feesCollected: '89' });
+    expect(json.disputes.total).toBe(0);
+  });
+
+  it('GET /v1/stats counters survive a restart', async () => {
+    await built.repos.stats.addBigint('payments_settled', 7n);
+    await built.repos.stats.addBigint('usdc_settled', 9_999_999_999_999_999n); // > MAX_SAFE_INTEGER
+
+    await built.app.close();
+    built = await buildServer({
+      DB_DRIVER: 'sqlite',
+      DB_URL: join(tmp, 'test.sqlite'),
+      HUB_PRIVATE_KEY: HUB_PK,
+      RPC_URL: 'http://127.0.0.1:1',
+      CHAIN_ID: '31337',
+      PAYMENT_CHANNEL_ADDRESS: VERIFYING_CONTRACT,
+      ADJUDICATOR_ADDRESS: VERIFYING_CONTRACT,
+      HUB_FEE_BPS: '0',
+      HUB_FEE_FLAT: '0',
+      LOG_LEVEL: 'silent',
+      CHAIN_POLLING_INTERVAL_MS: '999999',
+      PICO_DEV_ALLOW_ZERO_ADDRESS: 'true',
+      PICO_SKIP_PROD_ASSERT: 'true',
+      PROMETHEUS_PORT: '0',
+    } as NodeJS.ProcessEnv);
+    baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      payments: { settled: number };
+      usdc: { settled: string };
+    };
+    expect(json.payments.settled).toBe(7);
+    expect(json.usdc.settled).toBe('9999999999999999');
+  });
+
   it('WebSocket payDirect: round-trip sign + persist', async () => {
     const alice = privateKeyToAccount(ALICE_PK);
     const hub = privateKeyToAccount(HUB_PK).address;

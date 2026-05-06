@@ -7,6 +7,7 @@ import { NonceRepo } from './nonce-repo.js';
 import { PaymentRepo } from './payment-repo.js';
 import { RouteRepo } from './route-repo.js';
 import { StateRepo } from './state-repo.js';
+import { StatsRepo } from './stats-repo.js';
 
 export { ChannelRepo } from './channel-repo.js';
 export { StateRepo, StaleVersionError } from './state-repo.js';
@@ -20,6 +21,8 @@ export type { DisputeRecord, DisputeResolution } from './dispute-repo.js';
 export { KvRepo } from './kv-repo.js';
 export { RouteRepo } from './route-repo.js';
 export type { PaymentRoute, RouteState } from './route-repo.js';
+export { StatsRepo, STAT_KEYS } from './stats-repo.js';
+export type { StatKey } from './stats-repo.js';
 
 export interface Repos {
   readonly channels: ChannelRepo;
@@ -30,6 +33,7 @@ export interface Repos {
   readonly disputes: DisputeRepo;
   readonly kv: KvRepo;
   readonly routes: RouteRepo;
+  readonly stats: StatsRepo;
 }
 
 export function buildRepos(db: DbDriver): Repos {
@@ -42,5 +46,6 @@ export function buildRepos(db: DbDriver): Repos {
     disputes: new DisputeRepo(db),
     kv: new KvRepo(db),
     routes: new RouteRepo(db),
+    stats: new StatsRepo(db),
   };
 }

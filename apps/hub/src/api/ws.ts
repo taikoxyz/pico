@@ -414,10 +414,16 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     deps.liquidity.releaseReservation(inflight.outgoingChannelId, inflight.outgoingHtlc.amount);
     await deps.repos.htlcs.setState(inflight.incomingHtlcId, 'settled');
     await deps.repos.htlcs.setState(inflight.outgoingHtlcId, 'settled');
-    await deps.repos.payments.settle(
-      `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
-      msg.preimage,
-    );
+    const paymentId = `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`;
+    // Read amount/fee BEFORE settle so a racing prune cannot delete the row
+    // out from under the lifetime stat counters.
+    const paymentRow = await deps.repos.payments.get(paymentId);
+    await deps.repos.payments.settle(paymentId, msg.preimage);
+    if (paymentRow) {
+      await deps.repos.stats.addBigint('payments_settled', 1n);
+      await deps.repos.stats.addBigint('usdc_settled', paymentRow.amount);
+      await deps.repos.stats.addBigint('fees_collected', paymentRow.fee);
+    }
     schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'settled' });
 
@@ -509,6 +515,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
       msg.reason,
     );
+    await deps.repos.stats.addBigint('payments_failed', 1n);
     schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'failed' });
 

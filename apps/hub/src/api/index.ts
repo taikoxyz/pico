@@ -174,6 +174,43 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     };
   });
 
+  // Aggregate hub statistics. Counters survive restarts because they are
+  // backed by the `hub_stats` table; channel/dispute counts come from their
+  // own tables (rows are not pruned). USDC sums are returned as base-unit
+  // decimal strings to avoid JS Number precision loss.
+  app.get('/v1/stats', async () => {
+    const [byStatus, lifetime, htlcsInFlight, disputeRows] = await Promise.all([
+      deps.repos.channels.countByStatus(),
+      deps.repos.stats.getAll(),
+      deps.repos.htlcs.countInflight(),
+      deps.db.driver.query<{ n: number }>('SELECT COUNT(*) as n FROM disputes'),
+    ]);
+    const channelsTotal = Object.values(byStatus).reduce((a, b) => a + b, 0);
+    const paymentsSettled = Number(lifetime.payments_settled);
+    const paymentsFailed = Number(lifetime.payments_failed);
+    return {
+      version: 1,
+      channels: {
+        total: channelsTotal,
+        open: byStatus.open,
+        byStatus,
+      },
+      payments: {
+        total: paymentsSettled + paymentsFailed,
+        settled: paymentsSettled,
+        failed: paymentsFailed,
+        inFlightHtlcs: htlcsInFlight,
+      },
+      usdc: {
+        settled: lifetime.usdc_settled.toString(),
+        feesCollected: lifetime.fees_collected.toString(),
+      },
+      disputes: {
+        total: Number(disputeRows[0]?.n ?? 0),
+      },
+    };
+  });
+
   const ws = await registerWsRoutes(app, {
     channelPool: deps.channelPool,
     liquidity: deps.liquidity,
