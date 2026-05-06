@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,11 +29,19 @@ for (const path of pkgPaths) {
   const before = pkg.version;
   pkg.version = version;
   writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
-  console.log(`${pkg.name}: ${before} -> ${version}`);
+  console.info(`${pkg.name}: ${before} -> ${version}`);
   bumped += 1;
 }
 
 if (bumped === 0) {
-  console.error('no publishable packages found (non-private, not in .changeset/config.json ignore)');
+  console.error(
+    'no publishable packages found (non-private, not in .changeset/config.json ignore)',
+  );
   process.exit(1);
+}
+
+const generator = resolve(ROOT, 'apps/cli/scripts/generate-versions.mjs');
+if (existsSync(generator)) {
+  const r = spawnSync(process.execPath, [generator], { stdio: 'inherit' });
+  if (r.status !== 0) process.exit(r.status ?? 1);
 }

@@ -7,12 +7,13 @@ import { invoiceCommand } from './commands/invoice.js';
 import { keysCommand } from './commands/keys.js';
 import { listenCommand } from './commands/listen.js';
 import { payCommand } from './commands/pay.js';
+import { CLI_VERSION, PROTOCOL_VERSION, SDK_VERSION } from './generated/versions.js';
 
 const program = new Command();
 program
   .name('pico')
   .description('pico — agent runtime CLI for Taiko payment channels')
-  .version('0.0.0');
+  .version(`pico ${CLI_VERSION}\n  sdk ${SDK_VERSION}\n  protocol ${PROTOCOL_VERSION}`);
 
 program.addCommand(helloCommand());
 program.addCommand(keysCommand());
