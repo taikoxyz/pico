@@ -143,6 +143,7 @@ jobs:
           infra/k8s/render-manifests.sh \
             --hub-image "${{ steps.digest.outputs.hub_image }}" \
             --watchtower-image "${{ steps.digest.outputs.watchtower_image }}" \
+            --release-tag "${{ steps.images.outputs.release_tag }}" \
             --namespace "$GKE_NAMESPACE" \
             --out-dir .context/gke-manifests
 

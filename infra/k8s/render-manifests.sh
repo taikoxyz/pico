@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: render-manifests.sh --hub-image IMAGE --watchtower-image IMAGE [--namespace NAME] [--out-dir DIR]
+Usage: render-manifests.sh --hub-image IMAGE --watchtower-image IMAGE --release-tag TAG [--namespace NAME] [--out-dir DIR]
 
 Renders the GKE manifests with exact Artifact Registry image references.
 USAGE
@@ -12,6 +12,7 @@ USAGE
 OUT_DIR=".context/gke-manifests"
 HUB_IMAGE=""
 WATCHTOWER_IMAGE=""
+RELEASE_TAG=""
 NAMESPACE="pico"
 
 while [[ $# -gt 0 ]]; do
@@ -22,6 +23,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --watchtower-image)
       WATCHTOWER_IMAGE="${2:-}"
+      shift 2
+      ;;
+    --release-tag)
+      RELEASE_TAG="${2:-}"
       shift 2
       ;;
     --out-dir)
@@ -54,6 +59,11 @@ if [[ -z "$WATCHTOWER_IMAGE" ]]; then
   exit 2
 fi
 
+if [[ -z "$RELEASE_TAG" ]]; then
+  echo "--release-tag is required" >&2
+  exit 2
+fi
+
 if [[ ! "$NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
   echo "--namespace must be a valid Kubernetes namespace name" >&2
   exit 2
@@ -72,6 +82,7 @@ sed \
   "s|REGION-docker.pkg.dev/PROJECT/pico/hub:VERSION|$HUB_IMAGE|g" \
   "$SCRIPT_DIR/01-hub.yaml" \
   | sed \
+      -e "s|RELEASE_TAG|$RELEASE_TAG|g" \
       -e "s|namespace: pico$|namespace: $NAMESPACE|g" \
       -e "s|\\.pico\\.svc|.$NAMESPACE.svc|g" \
     > "$OUT_DIR/01-hub.yaml"
@@ -79,6 +90,7 @@ sed \
   "s|REGION-docker.pkg.dev/PROJECT/pico/watchtower:VERSION|$WATCHTOWER_IMAGE|g" \
   "$SCRIPT_DIR/02-watchtower.yaml" \
   | sed \
+      -e "s|RELEASE_TAG|$RELEASE_TAG|g" \
       -e "s|namespace: pico$|namespace: $NAMESPACE|g" \
       -e "s|\\.pico\\.svc|.$NAMESPACE.svc|g" \
     > "$OUT_DIR/02-watchtower.yaml"
@@ -91,6 +103,11 @@ done
 
 if grep -R "REGION-docker.pkg.dev/PROJECT/pico" "$OUT_DIR"; then
   echo "Rendered manifests still contain image placeholders." >&2
+  exit 1
+fi
+
+if grep -R "RELEASE_TAG" "$OUT_DIR"; then
+  echo "Rendered manifests still contain RELEASE_TAG placeholder." >&2
   exit 1
 fi
 
