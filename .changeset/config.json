@@ -8,6 +8,7 @@
       "@inferenceroom/pico-state-machine",
       "@inferenceroom/pico-sdk",
       "@inferenceroom/pico-dvm-adapter",
+      "@inferenceroom/pico-test-utils",
       "@inferenceroom/pico-cli"
     ]
   ],
@@ -19,7 +20,6 @@
     "@inferenceroom/pico-contracts",
     "@inferenceroom/pico-e2e",
     "@inferenceroom/pico-hub",
-    "@inferenceroom/pico-test-utils",
     "@inferenceroom/pico-watchtower"
   ]
 }

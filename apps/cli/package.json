@@ -1,6 +1,6 @@
 {
   "name": "@inferenceroom/pico-cli",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "license": "MIT",
   "description": "pico developer/operator CLI: open and close channels, pay, query hubs, run dev fork.",
   "type": "module",
