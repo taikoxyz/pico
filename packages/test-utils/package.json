@@ -1,6 +1,7 @@
 {
   "name": "@inferenceroom/pico-test-utils",
   "version": "1.0.0",
+  "private": true,
   "license": "MIT",
   "description": "Anvil/forge fork helpers, mock hubs, and deterministic key fixtures shared by pico test suites.",
   "type": "module",

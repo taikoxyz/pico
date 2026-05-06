@@ -13,6 +13,7 @@
     "@inferenceroom/pico-contracts",
     "@inferenceroom/pico-e2e",
     "@inferenceroom/pico-hub",
+    "@inferenceroom/pico-test-utils",
     "@inferenceroom/pico-watchtower"
   ]
 }
