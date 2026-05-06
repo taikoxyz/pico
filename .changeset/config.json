@@ -3,13 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [
-    [
-      "@inferenceroom/pico-protocol",
-      "@inferenceroom/pico-state-machine",
-      "@inferenceroom/pico-sdk",
-      "@inferenceroom/pico-dvm-adapter",
-      "@inferenceroom/pico-cli"
-    ]
+    ["@inferenceroom/pico-protocol", "@inferenceroom/pico-state-machine", "@inferenceroom/pico-sdk"]
   ],
   "linked": [],
   "access": "public",
