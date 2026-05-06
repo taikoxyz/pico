@@ -41,14 +41,16 @@ jobs:
         if: steps.changesets.outputs.published == 'true'
         env:
           PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
+          DEPLOY_PKGS: '["@inferenceroom/pico-protocol","@inferenceroom/pico-state-machine","@inferenceroom/pico-sdk"]'
         run: |
           set -euo pipefail
-          SDK_VERSION=$(echo "$PUBLISHED" | jq -r '.[] | select(.name=="@inferenceroom/pico-sdk") | .version')
-          if [ -z "$SDK_VERSION" ] || [ "$SDK_VERSION" = "null" ]; then
-            echo "No fixed-group publish; skipping Docker tag."
+          DEPLOY_VERSION=$(echo "$PUBLISHED" | jq -r --argjson pkgs "$DEPLOY_PKGS" \
+            'map(select(.name as $n | $pkgs | index($n))) | (.[0].version // "")')
+          if [ -z "$DEPLOY_VERSION" ] || [ "$DEPLOY_VERSION" = "null" ]; then
+            echo "No deployment-relevant package published; skipping Docker tag."
             exit 0
           fi
-          TAG="v${SDK_VERSION}"
+          TAG="v${DEPLOY_VERSION}"
           if git rev-parse --verify --quiet "refs/tags/${TAG}"; then
             echo "Tag ${TAG} already exists; skipping."
             exit 0
