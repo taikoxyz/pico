@@ -22,7 +22,7 @@
     "secrets:scan:history": "bash scripts/scan-secrets.sh history",
     "secrets:scan:staged": "bash scripts/scan-secrets.sh staged",
     "changeset": "changeset",
-    "release": "pnpm build && changeset publish",
+    "release": "turbo run build --filter='!@inferenceroom/pico-contracts' && changeset publish",
     "version-packages": "changeset version",
     "pico": "node apps/cli/dist/index.js",
     "prepare": "lefthook install || true"
