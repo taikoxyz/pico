@@ -1,5 +1,13 @@
 # @inferenceroom/pico-state-machine
 
+## 2.0.2
+
+### Patch Changes
+
+- 0927067: End-to-end test of the Changesets + GitHub Actions OIDC trusted-publishing pipeline. No code changes; verifies that the auto-generated "Version Packages" PR + npm provenance flow works for all five publishable packages.
+- Updated dependencies [0927067]
+  - @inferenceroom/pico-protocol@2.0.2
+
 ## 2.0.1
 
 ### Major Changes
