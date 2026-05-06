@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pico — payments for AI agents</title>
+<meta name="description" content="Trustless 1-hop state channel network for micro-payments on Taiko L2. CLI-first, USDC-native.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">pico<span>/</span></a>
+    <ul class="nav-links">
+      <li><a href="#features">Design</a></li>
+      <li><a href="#usdc">USDC</a></li>
+      <li><a href="#cli">CLI</a></li>
+      <li><a href="#hub">Hub</a></li>
+      <li><a href="#how">Hop</a></li>
+      <li><a href="https://github.com/dantaik/pico" target="_blank" rel="noopener" class="nav-cta">GitHub &rarr;</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main>
+
+<section class="hero">
+  <h1>State Channel for AI Agents</h1>
+  <p class="hero-sub">
+    Trustless state channel network for Agent micro-payments.
+  </p>
+</section>
+
+<div class="flow-viz">
+  <canvas id="flow-canvas"></canvas>
+</div>
+
+<div class="section-divider"><span class="section-divider-mark">01</span></div>
+
+<section class="features" id="features">
+
+  <h2 class="section-title">Designed for <em>agents</em>.</h2>
+  <p class="section-sub">
+    Every design decision starts from "what does the agent need?" No browser, no wallet connect, no manual signing.
+  </p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <h3>Headless by default</h3>
+      <p>No browser wallet. Encrypted key file on disk, resolved from <code>--private-key</code> flag, env var, or default config path.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Private by default</h3>
+      <p>Individual payments never touch the chain. Only channel opens and closes are visible on-chain. Your payment history stays between you and the hub.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Machine-parseable output</h3>
+      <p>Every command supports <code>--json</code>. Structured stdout for programmatic consumption. Human-readable by default.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Watchtower protection</h3>
+      <p>Standalone fraud monitor posts penalty transactions if a counterparty tries to close with a stale state. Your funds stay safe.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"><span class="section-divider-mark">02</span></div>
+
+<section class="usdc" id="usdc">
+  <h2 class="section-title">Circle <em>USDC</em>. No native token.</h2>
+  <p class="section-sub">
+    pico uses Circle-native USDC on Taiko mainnet. No governance token, no staking, no bridges, no wrapped assets. One stablecoin, one chain.
+  </p>
+
+  <div class="usdc-card">
+    <div class="field">Token address (Taiko mainnet)</div>
+    <div class="usdc-address-row">
+      <code>0x07d83526730c7438048D55A4fc0b850e2aaB6f0b</code>
+      <button class="copy-btn" data-copy="0x07d83526730c7438048D55A4fc0b850e2aaB6f0b" onclick="copyText(this)">Copy</button>
+    </div>
+
+    <dl class="usdc-meta">
+      <div>
+        <dt>Network</dt>
+        <dd><strong>Taiko</strong> mainnet</dd>
+      </div>
+      <div>
+        <dt>Decimals</dt>
+        <dd><strong>6</strong></dd>
+      </div>
+      <div>
+        <dt>Min channel</dt>
+        <dd><strong>10 USDC</strong></dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<div class="section-divider"><span class="section-divider-mark">03</span></div>
+
+<section class="cli" id="cli">
+
+  <h2 class="section-title">A <em>CLI</em> built for your runtimes.</h2>
+  <p class="section-sub">
+    Any-language agents shell out to the CLI. Non-TS callers parse <code>--json</code> output. No browser wallet required.
+  </p>
+
+  <div class="cli-grid">
+    <div class="cli-card">
+      <div class="cli-card-label">Generate keys</div>
+      <code><span class="hl">pnpm pico</span> <span class="dim">keys init</span></code>
+    </div>
+    <div class="cli-card">
+      <div class="cli-card-label">Show address</div>
+      <code><span class="hl">pnpm pico</span> <span class="dim">keys show</span></code>
+    </div>
+    <div class="cli-card">
+      <div class="cli-card-label">Open a channel</div>
+      <code><span class="hl">pnpm pico</span> <span class="dim">channel open \</span>
+  <span class="dim">--hub</span> https://hub.taiko.xyz \
+  <span class="dim">--amount</span> <span class="hl">25</span></code>
+    </div>
+    <div class="cli-card">
+      <div class="cli-card-label">Send a payment</div>
+      <code><span class="hl">pnpm pico</span> <span class="dim">pay \</span>
+  <span class="dim">--to</span> 0xRecipient \
+  <span class="dim">--amount</span> <span class="hl">0.05</span> \
+  <span class="dim">--json</span></code>
+    </div>
+    <div class="cli-card">
+      <div class="cli-card-label">Create an invoice</div>
+      <code><span class="hl">INV=</span><span class="dim">$(</span><span class="hl">pnpm pico</span> <span class="dim">invoice create \</span>
+  <span class="dim">--amount</span> <span class="hl">50000</span> \
+  <span class="dim">--memo</span> <span class="dim">"service foo"</span><span class="dim">)</span></code>
+    </div>
+    <div class="cli-card">
+      <div class="cli-card-label">Listen for payments</div>
+      <code><span class="hl">pnpm pico</span> <span class="dim">listen \</span>
+  <span class="dim">--hub</span> wss://hub.taiko.xyz <span class="dim">&amp;</span></code>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"><span class="section-divider-mark">04</span></div>
+
+<section class="hub" id="hub">
+
+  <h2 class="section-title">Use our <em>hub</em>. Or run your own.</h2>
+  <p class="section-sub">
+    Hubs are public infrastructure. We operate <code>hub.taiko.xyz</code> on Taiko mainnet for convenience — and the same code in <code>apps/hub</code> is one Docker command away if you'd rather self-host.
+  </p>
+
+  <div class="hub-grid">
+    <div class="hub-card">
+      <div class="hub-card-tag"><span class="section-dot"></span> Hosted</div>
+      <h3>hub.taiko.xyz</h3>
+      <p>Free to use. No accounts. Operated by Inference Room.</p>
+      <dl class="hub-meta">
+        <div><dt>REST</dt><dd><code>https://hub.taiko.xyz</code></dd></div>
+        <div><dt>WebSocket</dt><dd><code>wss://hub.taiko.xyz</code></dd></div>
+        <div><dt>Network</dt><dd>Taiko mainnet</dd></div>
+      </dl>
+      <a href="https://hub.taiko.xyz" target="_blank" rel="noopener" class="hub-link">Open hub.taiko.xyz &rarr;</a>
+    </div>
+
+    <div class="hub-card">
+      <div class="hub-card-tag"><span class="section-dot"></span> Self-hosted</div>
+      <h3>Run your own</h3>
+      <p>Bring an RPC and a hot key with USDC liquidity. Hub competes on fees, uptime, and capacity — exactly like a Lightning LSP.</p>
+      <pre class="hub-code"><span class="cmd">git clone</span> <span class="arg">https://github.com/dantaik/pico</span>
+<span class="cmd">cd</span> <span class="arg">pico/apps/hub</span>
+<span class="cmd">cp</span> <span class="arg">.env.example .env</span>     <span class="comment"># HUB_PRIVATE_KEY, RPC_URL, …</span>
+<span class="cmd">docker compose</span> <span class="flag">up -d</span></pre>
+      <a href="https://github.com/dantaik/pico/tree/main/apps/hub" target="_blank" rel="noopener" class="hub-link">Read the hub guide &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"><span class="section-divider-mark">05</span></div>
+
+<section class="how" id="how">
+
+  <h2 class="section-title">One hop. <em>Zero</em> routing complexity.</h2>
+  <p class="section-sub">
+    Every payment is <code>client &rarr; hub &rarr; recipient</code>. Hubs compete on liquidity, fees, and uptime — exactly like Lightning LSPs, without the multi-hop overhead.
+  </p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="num">01</div>
+      <h3>Open a channel</h3>
+      <p>Lock USDC on-chain with <code>pico channel open</code>. The hub opens a matching channel to your recipient. One hop, no routing.</p>
+    </div>
+    <div class="flow-step">
+      <div class="num">02</div>
+      <h3>Send payments</h3>
+      <p>Pay any address via invoice or keysend. Dust-sized amounts, instant settlement off-chain. No per-payment gas.</p>
+    </div>
+    <div class="flow-step">
+      <div class="num">03</div>
+      <h3>Settle on-chain</h3>
+      <p>Cooperatively close whenever you want. Disputes handled by the Adjudicator contract. Funds always recoverable.</p>
+    </div>
+  </div>
+</section>
+
+<section class="bottom-install">
+  <h2 class="section-title">Try now.</h2>
+  <div class="install-block">
+    <div class="install-label">
+      <span>Install</span>
+      <button class="copy-btn" data-copy="git clone https://github.com/dantaik/pico && cd pico && pnpm install && pnpm build" onclick="copyText(this)">Copy</button>
+    </div>
+    <pre><span class="prompt">$</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/dantaik/pico</span> <span class="comment"># clone the repo</span>
+<span class="prompt">$</span> <span class="cmd">cd</span> <span class="arg">pico</span>
+<span class="prompt">$</span> <span class="cmd">pnpm install && pnpm build</span>     <span class="comment"># install deps &amp; build</span>
+<span class="prompt">$</span> <span class="cmd">pnpm pico</span> <span class="flag">hello</span>                 <span class="comment"># smoke check</span></pre>
+  </div>
+</section>
+
+
+<footer>
+  <div class="footer-upper">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo">pico<span>/</span></div>
+        <span class="status-pill"><span class="status-dot"></span> Live on Taiko</span>
+      </div>
+      <div class="footer-grid">
+        <div class="footer-col">
+          <h4>Developers</h4>
+          <a href="https://github.com/dantaik/pico" target="_blank">GitHub</a>
+          <a href="https://github.com/dantaik/pico/tree/main/docs" target="_blank">Docs</a>
+        </div>
+        <div class="footer-col">
+          <h4>Protocol</h4>
+          <a href="https://github.com/dantaik/pico/blob/main/docs/protocol-spec.md" target="_blank">Spec</a>
+          <a href="https://github.com/dantaik/pico/blob/main/docs/threat-model.md" target="_blank">Threat Model</a>
+        </div>
+        <div class="footer-col">
+          <h4>Chain</h4>
+          <a href="https://taikoscan.io/address/0xCDEF7911155c8db64Ef810Ae8C538024550594D7" target="_blank">Taikoscan</a>
+          <a href="mailto:pico@inferenceroom.ai">Contact</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-giant">PICO</div>
+  <div class="footer-bottom">
+    <span>&copy; 2025 <a href="https://inferenceroom.ai" target="_blank" rel="noopener">Inference Room</a></span>
+
+    <span>MIT License</span>
+  </div>
+</footer>
+
+</main>
+
+<script>
+  function copyText(btn) {
+    navigator.clipboard.writeText(btn.dataset.copy).then(() => {
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  (function() {
+    const canvas = document.getElementById('flow-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W, H, dpr;
+    const COLORS = [
+      [255, 190, 50],   // bright amber
+      [100, 255, 180],  // vivid green
+      [130, 170, 255],  // bright blue
+      [255, 120, 120],  // bright coral
+      [200, 150, 255],  // bright lavender
+      [80, 240, 240],   // bright cyan
+      [255, 220, 100],  // bright gold
+    ];
+    const INK_500 = [74, 80, 112];
+    const INK_700 = [30, 35, 51];
+
+    const hubDefs = [
+      { xr: -0.08, yr: 0.30, r: 5 },
+      { xr: -0.05, yr: 0.70, r: 4 },
+      { xr: 0.05, yr: 0.45, r: 5 },
+      { xr: 0.12, yr: 0.20, r: 6 },
+      { xr: 0.15, yr: 0.75, r: 5 },
+      { xr: 0.22, yr: 0.50, r: 8 },
+      { xr: 0.30, yr: 0.25, r: 6 },
+      { xr: 0.35, yr: 0.80, r: 5 },
+      { xr: 0.42, yr: 0.45, r: 9 },
+      { xr: 0.50, yr: 0.15, r: 6 },
+      { xr: 0.50, yr: 0.70, r: 7 },
+      { xr: 0.58, yr: 0.40, r: 10 },
+      { xr: 0.65, yr: 0.75, r: 6 },
+      { xr: 0.70, yr: 0.20, r: 7 },
+      { xr: 0.78, yr: 0.55, r: 9 },
+      { xr: 0.85, yr: 0.30, r: 6 },
+      { xr: 0.88, yr: 0.80, r: 5 },
+      { xr: 0.95, yr: 0.50, r: 5 },
+      { xr: 1.05, yr: 0.35, r: 4 },
+      { xr: 1.08, yr: 0.70, r: 5 },
+    ];
+
+    const routes = [
+      [0, 2], [0, 3], [1, 2], [1, 4],
+      [2, 5], [3, 5], [3, 6], [4, 5], [4, 7],
+      [5, 8], [5, 10], [6, 8], [6, 9],
+      [7, 10], [8, 11], [8, 10], [9, 11], [9, 13],
+      [10, 11], [10, 12], [11, 13], [11, 14],
+      [12, 14], [13, 14], [13, 15],
+      [14, 15], [14, 16], [14, 17],
+      [15, 17], [16, 17], [15, 18],
+      [17, 18], [17, 19], [16, 19],
+      [2, 8], [5, 11], [11, 17], [6, 13], [8, 14],
+    ];
+
+    let hubs = [];
+    let particles = [];
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      W = rect.width;
+      H = rect.height;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      hubs = hubDefs.map(h => ({ x: h.xr * W, y: h.yr * H, r: h.r }));
+    }
+
+    function spawnParticle() {
+      const route = routes[Math.floor(Math.random() * routes.length)];
+      const flip = Math.random() < 0.5;
+      const a = hubs[route[flip ? 1 : 0]], b = hubs[route[flip ? 0 : 1]];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const cx = (a.x + b.x) / 2 + (Math.random() - 0.5) * dist * 0.35;
+      const cy = (a.y + b.y) / 2 + (Math.random() - 0.5) * dist * 0.35;
+      const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      particles.push({
+        ax: a.x, ay: a.y, bx: b.x, by: b.y, cx, cy,
+        t: 0,
+        speed: 0.006 + Math.random() * 0.01,
+        size: 1.5 + Math.random() * 2.5,
+        bright: 0.7 + Math.random() * 0.3,
+        blink: 8 + Math.random() * 16,
+        color,
+      });
+    }
+
+    function bezier(ax, ay, cx, cy, bx, by, t) {
+      const u = 1 - t;
+      return {
+        x: u * u * ax + 2 * u * t * cx + t * t * bx,
+        y: u * u * ay + 2 * u * t * cy + t * t * by,
+      };
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      for (const route of routes) {
+        const a = hubs[route[0]], b = hubs[route[1]];
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(${INK_700[0]},${INK_700[1]},${INK_700[2]},0.6)`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+
+      for (const h of hubs) {
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${INK_500[0]},${INK_500[1]},${INK_500[2]},0.4)`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(${INK_500[0]},${INK_500[1]},${INK_500[2]},0.6)`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.t += p.speed;
+        if (p.t >= 1) { particles.splice(i, 1); continue; }
+        const pos = bezier(p.ax, p.ay, p.cx, p.cy, p.bx, p.by, p.t);
+        const fade = Math.sin(p.t * Math.PI);
+        const flicker = 0.5 + 0.5 * Math.sin(p.t * p.blink * Math.PI);
+        const alpha = p.bright * fade * flicker;
+        const c = p.color;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, p.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha * 0.12})`;
+        ctx.fill();
+      }
+
+      if (Math.random() < 0.55) spawnParticle();
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    for (let i = 0; i < 80; i++) spawnParticle();
+    draw();
+  })();
+</script>
+
+</body>
+</html>
