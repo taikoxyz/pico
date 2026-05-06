@@ -40,7 +40,19 @@ jobs:
 
       - name: Tag release for Docker build
         if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
         run: |
-          VERSION=$(node -p "require('./apps/cli/package.json').version")
-          git tag "v${VERSION}"
-          git push origin "v${VERSION}"
+          set -euo pipefail
+          SDK_VERSION=$(echo "$PUBLISHED" | jq -r '.[] | select(.name=="@inferenceroom/pico-sdk") | .version')
+          if [ -z "$SDK_VERSION" ] || [ "$SDK_VERSION" = "null" ]; then
+            echo "No fixed-group publish; skipping Docker tag."
+            exit 0
+          fi
+          TAG="v${SDK_VERSION}"
+          if git rev-parse --verify --quiet "refs/tags/${TAG}"; then
+            echo "Tag ${TAG} already exists; skipping."
+            exit 0
+          fi
+          git tag "${TAG}"
+          git push origin "${TAG}"
