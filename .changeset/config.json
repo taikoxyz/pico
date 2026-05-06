@@ -2,10 +2,18 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@pico/protocol",
+      "@pico/state-machine",
+      "@pico/sdk",
+      "@pico/dvm-adapter",
+      "@taikoxyz/pico-cli"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@pico/e2e", "@pico/hub", "@pico/test-utils", "@pico/watchtower"]
+  "ignore": ["@pico/contracts", "@pico/e2e", "@pico/hub", "@pico/test-utils", "@pico/watchtower"]
 }
