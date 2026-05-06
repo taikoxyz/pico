@@ -38,6 +38,9 @@ importers:
       '@pico/state-machine':
         specifier: workspace:*
         version: link:../../packages/state-machine
+      '@pico/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       commander:
         specifier: ^12.1.0
         version: 12.1.0
@@ -57,9 +60,6 @@ importers:
         specifier: ^2.21.0
         version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)
     devDependencies:
-      '@pico/test-utils':
-        specifier: workspace:*
-        version: link:../../packages/test-utils
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.17
