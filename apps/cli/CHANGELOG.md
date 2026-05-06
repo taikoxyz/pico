@@ -4,13 +4,4 @@
 
 ### Major Changes
 
-- First release.
-
-### Patch Changes
-
-- Updated dependencies
-  - @inferenceroom/pico-state-machine@1.0.0
-  - @inferenceroom/pico-dvm-adapter@1.0.0
-  - @inferenceroom/pico-test-utils@1.0.0
-  - @inferenceroom/pico-protocol@1.0.0
-  - @inferenceroom/pico-sdk@1.0.0
+- First release. Built with `tsup`; all `@inferenceroom/pico-*` workspace packages are bundled into `dist/index.js`. Runtime dependencies are limited to true externals: `commander`, `viem`, `picocolors`, `pino`, `pino-pretty`, `prompts`, and `ws`.
