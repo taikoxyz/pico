@@ -156,6 +156,26 @@ describe('buildServer integration', () => {
     expect(json.checks.chain).not.toBe('ok');
   });
 
+  it('GET /v1/info returns the hub address, chain id, and contract addresses', async () => {
+    const r = await fetch(`${baseUrl}/v1/info`);
+    const json = (await r.json()) as {
+      version: number;
+      hubAddress: string;
+      chainId: number;
+      contracts: { paymentChannel: string; adjudicator: string };
+      requireSignedEnvelope: boolean;
+      nonceWindowMs: number;
+    };
+    expect(r.status).toBe(200);
+    expect(json.version).toBe(1);
+    expect(json.hubAddress.toLowerCase()).toBe(privateKeyToAccount(HUB_PK).address.toLowerCase());
+    expect(json.chainId).toBe(31337);
+    expect(json.contracts.paymentChannel.toLowerCase()).toBe(VERIFYING_CONTRACT);
+    expect(json.contracts.adjudicator.toLowerCase()).toBe(VERIFYING_CONTRACT);
+    expect(typeof json.requireSignedEnvelope).toBe('boolean');
+    expect(typeof json.nonceWindowMs).toBe('number');
+  });
+
   it('exposes Prometheus metrics', async () => {
     const r = await fetch(`${baseUrl}/metrics`);
     const text = await r.text();
@@ -201,6 +221,181 @@ describe('buildServer integration', () => {
       body: '{}',
     });
     expect(r.status).toBe(501);
+  });
+
+  it('GET /v1/stats reports channel breakdown and lifetime counters', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const open = makeChannel(bytes32('a1'), alice, hub, 'open');
+    const closed = makeChannel(bytes32('a2'), alice, hub, 'closed');
+    await built.api.ws.registerChannel(open, await buildAliceState(open, 100n, 0n));
+    await built.api.ws.registerChannel(closed, await buildAliceState(closed, 100n, 0n));
+
+    await built.repos.stats.addBigint('payments_settled', 3n);
+    await built.repos.stats.addBigint('payments_failed', 1n);
+    await built.repos.stats.addBigint('usdc_settled', 1_234_567n);
+    await built.repos.stats.addBigint('fees_collected', 89n);
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      version: number;
+      channels: {
+        total: number;
+        open: number;
+        byStatus: Record<string, number>;
+      };
+      payments: { total: string; settled: string; failed: string; inFlightHtlcs: number };
+      usdc: { settled: string; feesCollected: string };
+      disputes: { total: number };
+    };
+    expect(r.status).toBe(200);
+    expect(json.version).toBe(1);
+    expect(json.channels.total).toBe(2);
+    expect(json.channels.open).toBe(1);
+    expect(json.channels.byStatus.open).toBe(1);
+    expect(json.channels.byStatus.closed).toBe(1);
+    expect(json.payments).toEqual({ total: '4', settled: '3', failed: '1', inFlightHtlcs: 0 });
+    expect(json.usdc).toEqual({ settled: '1234567', feesCollected: '89' });
+    expect(json.disputes.total).toBe(0);
+  });
+
+  it('GET /v1/stats returns zero counters in initial state', async () => {
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      version: number;
+      channels: { total: number; open: number; byStatus: Record<string, number> };
+      payments: { total: string; settled: string; failed: string; inFlightHtlcs: number };
+      usdc: { settled: string; feesCollected: string };
+      disputes: { total: number };
+    };
+    expect(r.status).toBe(200);
+    expect(json).toEqual({
+      version: 1,
+      channels: {
+        total: 0,
+        open: 0,
+        byStatus: {
+          pending: 0,
+          open: 0,
+          'closing-cooperative': 0,
+          'closing-unilateral': 0,
+          disputed: 0,
+          closed: 0,
+        },
+      },
+      payments: { total: '0', settled: '0', failed: '0', inFlightHtlcs: 0 },
+      usdc: { settled: '0', feesCollected: '0' },
+      disputes: { total: 0 },
+    });
+  });
+
+  it('GET /v1/stats serializes USDC sums as decimal strings', async () => {
+    await built.repos.stats.addBigint('usdc_settled', 42n);
+    await built.repos.stats.addBigint('fees_collected', 1n);
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as { usdc: { settled: unknown; feesCollected: unknown } };
+    expect(typeof json.usdc.settled).toBe('string');
+    expect(typeof json.usdc.feesCollected).toBe('string');
+    expect(json.usdc.settled).toBe('42');
+    expect(json.usdc.feesCollected).toBe('1');
+  });
+
+  it('GET /v1/stats reflects in-flight HTLCs and observed disputes', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('e1'), alice, hub);
+    await built.api.ws.registerChannel(ch, await buildAliceState(ch, 100n, 0n));
+
+    await built.repos.htlcs.save({
+      htlc: {
+        id: bytes32('aa') as Hex,
+        direction: 'AtoB',
+        amount: 10n,
+        paymentHash: bytes32('bb') as PaymentHash,
+        expiryMs: BigInt(Date.now() + 60_000),
+      },
+      channelId: ch.id,
+      state: 'inflight',
+    });
+    await built.repos.disputes.record(ch.id, 5n, Date.now());
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      payments: { inFlightHtlcs: number };
+      disputes: { total: number };
+    };
+    expect(json.payments.inFlightHtlcs).toBe(1);
+    expect(json.disputes.total).toBe(1);
+  });
+
+  it('GET /v1/stats lifetime counters are not reset by payment row pruning', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('e2'), alice, hub);
+    await built.api.ws.registerChannel(ch, await buildAliceState(ch, 100n, 0n));
+
+    // Simulate three settled payments contributing to lifetime counters; the
+    // payment rows themselves are then pruned out of the payments table.
+    for (let i = 0; i < 3; i++) {
+      await built.repos.payments.create({
+        id: `pay-${i}`,
+        paymentHash: bytes32(`c${i}`) as PaymentHash,
+        incomingChannelId: ch.id,
+        outgoingChannelId: ch.id,
+        recipient: alice,
+        amount: 100n,
+        fee: 1n,
+        status: 'settled',
+      });
+      await built.repos.stats.addBigint('payments_settled', 1n);
+      await built.repos.stats.addBigint('usdc_settled', 100n);
+      await built.repos.stats.addBigint('fees_collected', 1n);
+    }
+
+    const removed = await built.repos.payments.prunePerChannel(1);
+    expect(removed).toBeGreaterThan(0);
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      payments: { settled: string; total: string };
+      usdc: { settled: string; feesCollected: string };
+    };
+    expect(json.payments.settled).toBe('3');
+    expect(json.payments.total).toBe('3');
+    expect(json.usdc.settled).toBe('300');
+    expect(json.usdc.feesCollected).toBe('3');
+  });
+
+  it('GET /v1/stats counters survive a restart', async () => {
+    await built.repos.stats.addBigint('payments_settled', 7n);
+    await built.repos.stats.addBigint('usdc_settled', 9_999_999_999_999_999n); // > MAX_SAFE_INTEGER
+
+    await built.app.close();
+    built = await buildServer({
+      DB_DRIVER: 'sqlite',
+      DB_URL: join(tmp, 'test.sqlite'),
+      HUB_PRIVATE_KEY: HUB_PK,
+      RPC_URL: 'http://127.0.0.1:1',
+      CHAIN_ID: '31337',
+      PAYMENT_CHANNEL_ADDRESS: VERIFYING_CONTRACT,
+      ADJUDICATOR_ADDRESS: VERIFYING_CONTRACT,
+      HUB_FEE_BPS: '0',
+      HUB_FEE_FLAT: '0',
+      LOG_LEVEL: 'silent',
+      CHAIN_POLLING_INTERVAL_MS: '999999',
+      PICO_DEV_ALLOW_ZERO_ADDRESS: 'true',
+      PICO_SKIP_PROD_ASSERT: 'true',
+      PROMETHEUS_PORT: '0',
+    } as NodeJS.ProcessEnv);
+    baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      payments: { settled: string };
+      usdc: { settled: string };
+    };
+    expect(json.payments.settled).toBe('7');
+    expect(json.usdc.settled).toBe('9999999999999999');
   });
 
   it('WebSocket payDirect: round-trip sign + persist', async () => {

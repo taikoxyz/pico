@@ -1,6 +1,7 @@
 import type { Address, ChainId, Channel, SignedState } from '@pico/protocol';
 import type { FastifyInstance } from 'fastify';
 import { http, createPublicClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import type { ChannelPool } from '../channel-pool.js';
 import type { Database } from '../db/index.js';
 import type { Repos } from '../db/repos/index.js';
@@ -19,6 +20,7 @@ export interface ApiDeps {
   readonly rpcUrl: string;
   readonly hubPrivateKey: `0x${string}`;
   readonly chainId: ChainId;
+  readonly paymentChannelAddress: Address;
   readonly verifyingContract: Address;
   readonly hubFeeBps: bigint;
   readonly hubFeeFlat: bigint;
@@ -81,6 +83,7 @@ function reviveSignedState(raw: RawSignedState): SignedState {
 export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promise<ApiHandle> {
   const { operatorToken } = deps;
   const publicClient = createPublicClient({ transport: http(deps.rpcUrl) });
+  const hubAddress = privateKeyToAccount(deps.hubPrivateKey).address;
 
   function isOperator(authHeader: string | undefined): boolean {
     if (!operatorToken) return true;
@@ -160,6 +163,24 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     };
   });
 
+  // Public hub identity. Clients use this to learn the hub's signing
+  // address (which appears as one party on every channel) and the on-chain
+  // contract addresses they should validate against before opening a
+  // channel. Static for the lifetime of the process.
+  app.get('/v1/info', async () => {
+    return {
+      version: 1,
+      hubAddress,
+      chainId: deps.chainId,
+      contracts: {
+        paymentChannel: deps.paymentChannelAddress,
+        adjudicator: deps.verifyingContract,
+      },
+      requireSignedEnvelope: deps.requireSignedEnvelope,
+      nonceWindowMs: deps.nonceWindowMs,
+    };
+  });
+
   // Public fee policy endpoint. Clients fetch this before sending pay
   // messages so they can gross-up amounts and reject hub fee changes that
   // exceed their max-fee cap. Returning base-unit strings to avoid
@@ -171,6 +192,43 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
       hubFeeFlat: deps.hubFeeFlat.toString(),
       // Hint to clients: total fee = ceil(amount * bps / 10000) + flat
       formula: 'ceil(amount * hubFeeBps / 10000) + hubFeeFlat',
+    };
+  });
+
+  // Aggregate hub statistics. Counters survive restarts because they are
+  // backed by the `hub_stats` table; channel/dispute counts come from their
+  // own tables (rows are not pruned). Payment counts and USDC sums are
+  // returned as decimal strings to avoid JS Number precision loss for very
+  // long-lived hubs.
+  app.get('/v1/stats', async () => {
+    const [byStatus, lifetime, htlcsInFlight, disputeRows] = await Promise.all([
+      deps.repos.channels.countByStatus(),
+      deps.repos.stats.getAll(),
+      deps.repos.htlcs.countInflight(),
+      deps.db.driver.query<{ n: number }>('SELECT COUNT(*) as n FROM disputes'),
+    ]);
+    const channelsTotal = Object.values(byStatus).reduce((a, b) => a + b, 0);
+    const paymentsTotal = lifetime.payments_settled + lifetime.payments_failed;
+    return {
+      version: 1,
+      channels: {
+        total: channelsTotal,
+        open: byStatus.open,
+        byStatus,
+      },
+      payments: {
+        total: paymentsTotal.toString(),
+        settled: lifetime.payments_settled.toString(),
+        failed: lifetime.payments_failed.toString(),
+        inFlightHtlcs: htlcsInFlight,
+      },
+      usdc: {
+        settled: lifetime.usdc_settled.toString(),
+        feesCollected: lifetime.fees_collected.toString(),
+      },
+      disputes: {
+        total: Number(disputeRows[0]?.n ?? 0),
+      },
     };
   });
 
