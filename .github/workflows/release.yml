@@ -36,6 +36,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
+          LEFTHOOK: '0'
 
       - name: Tag release for Docker build
         if: steps.changesets.outputs.published == 'true'
