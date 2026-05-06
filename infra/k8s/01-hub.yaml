@@ -129,7 +129,7 @@ metadata:
   namespace: pico
 spec:
   domains:
-    - pico.taiko.xyz
+    - hub.pico.taiko.xyz
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
