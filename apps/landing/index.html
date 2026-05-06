@@ -113,34 +113,34 @@
   <div class="cli-grid">
     <div class="cli-card">
       <div class="cli-card-label">Generate keys</div>
-      <code><span class="hl">pnpm pico</span> <span class="dim">keys init</span></code>
+      <code><span class="hl">pico</span> <span class="dim">keys init</span></code>
     </div>
     <div class="cli-card">
       <div class="cli-card-label">Show address</div>
-      <code><span class="hl">pnpm pico</span> <span class="dim">keys show</span></code>
+      <code><span class="hl">pico</span> <span class="dim">keys show</span></code>
     </div>
     <div class="cli-card">
       <div class="cli-card-label">Open a channel</div>
-      <code><span class="hl">pnpm pico</span> <span class="dim">channel open \</span>
+      <code><span class="hl">pico</span> <span class="dim">channel open \</span>
   <span class="dim">--hub</span> https://hub.pico.taiko.xyz \
   <span class="dim">--amount</span> <span class="hl">25</span></code>
     </div>
     <div class="cli-card">
       <div class="cli-card-label">Send a payment</div>
-      <code><span class="hl">pnpm pico</span> <span class="dim">pay \</span>
+      <code><span class="hl">pico</span> <span class="dim">pay \</span>
   <span class="dim">--to</span> 0xRecipient \
   <span class="dim">--amount</span> <span class="hl">0.05</span> \
   <span class="dim">--json</span></code>
     </div>
     <div class="cli-card">
       <div class="cli-card-label">Create an invoice</div>
-      <code><span class="hl">INV=</span><span class="dim">$(</span><span class="hl">pnpm pico</span> <span class="dim">invoice create \</span>
+      <code><span class="hl">INV=</span><span class="dim">$(</span><span class="hl">pico</span> <span class="dim">invoice create \</span>
   <span class="dim">--amount</span> <span class="hl">50000</span> \
   <span class="dim">--memo</span> <span class="dim">"service foo"</span><span class="dim">)</span></code>
     </div>
     <div class="cli-card">
       <div class="cli-card-label">Listen for payments</div>
-      <code><span class="hl">pnpm pico</span> <span class="dim">listen \</span>
+      <code><span class="hl">pico</span> <span class="dim">listen \</span>
   <span class="dim">--hub</span> wss://hub.pico.taiko.xyz <span class="dim">&amp;</span></code>
     </div>
   </div>
@@ -219,7 +219,7 @@
     <pre><span class="prompt">$</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/taikoxyz/pico</span> <span class="comment"># clone the repo</span>
 <span class="prompt">$</span> <span class="cmd">cd</span> <span class="arg">pico</span>
 <span class="prompt">$</span> <span class="cmd">pnpm install && pnpm build</span>     <span class="comment"># install deps &amp; build</span>
-<span class="prompt">$</span> <span class="cmd">pnpm pico</span> <span class="flag">hello</span>                 <span class="comment"># smoke check</span></pre>
+<span class="prompt">$</span> <span class="cmd">pico</span> <span class="flag">hello</span>                 <span class="comment"># smoke check</span></pre>
   </div>
 </section>
 
