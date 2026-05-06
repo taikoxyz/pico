@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command } from 'commander';
 import { channelCommand } from './commands/channel.js';
 import { devCommand } from './commands/dev.js';
