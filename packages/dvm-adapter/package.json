@@ -1,6 +1,6 @@
 {
   "name": "@inferenceroom/pico-dvm-adapter",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "private": false,
   "license": "MIT",
   "description": "Helpers for integrating pico channel payments with Nostr DVM events.",
