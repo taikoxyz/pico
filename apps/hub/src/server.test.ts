@@ -239,6 +239,113 @@ describe('buildServer integration', () => {
     expect(json.disputes.total).toBe(0);
   });
 
+  it('GET /v1/stats returns zero counters in initial state', async () => {
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      version: number;
+      channels: { total: number; open: number; byStatus: Record<string, number> };
+      payments: { total: number; settled: number; failed: number; inFlightHtlcs: number };
+      usdc: { settled: string; feesCollected: string };
+      disputes: { total: number };
+    };
+    expect(r.status).toBe(200);
+    expect(json).toEqual({
+      version: 1,
+      channels: {
+        total: 0,
+        open: 0,
+        byStatus: {
+          pending: 0,
+          open: 0,
+          'closing-cooperative': 0,
+          'closing-unilateral': 0,
+          disputed: 0,
+          closed: 0,
+        },
+      },
+      payments: { total: 0, settled: 0, failed: 0, inFlightHtlcs: 0 },
+      usdc: { settled: '0', feesCollected: '0' },
+      disputes: { total: 0 },
+    });
+  });
+
+  it('GET /v1/stats serializes USDC sums as decimal strings', async () => {
+    await built.repos.stats.addBigint('usdc_settled', 42n);
+    await built.repos.stats.addBigint('fees_collected', 1n);
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as { usdc: { settled: unknown; feesCollected: unknown } };
+    expect(typeof json.usdc.settled).toBe('string');
+    expect(typeof json.usdc.feesCollected).toBe('string');
+    expect(json.usdc.settled).toBe('42');
+    expect(json.usdc.feesCollected).toBe('1');
+  });
+
+  it('GET /v1/stats reflects in-flight HTLCs and observed disputes', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('e1'), alice, hub);
+    await built.api.ws.registerChannel(ch, await buildAliceState(ch, 100n, 0n));
+
+    await built.repos.htlcs.save({
+      htlc: {
+        id: bytes32('aa') as Hex,
+        direction: 'AtoB',
+        amount: 10n,
+        paymentHash: bytes32('bb') as PaymentHash,
+        expiryMs: BigInt(Date.now() + 60_000),
+      },
+      channelId: ch.id,
+      state: 'inflight',
+    });
+    await built.repos.disputes.record(ch.id, 5n, Date.now());
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      payments: { inFlightHtlcs: number };
+      disputes: { total: number };
+    };
+    expect(json.payments.inFlightHtlcs).toBe(1);
+    expect(json.disputes.total).toBe(1);
+  });
+
+  it('GET /v1/stats lifetime counters are not reset by payment row pruning', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('e2'), alice, hub);
+    await built.api.ws.registerChannel(ch, await buildAliceState(ch, 100n, 0n));
+
+    // Simulate three settled payments contributing to lifetime counters; the
+    // payment rows themselves are then pruned out of the payments table.
+    for (let i = 0; i < 3; i++) {
+      await built.repos.payments.create({
+        id: `pay-${i}`,
+        paymentHash: bytes32(`c${i}`) as PaymentHash,
+        incomingChannelId: ch.id,
+        outgoingChannelId: ch.id,
+        recipient: alice,
+        amount: 100n,
+        fee: 1n,
+        status: 'settled',
+      });
+      await built.repos.stats.addBigint('payments_settled', 1n);
+      await built.repos.stats.addBigint('usdc_settled', 100n);
+      await built.repos.stats.addBigint('fees_collected', 1n);
+    }
+
+    const removed = await built.repos.payments.prunePerChannel(1);
+    expect(removed).toBeGreaterThan(0);
+
+    const r = await fetch(`${baseUrl}/v1/stats`);
+    const json = (await r.json()) as {
+      payments: { settled: number; total: number };
+      usdc: { settled: string; feesCollected: string };
+    };
+    expect(json.payments.settled).toBe(3);
+    expect(json.payments.total).toBe(3);
+    expect(json.usdc.settled).toBe('300');
+    expect(json.usdc.feesCollected).toBe('3');
+  });
+
   it('GET /v1/stats counters survive a restart', async () => {
     await built.repos.stats.addBigint('payments_settled', 7n);
     await built.repos.stats.addBigint('usdc_settled', 9_999_999_999_999_999n); // > MAX_SAFE_INTEGER

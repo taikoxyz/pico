@@ -42,4 +42,34 @@ describe('ChannelRepo', () => {
   it('returns undefined for unknown channel', async () => {
     expect(await h.repos.channels.get('0xff')).toBeUndefined();
   });
+
+  it('countByStatus returns all six statuses, defaulting missing ones to zero', async () => {
+    const empty = await h.repos.channels.countByStatus();
+    expect(empty).toEqual({
+      pending: 0,
+      open: 0,
+      'closing-cooperative': 0,
+      'closing-unilateral': 0,
+      disputed: 0,
+      closed: 0,
+    });
+
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x01', status: 'pending' });
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x02', status: 'open' });
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x03', status: 'open' });
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x04', status: 'closing-cooperative' });
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x05', status: 'closing-unilateral' });
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x06', status: 'disputed' });
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x07', status: 'closed' });
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x08', status: 'closed' });
+
+    expect(await h.repos.channels.countByStatus()).toEqual({
+      pending: 1,
+      open: 2,
+      'closing-cooperative': 1,
+      'closing-unilateral': 1,
+      disputed: 1,
+      closed: 2,
+    });
+  });
 });
