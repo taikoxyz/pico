@@ -79,6 +79,7 @@ export async function buildServer(
     rpcUrl: config.rpcUrl,
     hubPrivateKey: config.hubPrivateKey,
     chainId: config.chainId,
+    paymentChannelAddress: config.paymentChannelAddress,
     verifyingContract: config.adjudicatorAddress,
     hubFeeBps: config.hubFeeBps,
     hubFeeFlat: config.hubFeeFlat,

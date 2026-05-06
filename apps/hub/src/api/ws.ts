@@ -415,15 +415,20 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     await deps.repos.htlcs.setState(inflight.incomingHtlcId, 'settled');
     await deps.repos.htlcs.setState(inflight.outgoingHtlcId, 'settled');
     const paymentId = `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`;
-    // Read amount/fee BEFORE settle so a racing prune cannot delete the row
-    // out from under the lifetime stat counters.
-    const paymentRow = await deps.repos.payments.get(paymentId);
-    await deps.repos.payments.settle(paymentId, msg.preimage);
-    if (paymentRow) {
-      await deps.repos.stats.addBigint('payments_settled', 1n);
-      await deps.repos.stats.addBigint('usdc_settled', paymentRow.amount);
-      await deps.repos.stats.addBigint('fees_collected', paymentRow.fee);
-    }
+    // Settle the payment row and bump lifetime stats inside one transaction so
+    // a crash between the two cannot leave settled rows uncounted. Read the
+    // row first so we have the amount/fee even if a racing prune later deletes
+    // it; the prune only targets terminal-state rows.
+    await deps.db.driver.transaction(async (tx) => {
+      const txRepos = buildRepos(tx);
+      const paymentRow = await txRepos.payments.get(paymentId);
+      await txRepos.payments.settle(paymentId, msg.preimage);
+      if (paymentRow) {
+        await txRepos.stats.addBigint('payments_settled', 1n);
+        await txRepos.stats.addBigint('usdc_settled', paymentRow.amount);
+        await txRepos.stats.addBigint('fees_collected', paymentRow.fee);
+      }
+    });
     schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'settled' });
 
@@ -511,11 +516,16 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     deps.liquidity.releaseReservation(inflight.outgoingChannelId, inflight.outgoingHtlc.amount);
     await deps.repos.htlcs.setState(inflight.incomingHtlcId, 'failed');
     await deps.repos.htlcs.setState(inflight.outgoingHtlcId, 'failed');
-    await deps.repos.payments.fail(
-      `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
-      msg.reason,
-    );
-    await deps.repos.stats.addBigint('payments_failed', 1n);
+    // Atomic so a crash between fail() and the stat bump cannot drop the
+    // failed-payment increment.
+    await deps.db.driver.transaction(async (tx) => {
+      const txRepos = buildRepos(tx);
+      await txRepos.payments.fail(
+        `${inflight.incomingChannelId}-${inflight.incomingHtlcId}`,
+        msg.reason,
+      );
+      await txRepos.stats.addBigint('payments_failed', 1n);
+    });
     schedulePaymentPrune();
     deps.metrics.paymentsTotal.inc({ result: 'failed' });
 

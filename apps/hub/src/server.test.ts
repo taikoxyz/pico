@@ -156,6 +156,26 @@ describe('buildServer integration', () => {
     expect(json.checks.chain).not.toBe('ok');
   });
 
+  it('GET /v1/info returns the hub address, chain id, and contract addresses', async () => {
+    const r = await fetch(`${baseUrl}/v1/info`);
+    const json = (await r.json()) as {
+      version: number;
+      hubAddress: string;
+      chainId: number;
+      contracts: { paymentChannel: string; adjudicator: string };
+      requireSignedEnvelope: boolean;
+      nonceWindowMs: number;
+    };
+    expect(r.status).toBe(200);
+    expect(json.version).toBe(1);
+    expect(json.hubAddress.toLowerCase()).toBe(privateKeyToAccount(HUB_PK).address.toLowerCase());
+    expect(json.chainId).toBe(31337);
+    expect(json.contracts.paymentChannel.toLowerCase()).toBe(VERIFYING_CONTRACT);
+    expect(json.contracts.adjudicator.toLowerCase()).toBe(VERIFYING_CONTRACT);
+    expect(typeof json.requireSignedEnvelope).toBe('boolean');
+    expect(typeof json.nonceWindowMs).toBe('number');
+  });
+
   it('exposes Prometheus metrics', async () => {
     const r = await fetch(`${baseUrl}/metrics`);
     const text = await r.text();
@@ -224,7 +244,7 @@ describe('buildServer integration', () => {
         open: number;
         byStatus: Record<string, number>;
       };
-      payments: { total: number; settled: number; failed: number; inFlightHtlcs: number };
+      payments: { total: string; settled: string; failed: string; inFlightHtlcs: number };
       usdc: { settled: string; feesCollected: string };
       disputes: { total: number };
     };
@@ -234,7 +254,7 @@ describe('buildServer integration', () => {
     expect(json.channels.open).toBe(1);
     expect(json.channels.byStatus.open).toBe(1);
     expect(json.channels.byStatus.closed).toBe(1);
-    expect(json.payments).toEqual({ total: 4, settled: 3, failed: 1, inFlightHtlcs: 0 });
+    expect(json.payments).toEqual({ total: '4', settled: '3', failed: '1', inFlightHtlcs: 0 });
     expect(json.usdc).toEqual({ settled: '1234567', feesCollected: '89' });
     expect(json.disputes.total).toBe(0);
   });
@@ -244,7 +264,7 @@ describe('buildServer integration', () => {
     const json = (await r.json()) as {
       version: number;
       channels: { total: number; open: number; byStatus: Record<string, number> };
-      payments: { total: number; settled: number; failed: number; inFlightHtlcs: number };
+      payments: { total: string; settled: string; failed: string; inFlightHtlcs: number };
       usdc: { settled: string; feesCollected: string };
       disputes: { total: number };
     };
@@ -263,7 +283,7 @@ describe('buildServer integration', () => {
           closed: 0,
         },
       },
-      payments: { total: 0, settled: 0, failed: 0, inFlightHtlcs: 0 },
+      payments: { total: '0', settled: '0', failed: '0', inFlightHtlcs: 0 },
       usdc: { settled: '0', feesCollected: '0' },
       disputes: { total: 0 },
     });
@@ -337,11 +357,11 @@ describe('buildServer integration', () => {
 
     const r = await fetch(`${baseUrl}/v1/stats`);
     const json = (await r.json()) as {
-      payments: { settled: number; total: number };
+      payments: { settled: string; total: string };
       usdc: { settled: string; feesCollected: string };
     };
-    expect(json.payments.settled).toBe(3);
-    expect(json.payments.total).toBe(3);
+    expect(json.payments.settled).toBe('3');
+    expect(json.payments.total).toBe('3');
     expect(json.usdc.settled).toBe('300');
     expect(json.usdc.feesCollected).toBe('3');
   });
@@ -371,10 +391,10 @@ describe('buildServer integration', () => {
 
     const r = await fetch(`${baseUrl}/v1/stats`);
     const json = (await r.json()) as {
-      payments: { settled: number };
+      payments: { settled: string };
       usdc: { settled: string };
     };
-    expect(json.payments.settled).toBe(7);
+    expect(json.payments.settled).toBe('7');
     expect(json.usdc.settled).toBe('9999999999999999');
   });
 
