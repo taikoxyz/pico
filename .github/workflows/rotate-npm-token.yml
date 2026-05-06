@@ -1,0 +1,71 @@
+name: Rotate NPM Token
+
+# Runs every 80 days to rotate the NPM_TOKEN secret before its 90-day expiry.
+# Requires two repository secrets:
+#   NPM_ROTATOR_TOKEN      - a long-lived npm token used to mint new tokens
+#   SECRETS_MANAGEMENT_TOKEN - a GitHub PAT with secrets:write + repo scopes
+
+on:
+  schedule:
+    - cron: '0 9 1 */2 *' # every ~2 months on the 1st at 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  rotate:
+    name: Rotate NPM_TOKEN
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create new npm automation token
+        id: create-token
+        run: |
+          npm config set //registry.npmjs.org/:_authToken "$NPM_ROTATOR_TOKEN"
+          TOKEN_OUTPUT=$(npm token create --type=automation 2>&1)
+          NEW_TOKEN=$(echo "$TOKEN_OUTPUT" | grep -oP 'npm_[A-Za-z0-9]+')
+          if [ -z "$NEW_TOKEN" ]; then
+            echo "failed=true" >> $GITHUB_OUTPUT
+            echo "error<<EOF" >> $GITHUB_OUTPUT
+            echo "$TOKEN_OUTPUT" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "new_token=$NEW_TOKEN" >> $GITHUB_OUTPUT
+          fi
+        env:
+          NPM_ROTATOR_TOKEN: ${{ secrets.NPM_ROTATOR_TOKEN }}
+
+      - name: Update NPM_TOKEN secret
+        if: steps.create-token.outputs.new_token != ''
+        run: echo "$NEW_TOKEN" | gh secret set NPM_TOKEN --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.SECRETS_MANAGEMENT_TOKEN }}
+          NEW_TOKEN: ${{ steps.create-token.outputs.new_token }}
+
+      - name: Open issue on failure
+        if: steps.create-token.outputs.failed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'ACTION REQUIRED: NPM_TOKEN rotation failed — manual renewal needed',
+              body: [
+                '## NPM_TOKEN rotation failed',
+                '',
+                'The scheduled token rotation job was unable to create a new npm automation token.',
+                'The current `NPM_TOKEN` secret will expire within ~10 days — **npm publishing will break if not renewed.**',
+                '',
+                '### Steps to fix',
+                '1. Go to [npmjs.com → Account Settings → Access Tokens](https://www.npmjs.com/settings/~/tokens)',
+                '2. Create a new **Automation** token',
+                '3. Update the `NPM_TOKEN` secret in [repository settings](../../settings/secrets/actions)',
+                '4. If the `NPM_ROTATOR_TOKEN` secret is also expired, update it as well and re-run this workflow',
+                '',
+                '### Error output',
+                '```',
+                `${{ steps.create-token.outputs.error }}`,
+                '```',
+              ].join('\n'),
+              labels: ['ci', 'urgent'],
+            });
