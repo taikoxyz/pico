@@ -8,7 +8,7 @@ import type {
   PaymentHash,
   Preimage,
   SignedState,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { randomNonce16 } from './crypto.js';
 import {
   type InvoiceRecord,

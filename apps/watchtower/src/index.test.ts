@@ -1,6 +1,12 @@
-import type { Address, ChannelId, ChannelState, Hex, SignedState } from '@pico/protocol';
-import { hexToSignature } from '@pico/sdk';
-import { buildChannelStateTypedData } from '@pico/state-machine';
+import type {
+  Address,
+  ChannelId,
+  ChannelState,
+  Hex,
+  SignedState,
+} from '@inferenceroom/pico-protocol';
+import { hexToSignature } from '@inferenceroom/pico-sdk';
+import { buildChannelStateTypedData } from '@inferenceroom/pico-state-machine';
 import type { PublicClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, describe, expect, it, vi } from 'vitest';

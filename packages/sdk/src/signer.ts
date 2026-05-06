@@ -7,7 +7,7 @@ import type {
   Htlc,
   Invoice,
   Update,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 
 export interface Signer {
   address(): Promise<Address>;

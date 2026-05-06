@@ -1,4 +1,4 @@
-import type { ChannelState, Htlc, Update } from '@pico/protocol';
+import type { ChannelState, Htlc, Update } from '@inferenceroom/pico-protocol';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { applyUpdate, computeBalance, validateUpdate } from './channel.js';

@@ -6,7 +6,7 @@ import {
   type Invoice,
   type InvoiceDomain,
   buildInvoiceDomain,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { hashTypedData, recoverTypedDataAddress } from 'viem';
 
 export interface InvoiceTypedData {

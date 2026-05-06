@@ -1,4 +1,4 @@
-# @pico/contracts
+# @inferenceroom/pico-contracts
 
 Solidity 0.8.26 contracts for pico pairwise payment channels. Built with Foundry.
 
@@ -17,8 +17,8 @@ Surface area:
 ## Build & test
 
 ```bash
-pnpm --filter @pico/contracts build      # forge build
-pnpm --filter @pico/contracts test       # forge test (104 tests)
+pnpm --filter @inferenceroom/pico-contracts build      # forge build
+pnpm --filter @inferenceroom/pico-contracts test       # forge test (104 tests)
 forge install                               # one-time, fetches forge-std + OZ
 ```
 
@@ -50,7 +50,7 @@ Configured constants: `DISPUTE_WINDOW = 86400s` (24h),
 only the `owner` may authorize a UUPS upgrade.
 
 Canonical deploy addresses are also exported from
-[`@pico/protocol`](../protocol/src/constants.ts) under
+[`@inferenceroom/pico-protocol`](../protocol/src/constants.ts) under
 `CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID]` and `USDC_TOKENS[TAIKO_MAINNET_CHAIN_ID]`.
 
 ## Upgrade an existing proxy in place

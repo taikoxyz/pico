@@ -1,4 +1,4 @@
-# @pico/protocol
+# @inferenceroom/pico-protocol
 
 Shared protocol primitives for the **pico** 1-hop payment channel network: TypeScript
 types, EIP-712 typed-data definitions, on-chain constants, and Nostr event-kind

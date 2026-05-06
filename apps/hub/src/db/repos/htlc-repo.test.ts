@@ -1,4 +1,4 @@
-import type { Htlc } from '@pico/protocol';
+import type { Htlc } from '@inferenceroom/pico-protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type TestDb, makeTestDb } from './_test-helpers.js';
 

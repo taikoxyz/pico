@@ -1,6 +1,12 @@
-import type { Address, ChannelId, ChannelState, Hex, SignedState } from '@pico/protocol';
-import { hexToSignature } from '@pico/sdk';
-import { buildChannelStateTypedData } from '@pico/state-machine';
+import type {
+  Address,
+  ChannelId,
+  ChannelState,
+  Hex,
+  SignedState,
+} from '@inferenceroom/pico-protocol';
+import { hexToSignature } from '@inferenceroom/pico-sdk';
+import { buildChannelStateTypedData } from '@inferenceroom/pico-state-machine';
 import Database from 'better-sqlite3';
 import type { Hash, PublicClient, WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';

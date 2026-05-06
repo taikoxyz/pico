@@ -7,7 +7,7 @@ import {
   TAIKO_HOODI_CHAIN_ID,
   type Update,
   htlcMerkleRoot,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { recoverTypedDataAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';

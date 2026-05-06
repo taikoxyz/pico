@@ -6,9 +6,9 @@ import type {
   ChannelId,
   SignedCooperativeClose,
   SignedState,
-} from '@pico/protocol';
-import type { ClientToHubMessage, HubMessage, HubToClientMessage } from '@pico/sdk';
-import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@pico/sdk';
+} from '@inferenceroom/pico-protocol';
+import type { ClientToHubMessage, HubMessage, HubToClientMessage } from '@inferenceroom/pico-sdk';
+import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@inferenceroom/pico-sdk';
 import {
   StateAdmissionError,
   admitClose,
@@ -18,7 +18,7 @@ import {
   admitSignedState,
   buildChannelStateTypedData,
   buildCooperativeCloseTypedData,
-} from '@pico/state-machine';
+} from '@inferenceroom/pico-state-machine';
 import type { FastifyInstance } from 'fastify';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { type SignedEnvelope, verifyEnvelope } from '../auth/envelope.js';

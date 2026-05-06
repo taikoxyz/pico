@@ -1,5 +1,5 @@
 {
-  "name": "@pico/examples",
+  "name": "@inferenceroom/pico-examples",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,9 @@
     "sdk-mock-flow": "tsx sdk-mock-flow.ts"
   },
   "dependencies": {
-    "@pico/protocol": "workspace:*",
-    "@pico/sdk": "workspace:*",
-    "@pico/test-utils": "workspace:*"
+    "@inferenceroom/pico-protocol": "workspace:*",
+    "@inferenceroom/pico-sdk": "workspace:*",
+    "@inferenceroom/pico-test-utils": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

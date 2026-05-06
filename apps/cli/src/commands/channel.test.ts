@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileStorage } from '@pico/sdk';
+import { FileStorage } from '@inferenceroom/pico-sdk';
 import { describe, expect, it } from 'vitest';
 import { channelCommand } from './channel.js';
 

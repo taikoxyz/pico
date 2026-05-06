@@ -10,7 +10,7 @@ import {
   TAIKO_HOODI_CHAIN_ID,
   type Update,
   htlcMerkleRoot,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { hashChannelState, hashCooperativeClose, hashHtlc, hashUpdate } from '../src/signing.js';
 
 const VERIFYING_CONTRACT = '0x1111111111111111111111111111111111111111' as Address;

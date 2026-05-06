@@ -1,5 +1,9 @@
-import type { Address, ChainId, ChannelId, Hex } from '@pico/protocol';
-import { encodeChannelStateForOnChain, paymentChannelAbi, signatureToHex } from '@pico/sdk';
+import type { Address, ChainId, ChannelId, Hex } from '@inferenceroom/pico-protocol';
+import {
+  encodeChannelStateForOnChain,
+  paymentChannelAbi,
+  signatureToHex,
+} from '@inferenceroom/pico-sdk';
 import {
   http,
   type Hash,

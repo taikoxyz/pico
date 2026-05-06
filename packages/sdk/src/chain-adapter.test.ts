@@ -1,4 +1,8 @@
-import { type ChannelState, type CooperativeClose, EMPTY_HTLCS_ROOT } from '@pico/protocol';
+import {
+  type ChannelState,
+  type CooperativeClose,
+  EMPTY_HTLCS_ROOT,
+} from '@inferenceroom/pico-protocol';
 import { decodeAbiParameters } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { encodeChannelStateForOnChain, encodeCooperativeCloseForOnChain } from './chain-adapter.js';

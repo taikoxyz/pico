@@ -9,15 +9,18 @@ import type {
   PaymentHash,
   Signature,
   SignedState,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   decodeHubMessage,
   encodeHubMessage,
   hexToSignature,
   randomHtlcId,
   signatureToHex,
-} from '@pico/sdk';
-import { buildChannelStateTypedData, buildCooperativeCloseTypedData } from '@pico/state-machine';
+} from '@inferenceroom/pico-sdk';
+import {
+  buildChannelStateTypedData,
+  buildCooperativeCloseTypedData,
+} from '@inferenceroom/pico-state-machine';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';

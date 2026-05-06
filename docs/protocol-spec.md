@@ -141,7 +141,7 @@ The `htlcsRoot` field on `ChannelState` commits to the entire in-flight HTLC set
 htlcsRoot = htlcMerkleRoot(htlcs)
 ```
 
-**Algorithm** (identical in TypeScript `@pico/protocol/htlc-root.ts` and Solidity
+**Algorithm** (identical in TypeScript `@inferenceroom/pico-protocol/htlc-root.ts` and Solidity
 `Adjudicator.htlcRootOf`):
 
 1. **Empty set**: return `bytes32(0)`.

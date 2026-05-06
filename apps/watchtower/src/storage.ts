@@ -1,5 +1,5 @@
-import type { ChannelId, SignedState } from '@pico/protocol';
-import { deserializeSignedState, serializeSignedState } from '@pico/sdk';
+import type { ChannelId, SignedState } from '@inferenceroom/pico-protocol';
+import { deserializeSignedState, serializeSignedState } from '@inferenceroom/pico-sdk';
 import Database from 'better-sqlite3';
 
 export interface EncryptedBackup {

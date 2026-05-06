@@ -1,4 +1,4 @@
-import type { Address, Hex } from '@pico/protocol';
+import type { Address, Hex } from '@inferenceroom/pico-protocol';
 
 export interface KeyFixture {
   readonly name: string;

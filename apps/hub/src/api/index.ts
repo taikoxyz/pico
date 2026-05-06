@@ -1,4 +1,4 @@
-import type { Address, ChainId, Channel, SignedState } from '@pico/protocol';
+import type { Address, ChainId, Channel, SignedState } from '@inferenceroom/pico-protocol';
 import type { FastifyInstance } from 'fastify';
 import { http, createPublicClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';

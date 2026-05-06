@@ -1,5 +1,5 @@
 {
-  "name": "@pico/test-utils",
+  "name": "@inferenceroom/pico-test-utils",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -21,9 +21,9 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@pico/protocol": "workspace:*",
-    "@pico/sdk": "workspace:*",
-    "@pico/state-machine": "workspace:*",
+    "@inferenceroom/pico-protocol": "workspace:*",
+    "@inferenceroom/pico-sdk": "workspace:*",
+    "@inferenceroom/pico-state-machine": "workspace:*",
     "viem": "^2.21.0",
     "ws": "^8.18.0"
   },

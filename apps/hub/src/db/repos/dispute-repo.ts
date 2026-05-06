@@ -1,4 +1,4 @@
-import type { ChannelId, Hex } from '@pico/protocol';
+import type { ChannelId, Hex } from '@inferenceroom/pico-protocol';
 import type { DbDriver } from '../types.js';
 
 export type DisputeResolution = 'pending' | 'won' | 'lost';

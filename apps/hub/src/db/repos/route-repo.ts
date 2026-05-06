@@ -6,8 +6,8 @@ import type {
   HtlcId,
   PaymentHash,
   SignedState,
-} from '@pico/protocol';
-import { hexToSignature, signatureToHex } from '@pico/sdk';
+} from '@inferenceroom/pico-protocol';
+import { hexToSignature, signatureToHex } from '@inferenceroom/pico-sdk';
 import type { DbDriver } from '../types.js';
 
 export type RouteState = 'inflight' | 'settled' | 'failed';

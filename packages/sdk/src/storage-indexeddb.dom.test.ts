@@ -6,7 +6,7 @@ import {
   type SignedState,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IndexedDBStorage } from './storage-indexeddb.js';

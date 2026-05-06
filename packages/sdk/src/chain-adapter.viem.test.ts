@@ -1,4 +1,4 @@
-import { type Address, EMPTY_HTLCS_ROOT, type Hash, type Hex } from '@pico/protocol';
+import { type Address, EMPTY_HTLCS_ROOT, type Hash, type Hex } from '@inferenceroom/pico-protocol';
 import {
   type Chain,
   type Log,

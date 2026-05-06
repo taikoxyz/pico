@@ -5,15 +5,15 @@ import {
   type Htlc,
   TAIKO_MAINNET_CHAIN_ID,
   type Update,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   verifyChannelStateSignature,
   verifyCooperativeCloseSignature,
   verifyHtlcSignature,
   verifyInvoiceSignature,
   verifyUpdateSignature,
-} from '@pico/state-machine';
-import { InMemorySigner } from '@pico/test-utils';
+} from '@inferenceroom/pico-state-machine';
+import { InMemorySigner } from '@inferenceroom/pico-test-utils';
 import { describe, expect, it } from 'vitest';
 
 const PRIVATE_KEY = '0x000000000000000000000000000000000000000000000000000000000000a11c' as const;

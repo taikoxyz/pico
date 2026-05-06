@@ -1,4 +1,8 @@
-import { ANVIL_DEV_CHAIN_ID, CONTRACT_ADDRESSES, TAIKO_MAINNET_CHAIN_ID } from '@pico/protocol';
+import {
+  ANVIL_DEV_CHAIN_ID,
+  CONTRACT_ADDRESSES,
+  TAIKO_MAINNET_CHAIN_ID,
+} from '@inferenceroom/pico-protocol';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
 

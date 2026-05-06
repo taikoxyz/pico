@@ -1,4 +1,4 @@
-import type { Address, ChannelId, Hex, SignedState } from '@pico/protocol';
+import type { Address, ChannelId, Hex, SignedState } from '@inferenceroom/pico-protocol';
 import Database from 'better-sqlite3';
 import type { Hash, PublicClient, WalletClient } from 'viem';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

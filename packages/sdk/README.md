@@ -1,4 +1,4 @@
-# @pico/sdk
+# @inferenceroom/pico-sdk
 
 Browser- and Node-compatible client SDK for opening, paying, and closing pico
 1-hop payment channels on Taiko L2.
@@ -6,14 +6,14 @@ Browser- and Node-compatible client SDK for opening, paying, and closing pico
 ## Quickstart
 
 ```ts
-import { TAIKO_MAINNET_CHAIN_ID, CONTRACT_ADDRESSES, USDC_TOKENS } from '@pico/protocol';
+import { TAIKO_MAINNET_CHAIN_ID, CONTRACT_ADDRESSES, USDC_TOKENS } from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
   FileStorage,
   ViemChainAdapter,
   WebSocketTransport,
-} from '@pico/sdk';
-import { InMemorySigner } from '@pico/test-utils'; // or your own Signer
+} from '@inferenceroom/pico-sdk';
+import { InMemorySigner } from '@inferenceroom/pico-test-utils'; // or your own Signer
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { taiko } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -54,7 +54,7 @@ Anvil needed).
 
 - `ChannelClient` — open/pay/close + listen-mode HTLC handling + typed events.
 - `Signer` interface — single key-custody seam. v1 ships `InMemorySigner` from
-  `@pico/test-utils` for tests; the production hot-key backend lives in
+  `@inferenceroom/pico-test-utils` for tests; the production hot-key backend lives in
   `apps/cli`. Phase-2 backends (KMS, Turnkey, Nitro Enclave, EIP-7702) implement
   the same interface with no SDK changes.
 - Three storage backends: `MemoryStorage`, `FileStorage` (Node, atomic-rename),
@@ -67,7 +67,7 @@ Anvil needed).
   `MockChainAdapter` (test-utils) — both let `ChannelClient` stay a pure-logic
   layer over a swappable chain seam.
 - `HubMessage` discriminated union — single source of truth for the SDK↔hub
-  wire format. The mock hub in `@pico/test-utils` and the production hub
+  wire format. The mock hub in `@inferenceroom/pico-test-utils` and the production hub
   in `apps/hub` (P5) both consume this.
 - Invoice (Pattern A) + keysend (Pattern B) flows. Keysend payloads are NaCl
   sealed boxes (`tweetnacl`) addressed to a recipient X25519 pubkey published

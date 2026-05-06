@@ -1,11 +1,11 @@
-# @pico/e2e
+# @inferenceroom/pico-e2e
 
 Cross-package end-to-end tests. Each scenario:
 
 1. Spins up `anvil` (vanilla, or as a Taiko mainnet fork when `forkUrl` is set).
 2. Deploys contracts via `forge script` (vanilla mode) or uses already-deployed
    addresses from `CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID]` (fork mode).
-3. Starts an in-process `@pico/hub` and `@pico/watchtower`.
+3. Starts an in-process `@inferenceroom/pico-hub` and `@inferenceroom/pico-watchtower`.
 4. Drives the SDK through realistic flows.
 
 ## Active scenarios (`scenarios.test.ts`)
@@ -18,12 +18,12 @@ Vanilla anvil. Full lifecycle is exercised, including:
 - key rotation,
 - hub-down recovery.
 
-Run with `pnpm -F @pico/e2e test`.
+Run with `pnpm -F @inferenceroom/pico-e2e test`.
 
 ## Fork scenarios (`scenarios.fork.test.ts`)
 
 Anvil forked from Taiko mainnet at a pinned block. The container `describe`
-is skipped when `E2E_FORK_URL` is unset. Run with `pnpm -F @pico/e2e
+is skipped when `E2E_FORK_URL` is unset. Run with `pnpm -F @inferenceroom/pico-e2e
 test:fork` and an `E2E_FORK_URL=https://...` environment variable.
 
 USDC provisioning on the fork uses `anvil_impersonateAccount` against the

@@ -8,7 +8,7 @@ import {
   type SignedState,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileStorage } from './storage-file.js';
 

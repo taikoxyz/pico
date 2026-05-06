@@ -1,4 +1,4 @@
-import type { Channel, ChannelState, Signature, SignedState } from '@pico/protocol';
+import type { Channel, ChannelState, Signature, SignedState } from '@inferenceroom/pico-protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChannelPool } from './channel-pool.js';
 import { type TestDb, makeTestDb } from './db/repos/_test-helpers.js';

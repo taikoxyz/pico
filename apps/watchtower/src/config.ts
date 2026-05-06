@@ -5,7 +5,7 @@ import {
   type ChainId,
   type ChannelId,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import { assertProductionConfig } from './config-validate.js';
 
 export interface WatchtowerConfig {

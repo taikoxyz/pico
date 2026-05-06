@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { ANVIL_DEV_CHAIN_ID, type ChainId } from '@pico/protocol';
+import { ANVIL_DEV_CHAIN_ID, type ChainId } from '@inferenceroom/pico-protocol';
 import {
   type Signer,
   decryptPrivateKey,
   isEncryptedKeyFile,
   loadLocalSigner,
   parseKeyFile,
-} from '@pico/sdk';
+} from '@inferenceroom/pico-sdk';
 import pc from 'picocolors';
 import { defaultKeyFilePath } from './config.js';
 import { readPassphrase } from './passphrase.js';

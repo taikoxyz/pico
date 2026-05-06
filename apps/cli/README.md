@@ -1,4 +1,4 @@
-# @pico/cli — agent runtime
+# @inferenceroom/pico-cli — agent runtime
 
 The agent runtime for pico. Open and close payment channels on Taiko, send and
 receive USDC payments via invoice or keysend, and run a long-lived listener that
@@ -77,7 +77,7 @@ pico dev mock-hub [--port <n>]
 ## Tests
 
 ```bash
-pnpm --filter @pico/cli test --coverage
+pnpm --filter @inferenceroom/pico-cli test --coverage
 ```
 
 Coverage thresholds: 70% lines / 60% branches / 70% functions / 70% statements.

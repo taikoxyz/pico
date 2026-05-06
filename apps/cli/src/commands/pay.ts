@@ -4,14 +4,14 @@ import {
   type ChainId,
   TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
-} from '@pico/protocol';
+} from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
   type Signer,
   ViemChainAdapter,
   WebSocketTransport,
   generateKeysendKeypair,
-} from '@pico/sdk';
+} from '@inferenceroom/pico-sdk';
 import { Command } from 'commander';
 import { http, type Chain, createPublicClient, createWalletClient, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -120,7 +120,7 @@ export function payCommand(deps: PayDeps = {}): Command {
         );
         const storage = openStorage(env, deps.storageOverride);
         const signer: Signer =
-          deps.signerOverride ?? (await import('@pico/sdk')).localSigner(privateKey);
+          deps.signerOverride ?? (await import('@inferenceroom/pico-sdk')).localSigner(privateKey);
 
         let encryptionPubkey: `0x${string}` | undefined;
         let encryptionSecretKey: `0x${string}` | undefined;

@@ -1,5 +1,5 @@
 {
-  "name": "@pico/sdk",
+  "name": "@inferenceroom/pico-sdk",
   "version": "0.0.0",
   "private": false,
   "license": "MIT",
@@ -22,15 +22,15 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.5.0",
-    "@pico/protocol": "workspace:*",
-    "@pico/state-machine": "workspace:*",
+    "@inferenceroom/pico-protocol": "workspace:*",
+    "@inferenceroom/pico-state-machine": "workspace:*",
     "@types/ws": "^8.5.13",
     "tweetnacl": "^1.0.3",
     "viem": "^2.21.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@pico/test-utils": "workspace:*",
+    "@inferenceroom/pico-test-utils": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.13",
     "@vitest/coverage-v8": "^2.1.8",

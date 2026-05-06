@@ -1,4 +1,10 @@
-import type { Address, ChannelId, HtlcId, PaymentHash, Preimage } from '@pico/protocol';
+import type {
+  Address,
+  ChannelId,
+  HtlcId,
+  PaymentHash,
+  Preimage,
+} from '@inferenceroom/pico-protocol';
 import type { DbDriver } from '../types.js';
 
 export type PaymentStatus = 'pending' | 'in_flight' | 'settled' | 'failed';
