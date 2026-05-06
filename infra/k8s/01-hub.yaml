@@ -125,7 +125,7 @@ spec:
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
-  name: pico-hub-cert
+  name: pico-hub-cert-v2
   namespace: pico
 spec:
   domains:
@@ -139,7 +139,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: gce
     kubernetes.io/ingress.global-static-ip-name: pico-hub-ip
-    networking.gke.io/managed-certificates: pico-hub-cert
+    networking.gke.io/managed-certificates: pico-hub-cert-v2
     networking.gke.io/v1beta1.FrontendConfig: pico-hub-frontend
 spec:
   defaultBackend:
