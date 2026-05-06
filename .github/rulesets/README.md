@@ -21,21 +21,21 @@ JSON here and re-apply via `gh api`.
 
 ## Apply for the first time
 
-Requires admin access on `dantaik/pico`.
+Requires admin access on `taikoxyz/pico`.
 
 ```bash
 gh api \
   --method POST \
   -H "Accept: application/vnd.github+json" \
-  /repos/dantaik/pico/rulesets \
+  /repos/taikoxyz/pico/rulesets \
   --input .github/rulesets/main.json
 ```
 
 ## Inspect existing rulesets
 
 ```bash
-gh api /repos/dantaik/pico/rulesets
-gh api /repos/dantaik/pico/rulesets/<ID>
+gh api /repos/taikoxyz/pico/rulesets
+gh api /repos/taikoxyz/pico/rulesets/<ID>
 ```
 
 ## Update an existing ruleset
@@ -46,7 +46,7 @@ Find the ruleset's `id` from the list above, then `PUT` the new JSON:
 gh api \
   --method PUT \
   -H "Accept: application/vnd.github+json" \
-  /repos/dantaik/pico/rulesets/<ID> \
+  /repos/taikoxyz/pico/rulesets/<ID> \
   --input .github/rulesets/main.json
 ```
 
@@ -55,7 +55,7 @@ gh api \
 ```bash
 gh api \
   --method DELETE \
-  /repos/dantaik/pico/rulesets/<ID>
+  /repos/taikoxyz/pico/rulesets/<ID>
 ```
 
 ## Notes

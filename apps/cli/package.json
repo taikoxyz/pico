@@ -1,7 +1,6 @@
 {
-  "name": "@pico/cli",
+  "name": "@taikoxyz/pico-cli",
   "version": "0.0.0",
-  "private": true,
   "license": "MIT",
   "description": "pico developer/operator CLI: open and close channels, pay, query hubs, run dev fork.",
   "type": "module",
@@ -9,6 +8,9 @@
   "bin": {
     "pico": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -22,7 +24,6 @@
     "@pico/protocol": "workspace:*",
     "@pico/sdk": "workspace:*",
     "@pico/state-machine": "workspace:*",
-    "@pico/test-utils": "workspace:*",
     "commander": "^12.1.0",
     "picocolors": "^1.1.1",
     "pino": "^9.5.0",
@@ -31,6 +32,7 @@
     "viem": "^2.21.0"
   },
   "devDependencies": {
+    "@pico/test-utils": "workspace:*",
     "@types/node": "^22.10.0",
     "@types/prompts": "^2.4.9",
     "@vitest/coverage-v8": "^2.1.8",

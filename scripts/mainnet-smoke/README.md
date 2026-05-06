@@ -4,7 +4,7 @@ Operator-driven scripts that turn the mainnet smoke channel lifecycle into
 a guided, idempotent run. Per-channel cap 100 USDC, hub liquidity ceiling
 1000 USDC, three operator wallets `alice`, `bob`, `carol` under
 `~/.pico/<role>/`. Tracked under
-[issue #21](https://github.com/dantaik/pico/issues/21).
+[issue #21](https://github.com/taikoxyz/pico/issues/21).
 
 ## Prerequisites
 

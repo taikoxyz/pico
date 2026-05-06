@@ -5,7 +5,7 @@ Replaces ad-hoc "X is open" / "Y was fixed" claims passed around by hand.
 
 This file is a historical reconciliation record. New production-readiness
 work — including any **Open** items below — is tracked as sub-issues under
-[issue #21](https://github.com/dantaik/pico/issues/21) on GitHub.
+[issue #21](https://github.com/taikoxyz/pico/issues/21) on GitHub.
 
 ## Methodology
 
@@ -23,7 +23,7 @@ Status values:
 
 DeepSeek is an AI auditor; further multi-agent audit passes (Claude Opus,
 GPT-5, Gemini, etc.) are tracked under
-[issue #21](https://github.com/dantaik/pico/issues/21) before mainnet GA.
+[issue #21](https://github.com/taikoxyz/pico/issues/21) before mainnet GA.
 
 ## Summary
 
@@ -50,7 +50,7 @@ commit `c4e4cd1` and PR #15.
 | PC-06 | Medium | Channel ID collision risk | Fixed | `PaymentChannel.sol:148` includes `address(this)` in the keccak input |
 | PC-07 | Medium | State machine accepted cross-channel updates | Fixed | `packages/state-machine/src/channel.ts:22` rejects mismatched `channelId` |
 | PC-08 | Medium | Hoodi listed as supported in protocol constants | Fixed | `packages/protocol/src/constants.ts:11-14` removed Hoodi from `SUPPORTED_CHAIN_IDS` |
-| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | Deploy/transfer scripts now require contract owners and 48h timelock checks (`packages/contracts/script/{Deploy,DeployTimelock,TransferOwnership}.s.sol`), but on-chain owner-code/key-custody evidence is still an operator gate tracked under [issue #21](https://github.com/dantaik/pico/issues/21) and #35 |
+| PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | Deploy/transfer scripts now require contract owners and 48h timelock checks (`packages/contracts/script/{Deploy,DeployTimelock,TransferOwnership}.s.sol`), but on-chain owner-code/key-custody evidence is still an operator gate tracked under [issue #21](https://github.com/taikoxyz/pico/issues/21) and #35 |
 | PC-10 | Info | EIP-712 oracle should remain pinned and crosstested | Fixed | Oracle pinned via existing forge fuzz + crosstest; no regressions |
 
 ## Hub

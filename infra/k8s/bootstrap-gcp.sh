@@ -21,7 +21,7 @@
 #   SA_NAME         default: gha-pico-deployer
 #   WIF_POOL        default: gha-pool
 #   WIF_PROVIDER    default: gha-github
-#   GITHUB_REPO     default: dantaik/pico
+#   GITHUB_REPO     default: taikoxyz/pico
 
 set -euo pipefail
 
@@ -32,7 +32,7 @@ GAR_REPO="${GAR_REPO:-pico}"
 SA_NAME="${SA_NAME:-gha-pico-deployer}"
 WIF_POOL="${WIF_POOL:-gha-pool}"
 WIF_PROVIDER="${WIF_PROVIDER:-gha-github}"
-GITHUB_REPO="${GITHUB_REPO:-dantaik/pico}"
+GITHUB_REPO="${GITHUB_REPO:-taikoxyz/pico}"
 
 DRY_RUN=0
 if [[ "${1:-}" == "--dry-run" ]]; then

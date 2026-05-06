@@ -97,7 +97,7 @@ severity differs from the worst-case assumption.
   ```
 
 - Open a **private** GitHub Security Advisory at
-  <https://github.com/dantaik/pico/security/advisories/new>. Paste report
+  <https://github.com/taikoxyz/pico/security/advisories/new>. Paste report
   details. Add the reporter as a collaborator on the advisory (with consent).
 
 ### T+0 to T+72 hours
@@ -151,7 +151,7 @@ Drill ID: <random-uuid>
 
 Record drill date + outcome in your team operations log. Close the
 corresponding sub-issue under
-[issue #21](https://github.com/dantaik/pico/issues/21) after the first
+[issue #21](https://github.com/taikoxyz/pico/issues/21) after the first
 successful drill.
 
 ## Open TODOs

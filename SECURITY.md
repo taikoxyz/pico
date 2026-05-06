@@ -12,8 +12,8 @@ Please report suspected security issues **privately**. Do not open a public
 issue. Two channels, in order of preference:
 
 1. **GitHub private vulnerability advisory** —
-   <https://github.com/dantaik/pico/security/advisories/new>. From the CLI:
-   `gh api -X POST repos/dantaik/pico/security-advisories -f summary=...`.
+   <https://github.com/taikoxyz/pico/security/advisories/new>. From the CLI:
+   `gh api -X POST repos/taikoxyz/pico/security-advisories -f summary=...`.
    This routes to the maintainers without disclosing the report publicly and
    triggers a notification immediately.
 

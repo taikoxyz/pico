@@ -42,11 +42,11 @@ infra/k8s/
 Production runs in GCP project `pico-mainnet`, region `asia-southeast1`,
 on a GKE Autopilot cluster `pico-prod`. The bootstrap is automated by
 `infra/k8s/bootstrap-gcp.sh` (idempotent — safe to re-run). Tracked in
-[#58](https://github.com/dantaik/pico/issues/58).
+[#58](https://github.com/taikoxyz/pico/issues/58).
 
 ```bash
 gcloud auth login                # account with Owner or Editor on pico-mainnet
-gh auth login                    # account with admin on dantaik/pico
+gh auth login                    # account with admin on taikoxyz/pico
 
 infra/k8s/bootstrap-gcp.sh --dry-run   # print the plan
 infra/k8s/bootstrap-gcp.sh             # apply
@@ -58,7 +58,7 @@ The script:
 2. Creates the Artifact Registry Docker repo `pico` in `asia-southeast1`.
 3. Creates the GKE Autopilot cluster `pico-prod` in `asia-southeast1`.
 4. Creates the deployer service account `gha-pico-deployer@pico-mainnet.iam.gserviceaccount.com` and grants `roles/artifactregistry.writer`, `roles/container.developer`, `roles/container.viewer`.
-5. Creates the Workload Identity Federation pool `gha-pool` and the OIDC provider `gha-github` trusting `dantaik/pico`, then binds the service account via `roles/iam.workloadIdentityUser`.
+5. Creates the Workload Identity Federation pool `gha-pool` and the OIDC provider `gha-github` trusting `taikoxyz/pico`, then binds the service account via `roles/iam.workloadIdentityUser`.
 6. Sets the seven GitHub repo variables that `gke-images.yml` and `deploy.yml` validate at the start of every run:
 
    ```text

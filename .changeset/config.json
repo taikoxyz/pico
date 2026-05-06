@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@pico/cli", "@pico/e2e", "@pico/hub", "@pico/test-utils", "@pico/watchtower"]
+  "ignore": ["@pico/e2e", "@pico/hub", "@pico/test-utils", "@pico/watchtower"]
 }
