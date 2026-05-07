@@ -6,12 +6,12 @@ COPY apps/hub/package.json ./apps/hub/
 COPY packages/protocol/package.json ./packages/protocol/
 COPY packages/state-machine/package.json ./packages/state-machine/
 COPY packages/sdk/package.json ./packages/sdk/
-RUN pnpm install --frozen-lockfile --filter @pico/hub...
+RUN pnpm install --frozen-lockfile --filter @inferenceroom/pico-hub...
 COPY . .
-RUN pnpm --filter @pico/protocol build && \
-    pnpm --filter @pico/state-machine build && \
-    pnpm --filter @pico/sdk build && \
-    pnpm --filter @pico/hub build
+RUN pnpm --filter @inferenceroom/pico-protocol build && \
+    pnpm --filter @inferenceroom/pico-state-machine build && \
+    pnpm --filter @inferenceroom/pico-sdk build && \
+    pnpm --filter @inferenceroom/pico-hub build
 
 FROM node:20-alpine
 ARG INCLUDE_LITESTREAM=0
