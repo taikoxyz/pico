@@ -146,7 +146,15 @@ fi
 if gcloud iam workload-identity-pools providers describe "${WIF_PROVIDER}" \
   --location=global --workload-identity-pool="${WIF_POOL}" \
   --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
-  echo "  provider already exists"
+  # Reconcile the attribute condition; create-oidc only runs on first
+  # bootstrap, so without this a later GITHUB_REPO change (e.g. org rename)
+  # would leave the provider rejecting OIDC tokens from the new repo path.
+  echo "  provider already exists; reconciling attribute-condition for ${GITHUB_REPO}"
+  run gcloud iam workload-identity-pools providers update-oidc "${WIF_PROVIDER}" \
+    --location=global \
+    --workload-identity-pool="${WIF_POOL}" \
+    --attribute-condition="assertion.repository=='${GITHUB_REPO}'" \
+    --project "${GCP_PROJECT_ID}"
 else
   run gcloud iam workload-identity-pools providers create-oidc "${WIF_PROVIDER}" \
     --location=global \
