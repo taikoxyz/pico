@@ -301,9 +301,6 @@ importers:
       '@inferenceroom/pico-protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@inferenceroom/pico-state-machine':
-        specifier: workspace:*
-        version: link:../state-machine
       '@noble/hashes':
         specifier: ^1.5.0
         version: 1.8.0
@@ -320,6 +317,9 @@ importers:
         specifier: ^8.18.0
         version: 8.20.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
     devDependencies:
+      '@inferenceroom/pico-state-machine':
+        specifier: workspace:*
+        version: link:../state-machine
       '@inferenceroom/pico-test-utils':
         specifier: workspace:*
         version: link:../test-utils
@@ -335,6 +335,9 @@ importers:
       happy-dom:
         specifier: ^15.11.7
         version: 15.11.7
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(postcss@8.5.12)(tsx@4.21.0)(typescript@5.9.3)
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
