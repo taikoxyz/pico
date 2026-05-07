@@ -1,7 +1,7 @@
 {
   "name": "@inferenceroom/pico-contracts",
   "version": "0.0.0",
-  "private": false,
+  "private": true,
   "license": "MIT",
   "description": "Solidity contracts for pico pairwise payment channels (PaymentChannel, HTLC, Adjudicator).",
   "scripts": {
