@@ -6,12 +6,12 @@ COPY apps/watchtower/package.json ./apps/watchtower/
 COPY packages/protocol/package.json ./packages/protocol/
 COPY packages/state-machine/package.json ./packages/state-machine/
 COPY packages/sdk/package.json ./packages/sdk/
-RUN pnpm install --frozen-lockfile --filter @pico/watchtower...
+RUN pnpm install --frozen-lockfile --filter @inferenceroom/pico-watchtower...
 COPY . .
-RUN pnpm --filter @pico/protocol build && \
-    pnpm --filter @pico/state-machine build && \
-    pnpm --filter @pico/sdk build && \
-    pnpm --filter @pico/watchtower build
+RUN pnpm --filter @inferenceroom/pico-protocol build && \
+    pnpm --filter @inferenceroom/pico-state-machine build && \
+    pnpm --filter @inferenceroom/pico-sdk build && \
+    pnpm --filter @inferenceroom/pico-watchtower build
 
 FROM node:20-alpine
 ARG INCLUDE_LITESTREAM=0
