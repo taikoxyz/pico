@@ -50,6 +50,21 @@ A full runnable example against a mock hub lives at
 [`examples/sdk-mock-flow.ts`](../../examples/sdk-mock-flow.ts) (no network or
 Anvil needed).
 
+## Inbound liquidity (§8 topUp)
+
+The SDK auto-handles incoming `proposeTopUp` envelopes from the hub: it
+validates `validUntil`, `prevStateVersion` (with sentinel handling for the
+opener-only `v=1` placeholder), and that the proposed `newState` matches
+`predictTopUpState`. On success it co-signs and replies `acceptTopUp`; on any
+failure it replies `rejectTopUp`. Successful top-ups overwrite the
+opener-only `v=1` with the new co-signed `v=1` per spec §8 and Scenario 5.
+Listen for `client.on('channel:topped-up', ...)` to react to confirmations.
+
+For the anti-hostage path (§5.2), call
+`client.closeUnilateralFromOpen(channelId)` — the contract's dedicated entry
+point that needs no co-signed state and lets a user recover their full
+on-chain deposit when their hub refuses to co-sign anything.
+
 ## What's in the box
 
 - `ChannelClient` — open/pay/close + listen-mode HTLC handling + typed events.

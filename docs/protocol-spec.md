@@ -1,18 +1,22 @@
 # pico protocol specification (v1)
 
-> Status: **§0–§7 frozen** as of P1 (2026-04). Wire format and EIP-712 schemas in
-> sections 0 through 7 are normative for v1 contracts, state-machine, SDK, hub,
-> and watchtower. Changes to any field, type, or hash function in those sections
-> require a protocol version bump in the EIP-712 domain (`version: '1'` → `'2'`).
+> Status: **§0–§8 frozen** as of v1.1 (2026-05). Wire format and EIP-712 schemas
+> in sections 0 through 8 are normative for v1 contracts, state-machine, SDK,
+> hub, and watchtower. Changes to any field, type, or hash function in those
+> sections require a protocol version bump in the EIP-712 domain (`version: '1'`
+> → `'2'`).
 >
-> **§8 (inbound liquidity / `topUp`) is proposed v1.1** — not yet implemented in
-> the deployed `PaymentChannel.sol`, the SDK, or the hub WS protocol. It is
-> documented here as the agreed design direction so reviewers and downstream
-> implementers can plan against it. The "Top-up" paragraph in §1 and the
-> `Top-up integrity` bullet in §7 are likewise v1.1 forward-references.
-> Until §8 ships, hubs cannot route Alice → Hub → Bob payments because user
-> channels open with `amountB == 0` and the router rejects forwarding without
-> hub-side outbound liquidity (§4.3).
+> **§8 (inbound liquidity / `topUp`) is implemented as of v1.1.** The
+> `PaymentChannel.sol` `topUp` and `closeUnilateralFromOpen` functions, the SDK
+> `proposeTopUp` / `acceptTopUp` / `rejectTopUp` handshake, the hub
+> `topup-policy` / `topup-handler` / `auto-recycle` pipeline, and the hub
+> `closeCooperative` replay defenses (`version` + `validUntil` per §1) all
+> ship together. The "Top-up" paragraph in §1 and the `Top-up integrity`
+> bullet in §7 describe live behavior, not forward-references. End-to-end
+> coverage of every numbered scenario in
+> [`inbound-liquidity-scenarios.md`](./inbound-liquidity-scenarios.md) lives in
+> `e2e/src/inbound-liquidity.scenarios.test.ts` (in-process, anvil-backed) plus
+> the per-package suites listed in that file's scenario coverage matrix.
 
 ## 0. Conventions
 

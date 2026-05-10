@@ -53,6 +53,27 @@ flowchart LR
 3. Recipient settles by revealing preimage; hub settles upstream.
 4. Both channels advance one version. Nothing on-chain.
 
+## Data flow: hub provisions inbound liquidity (§8 topUp)
+
+For step 2 above to succeed, the `hub-recipient` channel must already have
+hub-side outbound liquidity. v1.1's `topUp` flow handles this:
+
+1. Recipient opens a single-sided channel with `amountB == 0`.
+2. Hub's chain-watcher observes `ChannelOpened`, evaluates its admission
+   policy (per-counterparty cap, hot-wallet headroom), and pushes
+   `proposeTopUp` over WebSocket.
+3. Recipient's SDK validates the offer (per spec §8.6) and replies
+   `acceptTopUp` with their signature.
+4. Hub submits `topUp(channelId, amount, prev, next)` on-chain. Both parties
+   observe `ToppedUp`.
+5. When a topped-up channel closes (`ChannelClosedCooperative` /
+   `ChannelFinalized`), the hub's auto-recycle hook reuses the recovered
+   USDC for the next queued offer.
+
+The SDK exposes `client.closeUnilateralFromOpen(channelId)` for the
+anti-hostage path: a user whose hub refuses to co-sign any state can recover
+their on-chain deposit via the contract's dedicated entry point.
+
 ## Data flow: dispute
 
 1. Counterparty publishes an old, but signed, state on-chain (`closeUnilateral`).
