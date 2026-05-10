@@ -8,8 +8,10 @@ import { PaymentRepo } from './payment-repo.js';
 import { RouteRepo } from './route-repo.js';
 import { StateRepo } from './state-repo.js';
 import { StatsRepo } from './stats-repo.js';
+import { TopUpOfferRepo } from './topup-offer-repo.js';
 
 export { ChannelRepo } from './channel-repo.js';
+export type { ChannelAmounts } from './channel-repo.js';
 export { StateRepo, StaleVersionError } from './state-repo.js';
 export { HtlcRepo } from './htlc-repo.js';
 export type { HtlcRecord, HtlcLifecycleState, SaveHtlcInput } from './htlc-repo.js';
@@ -23,6 +25,8 @@ export { RouteRepo } from './route-repo.js';
 export type { PaymentRoute, RouteState } from './route-repo.js';
 export { StatsRepo, STAT_KEYS } from './stats-repo.js';
 export type { StatKey } from './stats-repo.js';
+export { TopUpOfferRepo } from './topup-offer-repo.js';
+export type { TopUpOfferRow, TopUpOfferStatus } from './topup-offer-repo.js';
 
 export interface Repos {
   readonly channels: ChannelRepo;
@@ -34,6 +38,7 @@ export interface Repos {
   readonly kv: KvRepo;
   readonly routes: RouteRepo;
   readonly stats: StatsRepo;
+  readonly topupOffers: TopUpOfferRepo;
 }
 
 export function buildRepos(db: DbDriver): Repos {
@@ -47,5 +52,6 @@ export function buildRepos(db: DbDriver): Repos {
     kv: new KvRepo(db),
     routes: new RouteRepo(db),
     stats: new StatsRepo(db),
+    topupOffers: new TopUpOfferRepo(db),
   };
 }

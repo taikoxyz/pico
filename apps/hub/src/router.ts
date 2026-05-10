@@ -12,8 +12,11 @@ import type {
 } from '@inferenceroom/pico-protocol';
 import { hexToSignature, randomHtlcId } from '@inferenceroom/pico-sdk';
 import {
+  type HtlcAdmissionContext,
   addHtlc,
   buildChannelStateTypedData,
+  checkHtlcAdmissible,
+  checkTimeoutDelta,
   failHtlc,
   settleHtlc,
 } from '@inferenceroom/pico-state-machine';
@@ -23,7 +26,11 @@ import type { Repos } from './db/repos/index.js';
 import type { FeePolicy } from './fee-policy.js';
 import type { Logger } from './logger.js';
 
-const DEFAULT_EXPIRY_BUFFER_MS = 5n * 60n * 1000n;
+// Default outer-vs-inner expiry buffer. Per §4.3, T_outer − T_inner ≥
+// HTLC_TIMEOUT_DELTA_MS (30 min) so the hub can claim from the sender after
+// settling with the receiver. Mirroring the protocol default keeps router
+// admission consistent with the state-machine `checkTimeoutDelta` helper.
+const DEFAULT_EXPIRY_BUFFER_MS = 30n * 60n * 1000n;
 
 export interface RouteRequest {
   readonly incomingChannel: Channel;
@@ -114,6 +121,30 @@ export class Router {
       throw new Error(
         `router: hub liquidity ${hubBalance} < outgoing amount ${outgoingAmount} on ${outgoingChannel.id}`,
       );
+    }
+
+    // §4.3 admission caps. The state-machine helpers encode the protocol
+    // defaults (count cap, per-channel value cap, per-counterparty value
+    // cap, duration bounds, outer-vs-inner timeout delta). We construct the
+    // context against the latest in-pool state plus any in-flight HTLCs we
+    // have routed but not yet settled.
+    const counterparty = hubIsAOnOutgoing ? outgoingChannel.userB : outgoingChannel.userA;
+    const admissionCtx: HtlcAdmissionContext = {
+      currentHtlcCount:
+        latestOutgoing.state.htlcs.length + this.countPendingOnChannel(outgoingChannel.id),
+      perChannelInflightValue:
+        sumHtlcAmounts(latestOutgoing.state.htlcs) + this.sumPendingOnChannel(outgoingChannel.id),
+      perCounterpartyInflightValue: this.sumInflightToCounterparty(counterparty),
+      maxPerChannelValue: this.maxPerChannelValueFor(outgoingChannel),
+      nowMs: BigInt(Date.now()),
+    };
+    const admit = checkHtlcAdmissible(outgoingHtlc, admissionCtx);
+    if (!admit.ok) {
+      throw new Error(`router: ${admit.reason}`);
+    }
+    const timing = checkTimeoutDelta(req.incomingHtlc.expiryMs, outgoingExpiry);
+    if (!timing.ok) {
+      throw new Error(`router: ${timing.reason}`);
     }
 
     const lockedState = addHtlc(latestOutgoing.state, outgoingHtlc);
@@ -248,4 +279,69 @@ export class Router {
     }
     return undefined;
   }
+
+  /** Count of routed-but-unsettled HTLCs whose outgoing channel is `channelId`. */
+  private countPendingOnChannel(channelId: ChannelId): number {
+    let count = 0;
+    for (const i of this.inflightByOutgoingId.values()) {
+      if (i.outgoingChannelId === channelId) count++;
+    }
+    return count;
+  }
+
+  /** Sum of routed-but-unsettled HTLC amounts on `channelId`. */
+  private sumPendingOnChannel(channelId: ChannelId): bigint {
+    let total = 0n;
+    for (const i of this.inflightByOutgoingId.values()) {
+      if (i.outgoingChannelId === channelId) total += i.outgoingHtlc.amount;
+    }
+    return total;
+  }
+
+  /**
+   * Aggregate in-flight HTLC value across **all** channels with the given
+   * counterparty (sum of the outgoing-channel HTLCs we have routed plus the
+   * HTLCs currently sitting in those channels' latest co-signed state).
+   */
+  private sumInflightToCounterparty(counterparty: Address): bigint {
+    const target = counterparty.toLowerCase();
+    const hub = this.deps.hubAccount.address.toLowerCase();
+    let total = 0n;
+    for (const ch of this.deps.channelPool.list()) {
+      const a = ch.userA.toLowerCase();
+      const b = ch.userB.toLowerCase();
+      const isWithCounterparty = (a === hub && b === target) || (b === hub && a === target);
+      if (!isWithCounterparty) continue;
+      const latest = this.deps.channelPool.latest(ch.id);
+      if (latest) total += sumHtlcAmounts(latest.state.htlcs);
+      total += this.sumPendingOnChannel(ch.id);
+    }
+    return total;
+  }
+
+  /**
+   * `min(amountA, amountB)` per §4.3 — an HTLC may not lock more than the
+   * smaller side. Falls back to the latest co-signed state's combined balance
+   * if the channel-pool has no cached on-chain amounts (which is unusual).
+   */
+  private maxPerChannelValueFor(channel: Channel): bigint {
+    const amts = this.deps.channelPool.amountsOf(channel.id);
+    if (amts) {
+      return amts.amountA < amts.amountB ? amts.amountA : amts.amountB;
+    }
+    // Fallback: derive from the latest balances + any in-flight HTLCs (so a
+    // post-htlc-add reduction in balanceA doesn't underestimate amountA).
+    const latest = this.deps.channelPool.latest(channel.id);
+    if (!latest) return 0n;
+    const sumHtlcs = sumHtlcAmounts(latest.state.htlcs);
+    const totalA = latest.state.balanceA + sumHtlcs;
+    const totalB = latest.state.balanceB + sumHtlcs;
+    return totalA < totalB ? totalA : totalB;
+  }
+}
+
+function sumHtlcAmounts(htlcs: readonly Htlc[]): bigint {
+  let total = 0n;
+  for (const h of htlcs) total += h.amount;
+  return total;
 }

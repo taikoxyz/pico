@@ -1,4 +1,4 @@
-import type { ChannelId } from '@inferenceroom/pico-protocol';
+import type { Address, ChannelId } from '@inferenceroom/pico-protocol';
 import type { HtlcRepo } from './db/repos/index.js';
 
 export interface LiquiditySnapshot {
@@ -17,6 +17,20 @@ export class InsufficientLiquidityError extends Error {
 export class LiquidityTracker {
   private readonly state = new Map<ChannelId, LiquiditySnapshot>();
   private readonly reservations = new Map<ChannelId, bigint>();
+  /**
+   * USDC committed to a counterparty's not-yet-submitted top-up offer
+   * (status `proposed` or `accepted`). Released on `rejected` / `expired`
+   * / `submitted` (where the funds move into `submitted`). Drives the
+   * hub's hot-wallet headroom check (§8.6).
+   */
+  private readonly committed = new Map<string, bigint>();
+  /**
+   * USDC committed to an in-flight `topUp(...)` tx (status `submitted`).
+   * Released on `confirmed`. Tracked separately from `committed` so
+   * crash recovery can distinguish reservations that need re-pushing
+   * from reservations that just need the on-chain confirmation.
+   */
+  private readonly submitted = new Map<string, bigint>();
 
   set(channelId: ChannelId, snapshot: LiquiditySnapshot): void {
     this.state.set(channelId, snapshot);
@@ -72,6 +86,92 @@ export class LiquidityTracker {
     let total = 0n;
     for (const r of this.reservations.values()) total += r;
     return total;
+  }
+
+  // ───── Top-up accounting (§8) ─────
+
+  /** USDC pre-committed to outstanding `proposed` / `accepted` offers for `addr`. */
+  perCounterpartyCommitted(addr: Address): bigint {
+    return this.committed.get(addr.toLowerCase()) ?? 0n;
+  }
+
+  /** USDC currently locked behind in-flight `topUp(...)` txs for `addr`. */
+  perCounterpartySubmitted(addr: Address): bigint {
+    return this.submitted.get(addr.toLowerCase()) ?? 0n;
+  }
+
+  /** Sum of hub-side balances across all open channels with `addr` as counterparty. */
+  perCounterpartyOutbound(
+    addr: Address,
+    hubAddress: Address,
+    walkChannels: ReadonlyMap<ChannelId, { userA: Address; userB: Address }>,
+  ): bigint {
+    const target = addr.toLowerCase();
+    const hub = hubAddress.toLowerCase();
+    let total = 0n;
+    for (const [chId, ch] of walkChannels) {
+      const a = ch.userA.toLowerCase();
+      const b = ch.userB.toLowerCase();
+      const isHubChannelWithAddr = (a === hub && b === target) || (b === hub && a === target);
+      if (!isHubChannelWithAddr) continue;
+      const snap = this.state.get(chId);
+      if (snap) total += snap.outbound;
+    }
+    return total;
+  }
+
+  /** Sum of all `committed` reservations across counterparties. */
+  totalCommitted(): bigint {
+    let total = 0n;
+    for (const v of this.committed.values()) total += v;
+    return total;
+  }
+
+  /** Sum of all `submitted` reservations across counterparties. */
+  totalSubmitted(): bigint {
+    let total = 0n;
+    for (const v of this.submitted.values()) total += v;
+    return total;
+  }
+
+  /**
+   * Headroom = totalUsdcInWallet − (committed + submitted). Anything
+   * `committed` is already promised to a user; anything `submitted` is
+   * already in flight as an on-chain `topUp(...)` and counts against the
+   * hub's spendable balance until the receipt arrives.
+   */
+  hotWalletHeadroom(totalUsdcInWallet: bigint): bigint {
+    return totalUsdcInWallet - this.totalCommitted() - this.totalSubmitted();
+  }
+
+  noteCommit(addr: Address, amount: bigint): void {
+    if (amount <= 0n) return;
+    const k = addr.toLowerCase();
+    this.committed.set(k, (this.committed.get(k) ?? 0n) + amount);
+  }
+
+  releaseCommit(addr: Address, amount: bigint): void {
+    if (amount <= 0n) return;
+    const k = addr.toLowerCase();
+    const cur = this.committed.get(k) ?? 0n;
+    const next = cur - amount;
+    if (next <= 0n) this.committed.delete(k);
+    else this.committed.set(k, next);
+  }
+
+  noteSubmitted(addr: Address, amount: bigint): void {
+    if (amount <= 0n) return;
+    const k = addr.toLowerCase();
+    this.submitted.set(k, (this.submitted.get(k) ?? 0n) + amount);
+  }
+
+  releaseSubmitted(addr: Address, amount: bigint): void {
+    if (amount <= 0n) return;
+    const k = addr.toLowerCase();
+    const cur = this.submitted.get(k) ?? 0n;
+    const next = cur - amount;
+    if (next <= 0n) this.submitted.delete(k);
+    else this.submitted.set(k, next);
   }
 
   async hydrate(htlcRepo: HtlcRepo): Promise<void> {

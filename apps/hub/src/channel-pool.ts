@@ -1,5 +1,5 @@
 import type { Channel, ChannelId, ChannelStatus, SignedState } from '@inferenceroom/pico-protocol';
-import type { ChannelRepo, StateRepo } from './db/repos/index.js';
+import type { ChannelAmounts, ChannelRepo, StateRepo } from './db/repos/index.js';
 import type { Logger } from './logger.js';
 import { KeyedMutex } from './mutex.js';
 
@@ -11,6 +11,7 @@ export interface ChannelPoolDeps {
 
 export class ChannelPool {
   private readonly channels = new Map<ChannelId, Channel>();
+  private readonly amounts = new Map<ChannelId, ChannelAmounts>();
   private readonly latestState = new Map<ChannelId, SignedState>();
   private readonly locks = new KeyedMutex<ChannelId>();
 
@@ -18,7 +19,11 @@ export class ChannelPool {
 
   async hydrate(): Promise<void> {
     const channels = await this.deps.channelRepo.list();
-    for (const ch of channels) this.channels.set(ch.id, ch);
+    for (const ch of channels) {
+      this.channels.set(ch.id, ch);
+      const amts = await this.deps.channelRepo.getAmounts(ch.id);
+      if (amts) this.amounts.set(ch.id, amts);
+    }
     const states = await this.deps.stateRepo.loadAllLatest();
     for (const [id, st] of states) this.latestState.set(id, st);
     this.deps.logger.info(
@@ -27,10 +32,15 @@ export class ChannelPool {
     );
   }
 
-  async register(channel: Channel, initialState?: SignedState): Promise<void> {
+  async register(
+    channel: Channel,
+    initialState?: SignedState,
+    amounts?: ChannelAmounts,
+  ): Promise<void> {
     await this.locks.run(channel.id, async () => {
-      await this.deps.channelRepo.upsert(channel);
+      await this.deps.channelRepo.upsert(channel, amounts);
       this.channels.set(channel.id, channel);
+      if (amounts) this.amounts.set(channel.id, amounts);
       if (initialState) {
         const existing = this.latestState.get(channel.id);
         if (!existing || initialState.state.version > existing.state.version) {
@@ -60,6 +70,21 @@ export class ChannelPool {
     });
   }
 
+  /**
+   * Persist a channel's on-chain `amountA` / `amountB` after a top-up
+   * (§8). Caller is responsible for ensuring concurrency control via the
+   * hot-wallet mutex; this method only persists and updates the in-memory
+   * cache.
+   */
+  async updateAmounts(channelId: ChannelId, amountA: bigint, amountB: bigint): Promise<void> {
+    await this.locks.run(channelId, async () => {
+      const existing = this.channels.get(channelId);
+      if (!existing) return;
+      await this.deps.channelRepo.updateAmounts(channelId, amountA, amountB);
+      this.amounts.set(channelId, { amountA, amountB });
+    });
+  }
+
   withLock<T>(channelId: ChannelId, fn: () => Promise<T>): Promise<T> {
     return this.locks.run(channelId, fn);
   }
@@ -74,5 +99,10 @@ export class ChannelPool {
 
   latest(channelId: ChannelId): SignedState | undefined {
     return this.latestState.get(channelId);
+  }
+
+  /** Returns the cached on-chain amounts, or `undefined` if unknown. */
+  amountsOf(channelId: ChannelId): ChannelAmounts | undefined {
+    return this.amounts.get(channelId);
   }
 }

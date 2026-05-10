@@ -1,11 +1,13 @@
 import type { Address, ChainId } from '@inferenceroom/pico-protocol';
 import { paymentChannelAbi } from '@inferenceroom/pico-sdk';
 import { http, type PublicClient, createPublicClient, parseAbiItem } from 'viem';
+import type { AutoRecycle } from './auto-recycle.js';
 import type { ChannelPool } from './channel-pool.js';
 import type { Repos } from './db/repos/index.js';
 import type { DisputeHandler } from './dispute-handler.js';
 import type { Logger } from './logger.js';
 import type { HubMetrics } from './metrics.js';
+import type { TopUpHandler } from './topup-handler.js';
 
 const KV_KEY_LAST_BLOCK = 'chain_watcher.last_processed_block';
 const KV_KEY_LAST_BLOCK_HASH = 'chain_watcher.last_processed_block_hash';
@@ -25,6 +27,12 @@ const disputeRaisedEvent = parseAbiItem(
 const channelFinalizedEvent = parseAbiItem(
   'event ChannelFinalized(bytes32 indexed channelId, uint256 paidA, uint256 paidB)',
 );
+const toppedUpEvent = parseAbiItem(
+  'event ToppedUp(bytes32 indexed channelId, address indexed depositor, uint256 amount, uint64 newVersion)',
+);
+const channelClosedCooperativeEvent = parseAbiItem(
+  'event ChannelClosedCooperative(bytes32 indexed channelId, uint256 finalBalanceA, uint256 finalBalanceB, uint64 signedAt)',
+);
 
 export interface ChainWatcherDeps {
   readonly rpcUrl: string;
@@ -42,6 +50,12 @@ export interface ChainWatcherDeps {
   readonly deployBlock?: bigint;
   /** Maximum number of blocks per getLogs call. */
   readonly chunkSize?: bigint;
+  /** §8 inbound liquidity orchestrator. Optional for tests; set in production. */
+  readonly topupHandler?: TopUpHandler;
+  /** §8.8 auto-recycle hook. Optional for tests; set in production. */
+  readonly autoRecycle?: AutoRecycle;
+  /** Hub address (lowercase compared) — used to detect hub-side close payouts. */
+  readonly hubAddress?: Address;
 }
 
 export class ChainWatcher {
@@ -237,9 +251,32 @@ export class ChainWatcher {
     });
     for (const log of opened) {
       const channelId = log.args.channelId;
-      if (channelId && this.deps.channelPool.get(channelId)) {
+      if (!channelId) continue;
+      const known = this.deps.channelPool.get(channelId);
+      if (known) {
         await this.deps.channelPool.setStatus(channelId, 'open');
         this.deps.logger.info({ channelId }, 'channel opened on-chain');
+      }
+      // §8 — auto-evaluate freshly opened channels where the hub is userB
+      // (or userA). The handler decides whether to immediately propose a
+      // top-up or queue it.
+      if (this.deps.topupHandler && this.deps.hubAddress) {
+        const userA = log.args.userA;
+        const userB = log.args.userB;
+        if (userA && userB) {
+          const hub = this.deps.hubAddress.toLowerCase();
+          const hubInChannel = userA.toLowerCase() === hub || userB.toLowerCase() === hub;
+          if (hubInChannel && known) {
+            try {
+              await this.deps.topupHandler.evaluateNewChannel(known);
+            } catch (err) {
+              this.deps.logger.warn(
+                { err: (err as Error).message, channelId },
+                'topup-handler evaluateNewChannel failed',
+              );
+            }
+          }
+        }
       }
     }
 
@@ -288,9 +325,91 @@ export class ChainWatcher {
     });
     for (const log of finalized) {
       const channelId = log.args.channelId;
-      if (channelId && this.deps.channelPool.get(channelId)) {
+      if (!channelId) continue;
+      const ch = this.deps.channelPool.get(channelId);
+      if (ch) {
         await this.deps.channelPool.setStatus(channelId, 'closed');
         this.deps.logger.info({ channelId }, 'channel finalized on-chain');
+      }
+      // §8.8 — recover hub-side funds from a finalized close into the
+      // queued top-up pipeline. paidA/paidB tell us how much landed in the
+      // hub's hot wallet; only one of them is the hub's share.
+      if (this.deps.autoRecycle && this.deps.hubAddress && ch) {
+        const hub = this.deps.hubAddress.toLowerCase();
+        const hubIsA = ch.userA.toLowerCase() === hub;
+        const hubReceived = (hubIsA ? log.args.paidA : log.args.paidB) ?? 0n;
+        if (hubReceived > 0n) {
+          try {
+            await this.deps.autoRecycle.onClose(channelId, hubReceived);
+          } catch (err) {
+            this.deps.logger.warn(
+              { err: (err as Error).message, channelId },
+              'auto-recycle onClose failed',
+            );
+          }
+        }
+      }
+    }
+
+    // §8 — observe `ToppedUp` events; advance the matching offer to confirmed.
+    const toppedUp = await this.client.getLogs({
+      address: this.deps.paymentChannelAddress,
+      event: toppedUpEvent,
+      fromBlock,
+      toBlock,
+    });
+    for (const log of toppedUp) {
+      const channelId = log.args.channelId;
+      const depositor = log.args.depositor;
+      const amount = log.args.amount;
+      const newVersion = log.args.newVersion;
+      if (
+        !channelId ||
+        !depositor ||
+        amount === undefined ||
+        newVersion === undefined ||
+        !this.deps.topupHandler
+      )
+        continue;
+      try {
+        await this.deps.topupHandler.handleToppedUp(channelId, depositor, amount, newVersion);
+      } catch (err) {
+        this.deps.logger.warn(
+          { err: (err as Error).message, channelId },
+          'topup-handler handleToppedUp failed',
+        );
+      }
+    }
+
+    // §8.8 — observe cooperative-close events for auto-recycle.
+    const closedCooperative = await this.client.getLogs({
+      address: this.deps.paymentChannelAddress,
+      event: channelClosedCooperativeEvent,
+      fromBlock,
+      toBlock,
+    });
+    for (const log of closedCooperative) {
+      const channelId = log.args.channelId;
+      if (!channelId) continue;
+      const ch = this.deps.channelPool.get(channelId);
+      if (ch) {
+        // Coop close is terminal on-chain; mark closed locally too.
+        await this.deps.channelPool.setStatus(channelId, 'closed');
+      }
+      if (this.deps.autoRecycle && this.deps.hubAddress && ch) {
+        const hub = this.deps.hubAddress.toLowerCase();
+        const hubIsA = ch.userA.toLowerCase() === hub;
+        const hubReceived = (hubIsA ? log.args.finalBalanceA : log.args.finalBalanceB) ?? 0n;
+        if (hubReceived > 0n) {
+          try {
+            await this.deps.autoRecycle.onClose(channelId, hubReceived);
+          } catch (err) {
+            this.deps.logger.warn(
+              { err: (err as Error).message, channelId },
+              'auto-recycle onClose (cooperative) failed',
+            );
+          }
+        }
       }
     }
   }
