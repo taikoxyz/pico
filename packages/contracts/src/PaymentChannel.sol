@@ -307,9 +307,7 @@ contract PaymentChannel is
             require(next.state.balanceB == prev.state.balanceB + amount, "B delta");
             require(next.state.balanceA == prev.state.balanceA, "A unchanged");
         }
-        require(
-            next.state.balanceA + next.state.balanceB == ch.amountA + ch.amountB + amount, "next !conserved"
-        );
+        require(next.state.balanceA + next.state.balanceB == ch.amountA + ch.amountB + amount, "next !conserved");
         require(_verifyDualSig(ch.userA, ch.userB, next.state, next.sigA, next.sigB), "next bad sig");
 
         // Pull funds and update state

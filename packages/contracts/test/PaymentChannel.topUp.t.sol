@@ -32,12 +32,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         bytes32 id = _open();
 
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
 
         uint256 contractBefore = token.balanceOf(address(channel));
@@ -65,20 +62,14 @@ contract PaymentChannelTopUpTest is Fixtures {
         bytes32 id = _open();
         _sentinelTopUpAlice(id, TOP_UP_AMOUNT);
 
-        Adjudicator.ChannelState memory prevState =
-            _state(id, 1, FUND_A + TOP_UP_AMOUNT, FUND_B);
+        Adjudicator.ChannelState memory prevState = _state(id, 1, FUND_A + TOP_UP_AMOUNT, FUND_B);
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
-            state: prevState,
-            sigA: _signState(alicePk, prevState),
-            sigB: _signState(bobPk, prevState)
+            state: prevState, sigA: _signState(alicePk, prevState), sigB: _signState(bobPk, prevState)
         });
         uint256 secondAmount = 3_000_000;
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 2, FUND_A + TOP_UP_AMOUNT + secondAmount, FUND_B);
+        Adjudicator.ChannelState memory nextState = _state(id, 2, FUND_A + TOP_UP_AMOUNT + secondAmount, FUND_B);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
 
         vm.expectEmit(true, true, false, true, address(channel));
@@ -99,12 +90,9 @@ contract PaymentChannelTopUpTest is Fixtures {
     function test_topUp_revertsOnNonParty() public {
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
 
         vm.prank(carol);
@@ -119,12 +107,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         channel.closeUnilateralFromOpen(id);
 
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("!open"));
@@ -135,12 +120,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
         prev.state.htlcsRoot = bytes32(uint256(0xAA));
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("prev htlcs!=0"));
@@ -151,12 +133,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
         // next.version should be prev.version + 1 (i.e., 1); use 2 to trigger the check.
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 2, FUND_A, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 2, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("next version"));
@@ -169,12 +148,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         Adjudicator.ChannelState memory bogusPrev = _state(id, 0, FUND_A + 1, FUND_B);
         Adjudicator.SignedChannelState memory prev =
             Adjudicator.SignedChannelState({state: bogusPrev, sigA: hex"", sigB: hex""});
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A + 1, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A + 1, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("prev !conserved"));
@@ -185,12 +161,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
         prev.sigA = hex"00";
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("sentinel sigs"));
@@ -206,12 +179,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         Adjudicator.ChannelState memory mismatched = _state(id, 0, FUND_A - 1, FUND_B + 1);
         Adjudicator.SignedChannelState memory prev =
             Adjudicator.SignedChannelState({state: mismatched, sigA: hex"", sigB: hex""});
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A - 1, FUND_B + 1 + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A - 1, FUND_B + 1 + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("sentinel bal"));
@@ -221,8 +191,7 @@ contract PaymentChannelTopUpTest is Fixtures {
     function test_topUp_revertsOnNextBadSig() public {
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
             state: nextState,
             sigA: _signState(carolPk, nextState), // wrong signer
@@ -238,19 +207,15 @@ contract PaymentChannelTopUpTest is Fixtures {
         bytes32 id = _open();
         _sentinelTopUpAlice(id, TOP_UP_AMOUNT);
         // Now postedVersion=1; build a prev with version=1 and a bad sig.
-        Adjudicator.ChannelState memory prevState =
-            _state(id, 1, FUND_A + TOP_UP_AMOUNT, FUND_B);
+        Adjudicator.ChannelState memory prevState = _state(id, 1, FUND_A + TOP_UP_AMOUNT, FUND_B);
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
             state: prevState,
             sigA: _signState(carolPk, prevState), // wrong signer
             sigB: _signState(bobPk, prevState)
         });
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 2, FUND_A + TOP_UP_AMOUNT + 1_000_000, FUND_B);
+        Adjudicator.ChannelState memory nextState = _state(id, 2, FUND_A + TOP_UP_AMOUNT + 1_000_000, FUND_B);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(alice);
         vm.expectRevert(bytes("prev bad sig"));
@@ -262,12 +227,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         // fires before the conservation check.
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A + TOP_UP_AMOUNT, FUND_B + 1); // B mutated
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A + TOP_UP_AMOUNT, FUND_B + 1); // B mutated
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(alice);
         vm.expectRevert(bytes("B unchanged"));
@@ -278,12 +240,9 @@ contract PaymentChannelTopUpTest is Fixtures {
         // bob tops up; next.balanceA must equal prev.balanceA. Mutate A to trip "A unchanged".
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, FUND_A + 1, FUND_B + TOP_UP_AMOUNT); // A mutated
+        Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A + 1, FUND_B + TOP_UP_AMOUNT); // A mutated
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("A unchanged"));
@@ -295,9 +254,7 @@ contract PaymentChannelTopUpTest is Fixtures {
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
         Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("amount=0"));
@@ -330,22 +287,15 @@ contract PaymentChannelTopUpTest is Fixtures {
 
     function _sentinelPrev(bytes32 id) internal view returns (Adjudicator.SignedChannelState memory) {
         PaymentChannel.Channel memory ch = channel.channels(id);
-        return Adjudicator.SignedChannelState({
-            state: _state(id, 0, ch.amountA, ch.amountB),
-            sigA: hex"",
-            sigB: hex""
-        });
+        return Adjudicator.SignedChannelState({state: _state(id, 0, ch.amountA, ch.amountB), sigA: hex"", sigB: hex""});
     }
 
     function _sentinelTopUpAlice(bytes32 id, uint256 amount) internal {
         PaymentChannel.Channel memory ch = channel.channels(id);
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
-        Adjudicator.ChannelState memory nextState =
-            _state(id, 1, ch.amountA + amount, ch.amountB);
+        Adjudicator.ChannelState memory nextState = _state(id, 1, ch.amountA + amount, ch.amountB);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(alice);
         channel.topUp(id, amount, prev, next);

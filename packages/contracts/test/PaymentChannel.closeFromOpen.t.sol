@@ -83,12 +83,7 @@ contract PaymentChannelCloseFromOpenTest is Fixtures {
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
             state: Adjudicator.ChannelState({
-                channelId: id,
-                version: 0,
-                balanceA: FUND_A,
-                balanceB: FUND_B,
-                htlcsRoot: bytes32(0),
-                finalized: false
+                channelId: id, version: 0, balanceA: FUND_A, balanceB: FUND_B, htlcsRoot: bytes32(0), finalized: false
             }),
             sigA: hex"",
             sigB: hex""
@@ -102,9 +97,7 @@ contract PaymentChannelCloseFromOpenTest is Fixtures {
             finalized: false
         });
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         channel.topUp(id, 5_000_000, prev, next);

@@ -113,7 +113,8 @@ contract PaymentChannelReplayTest is Fixtures {
     function test_closeCoop_rejectsStaleVersion() public {
         bytes32 id = _open();
         // postedVersion is 0 on a fresh channel; version 0 must not satisfy `> 0`.
-        Adjudicator.CooperativeClose memory cc = _coopClose(id, 50_000_000, 30_000_000, 0, uint64(block.timestamp + 1 hours));
+        Adjudicator.CooperativeClose memory cc =
+            _coopClose(id, 50_000_000, 30_000_000, 0, uint64(block.timestamp + 1 hours));
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
         vm.expectRevert(bytes("stale version"));
@@ -125,8 +126,7 @@ contract PaymentChannelReplayTest is Fixtures {
         // Build a coopClose with validUntil already past — block.timestamp at construction
         // becomes signedAt; choose validUntil < signedAt by using a fixed past timestamp.
         skip(2 hours);
-        Adjudicator.CooperativeClose memory cc =
-            _coopClose(id, 50_000_000, 30_000_000, 1, uint64(block.timestamp - 1));
+        Adjudicator.CooperativeClose memory cc = _coopClose(id, 50_000_000, 30_000_000, 1, uint64(block.timestamp - 1));
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
         vm.expectRevert(bytes("expired"));
@@ -149,12 +149,7 @@ contract PaymentChannelReplayTest is Fixtures {
         // alice tops up by 5 USDC; pre-state is sentinel (version 0, balances == amounts).
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
             state: Adjudicator.ChannelState({
-                channelId: id,
-                version: 0,
-                balanceA: FUND_A,
-                balanceB: FUND_B,
-                htlcsRoot: bytes32(0),
-                finalized: false
+                channelId: id, version: 0, balanceA: FUND_A, balanceB: FUND_B, htlcsRoot: bytes32(0), finalized: false
             }),
             sigA: hex"",
             sigB: hex""
@@ -168,9 +163,7 @@ contract PaymentChannelReplayTest is Fixtures {
             finalized: false
         });
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(alice);
         channel.topUp(id, 5_000_000, prev, next);
@@ -204,13 +197,11 @@ contract PaymentChannelReplayTest is Fixtures {
         });
     }
 
-    function _coopClose(
-        bytes32 channelId,
-        uint256 finalA,
-        uint256 finalB,
-        uint64 version,
-        uint64 validUntil
-    ) internal view returns (Adjudicator.CooperativeClose memory) {
+    function _coopClose(bytes32 channelId, uint256 finalA, uint256 finalB, uint64 version, uint64 validUntil)
+        internal
+        view
+        returns (Adjudicator.CooperativeClose memory)
+    {
         return Adjudicator.CooperativeClose({
             channelId: channelId,
             version: version,
