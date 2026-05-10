@@ -1,5 +1,24 @@
-import type { ChannelState } from '@inferenceroom/pico-protocol';
+import type { ChannelState, SignedState } from '@inferenceroom/pico-protocol';
 import { StateMachineError } from './errors.js';
+
+const ZERO32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+/**
+ * Detects the opener-only `version: 1` placeholder constructed by
+ * `client.open()`: same balances as the on-chain implicit-initial state, no
+ * HTLCs, not finalized, but only one side has signed (the opener). Per spec
+ * §8 + scenarios doc Scenario 5 ("topUp overwrites the local version: 1 with
+ * a fully co-signed one"), both the SDK acceptance path and the hub proposal
+ * path must treat such a state as equivalent to the version=0 sentinel.
+ */
+export function isOpenerOnlyPlaceholder(s: SignedState): boolean {
+  if (s.state.version !== 1n) return false;
+  if (s.state.htlcs.length !== 0) return false;
+  if (s.state.finalized) return false;
+  const aZero = s.sigA.r === ZERO32 && s.sigA.s === ZERO32;
+  const bZero = s.sigB.r === ZERO32 && s.sigB.s === ZERO32;
+  return aZero !== bZero;
+}
 
 /**
  * Predict the post-top-up `ChannelState` given a co-signed `prevState`,

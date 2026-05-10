@@ -18,7 +18,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   type AliceBundle,
   type BobBundle,
-  type ClientBundle,
   type E2EHandle,
   bootE2E,
   buildAliceClient,
@@ -66,23 +65,6 @@ interface ChannelRow {
   penalized: boolean;
   status: number;
   closer: `0x${string}`;
-}
-
-/**
- * Workaround for the SDK / spec gap on first-topUp prev versions:
- * `client.open` saves an opener-only sigA-only `version: 1` state, but the
- * hub's auto-topUp path uses prev `version: 0` (sentinel) when its pool
- * holds amounts only (the hub never receives the opener-only state for the
- * topUp counterparty in production). Bob's SDK then rejects the proposeTopUp
- * envelope as `prev version mismatch (got 0, local 1)`.
- *
- * Production SDKs that opt into auto-topUp would either skip persisting the
- * opener-only state for hub-counterparty channels, or treat sigA-only v=1
- * as equivalent to v=0 sentinel during proposeTopUp validation. For e2e
- * tests we simulate that by deleting the opener state from MemoryStorage.
- */
-function clearOpenerOnlyState(bundle: ClientBundle, channelId: ChannelId): void {
-  (bundle.storage as unknown as { states: Map<unknown, unknown> }).states.delete(channelId);
 }
 
 /**
@@ -327,7 +309,6 @@ describe('inbound-liquidity scenarios', () => {
       amountA: 10n * ONE_USDC,
       amountB: 0n,
     });
-    clearOpenerOnlyState(bob, bobChannel.id);
     await bob.client.ensureSubscribed([bobChannel.id]);
 
     // Wait for the hub to top-up by polling on-chain. The chain-watcher polls
@@ -365,7 +346,6 @@ describe('inbound-liquidity scenarios', () => {
       amountA: 10n * ONE_USDC,
       amountB: 0n,
     });
-    clearOpenerOnlyState(bob, bobChannel.id);
     await bob.client.ensureSubscribed([bobChannel.id]);
 
     // Wait for hub to auto-topUp Bob (Scenario 5 mechanics) and for the hub's
@@ -429,7 +409,6 @@ describe('inbound-liquidity scenarios', () => {
       amountA: 10n * ONE_USDC,
       amountB: 0n,
     });
-    clearOpenerOnlyState(bob, bobChannel.id);
     await bob.client.ensureSubscribed([bobChannel.id]);
 
     // Wait for hub auto-topUp on Bob (on-chain + hub-pool consistency).
@@ -531,7 +510,6 @@ describe('inbound-liquidity scenarios', () => {
       amountA: 10n * ONE_USDC,
       amountB: 0n,
     });
-    clearOpenerOnlyState(bob, bobChannel.id);
     await bob.client.ensureSubscribed([bobChannel.id]);
 
     await waitForChannelRow(

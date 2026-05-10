@@ -405,6 +405,82 @@ describe('ChannelClient handleProposeTopUp', () => {
     }
   });
 
+  it('accepts a sentinel-prev offer when local has only the opener-only v=1 placeholder', async () => {
+    // Reproduces the post-open path: SDK saved an Alice-signed v=1 with
+    // hub-side ZERO_SIG. Hub proposes topUp with prevStateVersion=0 (sentinel)
+    // and newState v=1 with the post-topUp balances. Per spec §8 + scenarios
+    // doc Scenario 5, the opener-only v=1 must be treated as the sentinel.
+    const fx = await makeFixture();
+    // Alice (userA) signed v=1 at open with balances (10, 0); hub (userB) sig
+    // is the zero sentinel because no co-signed state exists yet.
+    const aliceAccount = privateKeyToAccount(ALICE_KEY);
+    const openerState: ChannelState = {
+      channelId: fx.channelId,
+      version: 1n,
+      balanceA: 10_000_000n,
+      balanceB: 0n,
+      htlcs: [],
+      finalized: false,
+    };
+    const aliceSigHex = (await aliceAccount.signTypedData(
+      buildChannelStateTypedData(openerState, CHAIN_ID, VC),
+    )) as Hex;
+    const aliceSig = {
+      r: `0x${aliceSigHex.slice(2, 66)}` as `0x${string}`,
+      s: `0x${aliceSigHex.slice(66, 130)}` as `0x${string}`,
+      v: Number.parseInt(aliceSigHex.slice(130, 132), 16),
+    };
+    const ZERO_SIG_LOCAL = {
+      r: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+      s: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+      v: 27,
+    };
+    await fx.storage.saveState(fx.channelId, {
+      state: openerState,
+      sigA: aliceSig,
+      sigB: ZERO_SIG_LOCAL,
+    });
+    await activateClientHandler(fx);
+
+    // Hub proposes topUp 5 USDC into Bob's side; in this fixture Bob is hub,
+    // so the depositor is the userB side. New state v=1 with B=5, A=10.
+    const newState: ChannelState = {
+      channelId: fx.channelId,
+      version: 1n,
+      balanceA: 10_000_000n,
+      balanceB: 5_000_000n,
+      htlcs: [],
+      finalized: false,
+    };
+    const hubSigHex = (await fx.bobAccount.signTypedData(
+      buildChannelStateTypedData(newState, CHAIN_ID, VC),
+    )) as Hex;
+    const offer = buildOfferEnvelope({
+      fixture: fx,
+      amount: 5_000_000n,
+      prevStateVersion: 0n,
+      newState,
+      newSig: hubSigHex,
+    });
+    await fx.transport.deliver(offer);
+
+    const acceptMsg = fx.transport.sent.find((m) => m.kind === 'acceptTopUp');
+    expect(acceptMsg).toBeDefined();
+    if (acceptMsg && acceptMsg.kind === 'acceptTopUp') {
+      expect(acceptMsg.signedNewState.state.balanceB).toBe(5_000_000n);
+    }
+    expect(fx.transport.sent.find((m) => m.kind === 'rejectTopUp')).toBeUndefined();
+
+    // The opener-only placeholder MUST be overwritten by the co-signed
+    // newState — same version 1, but now both sigs populated.
+    const after = await fx.storage.loadLatestState(fx.channelId);
+    expect(after?.state.version).toBe(1n);
+    expect(after?.state.balanceB).toBe(5_000_000n);
+    expect(after?.sigB.r).not.toBe(
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
+    );
+  });
+
   it('replies with rejectTopUp when newState balances do not match prediction', async () => {
     const fx = await makeFixture();
     // Anchor a real prev state so the client uses it (instead of inferring

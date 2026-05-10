@@ -617,7 +617,9 @@ describe('e2e — phase 2D receiver offline then resume', () => {
   let bob: ClientBundle;
 
   beforeEach(async () => {
-    h = await bootE2E();
+    h = await bootE2E({
+      hubEnv: { CHAIN_POLLING_INTERVAL_MS: '500', CHAIN_CONFIRMATIONS: '0' },
+    });
     alice = buildAliceClient(h);
     const bobKeysend = generateKeysendKeypair();
     bob = buildClient(h, h.bob, { encryption: bobKeysend });
@@ -629,13 +631,8 @@ describe('e2e — phase 2D receiver offline then resume', () => {
     await h?.stop();
   });
 
-  // Skipped: this test used the dual-funded open pattern (counterpartyAmount > 0)
-  // which violates spec §1 ("amountB MUST be 0") and trips §4.3's
-  // MAX_HTLC_VALUE_PER_CHANNEL = min(amountA, amountB) admission cap. Needs a
-  // follow-up rewrite that uses the §8 topUp flow before paying. The HTLC
-  // routing path it exercises is otherwise covered by
-  // inbound-liquidity.scenarios.test.ts > Scenario 6.
-  it.skip('hub queues HTLC while bob is offline; bob reconnects, replays via subscribeAck.pendingHtlcs, settles', async () => {
+  it('hub queues HTLC while bob is offline; bob reconnects, replays via subscribeAck.pendingHtlcs, settles', async () => {
+    // Alice opens single-sided per spec §1 (amountB MUST be 0).
     const aliceChannel = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
@@ -645,19 +642,56 @@ describe('e2e — phase 2D receiver offline then resume', () => {
       await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
+    // Bob opens single-sided; the hub auto-tops-up Bob's channel via §8 so
+    // the router has outbound liquidity for HTLC routing. Wait for the topUp
+    // to confirm before issuing the invoice. Register WITHOUT the
+    // opener-signed v=1 state (matches inbound-liquidity Scenario 5/6
+    // pattern) so the hub uses its sentinel v=0 prev branch and produces a
+    // v=1 fully co-signed state.
     const bobChannel = await bob.client.open({
       counterparty: h.hub.address,
-      amount: 0n,
-      counterpartyAmount: 10n * ONE_USDC,
+      amount: 10n * ONE_USDC,
     });
-    {
-      const init = await bob.storage.loadLatestState(bobChannel.id);
-      await h.hubServer.registerChannel(bobChannel, init ?? undefined);
-    }
+    await h.hubServer.registerChannelWithAmounts(bobChannel, {
+      amountA: 10n * ONE_USDC,
+      amountB: 0n,
+    });
     await bob.client.ensureSubscribed([bobChannel.id]);
 
+    const deadline = Date.now() + 15_000;
+    let topUpAmountB = 0n;
+    while (Date.now() < deadline) {
+      const row = await h.publicClient.readContract({
+        address: h.paymentChannel,
+        abi: paymentChannelStatusAbi,
+        functionName: 'channels',
+        args: [bobChannel.id],
+      });
+      if (row[4] > 0n && row[7] >= 1n) {
+        topUpAmountB = row[4];
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(topUpAmountB).toBeGreaterThan(0n);
+
+    // Wait for the hub's chain-watcher to ingest the ToppedUp event so the
+    // router has the post-topUp state for Bob's channel. Without this, the
+    // pay below races and fails with "no signed state for outgoing channel".
+    const built = h.hubServer._internal?.built;
+    if (!built) throw new Error('hubServer._internal.built not exposed');
+    const stateDeadline = Date.now() + 10_000;
+    while (Date.now() < stateDeadline) {
+      const latest = built.channelPool.latest(bobChannel.id);
+      if (latest && latest.state.version >= 1n && latest.state.balanceB > 0n) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    // Invoice amount must fit inside the hub's outbound liquidity (= the
+    // top-up amount). 1 USDC ≪ default 5 USDC top-up.
+    const invoiceAmount = 1n * ONE_USDC;
     const { invoice, preimage: expectedPreimage } = await bob.client.createInvoice({
-      amount: 5n * ONE_USDC,
+      amount: invoiceAmount,
       memo: 'offline-resume test',
     });
 
@@ -686,5 +720,5 @@ describe('e2e — phase 2D receiver offline then resume', () => {
     } finally {
       await bobReborn.transport.close();
     }
-  });
+  }, 30_000);
 });

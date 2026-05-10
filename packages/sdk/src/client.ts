@@ -22,6 +22,7 @@ import {
   admitHtlcSettle,
   admitSignedState,
   failHtlc,
+  isOpenerOnlyPlaceholder,
   predictTopUpState,
   preimageDigest,
   settleHtlc,
@@ -1001,27 +1002,51 @@ export class ChannelClient {
       }
 
       const latest = await this.opts.storage.loadLatestState(msg.channelId);
-      const localVersion = latest?.state.version ?? 0n;
-      if (msg.prevStateVersion !== localVersion) {
+      // The opener-only `v=1` placeholder is treated as the implicit-initial
+      // sentinel for matching `prevStateVersion: 0`. See spec §8 +
+      // inbound-liquidity-scenarios.md (Scenario 5): topUp overwrites the
+      // opener-only `v=1` with a fully co-signed `v=1`.
+      const latestIsOpenerOnly =
+        latest !== null && latest !== undefined && isOpenerOnlyPlaceholder(latest);
+      const effectiveLocalVersion = latest && !latestIsOpenerOnly ? latest.state.version : 0n;
+      if (msg.prevStateVersion !== effectiveLocalVersion) {
         await this.sendRejectTopUp(
           msg,
-          `prev version mismatch (got ${msg.prevStateVersion}, local ${localVersion})`,
+          `prev version mismatch (got ${msg.prevStateVersion}, local ${effectiveLocalVersion})`,
         );
         return;
       }
 
-      // Build prev for prediction: latest dual-signed state if we have one,
-      // else infer pre-top-up balances by subtracting `amount` from the side
-      // the hub is depositing into (= our counterparty side).
+      // Build prev for prediction:
+      //   1. If we have a co-signed dual-sig latest state (version >= 1), use it.
+      //   2. If we have the opener-only placeholder, treat it as the v=0
+      //      sentinel — same balances, version reset to 0 so that
+      //      predictTopUpState produces v=1.
+      //   3. If we have no local state at all, infer pre-top-up balances by
+      //      subtracting `amount` from the hub-deposit side of newState.
       const hubSide: 'A' | 'B' = iAmA ? 'B' : 'A';
-      const prevState: ChannelState = latest?.state ?? {
-        channelId: msg.channelId,
-        version: 0n,
-        balanceA: hubSide === 'A' ? msg.newState.balanceA - msg.amount : msg.newState.balanceA,
-        balanceB: hubSide === 'B' ? msg.newState.balanceB - msg.amount : msg.newState.balanceB,
-        htlcs: [],
-        finalized: false,
-      };
+      let prevState: ChannelState;
+      if (latest && !latestIsOpenerOnly) {
+        prevState = latest.state;
+      } else if (latest && latestIsOpenerOnly) {
+        prevState = {
+          channelId: latest.state.channelId,
+          version: 0n,
+          balanceA: latest.state.balanceA,
+          balanceB: latest.state.balanceB,
+          htlcs: [],
+          finalized: false,
+        };
+      } else {
+        prevState = {
+          channelId: msg.channelId,
+          version: 0n,
+          balanceA: hubSide === 'A' ? msg.newState.balanceA - msg.amount : msg.newState.balanceA,
+          balanceB: hubSide === 'B' ? msg.newState.balanceB - msg.amount : msg.newState.balanceB,
+          htlcs: [],
+          finalized: false,
+        };
+      }
 
       let expected: ChannelState;
       try {
@@ -1054,6 +1079,14 @@ export class ChannelClient {
         sigA: iAmA ? mySig : hubSig,
         sigB: iAmA ? hubSig : mySig,
       };
+
+      // Persist the co-signed newState locally before sending acceptTopUp.
+      // This overwrites the opener-only v=1 placeholder (when present), per
+      // spec §8 + scenarios doc Scenario 5: "topUp overwrites the local
+      // version: 1 with a fully co-signed one carrying the post-topUp
+      // balances." Storage is overwrite-by-channelId, so the v=1 slot is
+      // replaced atomically.
+      await this.opts.storage.saveState(msg.channelId, signedNewState);
 
       await this.opts.transport.send({
         id: newRequestId('acceptTopUp'),
