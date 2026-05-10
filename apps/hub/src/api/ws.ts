@@ -4,8 +4,10 @@ import type {
   ChainId,
   Channel,
   ChannelId,
+  ProposeTopUpMessage,
   SignedCooperativeClose,
   SignedState,
+  TopUpCompleteMessage,
 } from '@inferenceroom/pico-protocol';
 import type { ClientToHubMessage, HubMessage, HubToClientMessage } from '@inferenceroom/pico-sdk';
 import { decodeHubMessage, encodeHubMessage, hexToSignature } from '@inferenceroom/pico-sdk';
@@ -31,6 +33,7 @@ import type { Logger } from '../logger.js';
 import type { HubMetrics } from '../metrics.js';
 import { KeyedMutex } from '../mutex.js';
 import { type InflightHtlc, Router } from '../router.js';
+import type { TopUpHandler } from '../topup-handler.js';
 
 interface SubscriberSession {
   readonly socket: WsWebSocket;
@@ -52,11 +55,24 @@ export interface WsDeps {
   readonly requireSignedEnvelope: boolean;
   readonly nonceWindowMs: number;
   readonly paymentRetentionPerChannel: number;
+  /**
+   * §8 inbound liquidity handler. Optional in tests; provided by `server.ts`.
+   * The handler is wired AFTER WS routes are registered (it depends on a
+   * `pushProposeTopUp` callback that, in turn, depends on the session map
+   * built here), so we set it post-construction via `attachTopUpHandler`.
+   */
+  readonly topupHandler?: TopUpHandler;
 }
 
 export interface WsHandle {
   readonly hubAccount: PrivateKeyAccount;
   registerChannel(channel: Channel, initialState?: SignedState): Promise<void>;
+  /** Attach (or replace) the §8 top-up handler post-registration. */
+  attachTopUpHandler(handler: TopUpHandler): void;
+  /** Send a `proposeTopUp` envelope to a connected user; returns delivery success. */
+  pushProposeTopUp(toAddress: Address, msg: ProposeTopUpMessage): boolean;
+  /** Send a `topUpComplete` notification to a connected user. */
+  pushTopUpComplete(toAddress: Address, msg: TopUpCompleteMessage): boolean;
 }
 
 function isSignedEnvelope(value: unknown): value is SignedEnvelope {
@@ -83,6 +99,10 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   await router.hydrate(deps.repos);
 
   const sessions = new Map<string, SubscriberSession>();
+  // Late-bound to break the WS↔topup-handler dependency cycle: the handler
+  // needs `pushProposeTopUp` (defined here), and the WS handlers need to
+  // dispatch accept/reject to the handler. Server wires both after construction.
+  let topupHandler: TopUpHandler | undefined = deps.topupHandler;
   // Serializes route+sign+save per outgoing channel to prevent the hub
   // from signing two conflicting same-version states under concurrency.
   // Locks are taken in deterministic ChannelId order (lowest first) when a
@@ -672,6 +692,50 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     });
   }
 
+  async function handleAcceptTopUp(
+    socket: WsWebSocket,
+    msg: Extract<ClientToHubMessage, { kind: 'acceptTopUp' }>,
+  ): Promise<void> {
+    if (!topupHandler) {
+      sendError(socket, msg.id, 'TOPUP_DISABLED', 'top-up handler not configured');
+      return;
+    }
+    try {
+      await topupHandler.handleAccept(msg);
+    } catch (err) {
+      sendError(socket, msg.id, 'TOPUP_ACCEPT_FAILED', (err as Error).message);
+    }
+  }
+
+  async function handleRejectTopUp(
+    _socket: WsWebSocket,
+    msg: Extract<ClientToHubMessage, { kind: 'rejectTopUp' }>,
+  ): Promise<void> {
+    if (!topupHandler) return;
+    try {
+      await topupHandler.handleReject(msg);
+    } catch (err) {
+      deps.logger.warn(
+        { err: (err as Error).message, offerId: msg.offerId },
+        'rejectTopUp handler failed',
+      );
+    }
+  }
+
+  function pushProposeTopUp(toAddress: Address, msg: ProposeTopUpMessage): boolean {
+    const sess = sessions.get(toAddress.toLowerCase());
+    if (!sess) return false;
+    send(sess.socket, msg);
+    return true;
+  }
+
+  function pushTopUpComplete(toAddress: Address, msg: TopUpCompleteMessage): boolean {
+    const sess = sessions.get(toAddress.toLowerCase());
+    if (!sess) return false;
+    send(sess.socket, msg);
+    return true;
+  }
+
   function authorizedSignerForChannel(
     signer: Address | undefined,
     channelId: ChannelId,
@@ -730,6 +794,22 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
           return;
         }
         return handleCloseRequest(socket, msg);
+      }
+      case 'acceptTopUp': {
+        const auth = authorizedSignerForChannel(signer, msg.channelId);
+        if (!auth.ok) {
+          sendError(socket, msg.id, 'UNAUTHORIZED', auth.reason);
+          return;
+        }
+        return handleAcceptTopUp(socket, msg);
+      }
+      case 'rejectTopUp': {
+        const auth = authorizedSignerForChannel(signer, msg.channelId);
+        if (!auth.ok) {
+          sendError(socket, msg.id, 'UNAUTHORIZED', auth.reason);
+          return;
+        }
+        return handleRejectTopUp(socket, msg);
       }
       default:
         return;
@@ -810,5 +890,10 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         });
       }
     },
+    attachTopUpHandler(handler: TopUpHandler): void {
+      topupHandler = handler;
+    },
+    pushProposeTopUp,
+    pushTopUpComplete,
   };
 }

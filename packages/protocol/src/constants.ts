@@ -58,3 +58,17 @@ export const DEFAULT_HUB_FEE_BPS = 10n;
 export const DEFAULT_HUB_FEE_FLAT = 1n;
 export const MIN_CHANNEL_AMOUNT_USDC = 10_000_000n;
 export const MIN_CHANNEL_AMOUNT_ETH = 10n ** 16n;
+
+// Maximum number of in-flight HTLCs allowed on a single channel (§4.3).
+export const MAX_HTLCS_PER_CHANNEL = 5;
+// Aggregate in-flight HTLC value cap across all channels with the same
+// counterparty, in USDC base units (= 100 USDC). See §4.3.
+export const MAX_HTLC_VALUE_PER_COUNTERPARTY = 100_000_000n;
+// Lower/upper bounds on how far in the future an HTLC's expiry may be set (§4.3).
+export const MIN_HTLC_DURATION_MS = 15 * 60 * 1000;
+export const MAX_HTLC_DURATION_MS = 2 * 60 * 60 * 1000;
+// Required gap between outer (sender) and inner (hub) HTLC expiries (§4.3).
+export const HTLC_TIMEOUT_DELTA_MS = 30 * 60 * 1000;
+// Sentinel hex for an unsigned ECDSA signature slot (65 zero bytes); used for
+// the implicit version-0 prevState in §8.3 and for opener-only initial states.
+export const ZERO_SIG_HEX: `0x${string}` = `0x${'00'.repeat(65)}` as `0x${string}`;

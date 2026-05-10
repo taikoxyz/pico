@@ -36,9 +36,11 @@ interface RawUpdate {
 }
 interface RawCooperativeClose {
   channelId: Hex;
+  version: string;
   finalBalanceA: string;
   finalBalanceB: string;
   signedAt: string;
+  validUntil: string;
 }
 
 interface Oracle {
@@ -82,9 +84,11 @@ function reviveUpdate(raw: RawUpdate): Update {
 function reviveCooperativeClose(raw: RawCooperativeClose): CooperativeClose {
   return {
     channelId: raw.channelId,
+    version: BigInt(raw.version),
     finalBalanceA: BigInt(raw.finalBalanceA),
     finalBalanceB: BigInt(raw.finalBalanceB),
     signedAt: BigInt(raw.signedAt),
+    validUntil: BigInt(raw.validUntil),
   };
 }
 

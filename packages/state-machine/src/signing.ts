@@ -65,9 +65,11 @@ export interface CooperativeCloseTypedData {
   readonly primaryType: 'CooperativeClose';
   readonly message: {
     readonly channelId: Hex;
+    readonly version: bigint;
     readonly finalBalanceA: bigint;
     readonly finalBalanceB: bigint;
     readonly signedAt: bigint;
+    readonly validUntil: bigint;
   };
 }
 
@@ -143,9 +145,11 @@ export function buildCooperativeCloseTypedData(
     primaryType: 'CooperativeClose',
     message: {
       channelId: close.channelId,
+      version: close.version,
       finalBalanceA: close.finalBalanceA,
       finalBalanceB: close.finalBalanceB,
       signedAt: close.signedAt,
+      validUntil: close.validUntil,
     },
   };
 }

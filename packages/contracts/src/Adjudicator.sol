@@ -50,11 +50,27 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
 
     /// @notice ABI-encodable cooperative-close attestation. Distinct from `ChannelState` so
     ///         operators can sign a one-shot close without committing to a specific HTLC root.
+    /// @param channelId Deterministic channel identifier.
+    /// @param version Strictly greater than the channel's on-chain `postedVersion`. Replay defence.
+    /// @param finalBalanceA `userA`'s final balance.
+    /// @param finalBalanceB `userB`'s final balance.
+    /// @param signedAt Unix-second timestamp at which both parties signed the close.
+    /// @param validUntil Unix-second deadline; the contract rejects when `block.timestamp > validUntil`.
     struct CooperativeClose {
         bytes32 channelId;
+        uint64 version;
         uint256 finalBalanceA;
         uint256 finalBalanceB;
         uint64 signedAt;
+        uint64 validUntil;
+    }
+
+    /// @notice ABI-encodable bundle of a `ChannelState` and the dual signatures over it.
+    ///         Used as the prev/new arguments to `PaymentChannel.topUp` (§8).
+    struct SignedChannelState {
+        ChannelState state;
+        bytes sigA;
+        bytes sigB;
     }
 
     bytes32 internal constant CHANNEL_STATE_TYPEHASH = keccak256(
@@ -68,8 +84,9 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
         "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
     );
 
-    bytes32 internal constant COOPERATIVE_CLOSE_TYPEHASH =
-        keccak256("CooperativeClose(bytes32 channelId,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt)");
+    bytes32 internal constant COOPERATIVE_CLOSE_TYPEHASH = keccak256(
+        "CooperativeClose(bytes32 channelId,uint64 version,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt,uint64 validUntil)"
+    );
 
     /// @dev Reserved storage gap to allow future upgrades to add storage without colliding with
     ///      child-contract layouts. OZ pattern.
@@ -131,7 +148,15 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
     /// @notice EIP-712 struct hash of a `CooperativeClose`.
     function hashCooperativeClose(CooperativeClose calldata cc) public pure returns (bytes32) {
         return keccak256(
-            abi.encode(COOPERATIVE_CLOSE_TYPEHASH, cc.channelId, cc.finalBalanceA, cc.finalBalanceB, cc.signedAt)
+            abi.encode(
+                COOPERATIVE_CLOSE_TYPEHASH,
+                cc.channelId,
+                cc.version,
+                cc.finalBalanceA,
+                cc.finalBalanceB,
+                cc.signedAt,
+                cc.validUntil
+            )
         );
     }
 

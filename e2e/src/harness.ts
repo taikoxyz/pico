@@ -65,6 +65,10 @@ export interface BootE2EOptions {
   readonly forkUrl?: string;
   /** Optional pinned block number for reproducible fork tests. */
   readonly forkBlockNumber?: bigint;
+  /** When set, the hub mints exactly this much USDC instead of the 100 USDC default. */
+  readonly hubUsdcMint?: bigint;
+  /** Override hub-side env vars (e.g. polling interval, confirmations). */
+  readonly hubEnv?: Readonly<Record<string, string | undefined>>;
 }
 
 export interface E2EParty {
@@ -75,6 +79,20 @@ export interface E2EParty {
 export interface HubServerHandle {
   readonly url: string;
   registerChannel(channel: Channel, initialState?: SignedState): Promise<void>;
+  /**
+   * Direct channel-pool register that accepts on-chain amounts but no
+   * initialState. Used for inbound-liquidity tests where the hub must use
+   * the sentinel `version: 0` prev branch (i.e. no opener-signed v=1 in the
+   * pool) so the auto-topUp produces a v=1 fully co-signed state.
+   */
+  registerChannelWithAmounts(
+    channel: Channel,
+    amounts: { amountA: bigint; amountB: bigint },
+  ): Promise<void>;
+  /** Test-only: internals exposed for white-box assertions / debugging. */
+  readonly _internal?: {
+    readonly built: BuildServerResult;
+  };
   stop(): Promise<void>;
 }
 
@@ -101,6 +119,8 @@ export interface StartRealHubArgs {
   readonly paymentChannelAddress: Address;
   readonly adjudicatorAddress: Address;
   readonly port?: number;
+  /** Extra env vars merged on top of the defaults; lets tests tune chain polling. */
+  readonly extraEnv?: Readonly<Record<string, string | undefined>>;
 }
 
 export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHandle> {
@@ -119,6 +139,10 @@ export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHan
     DB_URL: join(dbDir, 'hub.sqlite'),
     PICO_DEV_ALLOW_ZERO_ADDRESS: 'true',
     PICO_SKIP_PROD_ASSERT: 'true',
+    // Force Prometheus to share the API port (mounts /metrics on the main
+    // app). Avoids parallel-test conflicts on the default 9090.
+    PROMETHEUS_PORT: '0',
+    ...(args.extraEnv ?? {}),
   };
   const built: BuildServerResult = await buildServer(env);
   const url = await built.app.listen({ port: args.port ?? 0, host: '127.0.0.1' });
@@ -128,6 +152,25 @@ export async function startRealHub(args: StartRealHubArgs): Promise<HubServerHan
     async registerChannel(channel: Channel, initialState?: SignedState): Promise<void> {
       await built.api.ws.registerChannel(channel, initialState);
     },
+    async registerChannelWithAmounts(
+      channel: Channel,
+      amounts: { amountA: bigint; amountB: bigint },
+    ): Promise<void> {
+      // Bypass the WS facade — it only accepts (channel, initialState). Use
+      // the pool directly so we can seed amounts without an opener-signed
+      // state. Mirrors what the hub's chain-watcher would do if it
+      // registered channels itself instead of relying on the harness.
+      await built.channelPool.register(channel, undefined, amounts);
+      // Seed the liquidity tracker so per-counterparty outbound calculations
+      // reflect the on-chain amounts (matters for the topup admission policy).
+      const hubAddr = built.api.ws.hubAccount.address.toLowerCase();
+      const hubIsA = channel.userA.toLowerCase() === hubAddr;
+      built.liquidity.set(channel.id, {
+        outbound: hubIsA ? amounts.amountA : amounts.amountB,
+        inbound: hubIsA ? amounts.amountB : amounts.amountA,
+      });
+    },
+    _internal: { built },
     async stop(): Promise<void> {
       await built.app.close();
       rmSync(dbDir, { recursive: true, force: true });
@@ -171,10 +214,10 @@ async function anvilSetBalance(rpcUrl: string, address: Address, weiHex: Hex): P
 
 export async function bootE2E(opts: BootE2EOptions = {}): Promise<E2EHandle> {
   if (opts.forkUrl) return bootForkMode(opts);
-  return bootVanillaMode();
+  return bootVanillaMode(opts);
 }
 
-async function bootVanillaMode(): Promise<E2EHandle> {
+async function bootVanillaMode(opts: BootE2EOptions = {}): Promise<E2EHandle> {
   const mockErc20 = loadArtifact('MockERC20.sol', 'MockERC20');
   const adjudicatorArtifact = loadArtifact('Adjudicator.sol', 'Adjudicator');
   const paymentChannelArtifact = loadArtifact('PaymentChannel.sol', 'PaymentChannel');
@@ -233,14 +276,20 @@ async function bootVanillaMode(): Promise<E2EHandle> {
       USDC_DECIMALS,
     ]);
 
-    for (const to of [aliceAccount.address, bobAccount.address, hubAccount.address]) {
+    const hubMintAmount = opts.hubUsdcMint ?? 100n * ONE_USDC;
+    const mintPlan: ReadonlyArray<{ to: Address; amount: bigint }> = [
+      { to: aliceAccount.address, amount: 100n * ONE_USDC },
+      { to: bobAccount.address, amount: 100n * ONE_USDC },
+      { to: hubAccount.address, amount: hubMintAmount },
+    ];
+    for (const { to, amount } of mintPlan) {
       const hash = await deployerWallet.writeContract({
         account: deployerAccount,
         chain: foundry,
         address: usdc,
         abi: mockErc20.abi,
         functionName: 'mint',
-        args: [to, 100n * ONE_USDC],
+        args: [to, amount],
       });
       await publicClient.waitForTransactionReceipt({ hash });
     }
@@ -297,6 +346,14 @@ async function bootVanillaMode(): Promise<E2EHandle> {
       chainId: ANVIL_DEV_CHAIN_ID,
       paymentChannelAddress: paymentChannel,
       adjudicatorAddress: adjudicator,
+      // Pre-seed the hub's USDC token address so the §8 topup-handler can
+      // submit on-chain topUps even before any channel is registered. Server's
+      // resolveToken() falls back to HUB_USDC_TOKEN when the channel pool is
+      // empty (apps/hub/src/server.ts L122-124).
+      extraEnv: {
+        HUB_USDC_TOKEN: usdc,
+        ...(opts.hubEnv ?? {}),
+      },
     });
 
     return {
@@ -496,6 +553,20 @@ export function buildClient(
 
 export function buildAliceClient(h: E2EHandle): AliceBundle {
   return buildClient(h, h.alice);
+}
+
+export type BobBundle = ClientBundle;
+
+export function buildBobClient(h: E2EHandle, opts: BuildClientOpts = {}): BobBundle {
+  return buildClient(h, h.bob, opts);
+}
+
+export function buildClientForParty(
+  h: E2EHandle,
+  party: E2EParty,
+  opts: BuildClientOpts = {},
+): ClientBundle {
+  return buildClient(h, party, opts);
 }
 
 export async function timeWarp(rpcUrl: string, seconds: number): Promise<void> {

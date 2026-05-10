@@ -11,6 +11,13 @@ interface ChannelRow {
   readonly status: string;
   readonly opened_at: string;
   readonly dispute_window_ms: string;
+  readonly amount_a: string | null;
+  readonly amount_b: string | null;
+}
+
+export interface ChannelAmounts {
+  readonly amountA: bigint;
+  readonly amountB: bigint;
 }
 
 function rowToChannel(r: ChannelRow): Channel {
@@ -30,10 +37,12 @@ function rowToChannel(r: ChannelRow): Channel {
 export class ChannelRepo {
   constructor(private readonly db: DbDriver) {}
 
-  async upsert(channel: Channel): Promise<void> {
+  async upsert(channel: Channel, amounts?: ChannelAmounts): Promise<void> {
+    // Seed amounts on initial insert (defaults preserved on conflict so a
+    // later top-up via updateAmounts does not get clobbered by a re-upsert).
     await this.db.exec(
-      `INSERT INTO channels (id, chain_id, contract, user_a, user_b, token, status, opened_at, dispute_window_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO channels (id, chain_id, contract, user_a, user_b, token, status, opened_at, dispute_window_ms, amount_a, amount_b)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          opened_at = excluded.opened_at`,
@@ -47,6 +56,8 @@ export class ChannelRepo {
         channel.status,
         channel.openedAt.toString(),
         String(channel.disputeWindowMs),
+        amounts?.amountA.toString() ?? '0',
+        amounts?.amountB.toString() ?? '0',
       ],
     );
   }
@@ -56,6 +67,24 @@ export class ChannelRepo {
     return rows[0] ? rowToChannel(rows[0]) : undefined;
   }
 
+  /**
+   * Returns the persisted on-chain `amountA` / `amountB` for the channel.
+   * Used by the router's per-channel HTLC value cap (§4.3) and by topup
+   * accounting after a `ToppedUp` confirms.
+   */
+  async getAmounts(id: ChannelId): Promise<ChannelAmounts | undefined> {
+    const rows = await this.db.query<{ amount_a: string | null; amount_b: string | null }>(
+      'SELECT amount_a, amount_b FROM channels WHERE id = ?',
+      [id],
+    );
+    const r = rows[0];
+    if (!r) return undefined;
+    return {
+      amountA: BigInt(r.amount_a ?? '0'),
+      amountB: BigInt(r.amount_b ?? '0'),
+    };
+  }
+
   async list(): Promise<readonly Channel[]> {
     const rows = await this.db.query<ChannelRow>('SELECT * FROM channels');
     return rows.map(rowToChannel);
@@ -63,6 +92,18 @@ export class ChannelRepo {
 
   async setStatus(id: ChannelId, status: ChannelStatus): Promise<void> {
     await this.db.exec('UPDATE channels SET status = ? WHERE id = ?', [status, id]);
+  }
+
+  /**
+   * Sets the on-chain deposit amounts. Called by the topup-handler once a
+   * `ToppedUp` event confirms.
+   */
+  async updateAmounts(id: ChannelId, amountA: bigint, amountB: bigint): Promise<void> {
+    await this.db.exec('UPDATE channels SET amount_a = ?, amount_b = ? WHERE id = ?', [
+      amountA.toString(),
+      amountB.toString(),
+      id,
+    ]);
   }
 
   async countByStatus(): Promise<Record<ChannelStatus, number>> {

@@ -106,6 +106,77 @@ contract PaymentChannelReplayTest is Fixtures {
         channel.finalize(id);
     }
 
+    /* ====================================================================== */
+    /*  CooperativeClose replay defenses (version + validUntil)                */
+    /* ====================================================================== */
+
+    function test_closeCoop_rejectsStaleVersion() public {
+        bytes32 id = _open();
+        // postedVersion is 0 on a fresh channel; version 0 must not satisfy `> 0`.
+        Adjudicator.CooperativeClose memory cc =
+            _coopClose(id, 50_000_000, 30_000_000, 0, uint64(block.timestamp + 1 hours));
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
+        vm.expectRevert(bytes("stale version"));
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
+    }
+
+    function test_closeCoop_rejectsExpired() public {
+        bytes32 id = _open();
+        // Build a coopClose with validUntil already past — block.timestamp at construction
+        // becomes signedAt; choose validUntil < signedAt by using a fixed past timestamp.
+        skip(2 hours);
+        Adjudicator.CooperativeClose memory cc = _coopClose(id, 50_000_000, 30_000_000, 1, uint64(block.timestamp - 1));
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
+        vm.expectRevert(bytes("expired"));
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
+    }
+
+    function test_closeCoop_rejectsReplayAfterFirstSucceeds() public {
+        // Open a fresh channel, run a successful coopClose at version=2, then attempt to
+        // post a second coopClose at version=2 again — must revert "stale version" because
+        // postedVersion was bumped to 2 on the first call (even though channel is now Closed,
+        // the !open check trips first; we re-open a sibling channel to isolate the version
+        // gate). Spec demands: "submit a close that succeeds (postedVersion bumped), then
+        // submit a second close with version == postedVersion, expect revert 'stale version'".
+        // Since the channel transitions to Closed after a successful close, the most direct
+        // way to exercise the postedVersion bump is to top-up first (bumps postedVersion
+        // to 1) and then run a coopClose with version <= 1 — which trips "stale version".
+        bytes32 id = _open();
+
+        // Use topUp to bump postedVersion to 1 without closing the channel.
+        // alice tops up by 5 USDC; pre-state is sentinel (version 0, balances == amounts).
+        Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
+            state: Adjudicator.ChannelState({
+                channelId: id, version: 0, balanceA: FUND_A, balanceB: FUND_B, htlcsRoot: bytes32(0), finalized: false
+            }),
+            sigA: hex"",
+            sigB: hex""
+        });
+        Adjudicator.ChannelState memory nextState = Adjudicator.ChannelState({
+            channelId: id,
+            version: 1,
+            balanceA: FUND_A + 5_000_000,
+            balanceB: FUND_B,
+            htlcsRoot: bytes32(0),
+            finalized: false
+        });
+        Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
+        });
+        vm.prank(alice);
+        channel.topUp(id, 5_000_000, prev, next);
+
+        // postedVersion is now 1. A coopClose at version=1 must be rejected as stale.
+        Adjudicator.CooperativeClose memory cc =
+            _coopClose(id, FUND_A + 5_000_000, FUND_B, 1, uint64(block.timestamp + 1 hours));
+        bytes memory sigA = _signCoopClose(alicePk, cc);
+        bytes memory sigB = _signCoopClose(bobPk, cc);
+        vm.expectRevert(bytes("stale version"));
+        channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
+    }
+
     function _open() internal returns (bytes32) {
         vm.prank(alice);
         return channel.openChannel(bob, address(token), FUND_A, FUND_B);
@@ -123,6 +194,21 @@ contract PaymentChannelReplayTest is Fixtures {
             balanceB: balanceB,
             htlcsRoot: bytes32(0),
             finalized: false
+        });
+    }
+
+    function _coopClose(bytes32 channelId, uint256 finalA, uint256 finalB, uint64 version, uint64 validUntil)
+        internal
+        view
+        returns (Adjudicator.CooperativeClose memory)
+    {
+        return Adjudicator.CooperativeClose({
+            channelId: channelId,
+            version: version,
+            finalBalanceA: finalA,
+            finalBalanceB: finalB,
+            signedAt: uint64(block.timestamp),
+            validUntil: validUntil
         });
     }
 }

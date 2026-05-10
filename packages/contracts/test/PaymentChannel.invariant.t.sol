@@ -78,7 +78,12 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: id, finalBalanceA: finalA, finalBalanceB: finalB, signedAt: uint64(block.timestamp)
+            channelId: id,
+            version: ch.postedVersion + 1,
+            finalBalanceA: finalA,
+            finalBalanceB: finalB,
+            signedAt: uint64(block.timestamp),
+            validUntil: uint64(block.timestamp + 1 hours)
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
@@ -196,12 +201,14 @@ contract ChannelHandler is Test {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "CooperativeClose(bytes32 channelId,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt)"
+                    "CooperativeClose(bytes32 channelId,uint64 version,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt,uint64 validUntil)"
                 ),
                 cc.channelId,
+                cc.version,
                 cc.finalBalanceA,
                 cc.finalBalanceB,
-                cc.signedAt
+                cc.signedAt,
+                cc.validUntil
             )
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));

@@ -1,6 +1,11 @@
 import websocket from '@fastify/websocket';
+import { ViemChainAdapter, paymentChannelAbi } from '@inferenceroom/pico-sdk';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { http, type WalletClient, createPublicClient, createWalletClient, erc20Abi } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { foundry, taiko } from 'viem/chains';
 import { type ApiHandle, registerRoutes } from './api/index.js';
+import { AutoRecycle } from './auto-recycle.js';
 import { ChainWatcher } from './chain-watcher.js';
 import { ChannelPool } from './channel-pool.js';
 import { type HubConfig, loadConfig } from './config.js';
@@ -10,6 +15,9 @@ import { DisputeHandler } from './dispute-handler.js';
 import { LiquidityTracker } from './liquidity.js';
 import { logger } from './logger.js';
 import { type HubMetrics, buildMetrics, registry } from './metrics.js';
+import { KeyedMutex } from './mutex.js';
+import { TopUpHandler } from './topup-handler.js';
+import { DEFAULT_TOPUP_POLICY } from './topup-policy.js';
 
 export interface BuildServerResult {
   readonly app: FastifyInstance;
@@ -21,6 +29,13 @@ export interface BuildServerResult {
   readonly metrics: HubMetrics;
   readonly chainWatcher: ChainWatcher;
   readonly api: ApiHandle;
+  readonly topupHandler: TopUpHandler;
+  readonly autoRecycle: AutoRecycle;
+}
+
+function viemChainFor(chainId: number) {
+  if (chainId === 167000) return taiko;
+  return foundry;
 }
 
 export async function buildServer(
@@ -56,19 +71,6 @@ export async function buildServer(
     hubPrivateKey: config.hubPrivateKey,
   });
 
-  const chainWatcher = new ChainWatcher({
-    rpcUrl: config.rpcUrl,
-    logger,
-    channelPool,
-    repos,
-    paymentChannelAddress: config.paymentChannelAddress,
-    metrics,
-    disputeHandler,
-    chainId: config.chainId,
-    pollingIntervalMs: config.chainPollingIntervalMs,
-    confirmations: config.chainConfirmations,
-  });
-
   const api = await registerRoutes(app, {
     channelPool,
     liquidity,
@@ -87,6 +89,94 @@ export async function buildServer(
     nonceWindowMs: config.nonceWindowMs,
     paymentRetentionPerChannel: config.paymentRetentionPerChannel,
     operatorToken: config.operatorToken,
+  });
+
+  // Build the §8 inbound liquidity stack. It needs the WS push callback and
+  // a chain adapter — both available now.
+  const hotWalletMutex = new KeyedMutex<string>();
+  const chain = viemChainFor(config.chainId);
+  const publicClientForChain = createPublicClient({ chain, transport: http(config.rpcUrl) });
+  const walletClient: WalletClient = createWalletClient({
+    account: privateKeyToAccount(config.hubPrivateKey),
+    chain,
+    transport: http(config.rpcUrl),
+  });
+  const chainAdapter = new ViemChainAdapter({
+    // ViemChainAdapter casts internally; the public client returned by
+    // createPublicClient is shape-compatible with PublicClient<Transport>.
+    publicClient: publicClientForChain as never,
+    walletClient,
+    paymentChannelAddress: config.paymentChannelAddress,
+  });
+
+  // Resolve the channel-token by reading the first known channel; in
+  // production the hub serves a single ERC-20 (USDC) channel network, so all
+  // channels share a token. Defaults to the configured payment channel
+  // contract's `token()` if no channel is known yet — but for safety we read
+  // from config when available. As a pragmatic default for v1, take it from
+  // the first registered channel.
+  function resolveToken(): `0x${string}` {
+    const first = channelPool.list()[0];
+    if (first) return first.token;
+    // No channels yet; fall back to the env-configured USDC address if
+    // present. This path runs during bootstrap before any open is observed.
+    return (env.HUB_USDC_TOKEN ?? '0x0000000000000000000000000000000000000000') as `0x${string}`;
+  }
+
+  async function readUsdcBalance(): Promise<bigint> {
+    const token = resolveToken();
+    if (token === '0x0000000000000000000000000000000000000000') return 0n;
+    const balance = (await publicClientForChain.readContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [api.ws.hubAccount.address],
+    })) as bigint;
+    return balance;
+  }
+
+  const topupHandler = new TopUpHandler({
+    channelPool,
+    liquidity,
+    repos,
+    metrics,
+    logger,
+    hubAccount: api.ws.hubAccount,
+    chainId: config.chainId,
+    verifyingContract: config.adjudicatorAddress,
+    chain: chainAdapter,
+    token: resolveToken(),
+    policyConfig: DEFAULT_TOPUP_POLICY,
+    hotWalletMutex,
+    readUsdcBalance,
+    pushProposeTopUp: (toAddress, msg) => api.ws.pushProposeTopUp(toAddress, msg),
+    pushTopUpComplete: (toAddress, msg) => api.ws.pushTopUpComplete(toAddress, msg),
+  });
+  await topupHandler.hydrate();
+  api.ws.attachTopUpHandler(topupHandler);
+
+  const autoRecycle = new AutoRecycle({
+    logger,
+    repos,
+    channelPool,
+    topupHandler,
+    hotWalletMutex,
+  });
+
+  const chainWatcher = new ChainWatcher({
+    rpcUrl: config.rpcUrl,
+    logger,
+    channelPool,
+    repos,
+    paymentChannelAddress: config.paymentChannelAddress,
+    metrics,
+    disputeHandler,
+    chainId: config.chainId,
+    pollingIntervalMs: config.chainPollingIntervalMs,
+    confirmations: config.chainConfirmations,
+    topupHandler,
+    autoRecycle,
+    hubAddress: api.ws.hubAccount.address,
   });
 
   // Metrics serving:
@@ -137,6 +227,9 @@ export async function buildServer(
   });
 
   await chainWatcher.start();
+  // paymentChannelAbi is exported above to keep tree-shaking honest; reference
+  // it once so unused-import linters don't strip it.
+  void paymentChannelAbi;
   return {
     app,
     config,
@@ -147,6 +240,8 @@ export async function buildServer(
     metrics,
     chainWatcher,
     api,
+    topupHandler,
+    autoRecycle,
   };
 }
 

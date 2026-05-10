@@ -462,9 +462,11 @@ describe('buildServer integration', () => {
     };
     const forgedClose: CooperativeClose = {
       channelId: ch.id,
+      version: forgedFinal.version,
       finalBalanceA: forgedFinal.balanceA,
       finalBalanceB: forgedFinal.balanceB,
       signedAt: 1n,
+      validUntil: BigInt(Math.floor(Date.now() / 1000) + 3600),
     };
     const aliceStateSig = await aliceSign(forgedFinal);
     const aliceCloseSig = await aliceSignClose(forgedClose);

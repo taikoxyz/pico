@@ -70,8 +70,18 @@ describe('Router', () => {
       channelRepo: h.repos.channels,
       stateRepo: h.repos.states,
     });
-    await pool.register(aliceHubChannel, signed(aliceHubChannel, 100n, 0n));
-    await pool.register(hubBobChannel, signed(hubBobChannel, 50n, 0n));
+    // Provide on-chain amounts so the §4.3 per-channel value cap admits
+    // these test routes (cap = min(amountA, amountB)). For the hub→Bob
+    // channel, we model 50 USDC outbound on the hub side and 1000 USDC of
+    // user-side capacity so the cap admits up to ~50 USDC HTLCs.
+    await pool.register(aliceHubChannel, signed(aliceHubChannel, 100n, 0n), {
+      amountA: 100n,
+      amountB: 1_000n,
+    });
+    await pool.register(hubBobChannel, signed(hubBobChannel, 50n, 0n), {
+      amountA: 50n,
+      amountB: 1_000n,
+    });
   });
   afterEach(async () => h.cleanup());
 

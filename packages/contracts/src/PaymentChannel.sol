@@ -185,6 +185,8 @@ contract PaymentChannel is
 
         Adjudicator.CooperativeClose memory cc = abi.decode(closeData, (Adjudicator.CooperativeClose));
         require(cc.channelId == channelId, "channelId");
+        require(cc.version > ch.postedVersion, "stale version");
+        require(block.timestamp <= cc.validUntil, "expired");
         require(cc.finalBalanceA + cc.finalBalanceB == ch.amountA + ch.amountB, "!conserved");
 
         require(_verifyDualCooperativeClose(ch.userA, ch.userB, cc, sigA, sigB), "bad sig");
@@ -195,6 +197,7 @@ contract PaymentChannel is
         uint256 payA = cc.finalBalanceA;
         uint256 payB = cc.finalBalanceB;
 
+        ch.postedVersion = cc.version;
         ch.status = Status.Closed;
 
         if (payA > 0) IERC20(token).safeTransfer(userA, payA);
@@ -231,6 +234,94 @@ contract PaymentChannel is
         ch.status = Status.ClosingUnilateral;
 
         emit ChannelClosingUnilateral(channelId, s.version, ch.disputeDeadline);
+    }
+
+    /// @inheritdoc IPaymentChannel
+    /// @dev Anti-hostage path. After a fresh open with no co-signed state yet, either party
+    ///      may unilaterally start the dispute window using the implicit version-0 state
+    ///      (which mirrors the on-chain `(amountA, amountB)`). The counterparty can still
+    ///      challenge during the window with any strictly-newer dual-signed state.
+    ///      Required when a malicious counterparty refuses to co-sign anything after open;
+    ///      without this entry point the depositor's funds would be stranded indefinitely.
+    function closeUnilateralFromOpen(bytes32 channelId) external nonReentrant {
+        Channel storage ch = _channels[channelId];
+        require(ch.status == Status.Open, "!open");
+        require(ch.postedVersion == 0, "posted!=0");
+        require(msg.sender == ch.userA || msg.sender == ch.userB, "!party");
+
+        ch.postedVersion = 0; // explicit; already zero
+        ch.postedBalanceA = ch.amountA;
+        ch.postedBalanceB = ch.amountB;
+        ch.disputeDeadline = uint64(block.timestamp) + DISPUTE_WINDOW;
+        ch.closer = msg.sender;
+        ch.status = Status.ClosingUnilateral;
+
+        emit ChannelClosingUnilateral(channelId, 0, ch.disputeDeadline);
+    }
+
+    /// @inheritdoc IPaymentChannel
+    /// @dev `topUp` (§8) lets either party additively deposit into their own side of an
+    ///      `Open` channel. Both `prevState` and `newState` are dual-signed `ChannelState`
+    ///      tuples; the contract anchors against `prevState` (rather than the on-chain
+    ///      `postedVersion`) so off-chain payment history is preserved. The depositor's
+    ///      side increases by exactly `amount`; the counterparty's balance is unchanged.
+    ///      A special "sentinel" form for the very first top-up on a freshly-opened
+    ///      channel is accepted: `prevState.version == 0`, sigA/sigB empty, balances
+    ///      equal to the on-chain `amountA`/`amountB`.
+    function topUp(
+        bytes32 channelId,
+        uint256 amount,
+        Adjudicator.SignedChannelState calldata prev,
+        Adjudicator.SignedChannelState calldata next
+    ) external nonReentrant {
+        Channel storage ch = _channels[channelId];
+        require(ch.status == Status.Open, "!open");
+        require(msg.sender == ch.userA || msg.sender == ch.userB, "!party");
+        require(amount > 0, "amount=0");
+
+        // prevState validation
+        require(prev.state.channelId == channelId, "prev channelId");
+        require(prev.state.htlcsRoot == bytes32(0), "prev htlcs!=0");
+        require(!prev.state.finalized, "prev finalized");
+        require(prev.state.version >= ch.postedVersion, "prev<posted");
+        require(prev.state.balanceA + prev.state.balanceB == ch.amountA + ch.amountB, "prev !conserved");
+
+        if (prev.state.version == 0) {
+            // Sentinel branch: bytewise zero sigs + balances == amounts
+            require(prev.sigA.length == 0 && prev.sigB.length == 0, "sentinel sigs");
+            require(prev.state.balanceA == ch.amountA && prev.state.balanceB == ch.amountB, "sentinel bal");
+        } else {
+            require(_verifyDualSig(ch.userA, ch.userB, prev.state, prev.sigA, prev.sigB), "prev bad sig");
+        }
+
+        // newState validation
+        require(next.state.channelId == channelId, "next channelId");
+        require(next.state.version == prev.state.version + 1, "next version");
+        require(next.state.htlcsRoot == bytes32(0), "next htlcs!=0");
+        require(!next.state.finalized, "next finalized");
+
+        if (msg.sender == ch.userA) {
+            require(next.state.balanceA == prev.state.balanceA + amount, "A delta");
+            require(next.state.balanceB == prev.state.balanceB, "B unchanged");
+        } else {
+            require(next.state.balanceB == prev.state.balanceB + amount, "B delta");
+            require(next.state.balanceA == prev.state.balanceA, "A unchanged");
+        }
+        require(next.state.balanceA + next.state.balanceB == ch.amountA + ch.amountB + amount, "next !conserved");
+        require(_verifyDualSig(ch.userA, ch.userB, next.state, next.sigA, next.sigB), "next bad sig");
+
+        // Pull funds and update state
+        IERC20(ch.token).safeTransferFrom(msg.sender, address(this), amount);
+        if (msg.sender == ch.userA) {
+            ch.amountA += amount;
+        } else {
+            ch.amountB += amount;
+        }
+        ch.postedVersion = next.state.version;
+        ch.postedBalanceA = next.state.balanceA;
+        ch.postedBalanceB = next.state.balanceB;
+
+        emit ToppedUp(channelId, msg.sender, amount, next.state.version);
     }
 
     /// @inheritdoc IPaymentChannel

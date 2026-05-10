@@ -123,12 +123,14 @@ abstract contract Fixtures is Test {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "CooperativeClose(bytes32 channelId,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt)"
+                    "CooperativeClose(bytes32 channelId,uint64 version,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt,uint64 validUntil)"
                 ),
                 cc.channelId,
+                cc.version,
                 cc.finalBalanceA,
                 cc.finalBalanceB,
-                cc.signedAt
+                cc.signedAt,
+                cc.validUntil
             )
         );
         return keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));

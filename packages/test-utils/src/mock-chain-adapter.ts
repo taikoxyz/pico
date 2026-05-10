@@ -3,11 +3,14 @@ import type {
   ChainAdapter,
   CloseCooperativeOnChainArgs,
   CloseOnChainResult,
+  CloseUnilateralFromOpenOnChainArgs,
   CloseUnilateralOnChainArgs,
   CloseUnilateralOnChainResult,
   FinalizedResult,
   OpenChannelOnChainArgs,
   OpenChannelOnChainResult,
+  TopUpOnChainArgs,
+  TopUpOnChainResult,
 } from '@inferenceroom/pico-sdk';
 import { keccak256, toHex } from 'viem';
 
@@ -24,8 +27,8 @@ interface InternalChannel {
   readonly userA: Address;
   readonly userB: Address;
   readonly token: Address;
-  readonly amountA: bigint;
-  readonly amountB: bigint;
+  amountA: bigint;
+  amountB: bigint;
   readonly openedAtMs: bigint;
   postedBalanceA: bigint;
   postedBalanceB: bigint;
@@ -108,6 +111,48 @@ export class MockChainAdapter implements ChainAdapter {
       txHash: fakeHash(`close-uni|${args.channelId}`),
       disputeDeadlineMs: BigInt(Date.now() + this.opts.disputeWindowMs),
       postedVersion: args.state.state.version,
+    };
+  }
+
+  async closeUnilateralFromOpen(
+    args: CloseUnilateralFromOpenOnChainArgs,
+  ): Promise<CloseUnilateralOnChainResult> {
+    await this.sleep(this.opts.closeLatencyMs);
+    const ch = this.channels.get(args.channelId);
+    if (!ch) throw new Error(`mock: unknown channel ${args.channelId}`);
+    // protocol-spec §1, §5.2: synthesises the implicit version-0 state from
+    // (amountA, amountB) and starts the dispute window; no co-signed state
+    // required.
+    ch.postedBalanceA = ch.amountA;
+    ch.postedBalanceB = ch.amountB;
+    ch.status = 'closing';
+    return {
+      txHash: fakeHash(`close-uni-open|${args.channelId}`),
+      disputeDeadlineMs: BigInt(Date.now() + this.opts.disputeWindowMs),
+      postedVersion: 0n,
+    };
+  }
+
+  async topUp(args: TopUpOnChainArgs): Promise<TopUpOnChainResult> {
+    await this.sleep(this.opts.openLatencyMs);
+    const ch = this.channels.get(args.channelId);
+    if (!ch) throw new Error(`mock: unknown channel ${args.channelId}`);
+    if (ch.status !== 'open') {
+      throw new Error(`mock: cannot top up channel in status ${ch.status}`);
+    }
+    // protocol-spec §8.3: depositor's deposit increases by `amount`; the new
+    // posted snapshot becomes `next.state`. Both `amountA/B` and posted
+    // balances are bumped so later closeUnilateralFromOpen / finalize paths
+    // observe the post-top-up totals.
+    const depositorIsA = args.next.state.balanceA > args.prev.state.balanceA;
+    if (depositorIsA) ch.amountA += args.amount;
+    else ch.amountB += args.amount;
+    ch.postedBalanceA = args.next.state.balanceA;
+    ch.postedBalanceB = args.next.state.balanceB;
+    return {
+      txHash: fakeHash(`topup|${args.channelId}|${args.next.state.version}`),
+      newVersion: args.next.state.version,
+      amount: args.amount,
     };
   }
 

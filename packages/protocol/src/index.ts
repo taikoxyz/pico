@@ -5,3 +5,4 @@ export * from './events.js';
 export * from './htlc-root.js';
 export * from './invoice.js';
 export * from './schemas.js';
+export * from './topup-messages.js';

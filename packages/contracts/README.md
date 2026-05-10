@@ -5,10 +5,13 @@ Solidity 0.8.26 contracts for pico pairwise payment channels. Built with Foundry
 Surface area:
 
 - `PaymentChannel.sol` — pairwise channel core (open / cooperative-close /
-  unilateral-close / dispute / penalty / finalize). UUPS upgradeable behind
-  `ERC1967Proxy`.
+  unilateral-close / `closeUnilateralFromOpen` / `topUp` / dispute / penalty /
+  finalize). UUPS upgradeable behind `ERC1967Proxy`. Implements the v1.1 §8
+  inbound-liquidity surface plus the §1 / §6.2 cooperative-close replay
+  defenses (`version` + `validUntil`).
 - `Adjudicator.sol` — EIP-712 typed-data verifier for `ChannelState`, `Htlc`,
-  `Update`, and `CooperativeClose`. UUPS upgradeable.
+  `Update`, and `CooperativeClose` (the latter now carrying `version` +
+  `validUntil`). UUPS upgradeable.
 - `HTLC.sol` — hash-time-locked-contract primitives (`hashLock`,
   `verifyPreimage`, `rootOf`), packaged as a stateless library.
 - `interfaces/` — public ABI surface for SDKs and watchtowers (`IPaymentChannel`,
@@ -32,6 +35,14 @@ environment.
 ## Deployments
 
 ### Taiko mainnet (chainId 167000)
+
+> **v1.1 redeployment pending.** The addresses below host the pre-§8
+> implementation: no `topUp`, no `closeUnilateralFromOpen`, and the old
+> `CooperativeClose` typed-data without `version` / `validUntil`. v1.1
+> contracts in `src/` will be deployed to fresh proxies; this table will be
+> updated alongside that release. Until then,
+> `CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID]` in `@inferenceroom/pico-protocol`
+> still points at the pre-§8 proxies.
 
 | Artifact | Address |
 |---|---|

@@ -63,6 +63,7 @@ pico keys init|import|show
 pico channel open --hub <addr> --amount <usdc> [--rpc <url>] [--token <addr>]
 pico channel list [--json]
 pico channel close <id> [--cooperative|--unilateral] [--via <ws-url>]
+pico channel close-from-open <id> [--via <ws-url>] [--rpc <url>]
 pico invoice create --amount <usdc> [--memo <s>] [--expiry <s>] [--hub-hint <url>]
 pico invoice list [--paid|--unpaid] [--json]
 pico invoice show <paymentHash> [--reveal-preimage]

@@ -117,9 +117,11 @@ function buildOracle(): Oracle {
   for (let i = 1; i <= 12; i++) {
     const c: CooperativeClose = {
       channelId: hex32(i),
+      version: BigInt(i + 1),
       finalBalanceA: BigInt(i * 1_000),
       finalBalanceB: BigInt(i * 2_000),
       signedAt: BigInt(1_700_000_000 + i * 60),
+      validUntil: BigInt(1_700_000_000 + i * 60 + 3600),
     };
     cooperativeClose.push({
       input: c,
