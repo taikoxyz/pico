@@ -19,6 +19,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { emit, formatChannelTable } from '../runtime/output.js';
 import { resolvePrivateKey } from '../runtime/signer.js';
 import { openStorage } from '../runtime/storage.js';
+import { registerCloseFromOpen } from './channel-close-from-open.js';
 
 export interface ChannelDeps {
   readonly env?: NodeJS.ProcessEnv;
@@ -217,6 +218,8 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
         }
       },
     );
+
+  registerCloseFromOpen(cmd, deps);
 
   return cmd;
 }
