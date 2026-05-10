@@ -45,7 +45,12 @@ contract PaymentChannelFuzzTest is Fixtures {
         uint256 finalB = total - finalA;
 
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: id, finalBalanceA: finalA, finalBalanceB: finalB, signedAt: uint64(block.timestamp)
+            channelId: id,
+            version: 1,
+            finalBalanceA: finalA,
+            finalBalanceB: finalB,
+            signedAt: uint64(block.timestamp),
+            validUntil: uint64(block.timestamp + 1 hours)
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
@@ -69,7 +74,12 @@ contract PaymentChannelFuzzTest is Fixtures {
         bytes32 id = channel.openChannel(bob, address(token), amountA, amountB);
 
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: id, finalBalanceA: attackerA, finalBalanceB: 0, signedAt: uint64(block.timestamp)
+            channelId: id,
+            version: 1,
+            finalBalanceA: attackerA,
+            finalBalanceB: 0,
+            signedAt: uint64(block.timestamp),
+            validUntil: uint64(block.timestamp + 1 hours)
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);

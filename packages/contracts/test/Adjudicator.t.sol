@@ -126,7 +126,12 @@ contract AdjudicatorTest is Fixtures {
 
     function test_recoverCooperativeCloseSigner_happyPath() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
+            channelId: bytes32(uint256(0xC1)),
+            version: 1,
+            finalBalanceA: 100,
+            finalBalanceB: 200,
+            signedAt: 1234,
+            validUntil: uint64(block.timestamp + 1 hours)
         });
         bytes memory sig = _signCoopClose(alicePk, cc);
         assertEq(adjudicator.recoverCooperativeCloseSigner(cc, sig), alice);
@@ -134,7 +139,12 @@ contract AdjudicatorTest is Fixtures {
 
     function test_verifyDualCooperativeClose_happyPath() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
+            channelId: bytes32(uint256(0xC1)),
+            version: 1,
+            finalBalanceA: 100,
+            finalBalanceB: 200,
+            signedAt: 1234,
+            validUntil: uint64(block.timestamp + 1 hours)
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
@@ -143,7 +153,12 @@ contract AdjudicatorTest is Fixtures {
 
     function test_verifyDualCooperativeClose_falseOnZeroAddress() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
+            channelId: bytes32(uint256(0xC1)),
+            version: 1,
+            finalBalanceA: 100,
+            finalBalanceB: 200,
+            signedAt: 1234,
+            validUntil: uint64(block.timestamp + 1 hours)
         });
         bytes memory sigA = _signCoopClose(alicePk, cc);
         bytes memory sigB = _signCoopClose(bobPk, cc);
@@ -247,17 +262,24 @@ contract AdjudicatorTest is Fixtures {
 
     function test_hashCooperativeClose_matchesManualEncode() public view {
         Adjudicator.CooperativeClose memory cc = Adjudicator.CooperativeClose({
-            channelId: bytes32(uint256(0xC1)), finalBalanceA: 100, finalBalanceB: 200, signedAt: 1234
+            channelId: bytes32(uint256(0xC1)),
+            version: 1,
+            finalBalanceA: 100,
+            finalBalanceB: 200,
+            signedAt: 1234,
+            validUntil: uint64(block.timestamp + 1 hours)
         });
         bytes32 expected = keccak256(
             abi.encode(
                 keccak256(
-                    "CooperativeClose(bytes32 channelId,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt)"
+                    "CooperativeClose(bytes32 channelId,uint64 version,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt,uint64 validUntil)"
                 ),
                 cc.channelId,
+                cc.version,
                 cc.finalBalanceA,
                 cc.finalBalanceB,
-                cc.signedAt
+                cc.signedAt,
+                cc.validUntil
             )
         );
         assertEq(this._hashCoopClose(cc), expected);

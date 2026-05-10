@@ -767,8 +767,23 @@ contract PaymentChannelTest is Fixtures {
         view
         returns (Adjudicator.CooperativeClose memory)
     {
+        return _coopClose(channelId, balanceA, balanceB, 1, uint64(block.timestamp + 1 hours));
+    }
+
+    function _coopClose(
+        bytes32 channelId,
+        uint256 balanceA,
+        uint256 balanceB,
+        uint64 version,
+        uint64 validUntil
+    ) internal view returns (Adjudicator.CooperativeClose memory) {
         return Adjudicator.CooperativeClose({
-            channelId: channelId, finalBalanceA: balanceA, finalBalanceB: balanceB, signedAt: uint64(block.timestamp)
+            channelId: channelId,
+            version: version,
+            finalBalanceA: balanceA,
+            finalBalanceB: balanceB,
+            signedAt: uint64(block.timestamp),
+            validUntil: validUntil
         });
     }
 }
