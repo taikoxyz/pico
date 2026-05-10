@@ -1,4 +1,13 @@
-import type { ChannelState, Htlc, Preimage } from '@inferenceroom/pico-protocol';
+import {
+  type ChannelState,
+  HTLC_TIMEOUT_DELTA_MS,
+  type Htlc,
+  MAX_HTLCS_PER_CHANNEL,
+  MAX_HTLC_DURATION_MS,
+  MAX_HTLC_VALUE_PER_COUNTERPARTY,
+  MIN_HTLC_DURATION_MS,
+  type Preimage,
+} from '@inferenceroom/pico-protocol';
 import { StateMachineError, UnknownHtlcError } from './errors.js';
 import { verifyPreimage } from './preimage.js';
 
@@ -60,4 +69,67 @@ export function expireHtlcs(state: ChannelState, nowMs: bigint): ChannelState {
     }
   }
   return next;
+}
+
+export interface HtlcAdmissionContext {
+  /** Number of in-flight HTLCs already on this channel (after pending admit). */
+  readonly currentHtlcCount: number;
+  /** Aggregate in-flight HTLC value across this channel. */
+  readonly perChannelInflightValue: bigint;
+  /** Aggregate in-flight HTLC value across all channels with this counterparty. */
+  readonly perCounterpartyInflightValue: bigint;
+  /** Smaller of the channel's two amounts (`min(amountA, amountB)`). */
+  readonly maxPerChannelValue: bigint;
+  /** Current time in milliseconds (for expiry duration check). */
+  readonly nowMs: bigint;
+}
+
+export interface HtlcAdmissionResult {
+  readonly ok: boolean;
+  readonly reason?: string;
+}
+
+export function checkHtlcAdmissible(htlc: Htlc, ctx: HtlcAdmissionContext): HtlcAdmissionResult {
+  // 1. count cap (§4.3)
+  if (ctx.currentHtlcCount >= MAX_HTLCS_PER_CHANNEL) {
+    return { ok: false, reason: `htlc count would exceed ${MAX_HTLCS_PER_CHANNEL}` };
+  }
+  // 2. per-channel value cap
+  if (ctx.perChannelInflightValue + htlc.amount > ctx.maxPerChannelValue) {
+    return { ok: false, reason: 'per-channel inflight value would exceed min(amountA, amountB)' };
+  }
+  // 3. per-counterparty aggregate cap
+  if (ctx.perCounterpartyInflightValue + htlc.amount > MAX_HTLC_VALUE_PER_COUNTERPARTY) {
+    return {
+      ok: false,
+      reason: `per-counterparty inflight would exceed ${MAX_HTLC_VALUE_PER_COUNTERPARTY}`,
+    };
+  }
+  // 4. duration bounds
+  const dt = htlc.expiryMs - ctx.nowMs;
+  if (dt < BigInt(MIN_HTLC_DURATION_MS)) {
+    return { ok: false, reason: `htlc expiry-now < ${MIN_HTLC_DURATION_MS}ms` };
+  }
+  if (dt > BigInt(MAX_HTLC_DURATION_MS)) {
+    return { ok: false, reason: `htlc expiry-now > ${MAX_HTLC_DURATION_MS}ms` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Hub-side check: outer (sender) and inner (hub) HTLC expiries must be
+ * separated by at least HTLC_TIMEOUT_DELTA_MS so the hub can claim from
+ * the sender after settling with the receiver. See §4.3.
+ */
+export function checkTimeoutDelta(
+  outerExpiryMs: bigint,
+  innerExpiryMs: bigint,
+): HtlcAdmissionResult {
+  if (outerExpiryMs - innerExpiryMs < BigInt(HTLC_TIMEOUT_DELTA_MS)) {
+    return {
+      ok: false,
+      reason: `outer-inner expiry delta < ${HTLC_TIMEOUT_DELTA_MS}ms`,
+    };
+  }
+  return { ok: true };
 }

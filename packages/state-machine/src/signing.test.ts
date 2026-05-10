@@ -89,9 +89,11 @@ describe('signing — typed-data round-trips', () => {
   it('signs and recovers a CooperativeClose', async () => {
     const close: CooperativeClose = {
       channelId,
+      version: 1n,
       finalBalanceA: 1_500_000n,
       finalBalanceB: 1_500_000n,
       signedAt: 1_800_000_000n,
+      validUntil: 9_999_999_999n,
     };
     const data = buildCooperativeCloseTypedData(close, chainId, verifyingContract);
     const signature = await accountB.signTypedData(data);
@@ -177,9 +179,11 @@ describe('hash* helpers — digests are deterministic and non-zero', () => {
   it('hashCooperativeClose is deterministic', () => {
     const close: CooperativeClose = {
       channelId,
+      version: 1n,
       finalBalanceA: 1n,
       finalBalanceB: 2n,
       signedAt: 1_800_000_000n,
+      validUntil: 9_999_999_999n,
     };
     const a = hashCooperativeClose(close, chainId, verifyingContract);
     const b = hashCooperativeClose(close, chainId, verifyingContract);
@@ -267,9 +271,11 @@ describe('verify* helpers — signature verification', () => {
   it('verifyCooperativeCloseSignature round-trip', async () => {
     const close: CooperativeClose = {
       channelId,
+      version: 1n,
       finalBalanceA: 1_500_000n,
       finalBalanceB: 1_500_000n,
       signedAt: 1_800_000_000n,
+      validUntil: 9_999_999_999n,
     };
     const data = buildCooperativeCloseTypedData(close, chainId, verifyingContract);
     const signature = await accountB.signTypedData(data);

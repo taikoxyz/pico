@@ -6,3 +6,4 @@ export * from './signing.js';
 export * from './invoice.js';
 export * from './replay.js';
 export * from './admit.js';
+export * from './topup.js';

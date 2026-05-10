@@ -824,110 +824,134 @@
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "version": "2",
         "finalBalanceA": "1000",
         "finalBalanceB": "2000",
-        "signedAt": "1700000060"
+        "signedAt": "1700000060",
+        "validUntil": "1700003660"
       },
-      "digest": "0x947beb3bc6cfbf241b5bacf24a19ac8700326d86f4e165349220eb61cac676a1"
+      "digest": "0x5cac1fd9533aa13c47da570b2be6ded4125fb88af6a99f557f242425a8016e9f"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "version": "3",
         "finalBalanceA": "2000",
         "finalBalanceB": "4000",
-        "signedAt": "1700000120"
+        "signedAt": "1700000120",
+        "validUntil": "1700003720"
       },
-      "digest": "0x0f92eb3be6748b4fba55253590ecb521b391ed8ee57e3a98fc0a96abb41f46fa"
+      "digest": "0x80cd36416dee51ef546737509ee9df50ea5df725baf29caad05501ab262e8257"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "version": "4",
         "finalBalanceA": "3000",
         "finalBalanceB": "6000",
-        "signedAt": "1700000180"
+        "signedAt": "1700000180",
+        "validUntil": "1700003780"
       },
-      "digest": "0xf95ab3c17c340d589413976f9c02b537cda3960dd3584dc5c127b0406a6659d5"
+      "digest": "0xad53ab5fae5e236049970a43740dc82575eb788c261b1aa2402fbad2139f63b2"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "version": "5",
         "finalBalanceA": "4000",
         "finalBalanceB": "8000",
-        "signedAt": "1700000240"
+        "signedAt": "1700000240",
+        "validUntil": "1700003840"
       },
-      "digest": "0x330ee5a8b33dbbe56fae1db048ee362968decef4b05867f34e42a9d55c8f20cc"
+      "digest": "0xcf2b46c650bed3ced1573bef2bafe3a9e74db289ce7c1fa074388d57c3b65a94"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000005",
+        "version": "6",
         "finalBalanceA": "5000",
         "finalBalanceB": "10000",
-        "signedAt": "1700000300"
+        "signedAt": "1700000300",
+        "validUntil": "1700003900"
       },
-      "digest": "0x6e6194e59473b1858ae5e436b972783807b1fb528bbc57861e9a2c9cc1369538"
+      "digest": "0xd46120d46c3421946a1e9bcefbaa63d69565ab767f26c9f692f71ecbbbed31b5"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "version": "7",
         "finalBalanceA": "6000",
         "finalBalanceB": "12000",
-        "signedAt": "1700000360"
+        "signedAt": "1700000360",
+        "validUntil": "1700003960"
       },
-      "digest": "0xf6a9599409bdde9ed6de11cd9aa26e5d89861e8f2439202356a58607296dbb3a"
+      "digest": "0x3075eaaddce1a8eec236f8bfdac6be106309c28d054d8c81c141c2fd424cca3b"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "version": "8",
         "finalBalanceA": "7000",
         "finalBalanceB": "14000",
-        "signedAt": "1700000420"
+        "signedAt": "1700000420",
+        "validUntil": "1700004020"
       },
-      "digest": "0x18d404bf519175a08159ff5dd04bf3c08b93731d4d570d104fb0d3e7eafc9a1f"
+      "digest": "0x6ca7b457a64cb6be2e52e0ea3fceb5384c6f484a2f0f1af12ef457bd3a135efe"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "version": "9",
         "finalBalanceA": "8000",
         "finalBalanceB": "16000",
-        "signedAt": "1700000480"
+        "signedAt": "1700000480",
+        "validUntil": "1700004080"
       },
-      "digest": "0x8e2f47c6da6b52d0d0827e5b431d1a4a16a13054589c98117b41952d18f0802a"
+      "digest": "0x77614b1c81c6db4b2e9cd1dd14a6163f54e6981d9a7be40183de1934db8a96f2"
     },
     {
       "input": {
         "channelId": "0x0000000000000000000000000000000000000000000000000000000000000009",
+        "version": "10",
         "finalBalanceA": "9000",
         "finalBalanceB": "18000",
-        "signedAt": "1700000540"
+        "signedAt": "1700000540",
+        "validUntil": "1700004140"
       },
-      "digest": "0x09bd6451aee9d2d6313f81697b210f7d0da9414853ee81baaa226fdc09a1bb4b"
+      "digest": "0x1efb6e6351d2064988ac2a91a516678a395cd47ceb677020f4d555721a9f5f8d"
     },
     {
       "input": {
         "channelId": "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "version": "11",
         "finalBalanceA": "10000",
         "finalBalanceB": "20000",
-        "signedAt": "1700000600"
+        "signedAt": "1700000600",
+        "validUntil": "1700004200"
       },
-      "digest": "0x5c44c47060a4a22addbfc8573d97572d1c8fe4f87391b4869d8524b6f548c3ab"
+      "digest": "0x9e068ed6a2322f2f2ffa350737d616c0d98a847aebf42eea977f1f22fc39073b"
     },
     {
       "input": {
         "channelId": "0x000000000000000000000000000000000000000000000000000000000000000b",
+        "version": "12",
         "finalBalanceA": "11000",
         "finalBalanceB": "22000",
-        "signedAt": "1700000660"
+        "signedAt": "1700000660",
+        "validUntil": "1700004260"
       },
-      "digest": "0xcba0d1fefee0b2a41da17c926148ffd87684c4b79f6a1be71104711ab98a4577"
+      "digest": "0xdf4e3a7787521a924bd67002312ea9a274e593fa47b05c7cfeb67d61ba776607"
     },
     {
       "input": {
         "channelId": "0x000000000000000000000000000000000000000000000000000000000000000c",
+        "version": "13",
         "finalBalanceA": "12000",
         "finalBalanceB": "24000",
-        "signedAt": "1700000720"
+        "signedAt": "1700000720",
+        "validUntil": "1700004320"
       },
-      "digest": "0x5aefc3ae62f36d77509750f2e80f054ebe157a6d083d59acdc9d8e93366fcc13"
+      "digest": "0xcea8064c26402328f13cd676b02ccfa533dc948c384a0069529f608301b1628f"
     }
   ]
 }

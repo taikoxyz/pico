@@ -181,15 +181,7 @@ contract OracleTest is Test {
         return locks;
     }
 
-    function test_cooperativeCloseDigestsMatchOracle() public {
-        // TODO(wave-B): re-enable once `packages/state-machine` regenerates
-        // `oracle.json` against the v1.1 `CooperativeClose` schema (extra `version`
-        // and `validUntil` fields). The on-chain hashing matches the new schema; the
-        // JSON fixture still carries v1 digests so a byte-for-byte cross-check would
-        // fail. The cooperativeClose round-trip is still covered end-to-end by
-        // `PaymentChannel.t.sol::test_closeCooperative_happyPath` and friends.
-        vm.skip(true);
-
+    function test_cooperativeCloseDigestsMatchOracle() public view {
         for (uint256 i = 0; i < 12; i++) {
             string memory base = string.concat(".cooperativeClose[", vm.toString(i), "]");
             bytes32 expectedDigest = json.readBytes32(string.concat(base, ".digest"));
