@@ -46,9 +46,11 @@ export const UPDATE_TYPES = {
 export const COOPERATIVE_CLOSE_TYPES = {
   CooperativeClose: [
     { name: 'channelId', type: 'bytes32' },
+    { name: 'version', type: 'uint64' },
     { name: 'finalBalanceA', type: 'uint256' },
     { name: 'finalBalanceB', type: 'uint256' },
     { name: 'signedAt', type: 'uint64' },
+    { name: 'validUntil', type: 'uint64' },
   ],
 } as const;
 

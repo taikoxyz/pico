@@ -19,7 +19,7 @@ const HTLC_TYPESTRING =
   'Htlc(bytes32 id,uint256 amount,bytes32 paymentHash,uint64 expiry,uint8 direction)';
 const UPDATE_TYPESTRING = `Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)${CHANNEL_STATE_TYPESTRING}`;
 const COOPERATIVE_CLOSE_TYPESTRING =
-  'CooperativeClose(bytes32 channelId,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt)';
+  'CooperativeClose(bytes32 channelId,uint64 version,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt,uint64 validUntil)';
 
 function encodeStruct(name: string, fields: ReadonlyArray<{ name: string; type: string }>): string {
   return `${name}(${fields.map((f) => `${f.type} ${f.name}`).join(',')})`;

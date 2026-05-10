@@ -62,10 +62,18 @@ export interface Update {
 
 export interface CooperativeClose {
   readonly channelId: ChannelId;
+  readonly version: bigint;
   readonly finalBalanceA: bigint;
   readonly finalBalanceB: bigint;
   readonly signedAt: bigint;
+  readonly validUntil: bigint;
 }
+
+/**
+ * Sentinel value for an unsigned ECDSA signature slot (65 zero bytes), used for
+ * the implicit version-0 / pre-co-signed-state cases. See protocol-spec §8.3.
+ */
+export const EMPTY_SIG_BYTES: Hex = `0x${'00'.repeat(65)}` as Hex;
 
 export interface Signature {
   readonly r: Hex;

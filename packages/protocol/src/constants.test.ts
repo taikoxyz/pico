@@ -5,8 +5,13 @@ import {
   DEFAULT_HTLC_EXPIRY_MS,
   DEFAULT_HUB_FEE_BPS,
   DEFAULT_HUB_FEE_FLAT,
+  HTLC_TIMEOUT_DELTA_MS,
+  MAX_HTLCS_PER_CHANNEL,
+  MAX_HTLC_DURATION_MS,
+  MAX_HTLC_VALUE_PER_COUNTERPARTY,
   MIN_CHANNEL_AMOUNT_ETH,
   MIN_CHANNEL_AMOUNT_USDC,
+  MIN_HTLC_DURATION_MS,
   NOSTR_EVENT_KINDS,
   NOSTR_KIND_RANGE,
   PROTOCOL_VERSION,
@@ -15,6 +20,7 @@ import {
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
   ZERO_ADDRESS,
+  ZERO_SIG_HEX,
 } from './index.js';
 
 describe('protocol decisions are pinned', () => {
@@ -116,5 +122,39 @@ describe('Nostr event kinds', () => {
     const values = Object.values(NOSTR_EVENT_KINDS);
     const sorted = [...values].sort((a, b) => a - b);
     expect(values).toEqual(sorted);
+  });
+});
+
+describe('HTLC exposure caps and timing bounds (§4.3)', () => {
+  it('MAX_HTLCS_PER_CHANNEL is 5 (number)', () => {
+    expect(MAX_HTLCS_PER_CHANNEL).toBe(5);
+    expect(typeof MAX_HTLCS_PER_CHANNEL).toBe('number');
+  });
+
+  it('MAX_HTLC_VALUE_PER_COUNTERPARTY is 100 USDC base units (bigint)', () => {
+    expect(MAX_HTLC_VALUE_PER_COUNTERPARTY).toBe(100_000_000n);
+    expect(typeof MAX_HTLC_VALUE_PER_COUNTERPARTY).toBe('bigint');
+  });
+
+  it('MIN_HTLC_DURATION_MS is 15 minutes', () => {
+    expect(MIN_HTLC_DURATION_MS).toBe(15 * 60 * 1000);
+    expect(typeof MIN_HTLC_DURATION_MS).toBe('number');
+  });
+
+  it('MAX_HTLC_DURATION_MS is 2 hours', () => {
+    expect(MAX_HTLC_DURATION_MS).toBe(2 * 60 * 60 * 1000);
+    expect(typeof MAX_HTLC_DURATION_MS).toBe('number');
+  });
+
+  it('HTLC_TIMEOUT_DELTA_MS is 30 minutes', () => {
+    expect(HTLC_TIMEOUT_DELTA_MS).toBe(30 * 60 * 1000);
+    expect(typeof HTLC_TIMEOUT_DELTA_MS).toBe('number');
+  });
+});
+
+describe('ZERO_SIG_HEX sentinel (§8.3)', () => {
+  it('is 65 zero bytes as 0x-prefixed hex', () => {
+    expect(ZERO_SIG_HEX).toBe(`0x${'00'.repeat(65)}`);
+    expect(ZERO_SIG_HEX).toHaveLength(2 + 65 * 2);
   });
 });
