@@ -46,9 +46,11 @@ const baseUpdate: Update = {
 
 const baseClose: CooperativeClose = {
   channelId: baseState.channelId,
+  version: 1n,
   finalBalanceA: 100n,
   finalBalanceB: 50n,
   signedAt: 1_700_000_000n,
+  validUntil: 9_999_999_999n,
 };
 
 describe('InMemorySigner', () => {

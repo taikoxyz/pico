@@ -4,6 +4,7 @@ import type {
   ChannelState,
   CooperativeClose,
   Hex,
+  Signature,
   SignedCooperativeClose,
   SignedState,
 } from '@inferenceroom/pico-protocol';
@@ -13,6 +14,7 @@ import {
   type PublicClient,
   type WalletClient,
   encodeAbiParameters,
+  erc20Abi,
   parseEventLogs,
 } from 'viem';
 import {
@@ -67,10 +69,37 @@ export interface FinalizedResult {
   readonly txHash: Hash;
 }
 
+export interface TopUpOnChainArgs {
+  readonly channelId: ChannelId;
+  readonly amount: bigint;
+  /** Latest co-signed state, OR a synthetic version-0 sentinel for first top-up. */
+  readonly prev: SignedState;
+  /** version+1 state with depositor's balance bumped by `amount`. Both sigs required. */
+  readonly next: SignedState;
+  /** ERC-20 token used for the channel; required for the `approve()` call. */
+  readonly token: Address;
+  /** Default true. Skip the `approve()` call when caller already approved off-band. */
+  readonly approve?: boolean;
+}
+
+export interface TopUpOnChainResult {
+  readonly txHash: Hash;
+  readonly newVersion: bigint;
+  readonly amount: bigint;
+}
+
+export interface CloseUnilateralFromOpenOnChainArgs {
+  readonly channelId: ChannelId;
+}
+
 export interface ChainAdapter {
   openChannel(args: OpenChannelOnChainArgs): Promise<OpenChannelOnChainResult>;
   closeCooperative(args: CloseCooperativeOnChainArgs): Promise<CloseOnChainResult>;
   closeUnilateral(args: CloseUnilateralOnChainArgs): Promise<CloseUnilateralOnChainResult>;
+  closeUnilateralFromOpen(
+    args: CloseUnilateralFromOpenOnChainArgs,
+  ): Promise<CloseUnilateralOnChainResult>;
+  topUp(args: TopUpOnChainArgs): Promise<TopUpOnChainResult>;
   finalize(channelId: ChannelId): Promise<FinalizedResult>;
   waitForFinalized(channelId: ChannelId, opts?: { timeoutMs?: number }): Promise<FinalizedResult>;
   dispose?(): Promise<void>;
@@ -98,12 +127,59 @@ export function encodeCooperativeCloseForOnChain(close: CooperativeClose): Hex {
     [
       {
         channelId: close.channelId,
+        version: close.version,
         finalBalanceA: close.finalBalanceA,
         finalBalanceB: close.finalBalanceB,
         signedAt: close.signedAt,
+        validUntil: close.validUntil,
       },
     ],
   );
+}
+
+/**
+ * Returns true when the signature is the all-zero sentinel used to mark an
+ * unsigned slot in a synthetic version-0 `SignedState` (see protocol-spec
+ * §8.3). The on-chain `topUp` accepts the sentinel branch only when both
+ * `prev.sigA` and `prev.sigB` are zero-LENGTH bytes (`0x`); a 65-byte zero
+ * string would fail the `prev.sigA.length == 0` check.
+ */
+export function isSentinelSig(sig: Signature): boolean {
+  const allZero = (h: Hex): boolean => /^0x0+$/.test(h);
+  return sig.v === 0 && allZero(sig.r) && allZero(sig.s);
+}
+
+function encodeTopUpSig(sig: Signature, sentinel: boolean): Hex {
+  return sentinel && isSentinelSig(sig) ? ('0x' as Hex) : signatureToHex(sig);
+}
+
+function buildSignedStateTuple(
+  signed: SignedState,
+  sentinel: boolean,
+): {
+  state: {
+    channelId: ChannelId;
+    version: bigint;
+    balanceA: bigint;
+    balanceB: bigint;
+    htlcsRoot: Hex;
+    finalized: boolean;
+  };
+  sigA: Hex;
+  sigB: Hex;
+} {
+  return {
+    state: {
+      channelId: signed.state.channelId,
+      version: signed.state.version,
+      balanceA: signed.state.balanceA,
+      balanceB: signed.state.balanceB,
+      htlcsRoot: computeHtlcsRoot(signed.state.htlcs),
+      finalized: signed.state.finalized,
+    },
+    sigA: encodeTopUpSig(signed.sigA, sentinel),
+    sigB: encodeTopUpSig(signed.sigB, sentinel),
+  };
 }
 
 export interface ViemChainAdapterOptions {
@@ -207,6 +283,83 @@ export class ViemChainAdapter implements ChainAdapter {
       disputeDeadlineMs: ev.args.disputeDeadline * 1000n,
       postedVersion: ev.args.postedVersion,
     };
+  }
+
+  async closeUnilateralFromOpen(
+    args: CloseUnilateralFromOpenOnChainArgs,
+  ): Promise<CloseUnilateralOnChainResult> {
+    const { walletClient, publicClient, paymentChannelAddress } = this.opts;
+    const account = walletClient.account;
+    if (!account) throw new Error('ViemChainAdapter: walletClient has no account');
+    const chain = walletClient.chain;
+    if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
+
+    const txHash = await walletClient.writeContract({
+      address: paymentChannelAddress,
+      abi: paymentChannelAbi,
+      functionName: 'closeUnilateralFromOpen',
+      args: [args.channelId],
+      account,
+      chain,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    const logs = parseEventLogs({
+      abi: paymentChannelAbi,
+      eventName: 'ChannelClosingUnilateral',
+      logs: receipt.logs,
+    });
+    const ev = logs[0];
+    if (!ev) throw new Error('ChannelClosingUnilateral event not found in receipt');
+    return {
+      txHash,
+      disputeDeadlineMs: ev.args.disputeDeadline * 1000n,
+      postedVersion: ev.args.postedVersion,
+    };
+  }
+
+  async topUp(args: TopUpOnChainArgs): Promise<TopUpOnChainResult> {
+    const { walletClient, publicClient, paymentChannelAddress } = this.opts;
+    const account = walletClient.account;
+    if (!account) throw new Error('ViemChainAdapter: walletClient has no account');
+    const chain = walletClient.chain;
+    if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
+
+    if (args.approve !== false) {
+      const approveHash = await walletClient.writeContract({
+        address: args.token,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [paymentChannelAddress, args.amount],
+        account,
+        chain,
+      });
+      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    }
+
+    const prevSentinel =
+      args.prev.state.version === 0n &&
+      isSentinelSig(args.prev.sigA) &&
+      isSentinelSig(args.prev.sigB);
+    const prevTuple = buildSignedStateTuple(args.prev, prevSentinel);
+    const nextTuple = buildSignedStateTuple(args.next, false);
+
+    const txHash = await walletClient.writeContract({
+      address: paymentChannelAddress,
+      abi: paymentChannelAbi,
+      functionName: 'topUp',
+      args: [args.channelId, args.amount, prevTuple, nextTuple],
+      account,
+      chain,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    const logs = parseEventLogs({
+      abi: paymentChannelAbi,
+      eventName: 'ToppedUp',
+      logs: receipt.logs,
+    });
+    const ev = logs[0];
+    if (!ev) throw new Error('ToppedUp event not found in receipt');
+    return { txHash, newVersion: ev.args.newVersion, amount: args.amount };
   }
 
   async finalize(channelId: ChannelId): Promise<FinalizedResult> {

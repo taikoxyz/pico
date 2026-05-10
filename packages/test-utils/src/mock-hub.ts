@@ -3,11 +3,13 @@ import type {
   ChainId,
   Channel,
   ChannelId,
+  ChannelState,
   Hex,
   Htlc,
   HtlcId,
   SignedCooperativeClose,
   SignedState,
+  TopUpFeePolicy,
 } from '@inferenceroom/pico-protocol';
 import {
   type ClientToHubMessage,
@@ -42,11 +44,41 @@ export interface PendingHtlc {
   readonly keysendPayload?: PayMessage['keysendPayload'];
 }
 
+export interface PushProposeTopUpArgs {
+  readonly toAddress: Address;
+  readonly channelId: ChannelId;
+  readonly offerId: Hex;
+  readonly amount: bigint;
+  readonly prevStateVersion: bigint;
+  readonly newState: ChannelState;
+  readonly validUntil: bigint;
+  readonly feePolicy?: TopUpFeePolicy | null;
+  readonly minLifetime?: bigint | null;
+  readonly maxInFlightHtlcs?: number;
+  readonly partialAccepted?: boolean;
+}
+
+export interface PushProposeTopUpResult {
+  readonly accepted: boolean;
+  readonly signedNewState?: SignedState;
+  readonly reason?: string;
+}
+
 export interface MockHubHandle {
   readonly url: string;
   readonly hubAddress: Address;
   pendingHtlcs(): readonly PendingHtlc[];
   registerChannel(channel: Channel, initialState?: SignedState): void;
+  /**
+   * Push a `proposeTopUp` envelope to the connected user (protocol-spec §8.6)
+   * and await `acceptTopUp` / `rejectTopUp`.
+   *
+   * v1.1 status: stubbed. The SDK does not yet model `proposeTopUp` /
+   * `acceptTopUp` / `rejectTopUp` in `ClientToHubMessage` /
+   * `HubToClientMessage` (Wave B2 / Wave D scope), so wiring the WS
+   * dispatcher is deferred to Wave D4. Calling this method currently throws.
+   */
+  pushProposeTopUp(args: PushProposeTopUpArgs): Promise<PushProposeTopUpResult>;
   stop(): Promise<void>;
 }
 
@@ -268,6 +300,7 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         msg.signedCooperativeClose.close.channelId !== msg.channelId ||
         msg.signedCooperativeClose.close.finalBalanceA !== msg.signedState.state.balanceA ||
         msg.signedCooperativeClose.close.finalBalanceB !== msg.signedState.state.balanceB ||
+        msg.signedCooperativeClose.close.version !== msg.signedState.state.version ||
         !msg.signedState.state.finalized
       ) {
         send(socket, {
@@ -279,6 +312,24 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         });
         return;
       }
+      // protocol-spec §1, §6.2: the contract enforces `block.timestamp <= validUntil`,
+      // so a hub MUST refuse to counter-sign an already-stale close.
+      const nowSec = BigInt(Math.floor(Date.now() / 1000));
+      if (msg.signedCooperativeClose.close.validUntil < nowSec) {
+        send(socket, {
+          id: msg.id,
+          kind: 'error',
+          code: 'CLOSE_EXPIRED',
+          message: 'cooperative close validUntil is in the past',
+          requestId: msg.id,
+        });
+        return;
+      }
+      // v1.1 invariant: the user is responsible for setting `version` and
+      // `validUntil` on the CooperativeClose. The hub merely counter-signs the
+      // exact same close payload — the typed-data signature binds those fields,
+      // so propagating `msg.signedCooperativeClose.close` unchanged into
+      // `countersignedClose` is sufficient.
       let countersignedState = msg.signedState;
       let countersignedClose: SignedCooperativeClose = msg.signedCooperativeClose;
       if (hubAccount) {
@@ -352,6 +403,14 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
     registerChannel(ch: Channel, initialState?: SignedState): void {
       channels.set(ch.id, ch);
       if (initialState) latestStates.set(ch.id, initialState);
+    },
+    async pushProposeTopUp(_args: PushProposeTopUpArgs): Promise<PushProposeTopUpResult> {
+      // Stubbed: SDK message kinds for proposeTopUp / acceptTopUp / rejectTopUp
+      // are not yet plumbed through `ClientToHubMessage` / `HubToClientMessage`
+      // (see protocol-spec §8.6). Wave D4 will wire this once the SDK lands
+      // those message kinds and we can route incoming acceptTopUp/rejectTopUp
+      // back to the awaiting Promise without unsafe casts.
+      throw new Error('pushProposeTopUp: not implemented in MockHub (Wave D4 will wire this)');
     },
     stop(): Promise<void> {
       return new Promise<void>((resolve) => {

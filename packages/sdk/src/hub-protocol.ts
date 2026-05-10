@@ -1,4 +1,5 @@
 import type {
+  AcceptTopUpMessage,
   Address,
   Channel,
   ChannelId,
@@ -7,8 +8,20 @@ import type {
   HtlcId,
   PaymentHash,
   Preimage,
+  ProposeTopUpMessage,
+  RejectTopUpMessage,
   SignedCooperativeClose,
   SignedState,
+  TopUpCompleteMessage,
+} from '@inferenceroom/pico-protocol';
+
+export type {
+  TopUpFeePolicy,
+  TopUpOfferEnvelope,
+  ProposeTopUpMessage,
+  AcceptTopUpMessage,
+  RejectTopUpMessage,
+  TopUpCompleteMessage,
 } from '@inferenceroom/pico-protocol';
 
 export interface KeysendPayload {
@@ -133,7 +146,9 @@ export type ClientToHubMessage =
   | PayDirectMessage
   | HtlcSettleMessage
   | HtlcFailMessage
-  | CloseRequestMessage;
+  | CloseRequestMessage
+  | AcceptTopUpMessage
+  | RejectTopUpMessage;
 
 export type HubToClientMessage =
   | SubscribeAckMessage
@@ -142,7 +157,9 @@ export type HubToClientMessage =
   | PaymentFailedMessage
   | PayDirectAckMessage
   | CloseResponseMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | ProposeTopUpMessage
+  | TopUpCompleteMessage;
 
 export type HubMessage = ClientToHubMessage | HubToClientMessage;
 
@@ -186,6 +203,10 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set([
   'closeRequest',
   'closeResponse',
   'error',
+  'proposeTopUp',
+  'acceptTopUp',
+  'rejectTopUp',
+  'topUpComplete',
 ]);
 
 export function decodeHubMessage(raw: string): HubMessage {

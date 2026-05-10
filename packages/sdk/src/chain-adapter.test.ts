@@ -19,9 +19,11 @@ const baseState: ChannelState = {
 
 const baseClose: CooperativeClose = {
   channelId: baseState.channelId,
+  version: 1n,
   finalBalanceA: 90n,
   finalBalanceB: 60n,
   signedAt: 1_777_777_777n,
+  validUntil: 9_999_999_999n,
 };
 
 describe('encodeChannelStateForOnChain', () => {

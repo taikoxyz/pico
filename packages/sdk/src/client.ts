@@ -22,9 +22,11 @@ import {
   admitHtlcSettle,
   admitSignedState,
   failHtlc,
+  predictTopUpState,
   preimageDigest,
   settleHtlc,
 } from '@inferenceroom/pico-state-machine';
+import type { Hash } from 'viem';
 import type { ChainAdapter } from './chain-adapter.js';
 import { randomHtlcId, randomNonce16 } from './crypto.js';
 import {
@@ -40,6 +42,7 @@ import type {
   HtlcOfferMessage,
   HubToClientMessage,
   PaymentSettleMessage,
+  ProposeTopUpMessage,
 } from './hub-protocol.js';
 import { type CreatedInvoice, createInvoice, verifyInvoice } from './invoice.js';
 import { openSealed, sealForRecipient } from './keysend.js';
@@ -327,6 +330,22 @@ export class ChannelClient {
       } catch (err) {
         this.emitter.emit('error', { error: err as Error, context: 'htlcOffer' });
       }
+      return;
+    }
+    if (msg.kind === 'proposeTopUp') {
+      try {
+        await this.handleProposeTopUp(msg);
+      } catch (err) {
+        this.emitter.emit('error', { error: err as Error, context: 'proposeTopUp' });
+      }
+      return;
+    }
+    if (msg.kind === 'topUpComplete') {
+      this.emitter.emit('channel:topped-up', {
+        channelId: msg.channelId,
+        offerId: msg.offerId,
+        newVersion: msg.newVersion,
+      });
       return;
     }
   }
@@ -816,11 +835,14 @@ export class ChannelClient {
           version: signed.state.version + 1n,
           finalized: true,
         };
+        const nowSec = BigInt(Math.floor(Date.now() / 1000));
         const close: CooperativeClose = {
           channelId,
+          version: finalState.version,
           finalBalanceA: finalState.balanceA,
           finalBalanceB: finalState.balanceB,
-          signedAt: BigInt(Math.floor(Date.now() / 1000)),
+          signedAt: nowSec,
+          validUntil: nowSec + 3600n,
         };
         const mySig = await this.opts.signer.signChannelState(
           finalState,
@@ -901,6 +923,158 @@ export class ChannelClient {
         this.emitter.emit('error', { error: err as Error, context: 'waitForFinalized' });
       });
     this.emitter.emit('channel:closed', { channelId });
+  }
+
+  /**
+   * Submit `closeUnilateralFromOpen(channelId)` for a freshly-opened channel
+   * with no dual-signed off-chain state. The contract uses the implicit
+   * version-0 state derived from the channel's funded amounts and starts the
+   * 24-hour dispute window. See protocol-spec §1 / §5.2.
+   */
+  async closeUnilateralFromOpen(
+    channelId: ChannelId,
+  ): Promise<{ disputeDeadlineMs: bigint; txHash: Hash }> {
+    const channel = await this.opts.storage.loadChannel(channelId);
+    if (!channel) throw new Error(`unknown channel ${channelId}`);
+    const result = await this.opts.chain.closeUnilateralFromOpen({ channelId });
+    await this.opts.storage.saveChannel({ ...channel, status: 'closing-unilateral' });
+    void this.opts.chain
+      .waitForFinalized(channelId, { timeoutMs: 5 * 60_000 })
+      .then(() => this.markClosed(channel))
+      .catch((err) => {
+        this.emitter.emit('error', { error: err as Error, context: 'waitForFinalized' });
+      });
+    this.emitter.emit('channel:closed', { channelId });
+    return { disputeDeadlineMs: result.disputeDeadlineMs, txHash: result.txHash };
+  }
+
+  /**
+   * Depositor-initiated top-up. Submits `topUp(channelId, amount, prev, next)`
+   * on-chain. Both `prev` and `next` MUST already be dual-signed by the
+   * channel's userA and userB; this method does NOT perform off-chain
+   * co-signing (that requires a partner WS handshake — use `proposeTopUp`
+   * from the hub side, or carry your own out-of-band co-signing flow).
+   *
+   * For the very first top-up on a channel with no dual-signed state, pass a
+   * synthetic `prev` carrying `version: 0n`, the current on-chain
+   * `amountA`/`amountB` as balances, and zero-sentinel signatures
+   * (`EMPTY_SIG_BYTES`-derived). See protocol-spec §8.3.
+   */
+  async topUp(
+    channelId: ChannelId,
+    amount: bigint,
+    opts: { prev: SignedState; next: SignedState; approve?: boolean },
+  ): Promise<{ newVersion: bigint; txHash: Hash }> {
+    const channel = await this.opts.storage.loadChannel(channelId);
+    if (!channel) throw new Error(`unknown channel ${channelId}`);
+    const result = await this.opts.chain.topUp({
+      channelId,
+      amount,
+      prev: opts.prev,
+      next: opts.next,
+      token: channel.token,
+      ...(opts.approve !== undefined ? { approve: opts.approve } : {}),
+    });
+    await this.opts.storage.saveState(channelId, opts.next);
+    return { newVersion: result.newVersion, txHash: result.txHash };
+  }
+
+  /**
+   * Handle an incoming `proposeTopUp` from the hub: validate the offer
+   * envelope against local state, co-sign the proposed `newState`, and reply
+   * with `acceptTopUp`. On any failure, replies with `rejectTopUp`.
+   */
+  private async handleProposeTopUp(msg: ProposeTopUpMessage): Promise<void> {
+    try {
+      const channel = await this.opts.storage.loadChannel(msg.channelId);
+      if (!channel) {
+        await this.sendRejectTopUp(msg, 'unknown channel');
+        return;
+      }
+      const me = await this.address();
+      const iAmA = channel.userA.toLowerCase() === me.toLowerCase();
+
+      const nowSec = BigInt(Math.floor(Date.now() / 1000));
+      if (msg.validUntil < nowSec) {
+        await this.sendRejectTopUp(msg, 'offer expired');
+        return;
+      }
+
+      const latest = await this.opts.storage.loadLatestState(msg.channelId);
+      const localVersion = latest?.state.version ?? 0n;
+      if (msg.prevStateVersion !== localVersion) {
+        await this.sendRejectTopUp(
+          msg,
+          `prev version mismatch (got ${msg.prevStateVersion}, local ${localVersion})`,
+        );
+        return;
+      }
+
+      // Build prev for prediction: latest dual-signed state if we have one,
+      // else infer pre-top-up balances by subtracting `amount` from the side
+      // the hub is depositing into (= our counterparty side).
+      const hubSide: 'A' | 'B' = iAmA ? 'B' : 'A';
+      const prevState: ChannelState = latest?.state ?? {
+        channelId: msg.channelId,
+        version: 0n,
+        balanceA: hubSide === 'A' ? msg.newState.balanceA - msg.amount : msg.newState.balanceA,
+        balanceB: hubSide === 'B' ? msg.newState.balanceB - msg.amount : msg.newState.balanceB,
+        htlcs: [],
+        finalized: false,
+      };
+
+      let expected: ChannelState;
+      try {
+        expected = predictTopUpState(prevState, hubSide, msg.amount);
+      } catch (err) {
+        await this.sendRejectTopUp(msg, `predictTopUpState failed: ${(err as Error).message}`);
+        return;
+      }
+      if (
+        expected.version !== msg.newState.version ||
+        expected.balanceA !== msg.newState.balanceA ||
+        expected.balanceB !== msg.newState.balanceB ||
+        expected.channelId !== msg.newState.channelId ||
+        expected.finalized !== msg.newState.finalized ||
+        expected.htlcs.length !== msg.newState.htlcs.length
+      ) {
+        await this.sendRejectTopUp(msg, 'proposed newState does not match prediction');
+        return;
+      }
+
+      const mySigHex = await this.opts.signer.signChannelState(
+        msg.newState,
+        this.opts.chainId,
+        this.opts.verifyingContract,
+      );
+      const mySig = hexToSignature(mySigHex);
+      const hubSig = hexToSignature(msg.newSig);
+      const signedNewState: SignedState = {
+        state: msg.newState,
+        sigA: iAmA ? mySig : hubSig,
+        sigB: iAmA ? hubSig : mySig,
+      };
+
+      await this.opts.transport.send({
+        id: newRequestId('acceptTopUp'),
+        kind: 'acceptTopUp',
+        channelId: msg.channelId,
+        offerId: msg.offerId,
+        signedNewState,
+      });
+    } catch (err) {
+      await this.sendRejectTopUp(msg, (err as Error).message);
+    }
+  }
+
+  private async sendRejectTopUp(msg: ProposeTopUpMessage, reason: string): Promise<void> {
+    await this.opts.transport.send({
+      id: newRequestId('rejectTopUp'),
+      kind: 'rejectTopUp',
+      channelId: msg.channelId,
+      offerId: msg.offerId,
+      reason,
+    });
   }
 
   private async markClosed(channel: Channel): Promise<void> {

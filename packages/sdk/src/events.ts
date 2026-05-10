@@ -1,4 +1,4 @@
-import type { Channel, ChannelId, Htlc, Preimage } from '@inferenceroom/pico-protocol';
+import type { Channel, ChannelId, Hex, Htlc, Preimage } from '@inferenceroom/pico-protocol';
 
 export interface SdkEventMap {
   'htlc:incoming': { channelId: ChannelId; htlc: Htlc };
@@ -11,6 +11,7 @@ export interface SdkEventMap {
   'htlc:failed': { channelId: ChannelId; htlc: Htlc; reason: string };
   'channel:opened': { channel: Channel };
   'channel:closed': { channelId: ChannelId };
+  'channel:topped-up': { channelId: ChannelId; offerId: Hex; newVersion: bigint };
   error: { error: Error; context?: string };
 }
 
