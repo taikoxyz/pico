@@ -1,8 +1,4 @@
-import {
-  ANVIL_DEV_CHAIN_ID,
-  CONTRACT_ADDRESSES,
-  ZERO_ADDRESS,
-} from '@inferenceroom/pico-protocol';
+import { ANVIL_DEV_CHAIN_ID, CONTRACT_ADDRESSES, ZERO_ADDRESS } from '@inferenceroom/pico-protocol';
 import type { WatchtowerConfig } from './config.js';
 
 export const KNOWN_DEV_PRIVATE_KEYS: ReadonlySet<string> = new Set([

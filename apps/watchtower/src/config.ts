@@ -109,6 +109,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WatchtowerConf
 function parseChainId(raw: string | undefined): ChainId {
   if (!raw) return TAIKO_MAINNET_CHAIN_ID;
   const n = Number(raw);
-  if (n === ANVIL_DEV_CHAIN_ID || n === TAIKO_MAINNET_CHAIN_ID || n === ETHEREUM_MAINNET_CHAIN_ID) return n as ChainId;
+  if (n === ANVIL_DEV_CHAIN_ID || n === TAIKO_MAINNET_CHAIN_ID || n === ETHEREUM_MAINNET_CHAIN_ID)
+    return n as ChainId;
   throw new Error(`unsupported CHAIN_ID=${raw}`);
 }

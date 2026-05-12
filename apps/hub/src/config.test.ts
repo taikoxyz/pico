@@ -126,6 +126,8 @@ describe('loadConfig', () => {
       loadConfig({
         CHAIN_ID: '167009',
         HUB_PRIVATE_KEY: '0x5555555555555555555555555555555555555555555555555555555555555555',
+        HUB_REQUIRE_SIGNED_ENVELOPE: 'true',
+        HUB_OPERATOR_TOKEN: 'tok',
       }),
     ).toThrow(/zero address|zero placeholders/);
   });

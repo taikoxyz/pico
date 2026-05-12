@@ -35,7 +35,8 @@ export interface HubConfig {
 
 function parseChainId(raw: string | undefined): ChainId {
   const n = Number(raw ?? TAIKO_MAINNET_CHAIN_ID);
-  if (n === ETHEREUM_MAINNET_CHAIN_ID || n === 167000 || n === 167009 || n === 31337) return n as ChainId;
+  if (n === ETHEREUM_MAINNET_CHAIN_ID || n === 167000 || n === 167009 || n === 31337)
+    return n as ChainId;
   throw new Error(`unsupported CHAIN_ID: ${raw}`);
 }
 

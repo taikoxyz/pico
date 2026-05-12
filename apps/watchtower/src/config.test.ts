@@ -66,7 +66,7 @@ describe('loadConfig', () => {
   });
 
   it('rejects unsupported chain ids', () => {
-    expect(() => loadConfig({ CHAIN_ID: '1' })).toThrow(/unsupported CHAIN_ID/);
+    expect(() => loadConfig({ CHAIN_ID: '99999' })).toThrow(/unsupported CHAIN_ID/);
   });
 
   it('rejects negative or out-of-range PENALTY_THRESHOLD', () => {
