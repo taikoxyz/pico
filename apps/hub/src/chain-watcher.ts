@@ -33,6 +33,21 @@ const toppedUpEvent = parseAbiItem(
 const channelClosedCooperativeEvent = parseAbiItem(
   'event ChannelClosedCooperative(bytes32 indexed channelId, uint256 finalBalanceA, uint256 finalBalanceB, uint64 signedAt)',
 );
+// v2 HTLC settlement events. ResolutionStarted fires when a unilateral-closed
+// channel transitions from Status.ClosingUnilateral to Status.ResolvingHtlcs
+// (i.e. the posted state had `htlcsCount > 0`). The hub flips channel status
+// to 'resolving-htlcs' so downstream consumers (WS bus, dashboards) see the
+// new phase. HtlcClaimed/HtlcRefunded are surfaced for accounting; the hub
+// itself doesn't act on them, the watchtower does.
+const htlcResolutionStartedEvent = parseAbiItem(
+  'event HtlcResolutionStarted(bytes32 indexed channelId, uint64 htlcResolutionDeadline)',
+);
+const htlcClaimedEvent = parseAbiItem(
+  'event HtlcClaimed(bytes32 indexed channelId, bytes32 indexed htlcId, address indexed receiver, uint256 amount, bytes preimage)',
+);
+const htlcRefundedEvent = parseAbiItem(
+  'event HtlcRefunded(bytes32 indexed channelId, bytes32 indexed htlcId, address indexed sender, uint256 amount)',
+);
 
 export interface ChainWatcherDeps {
   readonly rpcUrl: string;
@@ -315,6 +330,66 @@ export class ChainWatcher {
           'dispute observed on-chain',
         );
       }
+    }
+
+    // H5: v2 HTLC settlement events. The hub flips channel status to
+    // 'resolving-htlcs' when the contract enters Status.ResolvingHtlcs;
+    // claim/refund events are logged for observability (the watchtower is
+    // the actor that posts them).
+    const resolutionStarted = await this.client.getLogs({
+      address: this.deps.paymentChannelAddress,
+      event: htlcResolutionStartedEvent,
+      fromBlock,
+      toBlock,
+    });
+    for (const log of resolutionStarted) {
+      const channelId = log.args.channelId;
+      if (!channelId || !this.deps.channelPool.get(channelId)) continue;
+      await this.deps.channelPool.setStatus(channelId, 'resolving-htlcs');
+      this.deps.logger.info(
+        { channelId, htlcResolutionDeadline: log.args.htlcResolutionDeadline?.toString() },
+        'HTLC resolution phase started on-chain',
+      );
+    }
+
+    const htlcClaimed = await this.client.getLogs({
+      address: this.deps.paymentChannelAddress,
+      event: htlcClaimedEvent,
+      fromBlock,
+      toBlock,
+    });
+    for (const log of htlcClaimed) {
+      const channelId = log.args.channelId;
+      if (!channelId || !this.deps.channelPool.get(channelId)) continue;
+      this.deps.logger.info(
+        {
+          channelId,
+          htlcId: log.args.htlcId,
+          receiver: log.args.receiver,
+          amount: log.args.amount?.toString(),
+        },
+        'HTLC claimed on-chain',
+      );
+    }
+
+    const htlcRefunded = await this.client.getLogs({
+      address: this.deps.paymentChannelAddress,
+      event: htlcRefundedEvent,
+      fromBlock,
+      toBlock,
+    });
+    for (const log of htlcRefunded) {
+      const channelId = log.args.channelId;
+      if (!channelId || !this.deps.channelPool.get(channelId)) continue;
+      this.deps.logger.info(
+        {
+          channelId,
+          htlcId: log.args.htlcId,
+          sender: log.args.sender,
+          amount: log.args.amount?.toString(),
+        },
+        'HTLC refunded on-chain',
+      );
     }
 
     const finalized = await this.client.getLogs({

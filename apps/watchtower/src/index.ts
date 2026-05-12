@@ -7,12 +7,22 @@ import type {
   SignedState,
 } from '@inferenceroom/pico-protocol';
 import { DEFAULT_DISPUTE_WINDOW_MS } from '@inferenceroom/pico-protocol';
+import { ViemChainAdapter } from '@inferenceroom/pico-sdk';
 import { verifyChannelStateSignature } from '@inferenceroom/pico-state-machine';
 import Database from 'better-sqlite3';
 import type { FastifyInstance } from 'fastify';
-import { type PublicClient, parseAbi } from 'viem';
+import {
+  type PublicClient,
+  createPublicClient,
+  createWalletClient,
+  parseAbi,
+  http as viemHttp,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { foundry as foundryChain, taiko as taikoChain } from 'viem/chains';
 import { loadConfig } from './config.js';
 import { FraudDetector } from './detector.js';
+import { HtlcResolver } from './htlc-resolver.js';
 import { buildHttpServer } from './http.js';
 import { type Logger, logger as defaultLogger } from './logger.js';
 import { rpcUp } from './metrics.js';
@@ -47,6 +57,12 @@ export interface StartWatchtowerOpts {
   readonly catchupMaxBlocks?: number;
   readonly rpcReconnectMaxBackoffMs?: number;
   readonly startHttp?: boolean;
+  /**
+   * H6: bearer token gating `POST /v1/preimage`. Hubs and clients that share
+   * preimages with this watchtower MUST present `Authorization: Bearer <token>`.
+   * Omitted → the endpoint is not registered.
+   */
+  readonly preimageAuthToken?: string;
 }
 
 export interface WatchtowerHandle {
@@ -55,6 +71,8 @@ export interface WatchtowerHandle {
   readonly watcher: ChainEventWatcher;
   readonly scheduler: Scheduler;
   readonly store: WatchtowerStore;
+  /** H6: exposed for testing + operational diagnostics. */
+  readonly htlcResolver: HtlcResolver;
   readonly http?: FastifyInstance;
   readonly httpUrl?: string;
   remember(state: SignedState): Promise<void>;
@@ -104,6 +122,30 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     logger: log,
     store,
     ...(opts.publicClient ? { publicClient: opts.publicClient } : {}),
+  });
+
+  // H6: ChainAdapter dedicated to HTLC settlement txs. Shares the watchtower
+  // signer but uses a separate wallet client so transactions are routed through
+  // the SDK's claimHtlc/refundHtlc abstractions (which the resolver depends on).
+  const htlcChain = opts.chainId === 167000 ? taikoChain : foundryChain;
+  const htlcTransport = viemHttp(opts.rpcUrl);
+  const htlcPublicClient =
+    opts.publicClient ??
+    (createPublicClient({ chain: htlcChain, transport: htlcTransport }) as PublicClient);
+  const htlcWalletClient = createWalletClient({
+    account: privateKeyToAccount(opts.privateKey),
+    chain: htlcChain,
+    transport: htlcTransport,
+  });
+  const htlcAdapter = new ViemChainAdapter({
+    publicClient: htlcPublicClient,
+    walletClient: htlcWalletClient,
+    paymentChannelAddress: opts.paymentChannelAddress,
+  });
+  const htlcResolver = new HtlcResolver({
+    adapter: htlcAdapter,
+    store,
+    logger: log,
   });
 
   const closingChannels = new Map<ChannelId, ClosingChannelInfo>();
@@ -331,6 +373,20 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
           penalized: meta.penalized,
         });
       }
+    } else if (event.kind === 'htlcResolutionStarted') {
+      // H6: drive the resolver for this channel. The htlcResolutionDeadline
+      // from the event is unix-seconds, convert to ms for the resolver's
+      // forced-refund path. Errors are surfaced per-HTLC inside the
+      // resolver and logged; this top-level call swallows them.
+      try {
+        const channelId = event.channelId as ChannelId;
+        const deadlineMs = Number(event.htlcResolutionDeadline) * 1000;
+        await htlcResolver.resolveChannel(channelId, {
+          channelResolutionDeadlineMs: deadlineMs,
+        });
+      } catch (err) {
+        log.error({ err, channelId: event.channelId }, 'htlc-resolver: resolveChannel threw');
+      }
     }
   });
 
@@ -370,6 +426,13 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
           channelsWatched: closingChannels.size,
         };
       },
+      // H6: when a `preimageAuthToken` is configured, expose
+      // `POST /v1/preimage` for hubs/clients to forward preimages into the
+      // resolver's cache. Omitting the token disables the endpoint.
+      ...(opts.preimageAuthToken !== undefined
+        ? { preimageAuthToken: opts.preimageAuthToken }
+        : {}),
+      onPreimage: (paymentHash, preimage) => htlcResolver.rememberPreimage(paymentHash, preimage),
     });
     httpUrl = await http.listen({ port: opts.httpPort ?? 0, host: opts.httpHost ?? '127.0.0.1' });
   }
@@ -380,6 +443,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     watcher,
     scheduler,
     store,
+    htlcResolver,
     ...(http ? { http } : {}),
     ...(httpUrl ? { httpUrl } : {}),
     async remember(state: SignedState): Promise<void> {

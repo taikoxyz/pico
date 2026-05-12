@@ -159,6 +159,47 @@ describe('admitSignedState', () => {
       }),
     ).rejects.toMatchObject({ code: 'BAD_SIGNATURE_B' });
   });
+
+  it('M4: rejects state with htlcsCount that does not match htlcs.length', async () => {
+    const next: ChannelState = {
+      channelId,
+      version: 5n,
+      balanceA: 50n,
+      balanceB: 50n,
+      htlcs: [],
+      htlcsCount: 1, // lies about the array length
+      htlcsTotalLocked: 0n,
+      finalized: false,
+    };
+    const signed = await bothSign(next);
+    await expect(admitSignedState(signed, ctx, { prev: undefined })).rejects.toMatchObject({
+      code: 'HTLC_DERIVED_MISMATCH',
+    });
+  });
+
+  it('M4: rejects state with htlcsTotalLocked that does not match Σ htlcs.amount', async () => {
+    const htlc: Htlc = {
+      id: '0x000000000000000000000000000000000000000000000000000000000000abcd',
+      direction: 'AtoB',
+      amount: 7n,
+      paymentHash: '0xabababababababababababababababababababababababababababababababab',
+      expiryMs: 9_999_999_999n,
+    };
+    const next: ChannelState = {
+      channelId,
+      version: 5n,
+      balanceA: 43n,
+      balanceB: 50n,
+      htlcs: [htlc],
+      htlcsCount: 1,
+      htlcsTotalLocked: 99n, // lies about the locked total
+      finalized: false,
+    };
+    const signed = await bothSign(next);
+    await expect(admitSignedState(signed, ctx, { prev: undefined })).rejects.toMatchObject({
+      code: 'HTLC_DERIVED_MISMATCH',
+    });
+  });
 });
 
 describe('admitHtlcOffer', () => {

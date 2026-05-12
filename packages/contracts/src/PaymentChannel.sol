@@ -162,6 +162,13 @@ contract PaymentChannel is
 
     /// @notice Emitted when an HTLC is claimed on-chain. `preimage` is included so off-chain
     ///         relays can pick up cross-channel preimages from the event stream alone.
+    /// @dev    **Privacy**: this event publicly reveals the preimage on chain, which means
+    ///         any two channels that share the same `paymentHash` become linkable to an
+    ///         on-chain observer. Per `docs/protocol-spec.md` §4.1 the off-chain protocol
+    ///         MUST NOT reuse a `paymentHash` across hops or channels — every routed
+    ///         payment generates a fresh preimage. Hubs and watchtowers SHOULD treat any
+    ///         observed reuse as a misconfiguration; PTLC support (planned post-v2)
+    ///         neutralises this correlation oracle entirely.
     event HtlcClaimed(
         bytes32 indexed channelId, bytes32 indexed htlcId, address indexed receiver, uint256 amount, bytes preimage
     );
@@ -199,6 +206,11 @@ contract PaymentChannel is
     ///      and not at all on fresh deployments (which already start with
     ///      `_initialized == 1` and use `setMinChannelAmount` directly). Owner-gated to
     ///      mirror `setMinChannelAmount`.
+    /// @dev M1: skipping this call during a v1→v2 upgrade is a *silent* misconfiguration:
+    ///      `minChannelAmount[usdc]` stays at 0, so the per-token amount-floor check in
+    ///      `openChannel` collapses to "any non-zero deposit allowed". `Deploy.s.sol`
+    ///      bundles the call into the upgrade tx; bespoke deployments MUST follow the
+    ///      `upgradeToAndCall` pattern above.
     function reinitializeV2(address usdc, uint256 minUsdc) external reinitializer(2) onlyOwner {
         require(usdc != address(0), "usdc=0");
         minChannelAmount[usdc] = minUsdc;
@@ -389,6 +401,11 @@ contract PaymentChannel is
         require(ch.status == Status.Open, "!open");
         require(ch.postedVersion == 0, "posted!=0");
         require(msg.sender == ch.userA || msg.sender == ch.userB, "!party");
+        // H3 (defense-in-depth): a version-0 channel can never have HTLCs in flight
+        // — `openChannel` zeros the field and `topUp` blocks any change. Guard anyway
+        // so that if a later upgrade ever surfaces a non-zero `htlcsCount` here, this
+        // function refuses to skip the conservation invariant.
+        require(ch.htlcsCount == 0, "htlcs at open");
 
         ch.postedVersion = 0; // explicit; already zero
         ch.postedBalanceA = ch.amountA;
@@ -674,7 +691,11 @@ contract PaymentChannel is
         Channel storage ch = _channels[channelId];
         require(ch.status == Status.ResolvingHtlcs, "!resolving");
         require(htlcResolved[channelId][htlc.id] == HtlcResolution.Pending, "resolved");
-        require(block.timestamp > htlc.expiry, "!expired");
+        // H1: accept after the HTLC's own expiry OR once the channel-wide
+        // resolution grace window has passed. The second clause forces malicious
+        // states with `htlc.expiry > MAX_HTLC_DURATION` (which would otherwise
+        // deadlock `finalize`) back to the sender once the deadline is up.
+        require(block.timestamp > htlc.expiry || block.timestamp >= ch.htlcResolutionDeadline, "!expired");
         _verifyHtlcMembership(htlc, ch.postedHtlcsRoot, proof, sortedIndex, totalLeaves);
 
         htlcResolved[channelId][htlc.id] = HtlcResolution.Refunded;
@@ -694,6 +715,10 @@ contract PaymentChannel is
     /// @dev Hash the Adjudicator.Htlc and verify it against the posted Merkle root.
     ///      Extracted from claimHtlc/refundHtlc to keep their stack within solc 0.8.26's
     ///      16-slot limit (without via-ir).
+    /// @dev H2: even though the leaf hash binds the direction byte (so a signed
+    ///      state with an out-of-range direction would only proof-verify for that
+    ///      same byte), the payout helpers ternary-route on `direction == 0`. Any
+    ///      value != 0 would otherwise fall through to userA, so we reject early.
     function _verifyHtlcMembership(
         Adjudicator.Htlc calldata htlc,
         bytes32 root,
@@ -701,6 +726,7 @@ contract PaymentChannel is
         uint256 sortedIndex,
         uint256 totalLeaves
     ) internal pure {
+        require(htlc.direction <= 1, "direction");
         bytes32 leaf = keccak256(abi.encode(htlc.id, htlc.amount, htlc.paymentHash, htlc.expiry, htlc.direction));
         require(HTLC.verifyOrderedProof(leaf, root, proof, sortedIndex, totalLeaves), "bad proof");
     }

@@ -15,12 +15,16 @@ function makeState(
   htlcs: readonly Htlc[] = [],
   finalized = false,
 ): ChannelState {
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     channelId,
     version,
     balanceA,
     balanceB,
     htlcs,
+    htlcsCount: htlcs.length,
+    htlcsTotalLocked,
     finalized,
   };
 }
@@ -229,5 +233,27 @@ describe('channel', () => {
       ),
       { numRuns: 200 },
     );
+  });
+
+  it('M5: rejects update whose htlcsTotalLocked-derived pot does not conserve', () => {
+    // Construct a malicious "next" state whose `htlcsTotalLocked` is inflated
+    // without touching balances. The computeBalance path would still match
+    // (it derives from `htlcs`), but the derived-field check using
+    // htlcsTotalLocked directly should catch the divergence.
+    const prev = makeState(1n, 50n, 50n);
+    const malicious: ChannelState = {
+      ...makeState(2n, 50n, 50n),
+      // Lie about the locked total — admitSignedState would catch this via
+      // M4 (htlcsTotalLocked != Σ amount), but validateUpdate's M5 guard
+      // catches the cross-state divergence too.
+      htlcsTotalLocked: 25n,
+    };
+    const update: Update = {
+      channelId,
+      fromVersion: 1n,
+      toVersion: 2n,
+      nextState: malicious,
+    };
+    expect(() => validateUpdate(prev, update)).toThrow(BalanceMismatchError);
   });
 });

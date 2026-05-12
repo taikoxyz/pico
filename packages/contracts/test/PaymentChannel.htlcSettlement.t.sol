@@ -152,4 +152,95 @@ contract PaymentChannelHtlcSettlementTest is Fixtures {
         vm.expectRevert(bytes("htlcs pending"));
         channel.finalize(channelId);
     }
+
+    /* -------------------------------------------------------------------- */
+    /*  Audit fixes — H1 / H2 / H3                                          */
+    /* -------------------------------------------------------------------- */
+
+    /// @dev H1: a malicious state can sign an HTLC with `expiry` far beyond
+    ///      `MAX_HTLC_DURATION`. Without the resolution-deadline escape hatch,
+    ///      neither claim nor refund would be admissible inside the window, and
+    ///      `finalize` would refuse to settle ("htlcs pending"). The grace
+    ///      deadline (`block.timestamp + MAX_HTLC_DURATION + HTLC_RESOLUTION_GRACE`)
+    ///      provides a forced-refund path back to the sender.
+    function test_refundHtlc_forcedAfterResolutionDeadline() public {
+        // Build the HTLC with an expiry beyond the resolution deadline.
+        uint64 farFutureExpiry = uint64(block.timestamp + 100 * 365 days);
+        Adjudicator.Htlc memory htlc = Adjudicator.Htlc({
+            id: bytes32(uint256(0xBEEF)),
+            amount: HTLC_AMOUNT,
+            paymentHash: PAYMENT_HASH_AB,
+            expiry: farFutureExpiry,
+            direction: 0
+        });
+        Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
+            channelId: channelId,
+            version: 1,
+            balanceA: FUND_A - HTLC_AMOUNT,
+            balanceB: FUND_B,
+            htlcsRoot: _singleLeafRoot(htlc),
+            htlcsCount: 1,
+            htlcsTotalLocked: HTLC_AMOUNT,
+            finalized: false
+        });
+
+        vm.prank(alice);
+        channel.closeUnilateral(channelId, abi.encode(s), _signState(bobPk, s));
+        vm.warp(block.timestamp + channel.DISPUTE_WINDOW() + 1);
+        channel.finalize(channelId); // enter ResolvingHtlcs
+
+        // Before the grace deadline, refund still refuses (expiry is far away).
+        vm.expectRevert(bytes("!expired"));
+        channel.refundHtlc(channelId, htlc, new bytes32[](0), 0, 1);
+
+        // After the grace deadline, anyone can sweep the HTLC back to the sender.
+        vm.warp(block.timestamp + channel.MAX_HTLC_DURATION() + channel.HTLC_RESOLUTION_GRACE() + 1);
+        channel.refundHtlc(channelId, htlc, new bytes32[](0), 0, 1);
+        channel.finalize(channelId);
+
+        assertEq(token.balanceOf(alice), FUND_A, "alice refunded");
+        assertEq(token.balanceOf(bob), FUND_B, "bob unchanged");
+    }
+
+    /// @dev H2: an HTLC with `direction > 1` was previously treated as BtoA in the
+    ///      payout ternary; the new defense-in-depth check rejects at proof
+    ///      verification time. The state would never reach this point under the
+    ///      off-chain protocol, but the contract must not trust that.
+    function test_claimHtlc_rejectsInvalidDirectionByte() public {
+        Adjudicator.Htlc memory htlc = Adjudicator.Htlc({
+            id: bytes32(uint256(0xCAFE)),
+            amount: HTLC_AMOUNT,
+            paymentHash: PAYMENT_HASH_AB,
+            expiry: uint64(block.timestamp + channel.DISPUTE_WINDOW() + 30 minutes),
+            direction: 7 // intentionally out of {0, 1}
+        });
+        Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
+            channelId: channelId,
+            version: 1,
+            balanceA: FUND_A - HTLC_AMOUNT,
+            balanceB: FUND_B,
+            htlcsRoot: _singleLeafRoot(htlc),
+            htlcsCount: 1,
+            htlcsTotalLocked: HTLC_AMOUNT,
+            finalized: false
+        });
+
+        vm.prank(alice);
+        channel.closeUnilateral(channelId, abi.encode(s), _signState(bobPk, s));
+        vm.warp(block.timestamp + channel.DISPUTE_WINDOW() + 1);
+        channel.finalize(channelId);
+
+        vm.expectRevert(bytes("direction"));
+        channel.claimHtlc(channelId, htlc, new bytes32[](0), 0, 1, abi.encodePacked(PREIMAGE_AB));
+    }
+
+    /// @dev H3 is defense-in-depth: the `require(ch.htlcsCount == 0)` guard in
+    ///      `closeUnilateralFromOpen` fires only on protocol-unreachable states
+    ///      (a version-0 channel can never carry HTLCs because `openChannel`
+    ///      zeros the field and `topUp` blocks any change to the HTLC set).
+    ///      Synthesizing such a state in Foundry requires precise per-channel
+    ///      struct-slot poking that depends on OZ inheritance layout; we skip
+    ///      a positive negative-path test because the protocol-reachable
+    ///      happy paths in `PaymentChannel.closeFromOpen.t.sol` already cover
+    ///      every scenario that could reach the guarded statement.
 }

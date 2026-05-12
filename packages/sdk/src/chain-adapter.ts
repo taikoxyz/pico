@@ -92,6 +92,48 @@ export interface CloseUnilateralFromOpenOnChainArgs {
   readonly channelId: ChannelId;
 }
 
+/**
+ * H4: client-side surface for the v2 on-chain HTLC settlement entry points.
+ * Mirrors the contract's `claimHtlc(channelId, htlc, proof, sortedIndex,
+ * totalLeaves, preimage)` and `refundHtlc(channelId, htlc, proof, sortedIndex,
+ * totalLeaves)`. Watchtowers route through these; clients with a known
+ * preimage may also self-settle without a watchtower.
+ */
+export interface OnChainHtlc {
+  readonly id: Hex;
+  readonly amount: bigint;
+  readonly paymentHash: Hex;
+  /** Unix-seconds (uint64 on chain). */
+  readonly expiry: bigint;
+  /** 0 = AtoB, 1 = BtoA. */
+  readonly direction: number;
+}
+
+export interface ClaimHtlcOnChainArgs {
+  readonly channelId: ChannelId;
+  readonly htlc: OnChainHtlc;
+  /** Ordered Merkle proof from `htlcMerkleProof(htlcs, htlc.id)`. */
+  readonly proof: readonly Hex[];
+  /** Index of `htlc` in the sort-by-id ordering of the posted HTLC set. */
+  readonly sortedIndex: bigint;
+  /** Number of leaves in the posted HTLC set. */
+  readonly totalLeaves: bigint;
+  /** Raw preimage bytes — the contract verifies `sha256(preimage) == paymentHash`. */
+  readonly preimage: Hex;
+}
+
+export interface RefundHtlcOnChainArgs {
+  readonly channelId: ChannelId;
+  readonly htlc: OnChainHtlc;
+  readonly proof: readonly Hex[];
+  readonly sortedIndex: bigint;
+  readonly totalLeaves: bigint;
+}
+
+export interface HtlcResolutionResult {
+  readonly txHash: Hash;
+}
+
 export interface ChainAdapter {
   openChannel(args: OpenChannelOnChainArgs): Promise<OpenChannelOnChainResult>;
   closeCooperative(args: CloseCooperativeOnChainArgs): Promise<CloseOnChainResult>;
@@ -102,6 +144,18 @@ export interface ChainAdapter {
   topUp(args: TopUpOnChainArgs): Promise<TopUpOnChainResult>;
   finalize(channelId: ChannelId): Promise<FinalizedResult>;
   waitForFinalized(channelId: ChannelId, opts?: { timeoutMs?: number }): Promise<FinalizedResult>;
+  /**
+   * Post a `claimHtlc` tx. The htlc + proof come from off-chain; preimage
+   * comes from the original payment session (or a watchtower's preimage
+   * cache). Requires the channel to be in `Status.ResolvingHtlcs`.
+   */
+  claimHtlc(args: ClaimHtlcOnChainArgs): Promise<HtlcResolutionResult>;
+  /**
+   * Post a `refundHtlc` tx. Settles a pending HTLC back to its sender after
+   * its own `expiry` OR after the channel-wide `htlcResolutionDeadline`
+   * (forced-refund path, H1). Requires `Status.ResolvingHtlcs`.
+   */
+  refundHtlc(args: RefundHtlcOnChainArgs): Promise<HtlcResolutionResult>;
   dispose?(): Promise<void>;
 }
 
@@ -392,6 +446,69 @@ export class ViemChainAdapter implements ChainAdapter {
     const ev = logs[0];
     if (!ev) throw new Error('ChannelFinalized event not found in receipt');
     return { paidA: ev.args.paidA, paidB: ev.args.paidB, txHash };
+  }
+
+  async claimHtlc(args: ClaimHtlcOnChainArgs): Promise<HtlcResolutionResult> {
+    const { walletClient, publicClient, paymentChannelAddress } = this.opts;
+    const account = walletClient.account;
+    if (!account) throw new Error('ViemChainAdapter: walletClient has no account');
+    const chain = walletClient.chain;
+    if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
+
+    const txHash = await walletClient.writeContract({
+      address: paymentChannelAddress,
+      abi: paymentChannelAbi,
+      functionName: 'claimHtlc',
+      args: [
+        args.channelId,
+        {
+          id: args.htlc.id,
+          amount: args.htlc.amount,
+          paymentHash: args.htlc.paymentHash,
+          expiry: args.htlc.expiry,
+          direction: args.htlc.direction,
+        },
+        args.proof,
+        args.sortedIndex,
+        args.totalLeaves,
+        args.preimage,
+      ],
+      account,
+      chain,
+    });
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
+    return { txHash };
+  }
+
+  async refundHtlc(args: RefundHtlcOnChainArgs): Promise<HtlcResolutionResult> {
+    const { walletClient, publicClient, paymentChannelAddress } = this.opts;
+    const account = walletClient.account;
+    if (!account) throw new Error('ViemChainAdapter: walletClient has no account');
+    const chain = walletClient.chain;
+    if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
+
+    const txHash = await walletClient.writeContract({
+      address: paymentChannelAddress,
+      abi: paymentChannelAbi,
+      functionName: 'refundHtlc',
+      args: [
+        args.channelId,
+        {
+          id: args.htlc.id,
+          amount: args.htlc.amount,
+          paymentHash: args.htlc.paymentHash,
+          expiry: args.htlc.expiry,
+          direction: args.htlc.direction,
+        },
+        args.proof,
+        args.sortedIndex,
+        args.totalLeaves,
+      ],
+      account,
+      chain,
+    });
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
+    return { txHash };
   }
 
   async waitForFinalized(

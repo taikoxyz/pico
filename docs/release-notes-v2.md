@@ -86,18 +86,57 @@ v1 signatures impossible to replay against v2 contracts.
   cap on HTLC duration. Same assumption as v1's trust in the off-chain
   HTLC-count cap.
 
-## Known gaps in this draft
+## Audit remediation (high + medium findings)
 
-- Client-side `claimHtlcOnChain` / `refundHtlcOnChain` SDK helpers are
-  scaffolded in the ABI but not exposed as adapter methods yet.
-- Watchtower `htlc-resolver` module (preimage cache + auto-claim/refund) is
-  not yet wired; the existing reject was simply removed and conservation
-  invariant updated to include `htlcsTotalLocked`.
-- `apps/hub/chain-watcher` does not yet emit `HtlcResolutionStarted` or
-  `HtlcClaimed` / `HtlcRefunded` to downstream consumers.
-- e2e scenarios for the new flow are not yet authored (force-close-with-
-  htlcs + watchtower-driven settlement).
-- Verified locally: `forge fmt --check` clean and `forge test` 179/179
-  passing against this branch. Foundry tests for the new surface live in
-  `packages/contracts/test/HTLC.merkleProof.t.sol` (6 tests) and
-  `packages/contracts/test/PaymentChannel.htlcSettlement.t.sol` (8 tests).
+A three-agent audit (Solidity security, TS↔Solidity consistency,
+integration quality) ran against this branch and surfaced 5 High and
+6 Medium findings. All have been remediated in this PR:
+
+| Severity | Issue | Resolution |
+| --- | --- | --- |
+| High | `htlcResolutionDeadline` set but never enforced — malicious far-future expiry could deadlock `finalize` | `refundHtlc` now accepts post-`htlcResolutionDeadline` regardless of `htlc.expiry`; force-refund path closes the DoS |
+| High | `htlc.direction > 1` silently routed to userA in payout ternaries | `_verifyHtlcMembership` rejects with `"direction"` revert |
+| High | `closeUnilateralFromOpen` did not guard `htlcsCount == 0` | Added `require(ch.htlcsCount == 0, "htlcs at open")` (defense-in-depth) |
+| High | SDK `ChainAdapter` exposed neither `claimHtlc` nor `refundHtlc` | Added types + viem implementations + mock fallback |
+| High | Hub `chain-watcher` blind to `HtlcResolutionStarted` / `HtlcClaimed` / `HtlcRefunded` | New event subscriptions; status flips to `'resolving-htlcs'` on the first event |
+| High | Watchtower had no resolver, only the `htlcs!=0` reject was removed | New `htlc-resolver.ts` module + preimage cache table + `POST /v1/preimage` endpoint + event-driven invocation from `index.ts` |
+| Medium | `reinitializeV2` skip leaves `minChannelAmount` at 0 | NatSpec warning expanded; `Deploy.s.sol` upgrade path documented |
+| Medium | `HtlcClaimed` preimage leak undocumented in contract NatSpec | Privacy block added above the event declaration |
+| Medium | `scenarios.fork.test.ts` used the v1 11-field `channels()` ABI | Refreshed to the 19-field v2 layout |
+| Medium | `admitSignedState` did not validate `htlcsCount == htlcs.length` or `htlcsTotalLocked == Σ amount` | Added `HTLC_DERIVED_MISMATCH` guard before signature verification |
+| Medium | `validateUpdate` did not enforce the v2 conservation invariant using the derived field | Added `balanceA + balanceB + htlcsTotalLocked` check alongside the existing `computeBalance` guard |
+| Medium | Watchtower DB growth from full HTLC-set persistence undocumented | Sizing note in `apps/watchtower/README.md`; release notes call out retention guidance |
+| Medium | No e2e force-close-with-HTLCs coverage | Two scenarios in `e2e/src/scenarios.test.ts`: claim with preimage + refund after expiry |
+
+The v1 "Known gaps" section that previously called these out is intentionally
+removed — they are no longer gaps. Future work (PTLCs, additional
+multi-token-pair watchtower scaling) tracked in `docs/protocol-spec.md` §10.
+
+## Verification
+
+- `forge fmt --check` clean.
+- `forge test` 181/181 passing (179 prior + 2 new for the H1/H2 audit fixes).
+- TS workspace typecheck clean.
+- `pnpm test` across `protocol` (20/20), `state-machine` (134/134),
+  `sdk` (22/22), `hub` (24/24), `watchtower` (recovery 14/14 + new
+  `htlc-resolver` 5/5).
+- Two new e2e scenarios in `e2e/src/scenarios.test.ts` exercise force-close
+  with an HTLC through claim-with-preimage and refund-after-expiry, including
+  the second `finalize` call that pays out `pendingPayout{A,B}`.
+
+## Operations
+
+**Watchtower DB sizing**: persisting full HTLC sets per signed-state version
+adds ~5× per-channel storage relative to v1. Rough estimate is
+500 KB – 1 MB per active channel under heavy use (up to `MAX_HTLCS_PER_CHANNEL`
+= 5 in-flight HTLCs, average state churn). Recommend a retention policy
+that prunes signed states older than the dispute window once `finalize`
+fires (`ChannelFinalized` event). See `apps/watchtower/README.md` for the
+recommended SQLite configuration.
+
+**Preimage forwarding**: the watchtower exposes `POST /v1/preimage` when
+`preimageAuthToken` is configured. Hubs MUST authenticate with
+`Authorization: Bearer <token>`. Payload: `{ paymentHash, preimage }`,
+both 0x-prefixed hex. The endpoint stores idempotently keyed on
+`paymentHash`; an unknown channel is OK (the resolver will discover it
+when `HtlcResolutionStarted` fires).

@@ -55,6 +55,15 @@ export interface InFlightTx {
   readonly observationId?: number;
 }
 
+/** H6 preimage cache row: hubs forward seen preimages so the watchtower can
+ *  build claim transactions if a channel ever needs on-chain HTLC settlement.
+ *  Indexed by paymentHash so the resolver can look up by-HTLC at proof time. */
+export interface PreimageRecord {
+  readonly paymentHash: `0x${string}`;
+  readonly preimage: `0x${string}`;
+  readonly learnedAtMs: number;
+}
+
 export interface WatchtowerStore {
   init(): void;
   putSignedState(state: SignedState): void;
@@ -67,6 +76,10 @@ export interface WatchtowerStore {
   clearInFlight(channelId: ChannelId): void;
   putMeta(key: string, value: string): void;
   getMeta(key: string): string | undefined;
+  /** H6: persist a preimage learned from a hub or client. Idempotent on hash. */
+  putPreimage(record: PreimageRecord): void;
+  /** H6: look up a preimage by its payment hash. Returns undefined if unknown. */
+  getPreimage(paymentHash: `0x${string}`): PreimageRecord | undefined;
   /** Quick liveness probe: throws on broken DB; returns true on success. */
   ping(): boolean;
   close(): void;
@@ -112,6 +125,8 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
   private clearInFlightStmt?: Database.Statement;
   private putMetaStmt?: Database.Statement;
   private getMetaStmt?: Database.Statement;
+  private putPreimageStmt?: Database.Statement;
+  private getPreimageStmt?: Database.Statement;
 
   constructor(target: string | DbHandle) {
     if (typeof target === 'string') {
@@ -163,9 +178,36 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS preimages (
+        payment_hash TEXT PRIMARY KEY,
+        preimage TEXT NOT NULL,
+        learned_at_ms INTEGER NOT NULL
+      );
     `);
     this.prepareStatements();
     this.initialized = true;
+  }
+
+  putPreimage(record: PreimageRecord): void {
+    const stmt = this.requirePutPreimage();
+    stmt.run({
+      payment_hash: record.paymentHash,
+      preimage: record.preimage,
+      learned_at_ms: record.learnedAtMs,
+    });
+  }
+
+  getPreimage(paymentHash: `0x${string}`): PreimageRecord | undefined {
+    const stmt = this.requireGetPreimage();
+    const row = stmt.get({ payment_hash: paymentHash }) as
+      | { payment_hash: string; preimage: string; learned_at_ms: number }
+      | undefined;
+    if (!row) return undefined;
+    return {
+      paymentHash: row.payment_hash as `0x${string}`,
+      preimage: row.preimage as `0x${string}`,
+      learnedAtMs: row.learned_at_ms,
+    };
   }
 
   putSignedState(state: SignedState): void {
@@ -338,6 +380,14 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
     this.getMetaStmt = this.db.prepare(`
       SELECT value FROM meta WHERE key = @key
     `);
+    this.putPreimageStmt = this.db.prepare(`
+      INSERT INTO preimages (payment_hash, preimage, learned_at_ms)
+      VALUES (@payment_hash, @preimage, @learned_at_ms)
+      ON CONFLICT(payment_hash) DO NOTHING
+    `);
+    this.getPreimageStmt = this.db.prepare(`
+      SELECT payment_hash, preimage, learned_at_ms FROM preimages WHERE payment_hash = @payment_hash
+    `);
   }
 
   private requirePutSignedState(): Database.Statement {
@@ -381,5 +431,13 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
   private requireGetMeta(): Database.Statement {
     if (!this.getMetaStmt) throw new Error('SqliteWatchtowerStore: init() not called');
     return this.getMetaStmt;
+  }
+  private requirePutPreimage(): Database.Statement {
+    if (!this.putPreimageStmt) throw new Error('SqliteWatchtowerStore: init() not called');
+    return this.putPreimageStmt;
+  }
+  private requireGetPreimage(): Database.Statement {
+    if (!this.getPreimageStmt) throw new Error('SqliteWatchtowerStore: init() not called');
+    return this.getPreimageStmt;
   }
 }
