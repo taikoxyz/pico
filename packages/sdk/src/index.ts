@@ -13,11 +13,13 @@ export * from './invoice.js';
 export * from './key-file.js';
 export * from './keysend.js';
 export * from './local-signer.js';
+export * from './nostr-keys.js';
 export * from './payment.js';
 export * from './signature-codec.js';
 export * from './signer.js';
 export * from './storage.js';
 export * from './storage-file.js';
+export * from './stealth.js';
 export * from './storage-indexeddb.js';
 export type { InvoiceRecord } from './storage-shared.js';
 export {
