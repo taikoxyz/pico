@@ -68,7 +68,8 @@ hub-side outbound liquidity. v1.1's `topUp` flow handles this:
    observe `ToppedUp`.
 5. When a topped-up channel closes (`ChannelClosedCooperative` /
    `ChannelFinalized`), the hub's auto-recycle hook reuses the recovered
-   USDC for the next queued offer.
+   liquidity (in the channel's token — USDC by default, also ETH or any
+   other owner-allowlisted ERC-20) for the next queued offer.
 
 The SDK exposes `client.closeUnilateralFromOpen(channelId)` for the
 anti-hostage path: a user whose hub refuses to co-sign any state can recover

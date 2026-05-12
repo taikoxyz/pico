@@ -25,7 +25,8 @@ over their key, willing to submit on-chain transactions and withhold cooperation
   settle or fail, so this attack vector requires a future protocol version with
   on-chain HTLC settlement.
 - *Grief via dust*: user opens many small channels with the hub to inflate hub
-  collateral pressure. Targets `MIN_CHANNEL_AMOUNT_USDC`.
+  collateral pressure. Targets the per-token `minChannelAmount` floor on
+  `PaymentChannel`.
 
 **Mitigations**:
 
@@ -43,8 +44,19 @@ over their key, willing to submit on-chain transactions and withhold cooperation
   close/dispute/penalty states with non-empty `htlcsRoot`; cooperative close is
   client/hub-gated until all HTLCs settle or fail. Clients and watchtowers must
   ensure no close/dispute is initiated while HTLCs are in-flight.
-- `MIN_CHANNEL_AMOUNT_USDC = 10_000_000n` (10 USDC) raises the per-channel cost above
-  expected gas, deterring dust grief.
+- The owner-managed `minChannelAmount[token]` floor (v1 default: 10 USDC for
+  USDC, 0.01 ETH for ETH when enabled) raises the per-channel cost above
+  expected gas, deterring dust grief. Tokens without a configured floor accept
+  any non-zero amount, so the owner SHOULD seed a sensible per-token minimum at
+  the same time as `setTokenAllowed`.
+- ETH channel disbursement uses `call{value:}` and reverts the whole tx on a
+  failing leg. A contract participant whose `receive()` reverts (or consumes
+  more gas than the EVM's 63/64 forwarding allows) can lock channel funds at
+  `closeCooperative` / `finalize`. v1 mitigation is operator-side: ETH channel
+  counterparties SHOULD be EOAs or contracts with a trivial
+  `receive() external payable {}`. A future revision may move to a pull-pattern
+  (per-address `pendingWithdrawals` + `withdraw()`) so one failing leg cannot
+  block the other party's funds.
 
 ## Malicious hub
 
