@@ -125,9 +125,7 @@ contract PaymentChannelTopUpTest is Fixtures {
         prev.state.htlcsRoot = bytes32(uint256(0xAA));
         Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState,
-            sigA: _signState(alicePk, nextState),
-            sigB: _signState(bobPk, nextState)
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
         vm.expectRevert(bytes("htlcs root/count"));
