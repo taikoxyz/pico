@@ -37,11 +37,7 @@ export interface PtlcGroup<P, S> {
  * channel state-machine calls this in place of `verifyPreimage` once v2
  * lands.
  */
-export function ptlcVerify<P, S>(
-  group: PtlcGroup<P, S>,
-  point: P,
-  scalar: S,
-): boolean {
+export function ptlcVerify<P, S>(group: PtlcGroup<P, S>, point: P, scalar: S): boolean {
   return group.pointEq(point, group.commit(scalar));
 }
 
@@ -55,11 +51,7 @@ export function ptlcVerify<P, S>(
  * tweak)`. No third party who sees only `outerPoint` can recover
  * `innerPoint` without `tweak`.
  */
-export function ptlcOuterPoint<P, S>(
-  group: PtlcGroup<P, S>,
-  innerPoint: P,
-  tweak: S,
-): P {
+export function ptlcOuterPoint<P, S>(group: PtlcGroup<P, S>, innerPoint: P, tweak: S): P {
   return group.pointAdd(innerPoint, group.commit(tweak));
 }
 
@@ -69,10 +61,6 @@ export function ptlcOuterPoint<P, S>(
  *   outerScalar = innerScalar + tweak
  * `ptlcVerify(group, ptlcOuterPoint(group, innerPoint, tweak), outerScalar) === true`.
  */
-export function ptlcOuterScalar<P, S>(
-  group: PtlcGroup<P, S>,
-  innerScalar: S,
-  tweak: S,
-): S {
+export function ptlcOuterScalar<P, S>(group: PtlcGroup<P, S>, innerScalar: S, tweak: S): S {
   return group.scalarAdd(innerScalar, tweak);
 }

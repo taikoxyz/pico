@@ -1,4 +1,4 @@
-import { TAIKO_MAINNET_CHAIN_ID, type Hex } from '@inferenceroom/pico-protocol';
+import { type Hex, TAIKO_MAINNET_CHAIN_ID } from '@inferenceroom/pico-protocol';
 import { describe, expect, it } from 'vitest';
 import { createInvoice, verifyInvoice } from './invoice.js';
 import { STEALTH_LABEL_USER_B, StealthKeyManager } from './stealth.js';
@@ -33,12 +33,8 @@ describe('recipient rotation via stealth signers (item 2)', () => {
     );
 
     expect(invA.invoice.recipient).not.toBe(invB.invoice.recipient);
-    expect(invA.invoice.recipient.toLowerCase()).toBe(
-      (await signerA.address()).toLowerCase(),
-    );
-    expect(invB.invoice.recipient.toLowerCase()).toBe(
-      (await signerB.address()).toLowerCase(),
-    );
+    expect(invA.invoice.recipient.toLowerCase()).toBe((await signerA.address()).toLowerCase());
+    expect(invB.invoice.recipient.toLowerCase()).toBe((await signerB.address()).toLowerCase());
   });
 
   it('both rotated invoices verify under the standard verifier', async () => {
@@ -57,8 +53,14 @@ describe('recipient rotation via stealth signers (item 2)', () => {
     const mgr = new StealthKeyManager(SCAN_KEY);
     const s1 = mgr.signerFor(STEALTH_LABEL_USER_B, '0x11111111111111111111111111111111' as Hex);
     const s2 = mgr.signerFor(STEALTH_LABEL_USER_B, '0x22222222222222222222222222222222' as Hex);
-    const i1 = await createInvoice({ amount: 1n, chainId: CHAIN_ID, expiryMs: EXPIRY_FAR_FUTURE }, s1);
-    const i2 = await createInvoice({ amount: 1n, chainId: CHAIN_ID, expiryMs: EXPIRY_FAR_FUTURE }, s2);
+    const i1 = await createInvoice(
+      { amount: 1n, chainId: CHAIN_ID, expiryMs: EXPIRY_FAR_FUTURE },
+      s1,
+    );
+    const i2 = await createInvoice(
+      { amount: 1n, chainId: CHAIN_ID, expiryMs: EXPIRY_FAR_FUTURE },
+      s2,
+    );
     expect(i1.paymentHash).not.toBe(i2.paymentHash); // distinct preimages
     expect(i1.preimage).not.toBe(i2.preimage);
   });

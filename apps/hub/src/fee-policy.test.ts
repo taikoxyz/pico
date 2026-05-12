@@ -43,7 +43,7 @@ describe('FlatPlusBpsFeePolicy bucketing (item 4)', () => {
     for (const amount of [1n, 999n, 1_000n, 1_001n, 12_345n, 999_999n]) {
       const q = policy.quoteBucketed(amount);
       expect(q.senderHtlcAmount % 1_000n).toBe(0n);
-      expect(q.senderHtlcAmount).toBeGreaterThanOrEqual(amount + ((amount * 10n) / 10_000n) + 1n);
+      expect(q.senderHtlcAmount).toBeGreaterThanOrEqual(amount + (amount * 10n) / 10_000n + 1n);
       expect(q.paddingToBucket).toBeGreaterThanOrEqual(0n);
       expect(q.paddingToBucket).toBeLessThan(1_000n);
     }

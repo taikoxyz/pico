@@ -5,8 +5,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex, hexToBytes, randomBytes } from './crypto.js';
 import { LocalSigner } from './local-signer.js';
 
-const SECP256K1_N =
-  0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 
 const LABEL = 'pico-nostr-event-key';
 const MAX_RETRIES = 256;

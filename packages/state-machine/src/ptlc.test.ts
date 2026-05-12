@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  type PtlcGroup,
-  ptlcOuterPoint,
-  ptlcOuterScalar,
-  ptlcVerify,
-} from './ptlc.js';
+import { type PtlcGroup, ptlcOuterPoint, ptlcOuterScalar, ptlcVerify } from './ptlc.js';
 
 // ---- Toy group for testing the PTLC algebra ----
 //
@@ -32,7 +27,7 @@ function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
 }
 
 function modAdd(a: bigint, b: bigint, mod: bigint): bigint {
-  return ((a + b) % mod + mod) % mod;
+  return (((a + b) % mod) + mod) % mod;
 }
 
 const toyGroup: PtlcGroup<bigint, bigint> = {
