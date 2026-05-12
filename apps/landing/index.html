@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pico — payments for AI agents</title>
-<meta name="description" content="Trustless 1-hop state channel network for micro-payments on Taiko L2. CLI-first, USDC-native.">
+<meta name="description" content="Trustless 1-hop state channel network for micro-payments on Taiko L2. CLI-first. USDC and native ETH on Taiko mainnet.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,7 @@
     <a href="/" class="logo">pico<span>/</span></a>
     <ul class="nav-links">
       <li><a href="#features">Design</a></li>
-      <li><a href="#usdc">USDC</a></li>
+      <li><a href="#assets">Assets</a></li>
       <li><a href="#cli">CLI</a></li>
       <li><a href="#hub">Hub</a></li>
       <li><a href="#how">Hop</a></li>
@@ -71,33 +71,58 @@
 
 <div class="section-divider"><span class="section-divider-mark">02</span></div>
 
-<section class="usdc" id="usdc">
-  <h2 class="section-title">Circle <em>USDC</em>. No native token.</h2>
+<section class="usdc" id="assets">
+  <h2 class="section-title"><em>USDC</em> and native ETH.</h2>
   <p class="section-sub">
-    pico uses Circle-native USDC on Taiko mainnet. No governance token, no staking, no bridges, no wrapped assets. One stablecoin, one chain.
+    pico defaults to Circle-native USDC on Taiko mainnet. The on-chain contracts also accept native ETH and any owner-allowlisted ERC-20 &mdash; no governance token, no staking, no bridges, no wrapped assets.
   </p>
 
-  <div class="usdc-card">
-    <div class="field">Token address (Taiko mainnet)</div>
-    <div class="usdc-address-row">
-      <code>0x07d83526730c7438048D55A4fc0b850e2aaB6f0b</code>
-      <button class="copy-btn" data-copy="0x07d83526730c7438048D55A4fc0b850e2aaB6f0b" onclick="copyText(this)">Copy</button>
+  <div class="token-grid">
+    <div class="usdc-card">
+      <div class="field">Token address (Taiko mainnet)</div>
+      <div class="usdc-address-row">
+        <code>0x07d83526730c7438048D55A4fc0b850e2aaB6f0b</code>
+        <button class="copy-btn" data-copy="0x07d83526730c7438048D55A4fc0b850e2aaB6f0b" onclick="copyText(this)">Copy</button>
+      </div>
+
+      <dl class="usdc-meta">
+        <div>
+          <dt>Network</dt>
+          <dd><strong>Taiko</strong> mainnet</dd>
+        </div>
+        <div>
+          <dt>Decimals</dt>
+          <dd><strong>6</strong></dd>
+        </div>
+        <div>
+          <dt>Min channel</dt>
+          <dd><strong>10 USDC</strong></dd>
+        </div>
+      </dl>
     </div>
 
-    <dl class="usdc-meta">
-      <div>
-        <dt>Network</dt>
-        <dd><strong>Taiko</strong> mainnet</dd>
+    <div class="usdc-card">
+      <div class="field">Token address (Taiko mainnet) <span class="field-note">native ETH sentinel</span></div>
+      <div class="usdc-address-row">
+        <code>0x0000000000000000000000000000000000000000</code>
+        <button class="copy-btn" data-copy="0x0000000000000000000000000000000000000000" onclick="copyText(this)">Copy</button>
       </div>
-      <div>
-        <dt>Decimals</dt>
-        <dd><strong>6</strong></dd>
-      </div>
-      <div>
-        <dt>Min channel</dt>
-        <dd><strong>10 USDC</strong></dd>
-      </div>
-    </dl>
+
+      <dl class="usdc-meta">
+        <div>
+          <dt>Network</dt>
+          <dd><strong>Taiko</strong> mainnet</dd>
+        </div>
+        <div>
+          <dt>Decimals</dt>
+          <dd><strong>18</strong></dd>
+        </div>
+        <div>
+          <dt>Min channel</dt>
+          <dd><strong>0.01 ETH</strong></dd>
+        </div>
+      </dl>
+    </div>
   </div>
 </section>
 
