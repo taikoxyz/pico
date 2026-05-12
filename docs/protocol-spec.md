@@ -381,40 +381,78 @@ The one-shot deadline restart prevents a complementary griefing path: once `pena
 is set, the slash outcome is locked in, so further disputes cannot affect the payout
 and must not be allowed to delay `finalize` for the honest party.
 
-### 5.4 HTLC handling (v1 trust-liveness limitation)
+### 5.4 HTLC handling (v2: on-chain trustless settlement)
 
-v1 does **not** implement on-chain HTLC claim/refund during disputes. The contracts
-reject any `ChannelState` with a non-empty `htlcsRoot` in unilateral close, dispute,
-and penalty paths. Cooperative close signs a `CooperativeClose` artifact without an
-HTLC root, so clients and hubs MUST only request it after all HTLCs settle or fail.
+v2 implements **fully trustless on-chain HTLC settlement** during unilateral close
+and dispute. The v1 limitation — contracts rejected any `ChannelState` with a
+non-empty `htlcsRoot` — has been lifted. In-flight HTLCs survive a force-close;
+neither party can grief the other out of mid-flight value.
 
-> **Important: this is a trusted-liveness assumption, not a fully trustless
-> design.** Mid-flight HTLC sequences are not safe against an adversarial
-> counterparty. Two specific attack patterns are visible:
->
-> 1. *Adversary closes with a stale empty-root state.* The honest party's most
->    recent dual-signed state has a non-empty `htlcsRoot` and therefore cannot
->    be posted as a challenge during the dispute window. The contract resolves
->    against the older empty-root state, ignoring the in-flight HTLC.
-> 2. *Honest party closes with the latest empty-root state and an in-flight
->    HTLC has not yet been resolved.* The HTLC's value silently reverts to the
->    sender at close time on-chain even if the receiver had already revealed
->    a preimage off-chain.
->
-> The mitigations in v1 are operational, not protocol-level:
-> - Clients and hubs MUST NOT initiate `closeUnilateral` while
->   `htlcsRoot != 0` on the latest local state.
-> - Watchtowers MUST monitor for stale-empty-root closes and post the most
->   recent dual-signed empty-root state as a challenge if available.
-> - Hub admission policy SHOULD cap maximum in-flight HTLC count and total
->   in-flight value per channel and per counterparty (see §4.3).
->
-> Mainnet v1 deployments SHOULD set conservative caps until on-chain HTLC
-> settlement is added in a future protocol version.
+#### Signed-state extensions
 
-On-chain HTLC settlement (Merkle proof verification, preimage claims, expiry refunds)
-is the most important post-v1 protocol upgrade and is tracked as the headline
-v1.x → v2 milestone.
+`ChannelState` carries two new fields alongside `htlcsRoot`:
+- `htlcsCount: uint16` — number of HTLCs in the set (= leaves under `htlcsRoot`).
+- `htlcsTotalLocked: uint256` — sum of `amount` over all HTLCs in the set.
+
+The on-chain conservation invariant becomes
+`balanceA + balanceB + htlcsTotalLocked == amountA + amountB` and is enforced at
+unilateral close, dispute, penalty, and top-up. The EIP-712 domain version is
+bumped to `"2"` to ensure v1 signatures cannot be replayed against v2 contracts.
+
+#### Phase model
+
+When `closeUnilateral` (or `dispute`) accepts a state with `htlcsCount > 0`, the
+contract records `(postedHtlcsRoot, htlcsCount, htlcsTotalLocked)`. After the
+24-hour dispute window expires, the first call to `finalize`:
+
+- If `penalized`: short-circuit — the cheater forfeits the entire pot to the
+  non-closer (in-flight HTLCs included). Same 100% slash as v1, simply extended
+  to cover locked value.
+- If `htlcsCount == 0`: fast path, byte-equivalent to v1 finalize.
+- Otherwise: transition `ClosingUnilateral → ResolvingHtlcs` and set
+  `htlcResolutionDeadline = block.timestamp + MAX_HTLC_DURATION + HTLC_RESOLUTION_GRACE`
+  (4 hours). The protocol bound on HTLC expiry (`MAX_HTLC_DURATION_MS = 2h`) is
+  what makes this a safe single ceiling: every HTLC inside the posted set is
+  guaranteed to expire within the window.
+
+While in `ResolvingHtlcs`, anyone may call:
+
+- `claimHtlc(channelId, htlc, proof, sortedIndex, totalLeaves, preimage)` —
+  verifies `sha256(preimage) == htlc.paymentHash`, verifies the ordered Merkle
+  proof against `postedHtlcsRoot`, requires `block.timestamp <= htlc.expiry`,
+  credits the receiver side's `pendingPayout`, and decrements `htlcsCount`.
+- `refundHtlc(channelId, htlc, proof, sortedIndex, totalLeaves)` — same proof
+  check, requires `block.timestamp > htlc.expiry`, credits the sender side.
+
+A second `finalize` call (after every HTLC has been explicitly claimed or
+refunded — i.e. `htlcsCount == 0`) pays out `postedBalance{A,B} + pendingPayout{A,B}`
+and marks the channel closed.
+
+#### Merkle proof construction
+
+`htlcMerkleRoot` (off-chain) and `HTLC.rootOf` (on-chain) sort HTLCs by `id`
+ascending, hash leaves with `keccak256(abi.encode(id, amount, paymentHash,
+expiry_seconds, direction_byte))`, and pair adjacent siblings level-by-level
+with concat hash `keccak256(left || right)`. Odd tails at each level are
+duplicated. Inclusion proofs (`htlcMerkleProof` / `HTLC.verifyOrderedProof`)
+replay the same left/right ordering using `sortedIndex` parity at each level
+plus the `totalLeaves` count to detect odd-tail self-duplication.
+
+This is **not** OpenZeppelin's order-independent min/max pairing; the verifier
+synthesizes the sibling rather than receiving it in the proof when the leaf
+sits in the duplicated odd-tail slot.
+
+#### Settlement actor
+
+In hub-and-spoke deployments, watchtowers carry an HTLC preimage cache and
+post claims/refunds on behalf of offline clients. The SDK exposes
+`claimHtlcOnChain` / `refundHtlcOnChain` for clients without a trusted
+watchtower; either path is permissionless on-chain.
+
+> **Operational note:** watchtowers in v2 must persist the full HTLC set
+> associated with each signed state (not just the root) so they can construct
+> Merkle proofs at settlement time. The hub forwards seen preimages to
+> registered watchtowers over its existing HTTP surface.
 
 ### 5.5 Finalize
 

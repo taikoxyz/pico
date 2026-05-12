@@ -213,7 +213,10 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     const inv = await getChannelInvariants(state.state.channelId);
     // v2: in-flight HTLCs are accepted. Conservation is now
     // balanceA + balanceB + htlcsTotalLocked == totalFunding.
-    if (state.state.balanceA + state.state.balanceB + state.state.htlcsTotalLocked !== inv.totalFunding) {
+    if (
+      state.state.balanceA + state.state.balanceB + state.state.htlcsTotalLocked !==
+      inv.totalFunding
+    ) {
       throw new Error(
         `watchtower.remember: balance not conserved for channel ${state.state.channelId} (got ${state.state.balanceA + state.state.balanceB + state.state.htlcsTotalLocked}, expected ${inv.totalFunding})`,
       );

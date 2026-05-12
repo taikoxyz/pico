@@ -20,10 +20,12 @@ over their key, willing to submit on-chain transactions and withhold cooperation
   typed-data (§ 6.2).
 - *HTLC double-spend*: user adds an HTLC, settles it, then submits the pre-settle
   state on dispute to "rewind" the settlement. Targets `htlcsRoot` and HTLC reveal
-  flow (§ 3, § 5.4). **Note**: v1 rejects any unilateral close/dispute with
-  non-empty `htlcsRoot`, and cooperative close is client/hub-gated until all HTLCs
-  settle or fail, so this attack vector requires a future protocol version with
-  on-chain HTLC settlement.
+  flow (§ 3, § 5.4). In v2 this is defeated by: (a) on-chain Merkle proof
+  verification of the HTLC in `claimHtlc`, (b) the dual-signature requirement
+  on any disputed state, and (c) the conservation invariant
+  `balanceA + balanceB + htlcsTotalLocked == amountA + amountB` baked into
+  `ChannelState`. The attacker would need the counterparty's signature on the
+  pre-settle state, which the protocol never produces post-settle.
 - *Grief via dust*: user opens many small channels with the hub to inflate hub
   collateral pressure. Targets the per-token `minChannelAmount` floor on
   `PaymentChannel`.
@@ -40,10 +42,17 @@ over their key, willing to submit on-chain transactions and withhold cooperation
 - All transitions require both signatures over the resulting `ChannelState`; the
   state-machine in `@inferenceroom/pico-state-machine` enforces strict version monotonicity
   (`replay.ts:ensureMonotonicVersion`).
-- v1 does not implement on-chain HTLC settlement. The contracts reject unilateral
-  close/dispute/penalty states with non-empty `htlcsRoot`; cooperative close is
-  client/hub-gated until all HTLCs settle or fail. Clients and watchtowers must
-  ensure no close/dispute is initiated while HTLCs are in-flight.
+- v2 implements on-chain HTLC settlement. The contracts accept non-empty
+  `htlcsRoot` at unilateral close/dispute and enter `Status.ResolvingHtlcs`
+  after the dispute window; `claimHtlc` (preimage + Merkle proof) and
+  `refundHtlc` (proof, post-expiry) settle each HTLC permissionlessly. The
+  cooperative close artifact still carries no HTLC root and is therefore
+  client/hub-gated to channels with no in-flight HTLCs, but force-close no
+  longer strands in-flight value. Watchtowers must persist the full HTLC set
+  per signed state (not just the root) so they can build proofs at
+  resolution time. Preimage emission on `HtlcClaimed` is intentional —
+  payment-hash reuse across channels is forbidden by the protocol, so the
+  event leaks no cross-channel information.
 - The owner-managed `minChannelAmount[token]` floor (v1 default: 10 USDC for
   USDC, 0.01 ETH for ETH when enabled) raises the per-channel cost above
   expected gas, deterring dust grief. Tokens without a configured floor accept
