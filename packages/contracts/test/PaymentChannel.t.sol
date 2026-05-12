@@ -746,6 +746,77 @@ contract PaymentChannelTest is Fixtures {
     }
 
     /* ====================================================================== */
+    /*  reinitializeV2                                                         */
+    /* ====================================================================== */
+
+    function test_reinitializeV2_seedsUsdcFloorAtomically() public {
+        // Fresh deploy: minChannelAmount[token] was seeded by Fixtures, drop it so we
+        // can observe reinitializeV2 setting it. Then verify it's set and that the
+        // function is gated by `reinitializer(2)` (cannot be re-run).
+        vm.prank(owner);
+        channel.setMinChannelAmount(address(token), 0);
+        assertEq(channel.minChannelAmount(address(token)), 0);
+
+        // Upgrade in place with a reinit payload. Since the proxy was deployed via
+        // `initialize` (sets _initialized=1), reinitializer(2) is callable exactly once.
+        PaymentChannel newImpl = new PaymentChannel();
+        vm.prank(owner);
+        channel.upgradeToAndCall(
+            address(newImpl), abi.encodeCall(PaymentChannel.reinitializeV2, (address(token), 10_000_000))
+        );
+        assertEq(channel.minChannelAmount(address(token)), 10_000_000);
+
+        // Cannot be called a second time.
+        vm.prank(owner);
+        vm.expectRevert();
+        channel.reinitializeV2(address(token), 999);
+    }
+
+    function test_reinitializeV2_onlyOwner() public {
+        // Even during the migration window, only the owner may seed the floor —
+        // otherwise a griefer could front-run with a bogus minimum.
+        PaymentChannel newImpl = new PaymentChannel();
+        vm.prank(alice);
+        vm.expectRevert();
+        channel.upgradeToAndCall(
+            address(newImpl), abi.encodeCall(PaymentChannel.reinitializeV2, (address(token), 10_000_000))
+        );
+    }
+
+    function test_reinitializeV2_revertsOnZeroUsdc() public {
+        PaymentChannel newImpl = new PaymentChannel();
+        vm.prank(owner);
+        vm.expectRevert(bytes("usdc=0"));
+        channel.upgradeToAndCall(
+            address(newImpl), abi.encodeCall(PaymentChannel.reinitializeV2, (address(0), 10_000_000))
+        );
+    }
+
+    /* ====================================================================== */
+    /*  topUp value gating on ERC-20 channels                                  */
+    /* ====================================================================== */
+
+    function test_topUp_revertsOnEthValue_forErc20Channel() public {
+        // Symmetric to the ETH topUp test: sending msg.value > 0 against a channel
+        // whose token is a real ERC-20 must revert at the value gate, even if the
+        // signatures and balance deltas would otherwise validate.
+        bytes32 id = _openDefault();
+        Adjudicator.ChannelState memory prevState = Adjudicator.ChannelState(id, 0, FUND_A, FUND_B, bytes32(0), false);
+        Adjudicator.SignedChannelState memory prev =
+            Adjudicator.SignedChannelState({state: prevState, sigA: hex"", sigB: hex""});
+        Adjudicator.ChannelState memory nextState =
+            Adjudicator.ChannelState(id, 1, FUND_A + 5_000_000, FUND_B, bytes32(0), false);
+        Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
+            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
+        });
+
+        vm.deal(alice, 1 ether);
+        vm.prank(alice);
+        vm.expectRevert(bytes("no ETH"));
+        channel.topUp{value: 1}(id, 5_000_000, prev, next);
+    }
+
+    /* ====================================================================== */
     /*  helpers                                                                */
     /* ====================================================================== */
 

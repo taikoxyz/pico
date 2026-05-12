@@ -37,6 +37,13 @@ import {Adjudicator} from "./Adjudicator.sol";
 ///       - Fee-on-transfer and rebasing tokens are NOT supported. The owner allowlist
 ///         is the gate; `safeTransferFrom` does not verify received-amount equals
 ///         requested-amount, so allowlisting such a token would break balance conservation.
+///       - ETH disbursements use `call{value:}` with `require(ok)`. If either channel
+///         participant is a contract whose `receive()` reverts (or consumes more than the
+///         63/64 gas the EVM forwards), `closeCooperative` and `finalize` will revert and
+///         the channel funds are stuck. Counterparties for ETH channels SHOULD be EOAs or
+///         contracts with a trivial `receive() external payable {}`. A future revision may
+///         move to a pull-pattern (per-address `pendingWithdrawals` + `withdraw()`) so a
+///         failing payout leg cannot block the other party's funds.
 ///       - UUPS upgradeable behind `ERC1967Proxy`. `_authorizeUpgrade` is gated by an owner.
 contract PaymentChannel is
     IPaymentChannel,
@@ -131,6 +138,21 @@ contract PaymentChannel is
         adjudicator = Adjudicator(adjudicator_);
     }
 
+    /// @notice One-shot migration for proxies upgraded from the USDC-only contract that
+    ///         predates `minChannelAmount`. Seeds the per-token floor atomically with
+    ///         the upgrade tx so there is no window during which a previously-floored
+    ///         token can be opened at any amount. MUST be called via
+    ///         `upgradeToAndCall(newImpl, abi.encodeCall(reinitializeV2, (usdc, minUsdc)))`.
+    /// @dev Guarded by `reinitializer(2)`: callable exactly once on the existing proxy
+    ///      and not at all on fresh deployments (which already start with
+    ///      `_initialized == 1` and use `setMinChannelAmount` directly). Owner-gated to
+    ///      mirror `setMinChannelAmount`.
+    function reinitializeV2(address usdc, uint256 minUsdc) external reinitializer(2) onlyOwner {
+        require(usdc != address(0), "usdc=0");
+        minChannelAmount[usdc] = minUsdc;
+        emit MinChannelAmountSet(usdc, minUsdc);
+    }
+
     /// @notice Owner-only: add or remove a token from the channel-token allowlist.
     /// @dev `token == address(0)` enables native-ETH channels. The owner is expected to
     ///      vet ERC-20s for fee-on-transfer / rebasing behaviour before allowlisting.
@@ -162,7 +184,11 @@ contract PaymentChannel is
 
     /// @dev Send `amount` of `token` to `to`. For native ETH, uses a low-level `call`
     ///      with no calldata; the caller is responsible for CEI ordering (state writes
-    ///      before this disbursement).
+    ///      before this disbursement). If `to` is a contract whose `receive()` reverts,
+    ///      the call reverts and the enclosing close/finalize tx fails — locking the
+    ///      channel until the offending side cooperates with a different `to`. See the
+    ///      contract-level NatSpec for the v1 mitigation (vet contract counterparties)
+    ///      and the planned pull-pattern follow-up.
     function _payOut(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
         if (token == address(0)) {
