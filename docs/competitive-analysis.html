@@ -418,7 +418,7 @@
   <ul>
     <li><strong>Hub</strong>: cannot steal funds (HTLCs are hash-locked), but can refuse service or stall a cooperative close. User's recourse is unilateral close plus a 24-hour dispute window — structurally identical to how Lightning routing nodes behave.</li>
     <li><strong>Watchtower</strong>: cannot steal; can fail to post a penalty proof within the 24-hour window. Recommended deployment is 2-of-3 independent operators.</li>
-    <li><strong>v1 HTLC limitation (material)</strong>: unilateral close rejects any state with in-flight HTLCs — they revert to an empty root on-chain. This is a <em>trusted-liveness</em> assumption, not fully trustless. On-chain HTLC settlement is deferred to v2. This is pico's most significant trust gap versus Lightning.</li>
+    <li><strong>HTLC settlement (v2)</strong>: unilateral close accepts states with in-flight HTLCs. After the dispute window the channel enters <code>Status.ResolvingHtlcs</code>; <code>claimHtlc</code> (preimage + Merkle proof) and <code>refundHtlc</code> (proof, post-expiry) settle each HTLC trustlessly. Structurally equivalent to Lightning's HTLC-success/HTLC-timeout transactions.</li>
   </ul>
 
   <div class="table-wrap">
@@ -618,7 +618,7 @@
 
   <h3>Where pico is weaker</h3>
   <ol class="weakness-list">
-    <li><strong>v1 HTLC trust gap.</strong> In-flight HTLCs revert to empty root on unilateral close. Lightning's on-chain HTLC settlement is fully trustless. This is the most material gap for high-value or long-duration conditional payments. Scheduled for v2.</li>
+    <li><strong>HTLC settlement (resolved in v2).</strong> Earlier drafts called out that v1 reverted in-flight HTLCs to empty root on unilateral close — a trusted-liveness assumption rather than a fully trustless design. v2 ships on-chain HTLC claim/refund (Merkle proof + preimage), structurally equivalent to Lightning's HTLC-success/HTLC-timeout transactions, so this gap is closed.</li>
     <li><strong>Single-asset (v1).</strong> USDC only limits interoperability. Lightning is increasingly multi-asset via plugins. XRP Ledger supports any issued token. This is a design choice, not a limitation, but it restricts addressable market.</li>
     <li><strong>Hub concentration risk.</strong> Every payment touches one specific hub. A hub going offline is service disruption — worse than a Lightning routing failure, where the wallet can retry a different path. Multi-hub support mitigates but doesn't eliminate this.</li>
     <li><strong>Taiko-only.</strong> Not portable to other EVM chains. Lightning (Bitcoin) and Connext span many ecosystems. Taiko's footprint vs. Solana/Base is pico's biggest external market risk.</li>
@@ -639,7 +639,7 @@
 
   <div class="verdict-box" style="border-left-color: var(--yellow); border-color: #713f12;">
     <h4>The risks</h4>
-    <p><strong>Protocol:</strong> The v1 trusted-liveness HTLC assumption means pico is not fully trustless for in-flight payments. Lightning remains more trustless in this specific scenario. Until v2 ships on-chain HTLC settlement, this is an honest limitation that must be disclosed to users.</p>
+    <p><strong>Protocol:</strong> v2 now ships on-chain HTLC settlement (Merkle proof + preimage claim, post-expiry refund) so pico is structurally trustless for in-flight payments — equivalent to Lightning's HTLC-success/HTLC-timeout transactions. Residual risks are operational: watchtower liveness during the resolution window, and the preimage emitted in <code>HtlcClaimed</code> events giving a force-closing pair of channels a correlation oracle (mitigated by PTLCs once they land).</p>
     <p><strong>Market:</strong> x402 (Coinbase/Base), Solana Pay.sh, and Amazon Bedrock Agentcore Payments are all emerging in the same "agent payments" narrative on higher-adoption chains. Taiko's current footprint vs. Solana and Base is pico's biggest external risk — not its protocol design. The protocol is sound; the ecosystem bet on Taiko is the open question.</p>
   </div>
 

@@ -211,9 +211,11 @@ parties who see only dispute postings) are addressed incrementally:
   linking PaymentQuote / PaymentInvoice / PaymentReceipt to one DVM.
 - **Fee bucketing** in `FlatPlusBpsFeePolicy` collapses adjacent
   payments into the same outer-HTLC value.
-- **PTLCs** (v2 protocol bump) make the two legs of a routed payment
-  carry different on-chain commitments, neutralizing on-chain
-  HTLC settlement as a correlation oracle when §5.4 lands.
+- **PTLCs** (v2.x protocol bump) make the two legs of a routed payment
+  carry different on-chain commitments, neutralizing the v2 HTLC
+  settlement path as a correlation oracle (a force-close that resolves
+  HTLCs on chain currently emits the matching `paymentHash` on both
+  legs via `HtlcClaimed`).
 
 SDK / state-machine / hub helpers for these landed in PR #90. End-to-end
 integration into `ChannelClient`, the hub router, and the Nostr

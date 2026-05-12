@@ -140,7 +140,8 @@ The `version` and `validUntil` fields are **load-bearing replay defenses**:
 **Dispute**: during the window, the counterparty may submit a strictly newer
 `ChannelState` (`version` field, §2). The contract replaces the state and restarts
 the window. After the window closes with no challenge, anyone may call `finalize`,
-which disburses balances. v1 does not reveal/refund in-flight HTLCs on-chain.
+which disburses balances. In v2 in-flight HTLCs are settled on chain
+(§5.4: `Status.ResolvingHtlcs` phase + `claimHtlc`/`refundHtlc`).
 
 ## 2. State updates
 
@@ -232,12 +233,13 @@ only during disputes (rare).
 - **fail**: explicit cancel; sender refunded; HTLC removed.
 - **expire**: any party may invoke after `now ≥ expiry`; sender refunded.
 
-> **Safety note (v1)**: each transition above is an off-chain co-signed state
-> update. Because v1 has no on-chain HTLC settlement (§5.4), any of these
-> transitions is only safe to rely on while both parties remain live. If a
-> dispute is initiated while `htlcsRoot != 0`, the contract cannot adjudicate
-> the in-flight HTLCs and they revert to the empty-root state. This is the
-> reason v1 caps in-flight exposure (§4.3).
+> **Safety note (v2)**: each transition above is an off-chain co-signed state
+> update. v2 backs every transition with on-chain settlement (§5.4): a
+> unilateral close that posts a state with `htlcsCount > 0` enters
+> `Status.ResolvingHtlcs` after the dispute window, during which `claimHtlc`
+> (preimage + Merkle proof) and `refundHtlc` (proof + post-expiry) resolve
+> each HTLC individually. The off-chain caps in §4.3 are now policy (gas /
+> watchtower workload) rather than a trust boundary.
 
 ### 3.4 HTLC root algorithm (Merkle)
 
@@ -593,22 +595,30 @@ When called by `msg.sender`:
 2. `msg.sender` MUST be `userA` or `userB` (the depositor).
 3. **`prevState` validation**:
    - `prevState.channelId == channelId`.
-   - `prevState.state.htlcsRoot == bytes32(0)` (no in-flight HTLCs).
+   - `(htlcsRoot, htlcsCount, htlcsTotalLocked)` triple is internally
+     consistent (empty root iff zero count iff zero total — enforced by
+     `_requireHtlcsRootConsistent`). v2 does NOT require an empty HTLC
+     set here; top-up only forbids *changes* to the set across prev/next.
    - `prevState.state.finalized == false`.
    - `prevState.state.version >= channel.postedVersion`. This prevents using
      an outdated `prevState` to mask a recent dispute close.
    - Both `sigA` and `sigB` on `prevState` MUST verify.
    - Conservation against current on-chain amounts:
-     `prevState.balanceA + prevState.balanceB == channel.amountA + channel.amountB`.
+     `prevState.balanceA + prevState.balanceB + prevState.htlcsTotalLocked == channel.amountA + channel.amountB`.
    - For the very first top-up on a freshly-opened channel that has no
      dual-signed state yet, the special sentinel value `prevState = (state with
-     version=0, balanceA=amountA, balanceB=amountB, htlcsRoot=0, finalized=false,
-     sigA=ZERO_SIG, sigB=ZERO_SIG)` is accepted. Both signatures are skipped
-     for this sentinel; the contract trusts the implicit on-chain state.
+     version=0, balanceA=amountA, balanceB=amountB, htlcsRoot=0, htlcsCount=0,
+     htlcsTotalLocked=0, finalized=false, sigA=ZERO_SIG, sigB=ZERO_SIG)` is
+     accepted. Both signatures are skipped for this sentinel; the contract
+     trusts the implicit on-chain state.
 4. **`newState` validation**:
    - `newState.channelId == channelId`.
    - `newState.state.version == prevState.state.version + 1`.
-   - `newState.state.htlcsRoot == bytes32(0)`.
+   - The HTLC set is unchanged: `newState.htlcsRoot == prevState.htlcsRoot`,
+     `newState.htlcsCount == prevState.htlcsCount`,
+     `newState.htlcsTotalLocked == prevState.htlcsTotalLocked`. Top-up
+     moves principal only; HTLC additions/settlements happen in normal
+     state updates, not here.
    - `newState.state.finalized == false`.
    - Only `msg.sender`'s balance increases by exactly `amount`; the
      counterparty's balance is unchanged from `prevState`:
@@ -616,8 +626,8 @@ When called by `msg.sender`:
        `newState.balanceB == prevState.balanceB`.
      - if `msg.sender == userB`: `newState.balanceB == prevState.balanceB + amount`,
        `newState.balanceA == prevState.balanceA`.
-   - Conservation against post-top-up amounts:
-     `newState.balanceA + newState.balanceB == channel.amountA + channel.amountB + amount`.
+   - Conservation against post-top-up amounts (includes locked HTLC value):
+     `newState.balanceA + newState.balanceB + newState.htlcsTotalLocked == channel.amountA + channel.amountB + amount`.
    - Both `sigA` and `sigB` on `newState` MUST verify.
 5. Contract pulls `amount` of the channel's `token` from `msg.sender` via
    `safeTransferFrom`. Caller must have approved PaymentChannel beforehand.
@@ -689,7 +699,7 @@ later off-chain states.
 | `channelId` | bytes32 | The user's channel with the hub. |
 | `offerId` | bytes32 | Random per-offer; user signs over this so the offer cannot be re-used for a different top-up. |
 | `amount` | uint256 | USDC base units the hub will deposit. |
-| `prevStateVersion` | uint64 | The off-chain state version the hub assumes is the latest dual-signed state with `htlcsRoot == 0`. The user MUST verify their local latest co-signed state matches before accepting. |
+| `prevStateVersion` | uint64 | The off-chain state version the hub assumes is the latest dual-signed state. v2 accepts non-empty htlcsRoot here as long as the consistency invariant holds and the HTLC set is unchanged in `newState`. The user MUST verify their local latest co-signed state matches before accepting. |
 | `newState` | ChannelState | The proposed `version+1` state with `balanceB += amount` (or `balanceA += amount` for hub-as-userA channels), all other fields preserved. |
 | `validUntil` | uint64 | Unix-second deadline. Hub MUST submit the on-chain tx before this time, or the offer is void. The user MUST refuse late-arriving accepts beyond this time. |
 | `feePolicy` | object \| null | If hub charges a top-up fee, the fee schedule (flat + bps). If `null`, the top-up is free. |

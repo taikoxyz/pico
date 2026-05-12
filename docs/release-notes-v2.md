@@ -91,12 +91,13 @@ v1 signatures impossible to replay against v2 contracts.
 - Client-side `claimHtlcOnChain` / `refundHtlcOnChain` SDK helpers are
   scaffolded in the ABI but not exposed as adapter methods yet.
 - Watchtower `htlc-resolver` module (preimage cache + auto-claim/refund) is
-  not yet wired; the existing reject was simply removed.
+  not yet wired; the existing reject was simply removed and conservation
+  invariant updated to include `htlcsTotalLocked`.
 - `apps/hub/chain-watcher` does not yet emit `HtlcResolutionStarted` or
   `HtlcClaimed` / `HtlcRefunded` to downstream consumers.
-- e2e scenarios for the new flow are not yet authored.
-- `forge fmt` and `forge test` were not run locally (no foundry in the
-  sandbox). The new Foundry tests
-  (`HTLC.merkleProof.t.sol`, `PaymentChannel.htlcSettlement.t.sol`) compile
-  against the API surface but should be regenerated for fmt conformance in
-  CI before merge.
+- e2e scenarios for the new flow are not yet authored (force-close-with-
+  htlcs + watchtower-driven settlement).
+- Verified locally: `forge fmt --check` clean and `forge test` 179/179
+  passing against this branch. Foundry tests for the new surface live in
+  `packages/contracts/test/HTLC.merkleProof.t.sol` (6 tests) and
+  `packages/contracts/test/PaymentChannel.htlcSettlement.t.sol` (8 tests).
