@@ -2,7 +2,6 @@ import {
   ANVIL_DEV_CHAIN_ID,
   CONTRACT_ADDRESSES,
   type ChainId,
-  TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
   ZERO_ADDRESS,
 } from '@inferenceroom/pico-protocol';
@@ -35,7 +34,7 @@ export function assertProductionConfig(cfg: HubConfig, opts: ProductionAssertOpt
     );
   }
 
-  if (cfg.chainId === TAIKO_MAINNET_CHAIN_ID) {
+  if (!isAnvil) {
     if (!explicitHubKey) {
       throw new Error('HUB_PRIVATE_KEY must be explicitly set in environment for mainnet startup.');
     }

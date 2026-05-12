@@ -5,6 +5,7 @@ import {
   DEFAULT_HTLC_EXPIRY_MS,
   DEFAULT_HUB_FEE_BPS,
   DEFAULT_HUB_FEE_FLAT,
+  ETHEREUM_MAINNET_CHAIN_ID,
   HTLC_TIMEOUT_DELTA_MS,
   MAX_HTLCS_PER_CHANNEL,
   MAX_HTLC_DURATION_MS,
@@ -62,10 +63,11 @@ describe('chain ids and supported chains', () => {
     expect(TAIKO_HOODI_CHAIN_ID).toBe(167009);
   });
 
-  it('SUPPORTED_CHAIN_IDS contains mainnet; Hoodi excluded until deployed', () => {
+  it('SUPPORTED_CHAIN_IDS contains Taiko and Ethereum mainnets; Hoodi excluded until deployed', () => {
     expect([...SUPPORTED_CHAIN_IDS]).toContain(TAIKO_MAINNET_CHAIN_ID);
+    expect([...SUPPORTED_CHAIN_IDS]).toContain(ETHEREUM_MAINNET_CHAIN_ID);
     // TAIKO_HOODI_CHAIN_ID is excluded until contract and USDC addresses are deployed.
-    expect(SUPPORTED_CHAIN_IDS).toHaveLength(1);
+    expect(SUPPORTED_CHAIN_IDS).toHaveLength(2);
   });
 
   it('ZERO_ADDRESS is 20 zero bytes', () => {
@@ -81,6 +83,12 @@ describe('contract addresses', () => {
     expect(addrs.Adjudicator).not.toBe(ZERO_ADDRESS);
     expect(addrs.PaymentChannel).toMatch(/^0x[0-9a-fA-F]{40}$/);
     expect(addrs.Adjudicator).toMatch(/^0x[0-9a-fA-F]{40}$/);
+  });
+
+  it('Ethereum mainnet addresses are placeholders pending deployment', () => {
+    const addrs = CONTRACT_ADDRESSES[ETHEREUM_MAINNET_CHAIN_ID];
+    expect(addrs.PaymentChannel).toBe(ZERO_ADDRESS);
+    expect(addrs.Adjudicator).toBe(ZERO_ADDRESS);
   });
 
   it('Hoodi addresses are placeholders pending deployment', () => {
@@ -101,6 +109,13 @@ describe('USDC tokens', () => {
 
   it('mainnet USDC address is populated', () => {
     expect(USDC_TOKENS[TAIKO_MAINNET_CHAIN_ID].address).not.toBe(ZERO_ADDRESS);
+  });
+
+  it('Ethereum mainnet USDC address is Circle native USDC', () => {
+    expect(USDC_TOKENS[ETHEREUM_MAINNET_CHAIN_ID].address).toBe(
+      '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    );
+    expect(USDC_TOKENS[ETHEREUM_MAINNET_CHAIN_ID].decimals).toBe(6);
   });
 });
 

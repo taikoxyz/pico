@@ -1,7 +1,6 @@
 import {
   ANVIL_DEV_CHAIN_ID,
   CONTRACT_ADDRESSES,
-  TAIKO_MAINNET_CHAIN_ID,
   ZERO_ADDRESS,
 } from '@inferenceroom/pico-protocol';
 import type { WatchtowerConfig } from './config.js';
@@ -32,7 +31,7 @@ export function assertProductionConfig(cfg: WatchtowerConfig, opts: ProductionAs
     );
   }
 
-  if (cfg.chainId === TAIKO_MAINNET_CHAIN_ID && !explicitPrivateKey) {
+  if (!isAnvil && !explicitPrivateKey) {
     throw new Error(
       'WATCHTOWER_PRIVATE_KEY must be explicitly set in environment for mainnet startup.',
     );
