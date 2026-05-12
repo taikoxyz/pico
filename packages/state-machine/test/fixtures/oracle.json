@@ -19,9 +19,11 @@
             "expiryMs": "102000000000"
           }
         ],
+        "htlcsCount": 1,
+        "htlcsTotalLocked": "101001",
         "finalized": false
       },
-      "digest": "0x4e97e358e0d07701591ed0dad3f034b5ff5f9a5fdd67b949efc6887c01c023c4",
+      "digest": "0x8d02638221bc4ff22f9c8797efaac07ef845c919ecc825c2f7af80281ca24042",
       "htlcsRoot": "0x725811a7d0bff65ad7c934aa60edc2ad7e522b8d073a52a77f602aee2e8232da"
     },
     {
@@ -46,9 +48,11 @@
             "expiryMs": "203000000000"
           }
         ],
+        "htlcsCount": 2,
+        "htlcsTotalLocked": "403002",
         "finalized": false
       },
-      "digest": "0x44fe5b53848e246c192781db538aa0bfbcb1ae5f755506e6b093dccd1d4cac63",
+      "digest": "0x6a4398de48e3b5da48b30514ba798accda647300042bf1ab412b64b0ac0f2762",
       "htlcsRoot": "0x42e5b95347d8b3728af4558d05db885cb347960f4440abf01b7795d2d5f80210"
     },
     {
@@ -80,9 +84,11 @@
             "expiryMs": "304000000000"
           }
         ],
+        "htlcsCount": 3,
+        "htlcsTotalLocked": "906003",
         "finalized": false
       },
-      "digest": "0x7debc0658e7d0b4147ddf2db9e25ad5c03ddc6a4991bc1cf2a695b27a2360447",
+      "digest": "0xc03b114219f235b264bb9c73333de71eefc934fca07c4623ee9bcd4d3d04a513",
       "htlcsRoot": "0x883f52f3e72307498baa1629e600c5006e3510c2992d595a4187b8399f2086a1"
     },
     {
@@ -121,9 +127,11 @@
             "expiryMs": "405000000000"
           }
         ],
+        "htlcsCount": 4,
+        "htlcsTotalLocked": "1610004",
         "finalized": false
       },
-      "digest": "0xd7be8dc95a1d1bd9f08fd412c20553c47ccf7a74967d7119062474ed4d4e9775",
+      "digest": "0x9745571e1ccc3173788d1267348f7e083a6380bd209c9750de0064a51c5d4f17",
       "htlcsRoot": "0xae03bd60d31ed4aae548e380cb17288b89d94d6078707e79f10e7bf11d00bbb1"
     },
     {
@@ -169,9 +177,11 @@
             "expiryMs": "506000000000"
           }
         ],
+        "htlcsCount": 5,
+        "htlcsTotalLocked": "2515005",
         "finalized": false
       },
-      "digest": "0x904665ee87025ab1e45d01d1d884a5da2335c57ede06a1866796181882a11101",
+      "digest": "0x29fade0efdd354aa1a8ee1ce5c347cad2ec9f57768f1a79cc57368169050ab25",
       "htlcsRoot": "0x4eaa0d58892d6c7efe528f2ba96bf622c9cccfe41bd62daba1831ca045c5317a"
     },
     {
@@ -181,9 +191,11 @@
         "balanceA": "60000",
         "balanceB": "120000",
         "htlcs": [],
+        "htlcsCount": 0,
+        "htlcsTotalLocked": "0",
         "finalized": false
       },
-      "digest": "0xb88cf3825913e7a86621031395ed8598b138daff6c6325c8249e828ff8ed8764",
+      "digest": "0x86f6d36dcf9370854dbd163489d0ca4a3298d6420ce06fa2ff1b575f83f26af5",
       "htlcsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
     },
     {
@@ -201,9 +213,11 @@
             "expiryMs": "702000000000"
           }
         ],
+        "htlcsCount": 1,
+        "htlcsTotalLocked": "701001",
         "finalized": false
       },
-      "digest": "0x311862c4688e1a6e28decd350b7ce5efff318f6c99819f6bbb4cb9c045bba136",
+      "digest": "0xe50e88ac5efdb3afb009d2345edb8bbad7a95050c079be315d9ada952011f59b",
       "htlcsRoot": "0xe7f1841c55aadb113c36833539d5ddccdcb9af9295f24c05fb95211d9eb5c3d6"
     },
     {
@@ -228,9 +242,11 @@
             "expiryMs": "803000000000"
           }
         ],
+        "htlcsCount": 2,
+        "htlcsTotalLocked": "1603002",
         "finalized": false
       },
-      "digest": "0xf6ba49b480823df00877a33ee25f1f8a68b7fc6a48ef7fa2ee941f7ef2182ff4",
+      "digest": "0x141374aa623b29f896f58fcefdc776049d2de5dbed63fff7663c5a867562662f",
       "htlcsRoot": "0xbda5d409cb2c029e92cb88826c4bfc511a9e621840b7ffbcc890621e59ea94a8"
     },
     {
@@ -262,9 +278,11 @@
             "expiryMs": "904000000000"
           }
         ],
+        "htlcsCount": 3,
+        "htlcsTotalLocked": "2706003",
         "finalized": false
       },
-      "digest": "0x727e89773c61a8d9d02a2923d2567c9316af10813c68329dcc8ece140676af0b",
+      "digest": "0xc344fe5177f23a7a9cf8f604d393ae18e4c2bf24e33427ace3308349951904a3",
       "htlcsRoot": "0xc151a9f89501cde0c2c2c02dc18d0070011ef8dca12d07063efbae11309950b3"
     },
     {
@@ -303,9 +321,11 @@
             "expiryMs": "1005000000000"
           }
         ],
+        "htlcsCount": 4,
+        "htlcsTotalLocked": "4010004",
         "finalized": false
       },
-      "digest": "0x4d0c32eba9da1c63128a81ee08451d59d1112741eb9eb0146d8dec3d01a764f7",
+      "digest": "0x0e7daa0ab181bad31bc783ff21436d41e222c0da5547f5fc2a4eee67edb35597",
       "htlcsRoot": "0x9a8812d026c0ac9bc8089b67ca4bf2c764d19354261d9752208035c71f2282ed"
     },
     {
@@ -351,9 +371,11 @@
             "expiryMs": "1106000000000"
           }
         ],
+        "htlcsCount": 5,
+        "htlcsTotalLocked": "5515005",
         "finalized": false
       },
-      "digest": "0x9370abeb1d5d2e72da018fdf324e06a144b292af6d2a4363fbd04eb877fcb681",
+      "digest": "0x088171a0e1cdb1ac7177c6775009bd7b03cb40881fbfb6c1fd68750455565e83",
       "htlcsRoot": "0x7615b80ce7003c8ea6180eb362228ee7cbcc8a8631f15c8a12b855bac2ef94f6"
     },
     {
@@ -363,9 +385,11 @@
         "balanceA": "120000",
         "balanceB": "240000",
         "htlcs": [],
+        "htlcsCount": 0,
+        "htlcsTotalLocked": "0",
         "finalized": true
       },
-      "digest": "0x624514e46e7c79e95908cc3d595719b6d586af99c0eea0919e5e22c05cda3286",
+      "digest": "0xcc651533bd93486db4f1bfa0919eb58305c467d3160a5c99d8f1693e8936a1f0",
       "htlcsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
     }
   ],
@@ -378,7 +402,7 @@
         "paymentHash": "0x0101010101010101010101010101010101010101010101010101010101010101",
         "expiryMs": "2000000000"
       },
-      "digest": "0x714ad2d3ea839dc43d9aa4e3c90e873cbe6ccdb512bec5fd12a55273fa7b51f2"
+      "digest": "0x4547891f4d46a4fd9512135ce8d9a937cad35860e0900f12e19d04484393cd5e"
     },
     {
       "input": {
@@ -388,7 +412,7 @@
         "paymentHash": "0x0202020202020202020202020202020202020202020202020202020202020202",
         "expiryMs": "3000000000"
       },
-      "digest": "0xc94a441890b37f80f86b0dc88eaa8f453caa846f4f8e87af2642e4a1f96bd334"
+      "digest": "0x5178ff7f1b337f23ebcb897e177b73f804d3848278065509d4d7eb2eb7c42204"
     },
     {
       "input": {
@@ -398,7 +422,7 @@
         "paymentHash": "0x0303030303030303030303030303030303030303030303030303030303030303",
         "expiryMs": "4000000000"
       },
-      "digest": "0x8036d42786c0193ab98239dce9526e49d810bc045c4828f24a0876c812652574"
+      "digest": "0x42c3f67c45e921fb197f2d552bea1e54bc33b31fe16e8f86a84da30dc1a8786b"
     },
     {
       "input": {
@@ -408,7 +432,7 @@
         "paymentHash": "0x0404040404040404040404040404040404040404040404040404040404040404",
         "expiryMs": "5000000000"
       },
-      "digest": "0xc8eada212fc17768a84169f389501b92cf3cbeda2963327b72ee60791e55b6da"
+      "digest": "0x73eb3949d8cd973c58f89cc4d5a0ca9f5fcd7eb9c46dce5fe4492d136ac51151"
     },
     {
       "input": {
@@ -418,7 +442,7 @@
         "paymentHash": "0x0505050505050505050505050505050505050505050505050505050505050505",
         "expiryMs": "6000000000"
       },
-      "digest": "0x8ca80a9e8c79cc309c36ed981544cfda5916e251b5a4c0da87b6db286b9e1ad6"
+      "digest": "0xe4d8974f8912472b64eeba20c97b15de738cc39525e7f30229cb5eb9d7a2ba2c"
     },
     {
       "input": {
@@ -428,7 +452,7 @@
         "paymentHash": "0x0606060606060606060606060606060606060606060606060606060606060606",
         "expiryMs": "7000000000"
       },
-      "digest": "0xd2a2511e9c93e45a52448e032be6db3a7f6c4da684eaaf2168d15ea3bdae0867"
+      "digest": "0x53eaa446cc43d16aa28d2a55fab8c3f74eee6786bb8d29207d13610d204d1ccc"
     },
     {
       "input": {
@@ -438,7 +462,7 @@
         "paymentHash": "0x0707070707070707070707070707070707070707070707070707070707070707",
         "expiryMs": "8000000000"
       },
-      "digest": "0xdd526993b3b13ee25353276505f0b134ee2b9c1e36accd04f73f9e6dbe455f5e"
+      "digest": "0x3341d3538d962f3269cd4859c4a2ef67880681a8e109d64b58e2194d4af56580"
     },
     {
       "input": {
@@ -448,7 +472,7 @@
         "paymentHash": "0x0808080808080808080808080808080808080808080808080808080808080808",
         "expiryMs": "9000000000"
       },
-      "digest": "0xebc7141fba8c79e091a1ab9f7c778cf3eca9e8b9afc12c8ae92c1ee8acda7872"
+      "digest": "0x9be15744ded40b3f98b3adba50232a5b0b1ff5022f203660252da2af44592c1c"
     },
     {
       "input": {
@@ -458,7 +482,7 @@
         "paymentHash": "0x0909090909090909090909090909090909090909090909090909090909090909",
         "expiryMs": "10000000000"
       },
-      "digest": "0x42e98665909c6b95d8e9844893fcc79ba61e236c9875a9ba9b5f1daa0f2dcc7d"
+      "digest": "0xdcaa430ca00182c508bf50ed41f89bb496879e0dcc5d878a80d7cfcd49911b22"
     },
     {
       "input": {
@@ -468,7 +492,7 @@
         "paymentHash": "0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
         "expiryMs": "11000000000"
       },
-      "digest": "0xbf24af930cb0d8092b682be5fddcf710641aba92a6ac4b61dd6dd2901d323fa5"
+      "digest": "0x1654265b6669a9a89ad5ad97a4b6ebe5670a7c5a6adf7d1c46c133437d086b58"
     },
     {
       "input": {
@@ -478,7 +502,7 @@
         "paymentHash": "0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
         "expiryMs": "12000000000"
       },
-      "digest": "0x91d08a5cf851ace0d0b230a53e96b8f4af3c5d33223f7e5ac7eea777fb883520"
+      "digest": "0x85d60e9a9748b60a84ae8598895f68b15074dbb8526d245a177676b6acbe194c"
     },
     {
       "input": {
@@ -488,7 +512,7 @@
         "paymentHash": "0x0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
         "expiryMs": "13000000000"
       },
-      "digest": "0xe88d787b027e78848d13f4d153b764dccdd66ec79f837c0958bc29b7e232c0a3"
+      "digest": "0x9e4f090282cac76d4a48f9e6f26c02befd1c783cc3fd213c9ebb7541fd1f5a10"
     }
   ],
   "update": [
@@ -511,10 +535,12 @@
               "expiryMs": "202000000000"
             }
           ],
+          "htlcsCount": 1,
+          "htlcsTotalLocked": "201001",
           "finalized": false
         }
       },
-      "digest": "0x7fbb1208f655b2e2d010ad9450a01d3800bed89be49a577ed26da603d760df58"
+      "digest": "0xf873b4b5a18f9925e6f7ee9341ced7b97a3fe441a2a956d461e54c85b70c5ac4"
     },
     {
       "input": {
@@ -542,10 +568,12 @@
               "expiryMs": "303000000000"
             }
           ],
+          "htlcsCount": 2,
+          "htlcsTotalLocked": "603002",
           "finalized": false
         }
       },
-      "digest": "0xafb619439e14e189e3fe3aa6499f3c244ff3069c91413dee0ee96933277b764c"
+      "digest": "0x7d803c49dd706ac8fd3c15072c07ee01666daafab68ef8ed88b74af89d081ef3"
     },
     {
       "input": {
@@ -580,10 +608,12 @@
               "expiryMs": "404000000000"
             }
           ],
+          "htlcsCount": 3,
+          "htlcsTotalLocked": "1206003",
           "finalized": false
         }
       },
-      "digest": "0x27b2d8df63196abda29386552506a04e079b33e75ccf84671835bed9c68990e2"
+      "digest": "0xef0573356bb977e9962a2919d8d514c428b866709746a95558d347be77748de5"
     },
     {
       "input": {
@@ -596,10 +626,12 @@
           "balanceA": "50000",
           "balanceB": "100000",
           "htlcs": [],
+          "htlcsCount": 0,
+          "htlcsTotalLocked": "0",
           "finalized": false
         }
       },
-      "digest": "0xaa8d90c6efa3de7cd95338bb217ad18a4da76eedc1e0b983e7a207381315068c"
+      "digest": "0x04e07cf3e2d8388140ce9f8a89b2374f6b3d30307661b63bc1dd026fd519d8c7"
     },
     {
       "input": {
@@ -620,10 +652,12 @@
               "expiryMs": "602000000000"
             }
           ],
+          "htlcsCount": 1,
+          "htlcsTotalLocked": "601001",
           "finalized": false
         }
       },
-      "digest": "0x56f1bf489c0737e652a280f3423699416c68b7fa7fc0355f3d829d5123b42129"
+      "digest": "0x6fa24eac9ea7aa308c853c06acf40f5d0628ca054a7818ae7b4501b0e3ff0448"
     },
     {
       "input": {
@@ -651,10 +685,12 @@
               "expiryMs": "703000000000"
             }
           ],
+          "htlcsCount": 2,
+          "htlcsTotalLocked": "1403002",
           "finalized": false
         }
       },
-      "digest": "0xc220c7fdc2f02f1d0df6e304b3de20e2d4c14adfa70a5227b56cb272707cac21"
+      "digest": "0xc9f84f0956aba4276b49aa2044b76be920e46251cf382fde46f6a14c14b728b4"
     },
     {
       "input": {
@@ -689,10 +725,12 @@
               "expiryMs": "804000000000"
             }
           ],
+          "htlcsCount": 3,
+          "htlcsTotalLocked": "2406003",
           "finalized": false
         }
       },
-      "digest": "0xe9d5fa8d327ec850aac680db2d9c0ecbca6e2a84118e87115417e5fd8cf36247"
+      "digest": "0xf5a6a75798a4a2b417d34e125cb8725c41072364613c4efcbc559b86c58d0c18"
     },
     {
       "input": {
@@ -705,10 +743,12 @@
           "balanceA": "90000",
           "balanceB": "180000",
           "htlcs": [],
+          "htlcsCount": 0,
+          "htlcsTotalLocked": "0",
           "finalized": false
         }
       },
-      "digest": "0x4fb3027e3cec42a20a350d7b2bc047aab0451c392ca2e7da967dccb9636a0660"
+      "digest": "0x5f23c1fa118811a962d303e6c00fcca43a930d8595a9a624181d527e9d131133"
     },
     {
       "input": {
@@ -729,10 +769,12 @@
               "expiryMs": "1002000000000"
             }
           ],
+          "htlcsCount": 1,
+          "htlcsTotalLocked": "1001001",
           "finalized": false
         }
       },
-      "digest": "0x66d74f13cb57bcb935f7daf85e07a6f90aebff5b32a79bc7a806deff9c5b1c3c"
+      "digest": "0x663c544681ec336dd533c0736c4e30f1458f105ebc94507066f54b27e59c6ca6"
     },
     {
       "input": {
@@ -760,10 +802,12 @@
               "expiryMs": "1103000000000"
             }
           ],
+          "htlcsCount": 2,
+          "htlcsTotalLocked": "2203002",
           "finalized": false
         }
       },
-      "digest": "0xc337b1a91def8ee6a461684a48ed96800eb7c93a71fb028be7f85812b0c2e20b"
+      "digest": "0x67c5d293b7f1d5f5243be7d647949baf7831f240415ebfa01c0b201ee764c54d"
     },
     {
       "input": {
@@ -798,10 +842,12 @@
               "expiryMs": "1204000000000"
             }
           ],
+          "htlcsCount": 3,
+          "htlcsTotalLocked": "3606003",
           "finalized": false
         }
       },
-      "digest": "0xbf32507ae540a96493c4deaaecc5f48406d298b1011bfc529f694b617929bafb"
+      "digest": "0x787e6bbca9721e2460ee465b582485dd8a10ce9379d06ff06515f100b3c52941"
     },
     {
       "input": {
@@ -814,10 +860,12 @@
           "balanceA": "130000",
           "balanceB": "260000",
           "htlcs": [],
+          "htlcsCount": 0,
+          "htlcsTotalLocked": "0",
           "finalized": false
         }
       },
-      "digest": "0xb1785e13b7b48a4128925fded6fa7d8c258e191712d5c9777238e4b1aa7a79f3"
+      "digest": "0xb45037847ea289a7f4ac7afde6f0f3e7be2abdb3a8fa1b00050175a78528e928"
     }
   ],
   "cooperativeClose": [
@@ -830,7 +878,7 @@
         "signedAt": "1700000060",
         "validUntil": "1700003660"
       },
-      "digest": "0x5cac1fd9533aa13c47da570b2be6ded4125fb88af6a99f557f242425a8016e9f"
+      "digest": "0x376d6e4d5334b107cf9325a255f69793f7ef525f79c8139a07b70958b98c98c4"
     },
     {
       "input": {
@@ -841,7 +889,7 @@
         "signedAt": "1700000120",
         "validUntil": "1700003720"
       },
-      "digest": "0x80cd36416dee51ef546737509ee9df50ea5df725baf29caad05501ab262e8257"
+      "digest": "0x151e3c3c208a758fe2f7d90bab99044a5a6cc888c59e01de67f5e7dff3bda317"
     },
     {
       "input": {
@@ -852,7 +900,7 @@
         "signedAt": "1700000180",
         "validUntil": "1700003780"
       },
-      "digest": "0xad53ab5fae5e236049970a43740dc82575eb788c261b1aa2402fbad2139f63b2"
+      "digest": "0x1707fea9e1289f17dd732943995b7d773f82e01aeaa832789418c5dc5fd1e743"
     },
     {
       "input": {
@@ -863,7 +911,7 @@
         "signedAt": "1700000240",
         "validUntil": "1700003840"
       },
-      "digest": "0xcf2b46c650bed3ced1573bef2bafe3a9e74db289ce7c1fa074388d57c3b65a94"
+      "digest": "0x16b6347538891aea97e9c7180845262367df0978b7ecc1d650371f07869b387c"
     },
     {
       "input": {
@@ -874,7 +922,7 @@
         "signedAt": "1700000300",
         "validUntil": "1700003900"
       },
-      "digest": "0xd46120d46c3421946a1e9bcefbaa63d69565ab767f26c9f692f71ecbbbed31b5"
+      "digest": "0x36ffc0b058623c95f7fec72ecbbbce6c65a5943a1f237d4f359d50ece0f6dd11"
     },
     {
       "input": {
@@ -885,7 +933,7 @@
         "signedAt": "1700000360",
         "validUntil": "1700003960"
       },
-      "digest": "0x3075eaaddce1a8eec236f8bfdac6be106309c28d054d8c81c141c2fd424cca3b"
+      "digest": "0x1ee572805978b76252ee219fc1f89db0e34c398462cab172474baca70e892ec4"
     },
     {
       "input": {
@@ -896,7 +944,7 @@
         "signedAt": "1700000420",
         "validUntil": "1700004020"
       },
-      "digest": "0x6ca7b457a64cb6be2e52e0ea3fceb5384c6f484a2f0f1af12ef457bd3a135efe"
+      "digest": "0xcaacd56bb00525ed12097e9577c2a1afb73894ccd5ce802567eb7433a577299b"
     },
     {
       "input": {
@@ -907,7 +955,7 @@
         "signedAt": "1700000480",
         "validUntil": "1700004080"
       },
-      "digest": "0x77614b1c81c6db4b2e9cd1dd14a6163f54e6981d9a7be40183de1934db8a96f2"
+      "digest": "0x407bcc5daa16d544fc92afeedb9eddcb9aafd32bcd2cfe9dadeed2418bd02c1f"
     },
     {
       "input": {
@@ -918,7 +966,7 @@
         "signedAt": "1700000540",
         "validUntil": "1700004140"
       },
-      "digest": "0x1efb6e6351d2064988ac2a91a516678a395cd47ceb677020f4d555721a9f5f8d"
+      "digest": "0x3292fd966c99c536c80093c5bc70d77217ef4a3cd375175f62755c7b13a689af"
     },
     {
       "input": {
@@ -929,7 +977,7 @@
         "signedAt": "1700000600",
         "validUntil": "1700004200"
       },
-      "digest": "0x9e068ed6a2322f2f2ffa350737d616c0d98a847aebf42eea977f1f22fc39073b"
+      "digest": "0x08574ff237b9d65756a1f7ed6371ac20f70864859366d3c5b40d8b7eea4723f5"
     },
     {
       "input": {
@@ -940,7 +988,7 @@
         "signedAt": "1700000660",
         "validUntil": "1700004260"
       },
-      "digest": "0xdf4e3a7787521a924bd67002312ea9a274e593fa47b05c7cfeb67d61ba776607"
+      "digest": "0x7c0a69b94bede24273f33c3d57e0720ac9b73f9ad391f7aab3d6682e8cde4fba"
     },
     {
       "input": {
@@ -951,7 +999,7 @@
         "signedAt": "1700000720",
         "validUntil": "1700004320"
       },
-      "digest": "0xcea8064c26402328f13cd676b02ccfa533dc948c384a0069529f608301b1628f"
+      "digest": "0x19682930640f0614842d76deb0f46eb812e506dabb6781a8dba7949379ec21f6"
     }
   ]
 }

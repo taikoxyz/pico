@@ -60,19 +60,24 @@ interface RawSignedState {
 }
 
 function reviveSignedState(raw: RawSignedState): SignedState {
+  const htlcs = raw.state.htlcs.map((h) => ({
+    id: h.id,
+    direction: h.direction,
+    amount: BigInt(h.amount),
+    paymentHash: h.paymentHash,
+    expiryMs: BigInt(h.expiryMs),
+  }));
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     state: {
       channelId: raw.state.channelId,
       version: BigInt(raw.state.version),
       balanceA: BigInt(raw.state.balanceA),
       balanceB: BigInt(raw.state.balanceB),
-      htlcs: raw.state.htlcs.map((h) => ({
-        id: h.id,
-        direction: h.direction,
-        amount: BigInt(h.amount),
-        paymentHash: h.paymentHash,
-        expiryMs: BigInt(h.expiryMs),
-      })),
+      htlcs,
+      htlcsCount: htlcs.length,
+      htlcsTotalLocked,
       finalized: raw.state.finalized,
     },
     sigA: raw.sigA,

@@ -114,18 +114,23 @@ function stateToJson(state: ChannelState): ChannelStateJson {
 }
 
 function jsonToState(p: ChannelStateJson): ChannelState {
+  const htlcs = p.htlcs.map((h) => ({
+    id: h.id as Hex,
+    direction: h.direction,
+    amount: BigInt(h.amount),
+    paymentHash: h.paymentHash as Hex,
+    expiryMs: BigInt(h.expiryMs),
+  }));
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     channelId: p.channelId as ChannelState['channelId'],
     version: BigInt(p.version),
     balanceA: BigInt(p.balanceA),
     balanceB: BigInt(p.balanceB),
-    htlcs: p.htlcs.map((h) => ({
-      id: h.id as Hex,
-      direction: h.direction,
-      amount: BigInt(h.amount),
-      paymentHash: h.paymentHash as Hex,
-      expiryMs: BigInt(h.expiryMs),
-    })),
+    htlcs,
+    htlcsCount: htlcs.length,
+    htlcsTotalLocked,
     finalized: p.finalized,
   };
 }
