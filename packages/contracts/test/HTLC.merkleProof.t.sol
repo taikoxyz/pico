@@ -60,13 +60,17 @@ contract HtlcMerkleProofTest is Test {
         }
 
         proof = new bytes32[](cursor);
-        for (uint256 i = 0; i < cursor; i++) proof[i] = buf[i];
+        for (uint256 i = 0; i < cursor; i++) {
+            proof[i] = buf[i];
+        }
     }
 
     function _sortById(HTLC.Lock[] memory locks) internal pure returns (HTLC.Lock[] memory) {
         uint256 n = locks.length;
         HTLC.Lock[] memory out = new HTLC.Lock[](n);
-        for (uint256 i = 0; i < n; i++) out[i] = locks[i];
+        for (uint256 i = 0; i < n; i++) {
+            out[i] = locks[i];
+        }
         for (uint256 i = 1; i < n; i++) {
             HTLC.Lock memory key = out[i];
             uint256 j = i;
@@ -85,13 +89,11 @@ contract HtlcMerkleProofTest is Test {
 
     /// @dev External-call wrapper so we can pass a memory bytes32[] as calldata
     ///      to `verifyOrderedProof`.
-    function verify(
-        bytes32 leaf,
-        bytes32 root,
-        bytes32[] calldata proof,
-        uint256 sortedIndex,
-        uint256 totalLeaves
-    ) external pure returns (bool) {
+    function verify(bytes32 leaf, bytes32 root, bytes32[] calldata proof, uint256 sortedIndex, uint256 totalLeaves)
+        external
+        pure
+        returns (bool)
+    {
         return HTLC.verifyOrderedProof(leaf, root, proof, sortedIndex, totalLeaves);
     }
 
@@ -137,7 +139,9 @@ contract HtlcMerkleProofTest is Test {
 
     function test_fiveLeaves_allAccepted_oddTailExercised() public view {
         HTLC.Lock[] memory locks = new HTLC.Lock[](5);
-        for (uint256 i = 0; i < 5; i++) locks[i] = _lock(i + 1);
+        for (uint256 i = 0; i < 5; i++) {
+            locks[i] = _lock(i + 1);
+        }
         bytes32 root = HTLC.rootOf(locks);
         HTLC.Lock[] memory sorted = _sortById(locks);
         for (uint256 i = 0; i < 5; i++) {
@@ -148,7 +152,9 @@ contract HtlcMerkleProofTest is Test {
 
     function test_rejectsWrongIndex() public view {
         HTLC.Lock[] memory locks = new HTLC.Lock[](3);
-        for (uint256 i = 0; i < 3; i++) locks[i] = _lock(i + 1);
+        for (uint256 i = 0; i < 3; i++) {
+            locks[i] = _lock(i + 1);
+        }
         bytes32 root = HTLC.rootOf(locks);
         HTLC.Lock[] memory sorted = _sortById(locks);
         (bytes32[] memory proof, uint256 n) = _buildProof(locks, 0);
@@ -158,7 +164,9 @@ contract HtlcMerkleProofTest is Test {
 
     function test_rejectsTamperedProof() public view {
         HTLC.Lock[] memory locks = new HTLC.Lock[](3);
-        for (uint256 i = 0; i < 3; i++) locks[i] = _lock(i + 1);
+        for (uint256 i = 0; i < 3; i++) {
+            locks[i] = _lock(i + 1);
+        }
         bytes32 root = HTLC.rootOf(locks);
         HTLC.Lock[] memory sorted = _sortById(locks);
         (bytes32[] memory proof, uint256 n) = _buildProof(locks, 0);

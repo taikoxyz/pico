@@ -163,17 +163,11 @@ contract PaymentChannel is
     /// @notice Emitted when an HTLC is claimed on-chain. `preimage` is included so off-chain
     ///         relays can pick up cross-channel preimages from the event stream alone.
     event HtlcClaimed(
-        bytes32 indexed channelId,
-        bytes32 indexed htlcId,
-        address indexed receiver,
-        uint256 amount,
-        bytes preimage
+        bytes32 indexed channelId, bytes32 indexed htlcId, address indexed receiver, uint256 amount, bytes preimage
     );
 
     /// @notice Emitted when an HTLC is refunded on-chain (expiry passed without claim).
-    event HtlcRefunded(
-        bytes32 indexed channelId, bytes32 indexed htlcId, address indexed sender, uint256 amount
-    );
+    event HtlcRefunded(bytes32 indexed channelId, bytes32 indexed htlcId, address indexed sender, uint256 amount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -437,8 +431,7 @@ contract PaymentChannel is
         require(!prev.state.finalized, "prev finalized");
         require(prev.state.version >= ch.postedVersion, "prev<posted");
         require(
-            prev.state.balanceA + prev.state.balanceB + prev.state.htlcsTotalLocked
-                == ch.amountA + ch.amountB,
+            prev.state.balanceA + prev.state.balanceB + prev.state.htlcsTotalLocked == ch.amountA + ch.amountB,
             "prev !conserved"
         );
 
@@ -468,8 +461,7 @@ contract PaymentChannel is
             require(next.state.balanceA == prev.state.balanceA, "A unchanged");
         }
         require(
-            next.state.balanceA + next.state.balanceB + next.state.htlcsTotalLocked
-                == ch.amountA + ch.amountB + amount,
+            next.state.balanceA + next.state.balanceB + next.state.htlcsTotalLocked == ch.amountA + ch.amountB + amount,
             "next !conserved"
         );
         require(_verifyDualSig(ch.userA, ch.userB, next.state, next.sigA, next.sigB), "next bad sig");
@@ -588,10 +580,7 @@ contract PaymentChannel is
     ///         subsequent call (after every HTLC is explicitly claimed or refunded) pays out.
     function finalize(bytes32 channelId) external nonReentrant {
         Channel storage ch = _channels[channelId];
-        require(
-            ch.status == Status.ClosingUnilateral || ch.status == Status.ResolvingHtlcs,
-            "!closing"
-        );
+        require(ch.status == Status.ClosingUnilateral || ch.status == Status.ResolvingHtlcs, "!closing");
 
         if (ch.status == Status.ClosingUnilateral) {
             require(block.timestamp >= ch.disputeDeadline, "!ripe");
@@ -600,8 +589,7 @@ contract PaymentChannel is
             // everything to the non-closer, including any in-flight HTLC value.
             if (!ch.penalized && ch.htlcsCount > 0) {
                 ch.status = Status.ResolvingHtlcs;
-                ch.htlcResolutionDeadline =
-                    uint64(block.timestamp) + MAX_HTLC_DURATION + HTLC_RESOLUTION_GRACE;
+                ch.htlcResolutionDeadline = uint64(block.timestamp) + MAX_HTLC_DURATION + HTLC_RESOLUTION_GRACE;
                 emit HtlcResolutionStarted(channelId, ch.htlcResolutionDeadline);
                 return;
             }
@@ -654,33 +642,18 @@ contract PaymentChannel is
         require(ch.status == Status.ResolvingHtlcs, "!resolving");
         require(htlcResolved[channelId][htlc.id] == HtlcResolution.Pending, "resolved");
         require(block.timestamp <= htlc.expiry, "expired");
-
         require(HTLC.verifyPreimage(htlc.paymentHash, preimage), "preimage");
-        HTLC.Lock memory lock = HTLC.Lock({
-            id: htlc.id,
-            amount: htlc.amount,
-            paymentHash: htlc.paymentHash,
-            expiry: htlc.expiry,
-            direction: htlc.direction
-        });
-        require(
-            HTLC.verifyOrderedProof(
-                HTLC.hashLock(lock), ch.postedHtlcsRoot, proof, sortedIndex, totalLeaves
-            ),
-            "bad proof"
-        );
+        _verifyHtlcMembership(htlc, ch.postedHtlcsRoot, proof, sortedIndex, totalLeaves);
 
         htlcResolved[channelId][htlc.id] = HtlcResolution.Claimed;
         ch.htlcsCount -= 1;
         ch.htlcsTotalLocked -= htlc.amount;
 
-        address receiver;
+        address receiver = htlc.direction == 0 ? ch.userB : ch.userA;
         if (htlc.direction == 0) {
             ch.pendingPayoutB += htlc.amount;
-            receiver = ch.userB;
         } else {
             ch.pendingPayoutA += htlc.amount;
-            receiver = ch.userA;
         }
 
         emit HtlcClaimed(channelId, htlc.id, receiver, htlc.amount, preimage);
@@ -702,35 +675,34 @@ contract PaymentChannel is
         require(ch.status == Status.ResolvingHtlcs, "!resolving");
         require(htlcResolved[channelId][htlc.id] == HtlcResolution.Pending, "resolved");
         require(block.timestamp > htlc.expiry, "!expired");
-
-        HTLC.Lock memory lock = HTLC.Lock({
-            id: htlc.id,
-            amount: htlc.amount,
-            paymentHash: htlc.paymentHash,
-            expiry: htlc.expiry,
-            direction: htlc.direction
-        });
-        require(
-            HTLC.verifyOrderedProof(
-                HTLC.hashLock(lock), ch.postedHtlcsRoot, proof, sortedIndex, totalLeaves
-            ),
-            "bad proof"
-        );
+        _verifyHtlcMembership(htlc, ch.postedHtlcsRoot, proof, sortedIndex, totalLeaves);
 
         htlcResolved[channelId][htlc.id] = HtlcResolution.Refunded;
         ch.htlcsCount -= 1;
         ch.htlcsTotalLocked -= htlc.amount;
 
-        address sender;
+        address sender = htlc.direction == 0 ? ch.userA : ch.userB;
         if (htlc.direction == 0) {
             ch.pendingPayoutA += htlc.amount;
-            sender = ch.userA;
         } else {
             ch.pendingPayoutB += htlc.amount;
-            sender = ch.userB;
         }
 
         emit HtlcRefunded(channelId, htlc.id, sender, htlc.amount);
+    }
+
+    /// @dev Hash the Adjudicator.Htlc and verify it against the posted Merkle root.
+    ///      Extracted from claimHtlc/refundHtlc to keep their stack within solc 0.8.26's
+    ///      16-slot limit (without via-ir).
+    function _verifyHtlcMembership(
+        Adjudicator.Htlc calldata htlc,
+        bytes32 root,
+        bytes32[] calldata proof,
+        uint256 sortedIndex,
+        uint256 totalLeaves
+    ) internal pure {
+        bytes32 leaf = keccak256(abi.encode(htlc.id, htlc.amount, htlc.paymentHash, htlc.expiry, htlc.direction));
+        require(HTLC.verifyOrderedProof(leaf, root, proof, sortedIndex, totalLeaves), "bad proof");
     }
 
     /// @dev Reject states with a malformed `(htlcsRoot, htlcsCount, htlcsTotalLocked)` triple.

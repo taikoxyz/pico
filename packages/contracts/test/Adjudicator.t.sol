@@ -24,7 +24,7 @@ contract AdjudicatorTest is Fixtures {
         (, string memory name, string memory version, uint256 chainId, address verifyingContract,,) =
             adjudicator.eip712Domain();
         assertEq(name, "pico");
-        assertEq(version, "1");
+        assertEq(version, "2");
         assertEq(chainId, block.chainid);
         assertEq(verifyingContract, address(adjudicator));
     }

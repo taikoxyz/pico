@@ -31,10 +31,7 @@ contract PaymentChannelHtlcSettlementTest is Fixtures {
 
     /// @dev Build an HTLC + a dual-signed state with `htlcsCount=1, htlcsTotalLocked=HTLC_AMOUNT`,
     ///      then post it via closeUnilateral and roll into ResolvingHtlcs.
-    function _enterResolvingHtlcs()
-        internal
-        returns (Adjudicator.Htlc memory htlc, bytes32[] memory proof)
-    {
+    function _enterResolvingHtlcs() internal returns (Adjudicator.Htlc memory htlc, bytes32[] memory proof) {
         // Expiry must outlast the 24h dispute window so claim is still admissible
         // after `vm.warp` rolls past the deadline below.
         htlc = Adjudicator.Htlc({

@@ -273,13 +273,16 @@ contract PaymentChannelTest is Fixtures {
         channel.closeUnilateral(id, abi.encode(s), sigB);
     }
 
-    function test_closeUnilateral_revertsOnNonEmptyHtlcRoot() public {
+    function test_closeUnilateral_revertsOnInconsistentHtlcTriple() public {
+        // v2 accepts non-empty htlcsRoot, but htlcsRoot/htlcsCount/htlcsTotalLocked
+        // must be mutually consistent. Setting only htlcsRoot violates the consistency
+        // check, replacing v1's blanket "htlcs!=0" revert.
         bytes32 id = _openDefault();
         Adjudicator.ChannelState memory s = _state(id, 1, 50_000_000, 30_000_000, false);
         s.htlcsRoot = bytes32(uint256(0xAA));
         bytes memory sigB = _signState(bobPk, s);
         vm.prank(alice);
-        vm.expectRevert(bytes("htlcs!=0"));
+        vm.expectRevert(bytes("htlcs root/count"));
         channel.closeUnilateral(id, abi.encode(s), sigB);
     }
 
@@ -440,7 +443,9 @@ contract PaymentChannelTest is Fixtures {
         channel.dispute(id, abi.encode(s), sigA, sigB);
     }
 
-    function test_dispute_revertsOnNonEmptyHtlcRoot() public {
+    function test_dispute_revertsOnInconsistentHtlcTriple() public {
+        // v2 accepts non-empty htlcsRoot at dispute time, but the
+        // (htlcsRoot, htlcsCount, htlcsTotalLocked) triple must be consistent.
         bytes32 id = _openDefault();
         Adjudicator.ChannelState memory posted = _state(id, 1, 50_000_000, 30_000_000, false);
         vm.prank(alice);
@@ -450,7 +455,7 @@ contract PaymentChannelTest is Fixtures {
         s.htlcsRoot = bytes32(uint256(0xAA));
         bytes memory sigA = _signState(alicePk, s);
         bytes memory sigB = _signState(bobPk, s);
-        vm.expectRevert(bytes("htlcs!=0"));
+        vm.expectRevert(bytes("htlcs root/count"));
         channel.dispute(id, abi.encode(s), sigA, sigB);
     }
 
@@ -566,7 +571,9 @@ contract PaymentChannelTest is Fixtures {
         channel.submitPenaltyProof(id, abi.encode(newer), sigAlice, hex"");
     }
 
-    function test_submitPenaltyProof_revertsOnNonEmptyHtlcRoot() public {
+    function test_submitPenaltyProof_revertsOnInconsistentHtlcTriple() public {
+        // v2 accepts non-empty htlcsRoot at penalty time, but the
+        // (htlcsRoot, htlcsCount, htlcsTotalLocked) triple must be consistent.
         bytes32 id = _openDefault();
         Adjudicator.ChannelState memory cheatState = _state(id, 1, 70_000_000, 10_000_000, false);
         vm.prank(alice);
@@ -576,7 +583,7 @@ contract PaymentChannelTest is Fixtures {
         newer.htlcsRoot = bytes32(uint256(0xAA));
         bytes memory sigA = _signState(alicePk, newer);
         bytes memory sigB = _signState(bobPk, newer);
-        vm.expectRevert(bytes("htlcs!=0"));
+        vm.expectRevert(bytes("htlcs root/count"));
         channel.submitPenaltyProof(id, abi.encode(newer), sigA, sigB);
     }
 
@@ -801,11 +808,12 @@ contract PaymentChannelTest is Fixtures {
         // whose token is a real ERC-20 must revert at the value gate, even if the
         // signatures and balance deltas would otherwise validate.
         bytes32 id = _openDefault();
-        Adjudicator.ChannelState memory prevState = Adjudicator.ChannelState(id, 0, FUND_A, FUND_B, bytes32(0), false);
+        Adjudicator.ChannelState memory prevState =
+            Adjudicator.ChannelState(id, 0, FUND_A, FUND_B, bytes32(0), 0, 0, false);
         Adjudicator.SignedChannelState memory prev =
             Adjudicator.SignedChannelState({state: prevState, sigA: hex"", sigB: hex""});
         Adjudicator.ChannelState memory nextState =
-            Adjudicator.ChannelState(id, 1, FUND_A + 5_000_000, FUND_B, bytes32(0), false);
+            Adjudicator.ChannelState(id, 1, FUND_A + 5_000_000, FUND_B, bytes32(0), 0, 0, false);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
             state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
         });

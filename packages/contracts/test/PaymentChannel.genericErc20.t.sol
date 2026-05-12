@@ -128,6 +128,8 @@ contract PaymentChannelGenericErc20Test is Fixtures {
             balanceA: balanceA,
             balanceB: balanceB,
             htlcsRoot: bytes32(0),
+            htlcsCount: 0,
+            htlcsTotalLocked: 0,
             finalized: false
         });
     }

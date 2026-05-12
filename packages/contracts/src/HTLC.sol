@@ -108,9 +108,7 @@ library HTLC {
                     cursor++;
                 }
             }
-            node = isRight
-                ? keccak256(abi.encodePacked(sibling, node))
-                : keccak256(abi.encodePacked(node, sibling));
+            node = isRight ? keccak256(abi.encodePacked(sibling, node)) : keccak256(abi.encodePacked(node, sibling));
 
             unchecked {
                 index = index >> 1;

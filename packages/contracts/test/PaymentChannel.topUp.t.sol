@@ -116,16 +116,21 @@ contract PaymentChannelTopUpTest is Fixtures {
         channel.topUp(id, TOP_UP_AMOUNT, prev, next);
     }
 
-    function test_topUp_revertsOnPrevHtlcsRoot() public {
+    function test_topUp_revertsOnPrevInconsistentHtlcTriple() public {
+        // v2 accepts non-empty htlcsRoot in topUp's prevState as long as the htlc
+        // triple is internally consistent. Setting only htlcsRoot trips the
+        // consistency guard (formerly "prev htlcs!=0" in v1).
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = _sentinelPrev(id);
         prev.state.htlcsRoot = bytes32(uint256(0xAA));
         Adjudicator.ChannelState memory nextState = _state(id, 1, FUND_A, FUND_B + TOP_UP_AMOUNT);
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
-            state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
+            state: nextState,
+            sigA: _signState(alicePk, nextState),
+            sigB: _signState(bobPk, nextState)
         });
         vm.prank(bob);
-        vm.expectRevert(bytes("prev htlcs!=0"));
+        vm.expectRevert(bytes("htlcs root/count"));
         channel.topUp(id, TOP_UP_AMOUNT, prev, next);
     }
 

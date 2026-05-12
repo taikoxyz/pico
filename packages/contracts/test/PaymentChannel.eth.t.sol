@@ -194,6 +194,8 @@ contract PaymentChannelEthTest is Fixtures {
             balanceA: balanceA,
             balanceB: balanceB,
             htlcsRoot: bytes32(0),
+            htlcsCount: 0,
+            htlcsTotalLocked: 0,
             finalized: false
         });
     }
@@ -207,6 +209,8 @@ contract PaymentChannelEthTest is Fixtures {
                 balanceA: ch.amountA,
                 balanceB: ch.amountB,
                 htlcsRoot: bytes32(0),
+                htlcsCount: 0,
+                htlcsTotalLocked: 0,
                 finalized: false
             }),
             sigA: hex"",
