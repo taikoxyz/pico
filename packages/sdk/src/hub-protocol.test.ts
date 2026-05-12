@@ -12,6 +12,8 @@ const baseMessage: PayMessage = {
       balanceA: 100n,
       balanceB: 50n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     },
     sigA: { r: '0x11', s: '0x22', v: 27 },

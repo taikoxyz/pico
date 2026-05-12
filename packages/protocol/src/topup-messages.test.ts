@@ -23,6 +23,8 @@ const newState: ChannelState = {
   balanceA: 10_000_000n,
   balanceB: 5_000_000n,
   htlcs: [],
+  htlcsCount: 0,
+  htlcsTotalLocked: 0n,
   finalized: false,
 };
 

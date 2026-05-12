@@ -49,6 +49,8 @@ function signed(channel: Channel, balanceA: bigint, balanceB: bigint, version = 
     balanceA,
     balanceB,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
   };
   return { state, sigA: ZERO_SIG, sigB: ZERO_SIG };

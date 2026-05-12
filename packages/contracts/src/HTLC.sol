@@ -63,6 +63,64 @@ library HTLC {
         return level[0];
     }
 
+    /// @notice Verify a Merkle inclusion proof for `leaf` against `root`, using the same
+    ///         left/right pairing + odd-tail duplication scheme as `rootOf`.
+    /// @dev Must match `htlcMerkleProof` in `packages/protocol/src/htlc-root.ts`. The verifier
+    ///      walks the tree from `sortedIndex` upward: at each level it pairs the current node
+    ///      with the next sibling in `proof` (right-of-pair) or the previous (left-of-pair),
+    ///      depending on `sortedIndex` parity. When the node sits in the "odd tail" slot at
+    ///      a given level (sole leaf left over), no sibling is consumed and the node is
+    ///      hashed against itself.
+    /// @param leaf Hash of the HTLC lock being proved (`hashLock(htlc)`).
+    /// @param root Merkle root that `leaf` is being proved against (`rootOf(locks)`).
+    /// @param proof Sibling hashes from leaf level upward, omitting odd-tail self-duplications.
+    /// @param sortedIndex Position of `leaf` in the sort-by-id ordering of the original set.
+    /// @param totalLeaves Number of leaves in the original set. Used to detect odd-tail levels.
+    /// @return true iff `leaf` is part of the set that produces `root`.
+    function verifyOrderedProof(
+        bytes32 leaf,
+        bytes32 root,
+        bytes32[] calldata proof,
+        uint256 sortedIndex,
+        uint256 totalLeaves
+    ) internal pure returns (bool) {
+        if (totalLeaves == 0) return false;
+        if (sortedIndex >= totalLeaves) return false;
+        if (totalLeaves == 1) {
+            return proof.length == 0 && leaf == root;
+        }
+
+        bytes32 node = leaf;
+        uint256 index = sortedIndex;
+        uint256 levelWidth = totalLeaves;
+        uint256 cursor = 0;
+
+        while (levelWidth > 1) {
+            bool isRight = (index & 1) == 1;
+            bool isOddTail = !isRight && (index + 1 == levelWidth);
+            bytes32 sibling;
+            if (isOddTail) {
+                sibling = node;
+            } else {
+                if (cursor >= proof.length) return false;
+                sibling = proof[cursor];
+                unchecked {
+                    cursor++;
+                }
+            }
+            node = isRight
+                ? keccak256(abi.encodePacked(sibling, node))
+                : keccak256(abi.encodePacked(node, sibling));
+
+            unchecked {
+                index = index >> 1;
+                levelWidth = (levelWidth + 1) / 2;
+            }
+        }
+
+        return cursor == proof.length && node == root;
+    }
+
     /// @dev In-place insertion sort by `id` ascending. Operates on a defensive copy so callers
     ///      can rely on `rootOf` being a pure function of the input *set*. Insertion sort is fine
     ///      here: HTLC sets per channel are very small (typically <16 in flight, hard-cap is

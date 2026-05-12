@@ -1,7 +1,7 @@
 import type { Address, ChainId } from './types.js';
 
 export const EIP712_DOMAIN_NAME = 'pico';
-export const EIP712_DOMAIN_VERSION = '1';
+export const EIP712_DOMAIN_VERSION = '2';
 
 export interface Eip712Domain {
   readonly name: typeof EIP712_DOMAIN_NAME;
@@ -16,6 +16,8 @@ const CHANNEL_STATE_FIELDS = [
   { name: 'balanceA', type: 'uint256' },
   { name: 'balanceB', type: 'uint256' },
   { name: 'htlcsRoot', type: 'bytes32' },
+  { name: 'htlcsCount', type: 'uint16' },
+  { name: 'htlcsTotalLocked', type: 'uint256' },
   { name: 'finalized', type: 'bool' },
 ] as const;
 

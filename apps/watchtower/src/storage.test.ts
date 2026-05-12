@@ -15,6 +15,8 @@ function makeSignedState(version: bigint, id: ChannelId = channelId): SignedStat
       balanceA: 100n,
       balanceB: 200n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     },
     sigA: { r: '0xaabbcc' as `0x${string}`, s: '0xddeeff' as `0x${string}`, v: 27 },

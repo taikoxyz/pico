@@ -1,6 +1,13 @@
 import type { Address, ChainId, TokenInfo } from './types.js';
 
-export const PROTOCOL_VERSION = '0.1.0' as const;
+export const PROTOCOL_VERSION = '0.2.0' as const;
+
+/// Grace window after the last possible HTLC expiry within a dispute, before
+/// `finalize` can be called and unresolved HTLCs are considered abandoned.
+/// Watchtowers post explicit `refundHtlc` calls during this window; a single
+/// contract-wide ceiling derived from MAX_HTLC_DURATION_MS is safe because
+/// the off-chain protocol caps every HTLC at MAX_HTLC_DURATION_MS.
+export const HTLC_RESOLUTION_GRACE_MS = 2 * 60 * 60 * 1000;
 
 export const TAIKO_MAINNET_CHAIN_ID = 167000 as const;
 export const TAIKO_HOODI_CHAIN_ID = 167009 as const;

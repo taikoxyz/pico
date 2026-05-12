@@ -187,13 +187,15 @@ contract AdjudicatorTest is Fixtures {
         bytes32 expected = keccak256(
             abi.encode(
                 keccak256(
-                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
                 ),
                 s.channelId,
                 s.version,
                 s.balanceA,
                 s.balanceB,
                 s.htlcsRoot,
+                s.htlcsCount,
+                s.htlcsTotalLocked,
                 s.finalized
             )
         );
@@ -232,20 +234,22 @@ contract AdjudicatorTest is Fixtures {
         bytes32 nextHash = keccak256(
             abi.encode(
                 keccak256(
-                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
                 ),
                 next.channelId,
                 next.version,
                 next.balanceA,
                 next.balanceB,
                 next.htlcsRoot,
+                next.htlcsCount,
+                next.htlcsTotalLocked,
                 next.finalized
             )
         );
         bytes32 expected = keccak256(
             abi.encode(
                 keccak256(
-                    "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+                    "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
                 ),
                 u.channelId,
                 u.fromVersion,
@@ -331,6 +335,8 @@ contract AdjudicatorTest is Fixtures {
             balanceA: balanceA,
             balanceB: balanceB,
             htlcsRoot: bytes32(0),
+            htlcsCount: 0,
+            htlcsTotalLocked: 0,
             finalized: finalized
         });
     }

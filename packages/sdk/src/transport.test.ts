@@ -91,6 +91,8 @@ describe('WebSocketTransport', () => {
             balanceA: 100n,
             balanceB: 50n,
             htlcs: [],
+            htlcsCount: 0,
+            htlcsTotalLocked: 0n,
             finalized: false,
           },
           sigA: { r: '0x0', s: '0x0', v: 27 },

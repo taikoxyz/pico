@@ -256,6 +256,8 @@ describe('admitClose', () => {
       balanceA: 50n,
       balanceB: 50n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: true,
     };
     const signed = await bothSign(next);
@@ -276,6 +278,8 @@ describe('admitClose', () => {
       balanceA: 45n,
       balanceB: 50n,
       htlcs: [htlc],
+      htlcsCount: 1,
+      htlcsTotalLocked: 5n,
       finalized: true,
     };
     const signed = await bothSign(next);
@@ -289,6 +293,8 @@ describe('admitClose', () => {
       balanceA: 50n,
       balanceB: 50n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const signed = await bothSign(next);

@@ -30,6 +30,8 @@ export interface ChannelStateTypedData {
     readonly balanceA: bigint;
     readonly balanceB: bigint;
     readonly htlcsRoot: Hex;
+    readonly htlcsCount: number;
+    readonly htlcsTotalLocked: bigint;
     readonly finalized: boolean;
   };
 }
@@ -80,6 +82,8 @@ function channelStateMessage(state: ChannelState): ChannelStateTypedData['messag
     balanceA: state.balanceA,
     balanceB: state.balanceB,
     htlcsRoot: htlcMerkleRoot(state.htlcs),
+    htlcsCount: state.htlcsCount,
+    htlcsTotalLocked: state.htlcsTotalLocked,
     finalized: state.finalized,
   };
 }

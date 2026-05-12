@@ -78,13 +78,15 @@ abstract contract Fixtures is Test {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
                 ),
                 state.channelId,
                 state.version,
                 state.balanceA,
                 state.balanceB,
                 state.htlcsRoot,
+                state.htlcsCount,
+                state.htlcsTotalLocked,
                 state.finalized
             )
         );
@@ -95,20 +97,22 @@ abstract contract Fixtures is Test {
         bytes32 nextHash = keccak256(
             abi.encode(
                 keccak256(
-                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
                 ),
                 u.nextState.channelId,
                 u.nextState.version,
                 u.nextState.balanceA,
                 u.nextState.balanceB,
                 u.nextState.htlcsRoot,
+                u.nextState.htlcsCount,
+                u.nextState.htlcsTotalLocked,
                 u.nextState.finalized
             )
         );
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+                    "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
                 ),
                 u.channelId,
                 u.fromVersion,

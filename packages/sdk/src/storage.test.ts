@@ -28,6 +28,8 @@ const signedState: SignedState = {
     balanceA: 100n,
     balanceB: 50n,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
   },
   sigA: sig,

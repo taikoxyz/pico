@@ -112,6 +112,8 @@ describe('encodeChannelStateForOnChain edge cases', () => {
       balanceA: 100n,
       balanceB: 50n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: true,
     });
     const b = encodeChannelStateForOnChain({
@@ -120,6 +122,8 @@ describe('encodeChannelStateForOnChain edge cases', () => {
       balanceA: 100n,
       balanceB: 50n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: true,
     });
     expect(a).toBe(b);

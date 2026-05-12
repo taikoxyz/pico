@@ -11,23 +11,27 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IPaymentChannel} from "./interfaces/IPaymentChannel.sol";
 import {IWatchtower} from "./interfaces/IWatchtower.sol";
 import {Adjudicator} from "./Adjudicator.sol";
+import {HTLC} from "./HTLC.sol";
 
 /// @title PaymentChannel
 /// @notice Pairwise payment channel core for the pico 1-hop network.
-/// @dev v1 simplifications (locked decisions):
+/// @dev v2 highlights:
 ///       - USDC-only. ETH (`token == address(0)`) is rejected at `openChannel`.
 ///       - Both parties co-fund: `safeTransferFrom` runs against `userA` and `userB`. Both
 ///         must have approved this contract before `openChannel` is called.
 ///       - 100% slash on penalty (the `closeUnilateral` caller forfeits *all* funds in the
 ///         channel to the honest counterparty when an `oldState` proof shows they posted a
-///         stale state).
-///       - Dispute, unilateral-close, and penalty paths assume `htlcsRoot == bytes32(0)`.
-///         Posting a state with in-flight HTLCs reverts. Cooperative close signs a dedicated
-///         `CooperativeClose` artifact without an HTLC root, so clients/hubs must only request
-///         it after all in-flight HTLCs settle or fail. This is consistent with the 1-hop
-///         dogfood scope: HTLCs only live inside a single payment, and any close happens
-///         between payments. On-chain HTLC claim/refund is NOT implemented in v1; the frozen
-///         spec and threat model have been updated to match.
+///         stale state). Penalty short-circuits HTLC resolution entirely — the cheater
+///         forfeits in-flight value alongside principal.
+///       - On-chain HTLC settlement: states with non-empty `htlcsRoot` are now accepted at
+///         unilateral close, dispute, and top-up. The signed `htlcsCount` and
+///         `htlcsTotalLocked` fields let the contract enforce
+///         `balanceA + balanceB + htlcsTotalLocked == amountA + amountB`. After the
+///         dispute window expires with `htlcsCount > 0` the channel enters
+///         `Status.ResolvingHtlcs`, during which `claimHtlc` (preimage + Merkle proof)
+///         and `refundHtlc` (Merkle proof, post-expiry) operate. `finalize` is gated on
+///         all HTLCs having been explicitly resolved (claimed or refunded). Watchtowers
+///         typically post both kinds of resolution; clients may self-settle via the SDK.
 ///       - UUPS upgradeable behind `ERC1967Proxy`. `_authorizeUpgrade` is gated by an owner.
 contract PaymentChannel is
     IPaymentChannel,
@@ -40,10 +44,15 @@ contract PaymentChannel is
     using SafeERC20 for IERC20;
 
     /// @notice Lifecycle state of a single channel.
+    /// @dev `ResolvingHtlcs` is entered (lazily, at the first `finalize` call after the
+    ///      dispute deadline) when the posted state had `htlcsCount > 0`. While in this
+    ///      phase, `claimHtlc` and `refundHtlc` are callable and `finalize` is gated on
+    ///      `htlcsCount == 0`.
     enum Status {
         None,
         Open,
         ClosingUnilateral,
+        ResolvingHtlcs,
         Closed
     }
 
@@ -62,11 +71,35 @@ contract PaymentChannel is
         bool penalized;
         Status status;
         address closer;
+        bytes32 postedHtlcsRoot;
+        uint256 htlcsTotalLocked;
+        uint16 htlcsCount;
+        uint64 htlcResolutionDeadline;
+        uint256 pendingPayoutA;
+        uint256 pendingPayoutB;
+    }
+
+    /// @notice Resolution state of a single HTLC during `ResolvingHtlcs`.
+    enum HtlcResolution {
+        Pending,
+        Claimed,
+        Refunded
     }
 
     /// @notice Length of the dispute window in seconds. Mirrors
     ///         `DEFAULT_DISPUTE_WINDOW_MS` in `packages/protocol`.
     uint64 public constant DISPUTE_WINDOW = 24 hours;
+
+    /// @notice Maximum HTLC duration on-chain. Mirrors `MAX_HTLC_DURATION_MS` in
+    ///         `packages/protocol` (off-chain policy bound). The contract trusts the
+    ///         off-chain protocol to cap HTLC `expiry` to `now + this`, exactly as v1
+    ///         trusts off-chain to cap the HTLC count.
+    uint64 public constant MAX_HTLC_DURATION = 2 hours;
+
+    /// @notice Grace window appended to `MAX_HTLC_DURATION` when computing the per-channel
+    ///         HTLC resolution deadline at the start of `ResolvingHtlcs`. Gives watchtowers
+    ///         time to post `refundHtlc` calls before `finalize` is callable.
+    uint64 public constant HTLC_RESOLUTION_GRACE = 2 hours;
 
     /// @notice Lower bound on initial channel funding. Denominated in the channel token's
     ///         smallest unit. v1 only allows USDC (6 decimals), so 10 USDC = 10_000_000.
@@ -85,14 +118,37 @@ contract PaymentChannel is
     ///         `userA`, `userB`, `token` and `block.timestamp` collide.
     uint256 public openNonce;
 
-    /// @dev Storage gap for upgrade safety.
-    uint256[44] private __gap;
+    /// @notice Per-channel, per-HTLC resolution status (`Pending`/`Claimed`/`Refunded`).
+    mapping(bytes32 => mapping(bytes32 => HtlcResolution)) public htlcResolved;
+
+    /// @dev Storage gap for upgrade safety. Reduced from 44 to 43 to accommodate the new
+    ///      `htlcResolved` mapping plus the seven new fields embedded in `Channel`.
+    uint256[43] private __gap;
 
     /// @notice Emitted when the owner toggles a token's allowlist entry.
     event TokenAllowed(address indexed token, bool allowed);
 
     /// @notice Emitted when a successful penalty proof slashes the unilateral closer.
     event PenaltyApplied(bytes32 indexed channelId, address indexed cheater, address indexed beneficiary);
+
+    /// @notice Emitted when a unilaterally-closed channel with `htlcsCount > 0` transitions
+    ///         from `ClosingUnilateral` to `ResolvingHtlcs` after the dispute window.
+    event HtlcResolutionStarted(bytes32 indexed channelId, uint64 htlcResolutionDeadline);
+
+    /// @notice Emitted when an HTLC is claimed on-chain. `preimage` is included so off-chain
+    ///         relays can pick up cross-channel preimages from the event stream alone.
+    event HtlcClaimed(
+        bytes32 indexed channelId,
+        bytes32 indexed htlcId,
+        address indexed receiver,
+        uint256 amount,
+        bytes preimage
+    );
+
+    /// @notice Emitted when an HTLC is refunded on-chain (expiry passed without claim).
+    event HtlcRefunded(
+        bytes32 indexed channelId, bytes32 indexed htlcId, address indexed sender, uint256 amount
+    );
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -161,7 +217,13 @@ contract PaymentChannel is
             postedBalanceB: 0,
             penalized: false,
             status: Status.Open,
-            closer: address(0)
+            closer: address(0),
+            postedHtlcsRoot: bytes32(0),
+            htlcsTotalLocked: 0,
+            htlcsCount: 0,
+            htlcResolutionDeadline: 0,
+            pendingPayoutA: 0,
+            pendingPayoutB: 0
         });
 
         if (amountA > 0) IERC20(token).safeTransferFrom(msg.sender, address(this), amountA);
@@ -208,7 +270,8 @@ contract PaymentChannel is
 
     /// @inheritdoc IPaymentChannel
     /// @dev `state` MUST abi-encode to `(Adjudicator.ChannelState)`. `sigCounterparty` is
-    ///      the *other* party's signature on that state. `htlcsRoot` MUST be empty.
+    ///      the *other* party's signature on that state. States with in-flight HTLCs are
+    ///      accepted; conservation is checked against `balanceA + balanceB + htlcsTotalLocked`.
     function closeUnilateral(bytes32 channelId, bytes calldata state, bytes calldata sigCounterparty)
         external
         nonReentrant
@@ -219,8 +282,8 @@ contract PaymentChannel is
 
         Adjudicator.ChannelState memory s = abi.decode(state, (Adjudicator.ChannelState));
         require(s.channelId == channelId, "channelId");
-        require(s.htlcsRoot == bytes32(0), "htlcs!=0");
-        require(s.balanceA + s.balanceB == ch.amountA + ch.amountB, "!conserved");
+        _requireHtlcsRootConsistent(s);
+        require(s.balanceA + s.balanceB + s.htlcsTotalLocked == ch.amountA + ch.amountB, "!conserved");
 
         address counterparty = msg.sender == ch.userA ? ch.userB : ch.userA;
         address recovered = _recoverStateSigner(s, sigCounterparty);
@@ -229,6 +292,9 @@ contract PaymentChannel is
         ch.postedVersion = s.version;
         ch.postedBalanceA = s.balanceA;
         ch.postedBalanceB = s.balanceB;
+        ch.postedHtlcsRoot = s.htlcsRoot;
+        ch.htlcsCount = s.htlcsCount;
+        ch.htlcsTotalLocked = s.htlcsTotalLocked;
         ch.disputeDeadline = uint64(block.timestamp) + DISPUTE_WINDOW;
         ch.closer = msg.sender;
         ch.status = Status.ClosingUnilateral;
@@ -281,10 +347,14 @@ contract PaymentChannel is
 
         // prevState validation
         require(prev.state.channelId == channelId, "prev channelId");
-        require(prev.state.htlcsRoot == bytes32(0), "prev htlcs!=0");
+        _requireHtlcsRootConsistent(prev.state);
         require(!prev.state.finalized, "prev finalized");
         require(prev.state.version >= ch.postedVersion, "prev<posted");
-        require(prev.state.balanceA + prev.state.balanceB == ch.amountA + ch.amountB, "prev !conserved");
+        require(
+            prev.state.balanceA + prev.state.balanceB + prev.state.htlcsTotalLocked
+                == ch.amountA + ch.amountB,
+            "prev !conserved"
+        );
 
         if (prev.state.version == 0) {
             // Sentinel branch: bytewise zero sigs + balances == amounts
@@ -294,10 +364,14 @@ contract PaymentChannel is
             require(_verifyDualSig(ch.userA, ch.userB, prev.state, prev.sigA, prev.sigB), "prev bad sig");
         }
 
-        // newState validation
+        // newState validation. top-up only moves principal, so the HTLC set must be
+        // unchanged across prev/next.
         require(next.state.channelId == channelId, "next channelId");
         require(next.state.version == prev.state.version + 1, "next version");
-        require(next.state.htlcsRoot == bytes32(0), "next htlcs!=0");
+        _requireHtlcsRootConsistent(next.state);
+        require(next.state.htlcsRoot == prev.state.htlcsRoot, "next htlcs changed");
+        require(next.state.htlcsCount == prev.state.htlcsCount, "next htlc count");
+        require(next.state.htlcsTotalLocked == prev.state.htlcsTotalLocked, "next htlc total");
         require(!next.state.finalized, "next finalized");
 
         if (msg.sender == ch.userA) {
@@ -307,7 +381,11 @@ contract PaymentChannel is
             require(next.state.balanceB == prev.state.balanceB + amount, "B delta");
             require(next.state.balanceA == prev.state.balanceA, "A unchanged");
         }
-        require(next.state.balanceA + next.state.balanceB == ch.amountA + ch.amountB + amount, "next !conserved");
+        require(
+            next.state.balanceA + next.state.balanceB + next.state.htlcsTotalLocked
+                == ch.amountA + ch.amountB + amount,
+            "next !conserved"
+        );
         require(_verifyDualSig(ch.userA, ch.userB, next.state, next.sigA, next.sigB), "next bad sig");
 
         // Pull funds and update state
@@ -354,14 +432,17 @@ contract PaymentChannel is
         Adjudicator.ChannelState memory s = abi.decode(state, (Adjudicator.ChannelState));
         require(s.channelId == channelId, "channelId");
         require(s.version > ch.postedVersion, "stale");
-        require(s.htlcsRoot == bytes32(0), "htlcs!=0");
-        require(s.balanceA + s.balanceB == ch.amountA + ch.amountB, "!conserved");
+        _requireHtlcsRootConsistent(s);
+        require(s.balanceA + s.balanceB + s.htlcsTotalLocked == ch.amountA + ch.amountB, "!conserved");
 
         require(_verifyDualSig(ch.userA, ch.userB, s, sigA, sigB), "bad sig");
 
         ch.postedVersion = s.version;
         ch.postedBalanceA = s.balanceA;
         ch.postedBalanceB = s.balanceB;
+        ch.postedHtlcsRoot = s.htlcsRoot;
+        ch.htlcsCount = s.htlcsCount;
+        ch.htlcsTotalLocked = s.htlcsTotalLocked;
         if (!ch.penalized) {
             ch.disputeDeadline = uint64(block.timestamp) + DISPUTE_WINDOW;
             ch.penalized = true;
@@ -392,14 +473,17 @@ contract PaymentChannel is
         Adjudicator.ChannelState memory s = abi.decode(penaltyState, (Adjudicator.ChannelState));
         require(s.channelId == channelId, "channelId");
         require(s.version > ch.postedVersion, "stale");
-        require(s.htlcsRoot == bytes32(0), "htlcs!=0");
-        require(s.balanceA + s.balanceB == ch.amountA + ch.amountB, "!conserved");
+        _requireHtlcsRootConsistent(s);
+        require(s.balanceA + s.balanceB + s.htlcsTotalLocked == ch.amountA + ch.amountB, "!conserved");
 
         require(_verifyDualSig(ch.userA, ch.userB, s, sigA, sigB), "bad sig");
 
         ch.postedVersion = s.version;
         ch.postedBalanceA = s.balanceA;
         ch.postedBalanceB = s.balanceB;
+        ch.postedHtlcsRoot = s.htlcsRoot;
+        ch.htlcsCount = s.htlcsCount;
+        ch.htlcsTotalLocked = s.htlcsTotalLocked;
         ch.penalized = true;
 
         address beneficiary = ch.closer == ch.userA ? ch.userB : ch.userA;
@@ -408,12 +492,37 @@ contract PaymentChannel is
     }
 
     /// @inheritdoc IPaymentChannel
-    /// @dev On `penalized == true`, the entire channel pot goes to the non-closer. Otherwise
-    ///      the posted balance split is honoured.
+    /// @dev Phase transitions:
+    ///       - `penalized` → 100% to the non-closer, regardless of in-flight HTLCs. The
+    ///         cheater forfeits everything; HTLC resolution is short-circuited.
+    ///       - `htlcsCount == 0` → fast path: pay `postedBalance{A,B}` + `pendingPayout{A,B}`
+    ///         and close. This matches v1 behaviour for empty-root channels.
+    ///       - Otherwise → first call after `disputeDeadline` transitions
+    ///         `ClosingUnilateral → ResolvingHtlcs` and sets `htlcResolutionDeadline`. A
+    ///         subsequent call (after every HTLC is explicitly claimed or refunded) pays out.
     function finalize(bytes32 channelId) external nonReentrant {
         Channel storage ch = _channels[channelId];
-        require(ch.status == Status.ClosingUnilateral, "!closing");
-        require(block.timestamp >= ch.disputeDeadline, "!ripe");
+        require(
+            ch.status == Status.ClosingUnilateral || ch.status == Status.ResolvingHtlcs,
+            "!closing"
+        );
+
+        if (ch.status == Status.ClosingUnilateral) {
+            require(block.timestamp >= ch.disputeDeadline, "!ripe");
+
+            // Penalty short-circuits HTLC resolution: the cheating closer forfeits
+            // everything to the non-closer, including any in-flight HTLC value.
+            if (!ch.penalized && ch.htlcsCount > 0) {
+                ch.status = Status.ResolvingHtlcs;
+                ch.htlcResolutionDeadline =
+                    uint64(block.timestamp) + MAX_HTLC_DURATION + HTLC_RESOLUTION_GRACE;
+                emit HtlcResolutionStarted(channelId, ch.htlcResolutionDeadline);
+                return;
+            }
+        } else {
+            // Status.ResolvingHtlcs: every HTLC must be explicitly resolved.
+            require(ch.htlcsCount == 0, "htlcs pending");
+        }
 
         address token = ch.token;
         address userA = ch.userA;
@@ -429,8 +538,8 @@ contract PaymentChannel is
                 payA = pot;
             }
         } else {
-            payA = ch.postedBalanceA;
-            payB = ch.postedBalanceB;
+            payA = ch.postedBalanceA + ch.pendingPayoutA;
+            payB = ch.postedBalanceB + ch.pendingPayoutB;
         }
 
         ch.status = Status.Closed;
@@ -439,6 +548,113 @@ contract PaymentChannel is
         if (payB > 0) IERC20(token).safeTransfer(userB, payB);
 
         emit ChannelFinalized(channelId, payA, payB);
+    }
+
+    /// @notice Claim an in-flight HTLC by revealing its preimage and a Merkle proof of
+    ///         membership in the posted state's `htlcsRoot`. Callable while `status` is
+    ///         `ResolvingHtlcs` and before the HTLC's individual expiry.
+    /// @dev Anyone may call. The credited side is determined by `htlc.direction`:
+    ///       - `direction == 0` (AtoB) → receiver is `userB`; credits `pendingPayoutB`.
+    ///       - `direction == 1` (BtoA) → receiver is `userA`; credits `pendingPayoutA`.
+    function claimHtlc(
+        bytes32 channelId,
+        Adjudicator.Htlc calldata htlc,
+        bytes32[] calldata proof,
+        uint256 sortedIndex,
+        uint256 totalLeaves,
+        bytes calldata preimage
+    ) external nonReentrant {
+        Channel storage ch = _channels[channelId];
+        require(ch.status == Status.ResolvingHtlcs, "!resolving");
+        require(htlcResolved[channelId][htlc.id] == HtlcResolution.Pending, "resolved");
+        require(block.timestamp <= htlc.expiry, "expired");
+
+        require(HTLC.verifyPreimage(htlc.paymentHash, preimage), "preimage");
+        HTLC.Lock memory lock = HTLC.Lock({
+            id: htlc.id,
+            amount: htlc.amount,
+            paymentHash: htlc.paymentHash,
+            expiry: htlc.expiry,
+            direction: htlc.direction
+        });
+        require(
+            HTLC.verifyOrderedProof(
+                HTLC.hashLock(lock), ch.postedHtlcsRoot, proof, sortedIndex, totalLeaves
+            ),
+            "bad proof"
+        );
+
+        htlcResolved[channelId][htlc.id] = HtlcResolution.Claimed;
+        ch.htlcsCount -= 1;
+        ch.htlcsTotalLocked -= htlc.amount;
+
+        address receiver;
+        if (htlc.direction == 0) {
+            ch.pendingPayoutB += htlc.amount;
+            receiver = ch.userB;
+        } else {
+            ch.pendingPayoutA += htlc.amount;
+            receiver = ch.userA;
+        }
+
+        emit HtlcClaimed(channelId, htlc.id, receiver, htlc.amount, preimage);
+    }
+
+    /// @notice Refund an in-flight HTLC after its expiry. Returns the locked principal to
+    ///         the sender side. Callable while `status` is `ResolvingHtlcs`; anyone may call.
+    /// @dev Sender side per `htlc.direction`:
+    ///       - `direction == 0` (AtoB) → sender is `userA`; credits `pendingPayoutA`.
+    ///       - `direction == 1` (BtoA) → sender is `userB`; credits `pendingPayoutB`.
+    function refundHtlc(
+        bytes32 channelId,
+        Adjudicator.Htlc calldata htlc,
+        bytes32[] calldata proof,
+        uint256 sortedIndex,
+        uint256 totalLeaves
+    ) external nonReentrant {
+        Channel storage ch = _channels[channelId];
+        require(ch.status == Status.ResolvingHtlcs, "!resolving");
+        require(htlcResolved[channelId][htlc.id] == HtlcResolution.Pending, "resolved");
+        require(block.timestamp > htlc.expiry, "!expired");
+
+        HTLC.Lock memory lock = HTLC.Lock({
+            id: htlc.id,
+            amount: htlc.amount,
+            paymentHash: htlc.paymentHash,
+            expiry: htlc.expiry,
+            direction: htlc.direction
+        });
+        require(
+            HTLC.verifyOrderedProof(
+                HTLC.hashLock(lock), ch.postedHtlcsRoot, proof, sortedIndex, totalLeaves
+            ),
+            "bad proof"
+        );
+
+        htlcResolved[channelId][htlc.id] = HtlcResolution.Refunded;
+        ch.htlcsCount -= 1;
+        ch.htlcsTotalLocked -= htlc.amount;
+
+        address sender;
+        if (htlc.direction == 0) {
+            ch.pendingPayoutA += htlc.amount;
+            sender = ch.userA;
+        } else {
+            ch.pendingPayoutB += htlc.amount;
+            sender = ch.userB;
+        }
+
+        emit HtlcRefunded(channelId, htlc.id, sender, htlc.amount);
+    }
+
+    /// @dev Reject states with a malformed `(htlcsRoot, htlcsCount, htlcsTotalLocked)` triple.
+    ///      The three fields must be consistent: empty root iff zero count iff zero total.
+    ///      Non-empty triples are otherwise free; the on-chain leaf-hash check happens at
+    ///      `claimHtlc` / `refundHtlc` time via the Merkle proof, not here.
+    function _requireHtlcsRootConsistent(Adjudicator.ChannelState memory s) internal pure {
+        bool empty = s.htlcsRoot == bytes32(0);
+        require(empty == (s.htlcsCount == 0), "htlcs root/count");
+        require(empty == (s.htlcsTotalLocked == 0), "htlcs root/total");
     }
 
     /// @dev Convenience wrapper around `Adjudicator.verifyDualSig` that takes a memory

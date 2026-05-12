@@ -112,7 +112,7 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id, version: version, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: false
+            channelId: id, version: version, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), htlcsCount: 0, htlcsTotalLocked: 0, finalized: false
         });
         bytes memory sigB = _sign(bobPk, s);
         vm.prank(alice);
@@ -137,7 +137,7 @@ contract ChannelHandler is Test {
         uint256 finalB = total - finalA;
 
         Adjudicator.ChannelState memory s = Adjudicator.ChannelState({
-            channelId: id, version: vNew, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), finalized: false
+            channelId: id, version: vNew, balanceA: finalA, balanceB: finalB, htlcsRoot: bytes32(0), htlcsCount: 0, htlcsTotalLocked: 0, finalized: false
         });
         // Both parties must sign the disputed state.
         bytes memory sigA = _sign(alicePk, s);
@@ -182,13 +182,15 @@ contract ChannelHandler is Test {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+                    "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
                 ),
                 s.channelId,
                 s.version,
                 s.balanceA,
                 s.balanceB,
                 s.htlcsRoot,
+                s.htlcsCount,
+                s.htlcsTotalLocked,
                 s.finalized
             )
         );

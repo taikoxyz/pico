@@ -210,6 +210,8 @@ export class ChannelClient {
       balanceA: onChain.amountA,
       balanceB: onChain.amountB,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const mySig = await this.opts.signer.signChannelState(
@@ -1035,6 +1037,8 @@ export class ChannelClient {
           balanceA: latest.state.balanceA,
           balanceB: latest.state.balanceB,
           htlcs: [],
+          htlcsCount: 0,
+          htlcsTotalLocked: 0n,
           finalized: false,
         };
       } else {
@@ -1044,6 +1048,8 @@ export class ChannelClient {
           balanceA: hubSide === 'A' ? msg.newState.balanceA - msg.amount : msg.newState.balanceA,
           balanceB: hubSide === 'B' ? msg.newState.balanceB - msg.amount : msg.newState.balanceB,
           htlcs: [],
+          htlcsCount: 0,
+          htlcsTotalLocked: 0n,
           finalized: false,
         };
       }

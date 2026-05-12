@@ -37,6 +37,8 @@ const signedState: SignedState = {
     balanceA: 12_345_678n,
     balanceB: 87_654_321n,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
   },
   sigA: sig,

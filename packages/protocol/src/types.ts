@@ -42,6 +42,8 @@ export interface ChannelState {
   readonly balanceA: bigint;
   readonly balanceB: bigint;
   readonly htlcs: readonly Htlc[];
+  readonly htlcsCount: number;
+  readonly htlcsTotalLocked: bigint;
   readonly finalized: boolean;
 }
 

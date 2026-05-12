@@ -301,6 +301,8 @@ describe('ChannelClient handleProposeTopUp', () => {
       balanceA: 1_000_000n,
       balanceB: 5_000_000n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     // Hub (Bob) signs newState so the client can include the hub's sig.
@@ -345,6 +347,8 @@ describe('ChannelClient handleProposeTopUp', () => {
       balanceA: 1_000_000n,
       balanceB: 5_000_000n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const offer = buildOfferEnvelope({
@@ -374,6 +378,8 @@ describe('ChannelClient handleProposeTopUp', () => {
         balanceA: 600_000n,
         balanceB: 400_000n,
         htlcs: [],
+        htlcsCount: 0,
+        htlcsTotalLocked: 0n,
         finalized: false,
       },
       sigA: { r: '0x01', s: '0x02', v: 27 },
@@ -388,6 +394,8 @@ describe('ChannelClient handleProposeTopUp', () => {
       balanceA: 1_000_000n,
       balanceB: 5_000_000n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const offer = buildOfferEnvelope({
@@ -420,6 +428,8 @@ describe('ChannelClient handleProposeTopUp', () => {
       balanceA: 10_000_000n,
       balanceB: 0n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const aliceSigHex = (await aliceAccount.signTypedData(
@@ -450,6 +460,8 @@ describe('ChannelClient handleProposeTopUp', () => {
       balanceA: 10_000_000n,
       balanceB: 5_000_000n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const hubSigHex = (await fx.bobAccount.signTypedData(
@@ -492,6 +504,8 @@ describe('ChannelClient handleProposeTopUp', () => {
         balanceA: 800_000n,
         balanceB: 200_000n,
         htlcs: [],
+        htlcsCount: 0,
+        htlcsTotalLocked: 0n,
         finalized: false,
       },
       sigA: { r: '0x01', s: '0x02', v: 27 },
@@ -508,6 +522,8 @@ describe('ChannelClient handleProposeTopUp', () => {
       balanceA: 800_000n,
       balanceB: 9_999_999n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const offer = buildOfferEnvelope({

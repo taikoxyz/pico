@@ -44,6 +44,8 @@ async function buildSignedState(
     balanceA: 100n,
     balanceB: 200n,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
     ...overrides,
   };
