@@ -1,5 +1,12 @@
 # @inferenceroom/pico-sdk
 
+## 2.0.3
+
+### Patch Changes
+
+- Updated dependencies [b9952b4]
+  - @inferenceroom/pico-protocol@2.0.3
+
 ## 2.0.2
 
 ### Patch Changes
