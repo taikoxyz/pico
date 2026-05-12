@@ -47,8 +47,8 @@ describe('protocol decisions are pinned', () => {
     expect(MIN_CHANNEL_AMOUNT_ETH).toBe(10n ** 16n);
   });
 
-  it('D1.5 hub fee defaults are 10 bps + 1 unit flat', () => {
-    expect(DEFAULT_HUB_FEE_BPS).toBe(10n);
+  it('D1.5 hub fee defaults are 2 bps + 1 unit flat', () => {
+    expect(DEFAULT_HUB_FEE_BPS).toBe(2n);
     expect(DEFAULT_HUB_FEE_FLAT).toBe(1n);
   });
 });
