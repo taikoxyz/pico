@@ -753,3 +753,6 @@ to v1.5; the topUp construction is forward-compatible.
   step-by-step on-chain/off-chain walkthroughs of every flow described in this
   spec, including channel open, payDirect, routing, cooperative close, top-up,
   inbound auto-recycle, and attempted attacks.
+- [`privacy.md`](./privacy.md) — non-normative privacy posture for v1.x:
+  stealth addresses, recipient rotation, ephemeral Nostr pubkeys, fee
+  bucketing, and PTLC groundwork.

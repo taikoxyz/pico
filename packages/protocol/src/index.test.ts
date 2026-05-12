@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ETHEREUM_MAINNET_CHAIN_ID,
   NOSTR_EVENT_KINDS,
   NOSTR_KIND_RANGE,
   PROTOCOL_VERSION,
@@ -13,9 +14,10 @@ describe('@inferenceroom/pico-protocol', () => {
     expect(PROTOCOL_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  it('lists Taiko mainnet as a supported chain (Hoodi excluded until deployed)', () => {
+  it('lists Taiko and Ethereum mainnets as supported chains (Hoodi excluded until deployed)', () => {
     expect(SUPPORTED_CHAIN_IDS).toContain(TAIKO_MAINNET_CHAIN_ID);
-    expect(SUPPORTED_CHAIN_IDS).toHaveLength(1);
+    expect(SUPPORTED_CHAIN_IDS).toContain(ETHEREUM_MAINNET_CHAIN_ID);
+    expect(SUPPORTED_CHAIN_IDS).toHaveLength(2);
   });
 
   it('keeps every Nostr event kind inside the reserved range', () => {
