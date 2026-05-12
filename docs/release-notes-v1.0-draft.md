@@ -7,6 +7,11 @@ under issue #21 are closed.
 
 - Trustless 1-hop state channel payments on Taiko mainnet.
 - CLI-first agent runtime for opening channels, paying, listening, and closing.
+- `PaymentChannel` accepts any owner-allowlisted ERC-20 and native ETH
+  (`token == address(0)`); the per-token funding floor replaces the previous
+  hardcoded USDC-scaled `MIN_CHANNEL_AMOUNT` constant. USDC remains the v1
+  default; ETH is opt-in via `setTokenAllowed(0x0, true)` and
+  `setMinChannelAmount(0x0, …)`.
 - Hub and watchtower deployed through versioned GKE releases.
 - Litestream-backed SQLite recovery for hub and watchtower.
 - Prometheus, Alertmanager, and Grafana monitoring stack.

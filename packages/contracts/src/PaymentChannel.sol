@@ -15,9 +15,15 @@ import {Adjudicator} from "./Adjudicator.sol";
 /// @title PaymentChannel
 /// @notice Pairwise payment channel core for the pico 1-hop network.
 /// @dev v1 simplifications (locked decisions):
-///       - USDC-only. ETH (`token == address(0)`) is rejected at `openChannel`.
-///       - Both parties co-fund: `safeTransferFrom` runs against `userA` and `userB`. Both
-///         must have approved this contract before `openChannel` is called.
+///       - Any owner-allowlisted ERC-20, plus native ETH via the `address(0)` sentinel.
+///         ETH must be allowlisted explicitly with `setTokenAllowed(address(0), true)`.
+///       - For ERC-20 channels, both parties co-fund: `safeTransferFrom` runs against
+///         `userA` and `userB`. Both must have approved this contract before
+///         `openChannel` is called.
+///       - For ETH channels, `msg.sender` co-funds only their own side: `amountB` MUST
+///         be zero. `msg.value` MUST equal `amountA`. This matches the LSP topology
+///         (counterparty is a hub that adds inbound liquidity later via `topUp`) and
+///         avoids ambiguity around who supplies the counterparty's ETH at open time.
 ///       - 100% slash on penalty (the `closeUnilateral` caller forfeits *all* funds in the
 ///         channel to the honest counterparty when an `oldState` proof shows they posted a
 ///         stale state).
@@ -28,6 +34,16 @@ import {Adjudicator} from "./Adjudicator.sol";
 ///         dogfood scope: HTLCs only live inside a single payment, and any close happens
 ///         between payments. On-chain HTLC claim/refund is NOT implemented in v1; the frozen
 ///         spec and threat model have been updated to match.
+///       - Fee-on-transfer and rebasing tokens are NOT supported. The owner allowlist
+///         is the gate; `safeTransferFrom` does not verify received-amount equals
+///         requested-amount, so allowlisting such a token would break balance conservation.
+///       - ETH disbursements use `call{value:}` with `require(ok)`. If either channel
+///         participant is a contract whose `receive()` reverts (or consumes more than the
+///         63/64 gas the EVM forwards), `closeCooperative` and `finalize` will revert and
+///         the channel funds are stuck. Counterparties for ETH channels SHOULD be EOAs or
+///         contracts with a trivial `receive() external payable {}`. A future revision may
+///         move to a pull-pattern (per-address `pendingWithdrawals` + `withdraw()`) so a
+///         failing payout leg cannot block the other party's funds.
 ///       - UUPS upgradeable behind `ERC1967Proxy`. `_authorizeUpgrade` is gated by an owner.
 contract PaymentChannel is
     IPaymentChannel,
@@ -68,14 +84,11 @@ contract PaymentChannel is
     ///         `DEFAULT_DISPUTE_WINDOW_MS` in `packages/protocol`.
     uint64 public constant DISPUTE_WINDOW = 24 hours;
 
-    /// @notice Lower bound on initial channel funding. Denominated in the channel token's
-    ///         smallest unit. v1 only allows USDC (6 decimals), so 10 USDC = 10_000_000.
-    uint256 public constant MIN_CHANNEL_AMOUNT = 10_000_000;
-
     /// @notice EIP-712 verifier. Set once at `initialize`; can be rotated via UUPS upgrade.
     Adjudicator public adjudicator;
 
-    /// @notice Allowlist of accepted ERC-20 tokens. Owner-managed via `setTokenAllowed`.
+    /// @notice Allowlist of accepted tokens. The `address(0)` entry, when set, allows
+    ///         channels denominated in native ETH. Owner-managed via `setTokenAllowed`.
     mapping(address => bool) public allowedTokens;
 
     /// @notice Open and historical channels by id.
@@ -85,11 +98,21 @@ contract PaymentChannel is
     ///         `userA`, `userB`, `token` and `block.timestamp` collide.
     uint256 public openNonce;
 
-    /// @dev Storage gap for upgrade safety.
-    uint256[44] private __gap;
+    /// @notice Per-token lower bound on initial channel funding (`amountA + amountB`),
+    ///         denominated in the token's smallest unit. Defaults to 0 (no minimum)
+    ///         for tokens the owner has not explicitly configured. Set via
+    ///         `setMinChannelAmount`.
+    mapping(address => uint256) public minChannelAmount;
+
+    /// @dev Storage gap for upgrade safety. Shrunk by one slot to make room for
+    ///      `minChannelAmount` (a new mapping appended above).
+    uint256[43] private __gap;
 
     /// @notice Emitted when the owner toggles a token's allowlist entry.
     event TokenAllowed(address indexed token, bool allowed);
+
+    /// @notice Emitted when the owner sets a per-token minimum channel funding.
+    event MinChannelAmountSet(address indexed token, uint256 amount);
 
     /// @notice Emitted when a successful penalty proof slashes the unilateral closer.
     event PenaltyApplied(bytes32 indexed channelId, address indexed cheater, address indexed beneficiary);
@@ -115,11 +138,34 @@ contract PaymentChannel is
         adjudicator = Adjudicator(adjudicator_);
     }
 
+    /// @notice One-shot migration for proxies upgraded from the USDC-only contract that
+    ///         predates `minChannelAmount`. Seeds the per-token floor atomically with
+    ///         the upgrade tx so there is no window during which a previously-floored
+    ///         token can be opened at any amount. MUST be called via
+    ///         `upgradeToAndCall(newImpl, abi.encodeCall(reinitializeV2, (usdc, minUsdc)))`.
+    /// @dev Guarded by `reinitializer(2)`: callable exactly once on the existing proxy
+    ///      and not at all on fresh deployments (which already start with
+    ///      `_initialized == 1` and use `setMinChannelAmount` directly). Owner-gated to
+    ///      mirror `setMinChannelAmount`.
+    function reinitializeV2(address usdc, uint256 minUsdc) external reinitializer(2) onlyOwner {
+        require(usdc != address(0), "usdc=0");
+        minChannelAmount[usdc] = minUsdc;
+        emit MinChannelAmountSet(usdc, minUsdc);
+    }
+
     /// @notice Owner-only: add or remove a token from the channel-token allowlist.
+    /// @dev `token == address(0)` enables native-ETH channels. The owner is expected to
+    ///      vet ERC-20s for fee-on-transfer / rebasing behaviour before allowlisting.
     function setTokenAllowed(address token, bool allowed) external onlyOwner {
-        require(token != address(0), "token=0");
         allowedTokens[token] = allowed;
         emit TokenAllowed(token, allowed);
+    }
+
+    /// @notice Owner-only: set the minimum funding (`amountA + amountB`) that a new
+    ///         channel for `token` must satisfy. Pass `0` to remove the floor.
+    function setMinChannelAmount(address token, uint256 amount) external onlyOwner {
+        minChannelAmount[token] = amount;
+        emit MinChannelAmountSet(token, amount);
     }
 
     /// @notice Read a channel record by id.
@@ -127,22 +173,55 @@ contract PaymentChannel is
         return _channels[channelId];
     }
 
+    /// @dev Pull `amount` of `token` from `from` into the contract. For native ETH
+    ///      (`token == address(0)`) this is a no-op: the funds must already have arrived
+    ///      via `msg.value`, which the caller validates against the expected total.
+    function _pullFunds(address token, address from, uint256 amount) internal {
+        if (amount == 0) return;
+        if (token == address(0)) return;
+        IERC20(token).safeTransferFrom(from, address(this), amount);
+    }
+
+    /// @dev Send `amount` of `token` to `to`. For native ETH, uses a low-level `call`
+    ///      with no calldata; the caller is responsible for CEI ordering (state writes
+    ///      before this disbursement). If `to` is a contract whose `receive()` reverts,
+    ///      the call reverts and the enclosing close/finalize tx fails — locking the
+    ///      channel until the offending side cooperates with a different `to`. See the
+    ///      contract-level NatSpec for the v1 mitigation (vet contract counterparties)
+    ///      and the planned pull-pattern follow-up.
+    function _payOut(address token, address to, uint256 amount) internal {
+        if (amount == 0) return;
+        if (token == address(0)) {
+            (bool ok,) = payable(to).call{value: amount}("");
+            require(ok, "ETH send fail");
+        } else {
+            IERC20(token).safeTransfer(to, amount);
+        }
+    }
+
     /// @inheritdoc IPaymentChannel
-    /// @dev Reverts if `token == address(0)` (D2.3: ETH disabled in v1) or if `token` is not
-    ///      on the allowlist. Both `msg.sender` and `userB` must have approved this contract
-    ///      for at least `amountA` and `amountB` respectively before calling.
+    /// @dev `token` must be on the allowlist. For ERC-20s, both `msg.sender` and `userB`
+    ///      must have approved this contract for at least `amountA` and `amountB`
+    ///      respectively before calling. For native ETH (`token == address(0)`),
+    ///      `amountB` MUST be zero and `msg.value` MUST equal `amountA`; counterparty
+    ///      inbound liquidity is added later via `topUp`.
     function openChannel(address userB, address token, uint256 amountA, uint256 amountB)
         external
         payable
         nonReentrant
         returns (bytes32 channelId)
     {
-        require(msg.value == 0, "no ETH");
-        require(token != address(0), "ETH disabled");
         require(allowedTokens[token], "token !allowed");
         require(userB != address(0), "userB=0");
         require(userB != msg.sender, "self-channel");
-        require(amountA + amountB >= MIN_CHANNEL_AMOUNT, "amount<min");
+        require(amountA + amountB >= minChannelAmount[token], "amount<min");
+
+        if (token == address(0)) {
+            require(amountB == 0, "ETH amountB!=0");
+            require(msg.value == amountA, "ETH value!=amountA");
+        } else {
+            require(msg.value == 0, "no ETH");
+        }
 
         uint256 nonce = openNonce++;
         channelId = keccak256(abi.encode(address(this), msg.sender, userB, token, block.timestamp, nonce));
@@ -164,8 +243,8 @@ contract PaymentChannel is
             closer: address(0)
         });
 
-        if (amountA > 0) IERC20(token).safeTransferFrom(msg.sender, address(this), amountA);
-        if (amountB > 0) IERC20(token).safeTransferFrom(userB, address(this), amountB);
+        _pullFunds(token, msg.sender, amountA);
+        _pullFunds(token, userB, amountB);
 
         emit ChannelOpened(channelId, msg.sender, userB, token, amountA, amountB);
     }
@@ -200,8 +279,8 @@ contract PaymentChannel is
         ch.postedVersion = cc.version;
         ch.status = Status.Closed;
 
-        if (payA > 0) IERC20(token).safeTransfer(userA, payA);
-        if (payB > 0) IERC20(token).safeTransfer(userB, payB);
+        _payOut(token, userA, payA);
+        _payOut(token, userB, payB);
 
         emit ChannelClosedCooperative(channelId, payA, payB, cc.signedAt);
     }
@@ -273,11 +352,16 @@ contract PaymentChannel is
         uint256 amount,
         Adjudicator.SignedChannelState calldata prev,
         Adjudicator.SignedChannelState calldata next
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         Channel storage ch = _channels[channelId];
         require(ch.status == Status.Open, "!open");
         require(msg.sender == ch.userA || msg.sender == ch.userB, "!party");
         require(amount > 0, "amount=0");
+        if (ch.token == address(0)) {
+            require(msg.value == amount, "ETH value!=amount");
+        } else {
+            require(msg.value == 0, "no ETH");
+        }
 
         // prevState validation
         require(prev.state.channelId == channelId, "prev channelId");
@@ -311,7 +395,7 @@ contract PaymentChannel is
         require(_verifyDualSig(ch.userA, ch.userB, next.state, next.sigA, next.sigB), "next bad sig");
 
         // Pull funds and update state
-        IERC20(ch.token).safeTransferFrom(msg.sender, address(this), amount);
+        _pullFunds(ch.token, msg.sender, amount);
         if (msg.sender == ch.userA) {
             ch.amountA += amount;
         } else {
@@ -435,8 +519,8 @@ contract PaymentChannel is
 
         ch.status = Status.Closed;
 
-        if (payA > 0) IERC20(token).safeTransfer(userA, payA);
-        if (payB > 0) IERC20(token).safeTransfer(userB, payB);
+        _payOut(token, userA, payA);
+        _payOut(token, userB, payB);
 
         emit ChannelFinalized(channelId, payA, payB);
     }

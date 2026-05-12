@@ -43,7 +43,7 @@ contract ChannelHandler is Test {
     function open(uint256 amountA, uint256 amountB) external {
         amountA = bound(amountA, 0, 1_000_000_000);
         amountB = bound(amountB, 0, 1_000_000_000);
-        if (amountA + amountB < channel.MIN_CHANNEL_AMOUNT()) return;
+        if (amountA + amountB < channel.minChannelAmount(address(token))) return;
         if (amountA + amountB > 10_000_000_000_000) return;
 
         token.mint(alice, amountA);

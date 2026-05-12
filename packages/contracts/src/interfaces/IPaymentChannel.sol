@@ -81,7 +81,7 @@ interface IPaymentChannel {
         uint256 amount,
         Adjudicator.SignedChannelState calldata prev,
         Adjudicator.SignedChannelState calldata next
-    ) external;
+    ) external payable;
 
     /// @notice After the dispute window, withdraw funds according to the latest accepted state.
     function finalize(bytes32 channelId) external;

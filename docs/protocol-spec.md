@@ -28,6 +28,11 @@
 - `bytes32(0)` denotes `0x0000…0000` (32 zero bytes).
 - Numeric values are unsigned `uint256` or `uint64` as typed; bigints in TypeScript.
 - USDC has 6 decimals; `1 USDC = 1_000_000n` smallest units.
+- All amounts in this spec are denominated in the **channel token's smallest
+  unit**, not USDC base units. v1 contracts support any owner-allowlisted ERC-20
+  *and* native ETH (signalled by `token == address(0)`, decimals = 18). The
+  example values in this document use USDC because USDC is the v1 default; an
+  ETH channel scales the same fields by 1e18 instead of 1e6.
 
 ## 1. Channel lifecycle
 
@@ -71,12 +76,25 @@ the on-chain lifecycle; they are tracked in SDK / hub state for UX clarity and
 have no separate on-chain representation.
 
 **Open**: a depositor calls `PaymentChannel.openChannel(userB, token, amountA, amountB)`
-with `amountA + amountB ≥ MIN_CHANNEL_AMOUNT_USDC = 10_000_000` (= 10 USDC).
-**v1 constraint: `amountB` MUST be `0`.** All dual-funded patterns (in particular
-hub-provided inbound liquidity) go through `topUp` (§8). Allowing `amountB > 0`
-in `openChannel` would let a third party drain a counterparty's standing
-ERC-20 allowance during the brief window between `approve` and `topUp`; rejecting
-it eliminates the attack class by construction.
+with `amountA + amountB ≥ minChannelAmount[token]`. The minimum is per-token,
+owner-managed via `setMinChannelAmount`; v1 deploys seed `USDC = 10_000_000` (10
+USDC) and, when `ENABLE_ETH=true`, `address(0) = 0.01 ether`. Tokens without a
+configured floor default to `0`.
+
+**v1 constraint: for ERC-20 channels, `amountB` MUST be `0`.** All dual-funded
+patterns (in particular hub-provided inbound liquidity) go through `topUp` (§8).
+Allowing `amountB > 0` in `openChannel` would let a third party drain a
+counterparty's standing ERC-20 allowance during the brief window between
+`approve` and `topUp`; rejecting it eliminates the attack class by
+construction.
+
+**ETH channels** (`token == address(0)`): the same `amountB == 0` rule applies,
+plus the opener attaches `msg.value == amountA` (no `approve` step exists for
+native ETH). Counterparty inbound liquidity is added later via `topUp` (`payable`,
+`msg.value == amount`). Disbursements at `closeCooperative` and `finalize` use
+`call{value:}`; if either participant is a contract whose `receive()` reverts,
+the disbursement reverts and the channel is stuck. ETH channel counterparties
+SHOULD be EOAs or contracts with a trivial `receive() external payable {}`.
 
 **Unilateral close from initial state**: the on-chain `ChannelOpened` event
 records the funded amounts, which together imply an "implicit version-0 state"
@@ -132,8 +150,8 @@ A `ChannelState` is the canonical authoritative state of a channel at a given ve
 |-------|------|-------|
 | `channelId` | `bytes32` | `keccak256(abi.encode(contract, userA, userB, token, openedAtSeconds, openNonce))`. `userA` is the `msg.sender` of `openChannel`. `openedAtSeconds` is the on-chain `block.timestamp` at open. `openNonce` is a per-contract monotonic counter (`PaymentChannel.openNonce`). The derivation is fixed by the deployed contract; off-chain code MUST match it byte-for-byte. |
 | `version` | `uint64` | Strictly increasing per channel |
-| `balanceA` | `uint256` | USDC smallest-units owned by userA, *not* including in-flight HTLCs |
-| `balanceB` | `uint256` | USDC smallest-units owned by userB, *not* including in-flight HTLCs |
+| `balanceA` | `uint256` | channel-token smallest-units owned by userA, *not* including in-flight HTLCs |
+| `balanceB` | `uint256` | channel-token smallest-units owned by userB, *not* including in-flight HTLCs |
 | `htlcsRoot` | `bytes32` | Merkle root over the in-flight HTLC set (§3) |
 | `finalized` | `bool` | Set true on cooperative close; rejects further updates |
 
@@ -194,7 +212,7 @@ only during disputes (rare).
 | Field | TypeScript type | EIP-712 type | Notes |
 |-------|-----------------|--------------|-------|
 | `id` | `Hex` | `bytes32` | Unique per channel; chosen by sender |
-| `amount` | `bigint` | `uint256` | USDC smallest-units, ≤ sender's free balance |
+| `amount` | `bigint` | `uint256` | Channel-token smallest-units, ≤ sender's free balance |
 | `paymentHash` | `Hex` | `bytes32` | `sha256(preimage)` |
 | `expiryMs` (off-chain) / `expiry` (on-chain) | `bigint` | `uint64` | Off-chain ms; bucketed to seconds before signing/hashing |
 | `direction` | `'AtoB' \| 'BtoA'` | `uint8` | `'AtoB' = 0`, `'BtoA' = 1` |
@@ -479,9 +497,10 @@ See `docs/threat-model.md` for full adversary models. Headline assumptions:
   prevent theft) but can stall payments; clients should track multiple Nostr relays.
 - **Chain reorg**: applications wait `≥ 12 blocks` (Taiko safety boundary) before
   considering `open` or `finalize` final. Reorgs deeper than that are out of scope.
-- **Fee griefing**: minimum channel `10 USDC` deters dust channels whose open/close
-  gas exceeds value. The flat hub fee `1` unit deters zero-amount griefing through
-  the hub.
+- **Fee griefing**: the per-token `minChannelAmount` floor (default 10 USDC for
+  USDC channels, 0.01 ETH for ETH channels) deters dust channels whose
+  open/close gas exceeds value. The flat hub fee `1` unit deters zero-amount
+  griefing through the hub.
 - **Top-up integrity**: `topUp` (§8) requires both `sigA` and `sigB` on the new
   state and pulls funds from `msg.sender` only — neither party can unilaterally
   inflate the other's deposit, and neither party can withdraw the other's funds.

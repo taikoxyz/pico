@@ -4,7 +4,9 @@
 > v1 is an **AI-agent payments system**: the agent surface is the
 > [`pico` CLI](./apps/cli/), not a browser wallet.
 
-Inspired by Lightning's LSP model. Stablecoin (USDC) first in v1. **No native token.
+Inspired by Lightning's LSP model. Stablecoin (USDC) is the default v1 asset;
+the on-chain contracts also accept any owner-allowlisted ERC-20 and native ETH
+(`token == address(0)`). **No native token.
 No governance. No bridges. No MCP / x402 association.**
 
 > **New here?** Open [`docs/learning/index.html`](./docs/learning/index.html) for a tour of every
