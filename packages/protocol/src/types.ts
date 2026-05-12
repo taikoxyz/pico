@@ -21,6 +21,7 @@ export type ChannelStatus =
   | 'open'
   | 'closing-cooperative'
   | 'closing-unilateral'
+  | 'resolving-htlcs'
   | 'disputed'
   | 'closed';
 

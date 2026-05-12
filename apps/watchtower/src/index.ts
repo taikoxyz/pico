@@ -211,14 +211,11 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
 
   async function validateSignedState(state: SignedState): Promise<void> {
     const inv = await getChannelInvariants(state.state.channelId);
-    if (state.state.htlcs.length !== 0) {
+    // v2: in-flight HTLCs are accepted. Conservation is now
+    // balanceA + balanceB + htlcsTotalLocked == totalFunding.
+    if (state.state.balanceA + state.state.balanceB + state.state.htlcsTotalLocked !== inv.totalFunding) {
       throw new Error(
-        `watchtower.remember: state has non-empty HTLCs; not penalty-capable (channel ${state.state.channelId})`,
-      );
-    }
-    if (state.state.balanceA + state.state.balanceB !== inv.totalFunding) {
-      throw new Error(
-        `watchtower.remember: balance not conserved for channel ${state.state.channelId} (got ${state.state.balanceA + state.state.balanceB}, expected ${inv.totalFunding})`,
+        `watchtower.remember: balance not conserved for channel ${state.state.channelId} (got ${state.state.balanceA + state.state.balanceB + state.state.htlcsTotalLocked}, expected ${inv.totalFunding})`,
       );
     }
     if (state.state.finalized) {

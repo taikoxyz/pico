@@ -96,7 +96,7 @@ export class DisputeHandler {
     if (!ourLatest) {
       this.deps.logger.warn(
         { channelId, attackerVersion },
-        'dispute notification: no dispute-eligible state in DB (need empty htlcs and conserved balances); cannot dispute',
+        'dispute notification: no dispute-eligible state in DB (conservation invariant required); cannot dispute',
       );
       await this.deps.repos.disputes.markResolution(channelId, attackerVersion, 'lost');
       return;

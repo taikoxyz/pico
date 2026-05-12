@@ -115,6 +115,8 @@ export function encodeChannelStateForOnChain(state: ChannelState): Hex {
         balanceA: state.balanceA,
         balanceB: state.balanceB,
         htlcsRoot: computeHtlcsRoot(state.htlcs),
+        htlcsCount: state.htlcsCount,
+        htlcsTotalLocked: state.htlcsTotalLocked,
         finalized: state.finalized,
       },
     ],
@@ -163,6 +165,8 @@ function buildSignedStateTuple(
     balanceA: bigint;
     balanceB: bigint;
     htlcsRoot: Hex;
+    htlcsCount: number;
+    htlcsTotalLocked: bigint;
     finalized: boolean;
   };
   sigA: Hex;
@@ -175,6 +179,8 @@ function buildSignedStateTuple(
       balanceA: signed.state.balanceA,
       balanceB: signed.state.balanceB,
       htlcsRoot: computeHtlcsRoot(signed.state.htlcs),
+      htlcsCount: signed.state.htlcsCount,
+      htlcsTotalLocked: signed.state.htlcsTotalLocked,
       finalized: signed.state.finalized,
     },
     sigA: encodeTopUpSig(signed.sigA, sentinel),

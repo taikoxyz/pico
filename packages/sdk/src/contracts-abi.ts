@@ -61,6 +61,8 @@ export const paymentChannelAbi = [
               { name: 'balanceA', type: 'uint256' },
               { name: 'balanceB', type: 'uint256' },
               { name: 'htlcsRoot', type: 'bytes32' },
+              { name: 'htlcsCount', type: 'uint16' },
+              { name: 'htlcsTotalLocked', type: 'uint256' },
               { name: 'finalized', type: 'bool' },
             ],
           },
@@ -81,6 +83,8 @@ export const paymentChannelAbi = [
               { name: 'balanceA', type: 'uint256' },
               { name: 'balanceB', type: 'uint256' },
               { name: 'htlcsRoot', type: 'bytes32' },
+              { name: 'htlcsCount', type: 'uint16' },
+              { name: 'htlcsTotalLocked', type: 'uint256' },
               { name: 'finalized', type: 'bool' },
             ],
           },
@@ -108,6 +112,53 @@ export const paymentChannelAbi = [
     name: 'finalize',
     stateMutability: 'nonpayable',
     inputs: [{ name: 'channelId', type: 'bytes32' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'claimHtlc',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'channelId', type: 'bytes32' },
+      {
+        name: 'htlc',
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'bytes32' },
+          { name: 'amount', type: 'uint256' },
+          { name: 'paymentHash', type: 'bytes32' },
+          { name: 'expiry', type: 'uint64' },
+          { name: 'direction', type: 'uint8' },
+        ],
+      },
+      { name: 'proof', type: 'bytes32[]' },
+      { name: 'sortedIndex', type: 'uint256' },
+      { name: 'totalLeaves', type: 'uint256' },
+      { name: 'preimage', type: 'bytes' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'refundHtlc',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'channelId', type: 'bytes32' },
+      {
+        name: 'htlc',
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'bytes32' },
+          { name: 'amount', type: 'uint256' },
+          { name: 'paymentHash', type: 'bytes32' },
+          { name: 'expiry', type: 'uint64' },
+          { name: 'direction', type: 'uint8' },
+        ],
+      },
+      { name: 'proof', type: 'bytes32[]' },
+      { name: 'sortedIndex', type: 'uint256' },
+      { name: 'totalLeaves', type: 'uint256' },
+    ],
     outputs: [],
   },
   {
@@ -168,6 +219,35 @@ export const paymentChannelAbi = [
       { name: 'newVersion', type: 'uint64', indexed: false },
     ],
   },
+  {
+    type: 'event',
+    name: 'HtlcResolutionStarted',
+    inputs: [
+      { name: 'channelId', type: 'bytes32', indexed: true },
+      { name: 'htlcResolutionDeadline', type: 'uint64', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'HtlcClaimed',
+    inputs: [
+      { name: 'channelId', type: 'bytes32', indexed: true },
+      { name: 'htlcId', type: 'bytes32', indexed: true },
+      { name: 'receiver', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'preimage', type: 'bytes', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'HtlcRefunded',
+    inputs: [
+      { name: 'channelId', type: 'bytes32', indexed: true },
+      { name: 'htlcId', type: 'bytes32', indexed: true },
+      { name: 'sender', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+    ],
+  },
 ] as const;
 
 export const channelStateSolidityStruct = [
@@ -176,7 +256,17 @@ export const channelStateSolidityStruct = [
   { name: 'balanceA', type: 'uint256' },
   { name: 'balanceB', type: 'uint256' },
   { name: 'htlcsRoot', type: 'bytes32' },
+  { name: 'htlcsCount', type: 'uint16' },
+  { name: 'htlcsTotalLocked', type: 'uint256' },
   { name: 'finalized', type: 'bool' },
+] as const;
+
+export const htlcSolidityStruct = [
+  { name: 'id', type: 'bytes32' },
+  { name: 'amount', type: 'uint256' },
+  { name: 'paymentHash', type: 'bytes32' },
+  { name: 'expiry', type: 'uint64' },
+  { name: 'direction', type: 'uint8' },
 ] as const;
 
 export const cooperativeCloseSolidityStruct = [
