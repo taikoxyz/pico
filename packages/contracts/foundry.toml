@@ -30,7 +30,9 @@ verbosity = 2
 [rpc_endpoints]
 taiko_mainnet = "${TAIKO_MAINNET_RPC_URL}"
 taiko_hoodi = "${TAIKO_HOODI_RPC_URL}"
+ethereum_mainnet = "${ETHEREUM_MAINNET_RPC_URL}"
 
 [etherscan]
 taiko_mainnet = { key = "${TAIKOSCAN_API_KEY}", url = "https://api.taikoscan.io/api" }
 taiko_hoodi = { key = "${TAIKOSCAN_API_KEY}", url = "https://api.hoodi.taikoscan.io/api" }
+ethereum_mainnet = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/api" }

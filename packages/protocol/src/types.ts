@@ -5,7 +5,7 @@ export type HtlcId = Hex;
 export type PaymentHash = Hex;
 export type Preimage = Hex;
 
-export type ChainId = 167000 | 167009 | 31337;
+export type ChainId = 1 | 167000 | 167009 | 31337;
 
 export type Asset = 'ETH' | 'USDC';
 
