@@ -874,9 +874,12 @@ describe('e2e — v2 HTLC settlement (M7)', () => {
 
     const aliceWalletAfter = await readUsdcBalance(h, h.alice.address);
     const hubWalletAfter = await readUsdcBalance(h, h.hub.address);
-    // Alice kept 90 USDC of her 100 USDC deposit (locked 10 → claimed away).
-    expect(aliceWalletAfter - aliceWalletBefore).toBe(90n * ONE_USDC - 100n * ONE_USDC);
-    // Hub gained the 10 USDC from the claimed HTLC.
+    // The before-snapshot is captured *after* `open()` drained 100 USDC into
+    // the contract, so the deltas here measure what each party gets back at
+    // finalize. Alice locked 10 AtoB → balanceA = 90 → she gets 90 back.
+    // Hub had no in-channel balance pre-claim, claim credits 10, finalize
+    // sends those 10 to its wallet.
+    expect(aliceWalletAfter - aliceWalletBefore).toBe(90n * ONE_USDC);
     expect(hubWalletAfter - hubWalletBefore).toBe(10n * ONE_USDC);
   }, 60_000);
 
@@ -956,9 +959,10 @@ describe('e2e — v2 HTLC settlement (M7)', () => {
 
     const aliceWalletAfter = await readUsdcBalance(h, h.alice.address);
     const hubWalletAfter = await readUsdcBalance(h, h.hub.address);
-    // Alice got the full 100 USDC back: balance 90 + refunded HTLC 10.
-    expect(aliceWalletAfter - aliceWalletBefore).toBe(0n);
-    // Hub never received anything.
+    // Before-snapshot is captured after `open()` drained 100 USDC into the
+    // contract. Refund returns the full 100 (balance 90 + refunded HTLC 10)
+    // to alice's wallet; hub had no in-channel balance and receives nothing.
+    expect(aliceWalletAfter - aliceWalletBefore).toBe(100n * ONE_USDC);
     expect(hubWalletAfter - hubWalletBefore).toBe(0n);
   }, 60_000);
 });
