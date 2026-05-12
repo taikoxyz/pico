@@ -7,7 +7,6 @@ import {
   DEFAULT_HUB_FEE_FLAT,
   ETHEREUM_MAINNET_CHAIN_ID,
   type Hex,
-  TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
 } from '@inferenceroom/pico-protocol';
 import { assertProductionConfig } from './config-validate.js';
@@ -36,12 +35,7 @@ export interface HubConfig {
 
 function parseChainId(raw: string | undefined): ChainId {
   const n = Number(raw ?? TAIKO_MAINNET_CHAIN_ID);
-  if (
-    n === ANVIL_DEV_CHAIN_ID ||
-    n === TAIKO_MAINNET_CHAIN_ID ||
-    n === TAIKO_HOODI_CHAIN_ID ||
-    n === ETHEREUM_MAINNET_CHAIN_ID
-  )
+  if (n === ANVIL_DEV_CHAIN_ID || n === TAIKO_MAINNET_CHAIN_ID || n === ETHEREUM_MAINNET_CHAIN_ID)
     return n as ChainId;
   throw new Error(`unsupported CHAIN_ID: ${raw}`);
 }

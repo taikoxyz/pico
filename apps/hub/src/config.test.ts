@@ -121,20 +121,26 @@ describe('loadConfig', () => {
     expect(cfg.requireSignedEnvelope).toBe(true);
   });
 
-  it('rejects non-anvil chain (hoodi) without operator token', () => {
+  it('rejects hoodi as unsupported at parse time', () => {
+    expect(() => loadConfig({ CHAIN_ID: '167009' } as NodeJS.ProcessEnv)).toThrow(
+      /unsupported CHAIN_ID/,
+    );
+  });
+
+  it('rejects ethereum mainnet without operator token', () => {
     expect(() =>
       loadConfig({
-        CHAIN_ID: '167009',
+        CHAIN_ID: '1',
         HUB_PRIVATE_KEY: '0x5555555555555555555555555555555555555555555555555555555555555555',
         HUB_REQUIRE_SIGNED_ENVELOPE: 'true',
       }),
     ).toThrow(/HUB_OPERATOR_TOKEN/);
   });
 
-  it('rejects zero-address contract on non-anvil chain (hoodi) unless override is set', () => {
+  it('rejects zero-address contract on ethereum mainnet (contracts not yet deployed)', () => {
     expect(() =>
       loadConfig({
-        CHAIN_ID: '167009',
+        CHAIN_ID: '1',
         HUB_PRIVATE_KEY: '0x5555555555555555555555555555555555555555555555555555555555555555',
         HUB_REQUIRE_SIGNED_ENVELOPE: 'true',
         HUB_OPERATOR_TOKEN: 'tok',
