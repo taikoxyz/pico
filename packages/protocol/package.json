@@ -1,6 +1,6 @@
 {
   "name": "@inferenceroom/pico-protocol",
-  "version": "2.0.4",
+  "version": "2.0.2",
   "private": false,
   "license": "MIT",
   "description": "Shared types, EIP-712 schemas, and constants for the pico state-channel protocol.",
