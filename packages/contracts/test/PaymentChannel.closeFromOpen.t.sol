@@ -83,7 +83,14 @@ contract PaymentChannelCloseFromOpenTest is Fixtures {
         bytes32 id = _open();
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
             state: Adjudicator.ChannelState({
-                channelId: id, version: 0, balanceA: FUND_A, balanceB: FUND_B, htlcsRoot: bytes32(0), htlcsCount: 0, htlcsTotalLocked: 0, finalized: false
+                channelId: id,
+                version: 0,
+                balanceA: FUND_A,
+                balanceB: FUND_B,
+                htlcsRoot: bytes32(0),
+                htlcsCount: 0,
+                htlcsTotalLocked: 0,
+                finalized: false
             }),
             sigA: hex"",
             sigB: hex""

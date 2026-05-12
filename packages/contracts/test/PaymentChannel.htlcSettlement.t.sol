@@ -35,11 +35,13 @@ contract PaymentChannelHtlcSettlementTest is Fixtures {
         internal
         returns (Adjudicator.Htlc memory htlc, bytes32[] memory proof)
     {
+        // Expiry must outlast the 24h dispute window so claim is still admissible
+        // after `vm.warp` rolls past the deadline below.
         htlc = Adjudicator.Htlc({
             id: bytes32(uint256(0xAA)),
             amount: HTLC_AMOUNT,
             paymentHash: PAYMENT_HASH_AB,
-            expiry: uint64(block.timestamp + 1 hours),
+            expiry: uint64(block.timestamp + channel.DISPUTE_WINDOW() + 30 minutes),
             direction: 0 // AtoB
         });
 
