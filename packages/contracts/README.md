@@ -36,25 +36,17 @@ environment.
 
 ### Taiko mainnet (chainId 167000)
 
-> **v1.1 redeployment pending.** The addresses below host the pre-§8
-> implementation: no `topUp`, no `closeUnilateralFromOpen`, and the old
-> `CooperativeClose` typed-data without `version` / `validUntil`. v1.1
-> contracts in `src/` will be deployed to fresh proxies; this table will be
-> updated alongside that release. Until then,
-> `CONTRACT_ADDRESSES[TAIKO_MAINNET_CHAIN_ID]` in `@inferenceroom/pico-protocol`
-> still points at the pre-§8 proxies.
-
 | Artifact | Address |
 |---|---|
-| **Adjudicator proxy** | [`0xee660F9c471d833f092Bc79f5c8F9943469b0e05`](https://taikoscan.io/address/0xee660F9c471d833f092Bc79f5c8F9943469b0e05) |
-| **PaymentChannel proxy** | [`0xCDEF7911155c8db64Ef810Ae8C538024550594D7`](https://taikoscan.io/address/0xCDEF7911155c8db64Ef810Ae8C538024550594D7) |
-| Adjudicator implementation | [`0x227AF78680f8E225A285E220C8165FD6e9312f08`](https://taikoscan.io/address/0x227AF78680f8E225A285E220C8165FD6e9312f08) |
-| PaymentChannel implementation | [`0x51e44d4dcfccB37ac1C80941713e1417c21E9df1`](https://taikoscan.io/address/0x51e44d4dcfccB37ac1C80941713e1417c21E9df1) |
+| **Adjudicator proxy** | [`0x8C913a936F99e93e298f7800f14C46C32D71e26B`](https://taikoscan.io/address/0x8C913a936F99e93e298f7800f14C46C32D71e26B) |
+| **PaymentChannel proxy** | [`0xA2665f2Fdf23CAA362b63F7A8902466f0504332d`](https://taikoscan.io/address/0xA2665f2Fdf23CAA362b63F7A8902466f0504332d) |
+| Adjudicator implementation | [`0x12D099A14B91d7298bc1aCdC6FE7776738ba32b9`](https://taikoscan.io/address/0x12D099A14B91d7298bc1aCdC6FE7776738ba32b9) |
+| PaymentChannel implementation | [`0x67513Be4ee3792Ffee4CbC1396853404d07e855E`](https://taikoscan.io/address/0x67513Be4ee3792Ffee4CbC1396853404d07e855E) |
 | USDC (allowlisted, Circle native) | [`0x07d83526730c7438048D55A4fc0b850e2aaB6f0b`](https://taikoscan.io/address/0x07d83526730c7438048D55A4fc0b850e2aaB6f0b) |
 
 All four contracts have verified source on Taikoscan via the Etherscan V2
 unified API (the proxies share the `ERC1967Proxy` source). Owner of both
-proxies: [`0x4757D97449acA795510b9f3152C6a9019A3545c3`](https://taikoscan.io/address/0x4757D97449acA795510b9f3152C6a9019A3545c3).
+proxies: [`0x327fa3369B1D1D42120d84bc407e5865ECa7c458`](https://taikoscan.io/address/0x327fa3369B1D1D42120d84bc407e5865ECa7c458).
 
 Configured constants: `DISPUTE_WINDOW = 86400s` (24h),
 `MIN_CHANNEL_AMOUNT = 10 USDC`. The proxies use 1-step `OwnableUpgradeable`;
@@ -73,7 +65,7 @@ broadcast must be sent from the proxy owner.
 ```bash
 cd packages/contracts
 export DEPLOYER_PRIVATE_KEY=0x...                     # current proxy owner
-export PAYMENT_CHANNEL_PROXY=0xCDEF7911155c8db64Ef810Ae8C538024550594D7
+export PAYMENT_CHANNEL_PROXY=0xA2665f2Fdf23CAA362b63F7A8902466f0504332d
 export TAIKO_MAINNET_RPC_URL=https://rpc.mainnet.taiko.xyz
 
 # Dry-run

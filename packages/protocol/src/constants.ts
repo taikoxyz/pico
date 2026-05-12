@@ -27,8 +27,8 @@ export const CONTRACT_ADDRESSES: Record<
   Record<'PaymentChannel' | 'Adjudicator', Address>
 > = {
   [TAIKO_MAINNET_CHAIN_ID]: {
-    PaymentChannel: '0xCDEF7911155c8db64Ef810Ae8C538024550594D7' as Address,
-    Adjudicator: '0xee660F9c471d833f092Bc79f5c8F9943469b0e05' as Address,
+    PaymentChannel: '0xA2665f2Fdf23CAA362b63F7A8902466f0504332d' as Address,
+    Adjudicator: '0x8C913a936F99e93e298f7800f14C46C32D71e26B' as Address,
   },
   [ETHEREUM_MAINNET_CHAIN_ID]: {
     // Pending deployment; set PAYMENT_CHANNEL_ADDRESS + ADJUDICATOR_ADDRESS env vars.
