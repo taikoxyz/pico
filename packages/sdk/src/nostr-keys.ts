@@ -85,18 +85,20 @@ export class NostrEventKeyManager {
   }
 
   /**
-   * Derive the trio of keys used together for a single payment session:
-   * quote, invoice, receipt. Three different pubkeys, one shared session.
+   * Derive the trio of secp256k1 *private keys* used together for a single
+   * payment session: quote, invoice, receipt. Three distinct keys, one
+   * shared session nonce. Callers publish the corresponding *pubkeys* on
+   * Nostr; the secret keys returned here MUST stay client-side.
    */
   paymentSession(sessionNonce: Hex): {
-    quoteKey: Hex;
-    invoiceKey: Hex;
-    receiptKey: Hex;
+    quoteSecretKey: Hex;
+    invoiceSecretKey: Hex;
+    receiptSecretKey: Hex;
   } {
     return {
-      quoteKey: this.privateKey(NOSTR_EVENT_KINDS.PaymentQuote, sessionNonce),
-      invoiceKey: this.privateKey(NOSTR_EVENT_KINDS.PaymentInvoice, sessionNonce),
-      receiptKey: this.privateKey(NOSTR_EVENT_KINDS.PaymentReceipt, sessionNonce),
+      quoteSecretKey: this.privateKey(NOSTR_EVENT_KINDS.PaymentQuote, sessionNonce),
+      invoiceSecretKey: this.privateKey(NOSTR_EVENT_KINDS.PaymentInvoice, sessionNonce),
+      receiptSecretKey: this.privateKey(NOSTR_EVENT_KINDS.PaymentReceipt, sessionNonce),
     };
   }
 

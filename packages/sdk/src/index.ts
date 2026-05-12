@@ -17,9 +17,9 @@ export * from './nostr-keys.js';
 export * from './payment.js';
 export * from './signature-codec.js';
 export * from './signer.js';
+export * from './stealth.js';
 export * from './storage.js';
 export * from './storage-file.js';
-export * from './stealth.js';
 export * from './storage-indexeddb.js';
 export type { InvoiceRecord } from './storage-shared.js';
 export {

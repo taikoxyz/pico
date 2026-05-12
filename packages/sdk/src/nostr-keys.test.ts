@@ -50,10 +50,10 @@ describe('deriveNostrEventKey', () => {
 describe('NostrEventKeyManager.paymentSession', () => {
   it('returns three distinct keys derived from one session nonce', () => {
     const mgr = new NostrEventKeyManager(SCAN_KEY);
-    const { quoteKey, invoiceKey, receiptKey } = mgr.paymentSession(SESSION_1);
-    expect(quoteKey).not.toBe(invoiceKey);
-    expect(quoteKey).not.toBe(receiptKey);
-    expect(invoiceKey).not.toBe(receiptKey);
+    const { quoteSecretKey, invoiceSecretKey, receiptSecretKey } = mgr.paymentSession(SESSION_1);
+    expect(quoteSecretKey).not.toBe(invoiceSecretKey);
+    expect(quoteSecretKey).not.toBe(receiptSecretKey);
+    expect(invoiceSecretKey).not.toBe(receiptSecretKey);
   });
 
   it('two sessions produce six distinct keys (no cross-session reuse)', () => {
@@ -61,12 +61,12 @@ describe('NostrEventKeyManager.paymentSession', () => {
     const s1 = mgr.paymentSession(SESSION_1);
     const s2 = mgr.paymentSession(SESSION_2);
     const all = new Set([
-      s1.quoteKey,
-      s1.invoiceKey,
-      s1.receiptKey,
-      s2.quoteKey,
-      s2.invoiceKey,
-      s2.receiptKey,
+      s1.quoteSecretKey,
+      s1.invoiceSecretKey,
+      s1.receiptSecretKey,
+      s2.quoteSecretKey,
+      s2.invoiceSecretKey,
+      s2.receiptSecretKey,
     ]);
     expect(all.size).toBe(6);
   });

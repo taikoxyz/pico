@@ -39,9 +39,22 @@ export function deriveStealthPrivateKey(scanKey: Hex, label: string, nonce: Hex)
   throw new Error('deriveStealthPrivateKey: exhausted retries');
 }
 
+/** Domain-separation label for a per-channel sender (`userA`) stealth key. */
 export const STEALTH_LABEL_USER_A = 'pico-stealth-userA' as const;
+/** Domain-separation label for a per-channel recipient (`userB`) stealth key. */
 export const STEALTH_LABEL_USER_B = 'pico-stealth-userB' as const;
+/**
+ * Reserved: domain-separation label for the watchtower's per-channel
+ * monitor key. The watchtower receives this derived key (not the user's
+ * scan key) so it can post dispute challenges without spend authority.
+ * Wired up by the watchtower-binding flow — not yet consumed in this PR.
+ */
 export const STEALTH_LABEL_WATCHTOWER = 'pico-stealth-watch' as const;
+
+export type StealthLabel =
+  | typeof STEALTH_LABEL_USER_A
+  | typeof STEALTH_LABEL_USER_B
+  | typeof STEALTH_LABEL_WATCHTOWER;
 
 export class StealthKeyManager {
   constructor(private readonly scanKey: Hex) {
@@ -50,15 +63,15 @@ export class StealthKeyManager {
     }
   }
 
-  derivePrivateKey(label: string, nonce: Hex): Hex {
+  derivePrivateKey(label: StealthLabel, nonce: Hex): Hex {
     return deriveStealthPrivateKey(this.scanKey, label, nonce);
   }
 
-  signerFor(label: string, nonce: Hex): LocalSigner {
+  signerFor(label: StealthLabel, nonce: Hex): LocalSigner {
     return new LocalSigner(this.derivePrivateKey(label, nonce));
   }
 
-  addressFor(label: string, nonce: Hex): Address {
+  addressFor(label: StealthLabel, nonce: Hex): Address {
     return this.signerFor(label, nonce).addressSync();
   }
 

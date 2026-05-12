@@ -87,6 +87,9 @@ describe('recipient rotation via stealth signers (item 2)', () => {
     const b = observable(i2.invoice);
     expect(a.recipient).not.toBe(b.recipient);
     expect(a.paymentHash).not.toBe(b.paymentHash);
-    // amount equality is a known timing/heuristic leak; not addressed by item 2.
+    // `observable` excludes `amount` and `expiryMs`: identical amounts and
+    // identical expiry-millisecond timestamps would still let an observer
+    // cluster two invoices. Item 2 only rotates the recipient identity; it
+    // does not pad amounts (item 4) or jitter expiries.
   });
 });
