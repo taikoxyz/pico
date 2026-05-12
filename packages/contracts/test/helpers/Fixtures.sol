@@ -44,8 +44,13 @@ abstract contract Fixtures is Test {
         channel = PaymentChannel(address(new ERC1967Proxy(address(pcImpl), pcInit)));
 
         token = new MockERC20("USD Coin", "USDC", 6);
-        vm.prank(owner);
+        vm.startPrank(owner);
         channel.setTokenAllowed(address(token), true);
+        // Mirror the v1 USDC floor (10 USDC) so existing tests keep their `amount<min`
+        // expectations. Per-token minimums default to 0; ERC-20 + ETH tokens added in
+        // dedicated test files set their own floors.
+        channel.setMinChannelAmount(address(token), 10_000_000);
+        vm.stopPrank();
 
         cachedDomainSeparator = _computeDomainSeparator();
     }

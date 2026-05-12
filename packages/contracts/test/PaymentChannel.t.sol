@@ -57,10 +57,13 @@ contract PaymentChannelTest is Fixtures {
         channel.setTokenAllowed(address(token), false);
     }
 
-    function test_setTokenAllowed_revertsOnZero() public {
+    function test_setTokenAllowed_acceptsZeroAddressForEth() public {
+        // address(0) is the ETH sentinel — owner can allowlist it like any other token.
+        vm.expectEmit(true, false, false, true, address(channel));
+        emit PaymentChannel.TokenAllowed(address(0), true);
         vm.prank(owner);
-        vm.expectRevert(bytes("token=0"));
         channel.setTokenAllowed(address(0), true);
+        assertTrue(channel.allowedTokens(address(0)));
     }
 
     function test_setTokenAllowed_emitsEvent() public {
@@ -105,10 +108,14 @@ contract PaymentChannelTest is Fixtures {
         channel.openChannel{value: 1}(bob, address(token), FUND_A, FUND_B);
     }
 
-    function test_openChannel_revertsOnZeroToken() public {
+    function test_openChannel_revertsOnZeroToken_whenEthNotAllowlisted() public {
+        // ETH (address(0)) is now a valid token, but only if explicitly allowlisted.
+        // With the default fixture, ETH is NOT on the allowlist, so the open must revert
+        // on the allowlist check.
+        vm.deal(alice, FUND_A + FUND_B);
         vm.prank(alice);
-        vm.expectRevert(bytes("ETH disabled"));
-        channel.openChannel(bob, address(0), FUND_A, FUND_B);
+        vm.expectRevert(bytes("token !allowed"));
+        channel.openChannel{value: FUND_A + FUND_B}(bob, address(0), FUND_A, FUND_B);
     }
 
     function test_openChannel_revertsOnDisallowedToken() public {
