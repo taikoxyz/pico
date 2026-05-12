@@ -11,6 +11,23 @@ import {
 import { StateMachineError, UnknownHtlcError } from './errors.js';
 import { verifyPreimage } from './preimage.js';
 
+function withHtlcsDerived(
+  state: ChannelState,
+  htlcs: readonly Htlc[],
+  balances: { balanceA: bigint; balanceB: bigint },
+): ChannelState {
+  let total = 0n;
+  for (const h of htlcs) total += h.amount;
+  return {
+    ...state,
+    balanceA: balances.balanceA,
+    balanceB: balances.balanceB,
+    htlcs,
+    htlcsCount: htlcs.length,
+    htlcsTotalLocked: total,
+  };
+}
+
 export function addHtlc(state: ChannelState, htlc: Htlc): ChannelState {
   if (htlc.amount <= 0n) {
     throw new StateMachineError('htlc amount must be positive', 'ZERO_AMOUNT');
@@ -18,24 +35,23 @@ export function addHtlc(state: ChannelState, htlc: Htlc): ChannelState {
   if (state.htlcs.some((existing) => existing.id === htlc.id)) {
     throw new StateMachineError('duplicate htlc id', 'DUPLICATE_HTLC');
   }
+  const htlcs = [...state.htlcs, htlc];
   if (htlc.direction === 'AtoB') {
     if (state.balanceA < htlc.amount) {
       throw new StateMachineError('insufficient balance to add htlc', 'INSUFFICIENT_BALANCE');
     }
-    return {
-      ...state,
+    return withHtlcsDerived(state, htlcs, {
       balanceA: state.balanceA - htlc.amount,
-      htlcs: [...state.htlcs, htlc],
-    };
+      balanceB: state.balanceB,
+    });
   }
   if (state.balanceB < htlc.amount) {
     throw new StateMachineError('insufficient balance to add htlc', 'INSUFFICIENT_BALANCE');
   }
-  return {
-    ...state,
+  return withHtlcsDerived(state, htlcs, {
+    balanceA: state.balanceA,
     balanceB: state.balanceB - htlc.amount,
-    htlcs: [...state.htlcs, htlc],
-  };
+  });
 }
 
 export function settleHtlc(state: ChannelState, id: string, preimage: Preimage): ChannelState {
@@ -46,9 +62,15 @@ export function settleHtlc(state: ChannelState, id: string, preimage: Preimage):
   }
   const remaining = state.htlcs.filter((h) => h.id !== id);
   if (htlc.direction === 'AtoB') {
-    return { ...state, balanceB: state.balanceB + htlc.amount, htlcs: remaining };
+    return withHtlcsDerived(state, remaining, {
+      balanceA: state.balanceA,
+      balanceB: state.balanceB + htlc.amount,
+    });
   }
-  return { ...state, balanceA: state.balanceA + htlc.amount, htlcs: remaining };
+  return withHtlcsDerived(state, remaining, {
+    balanceA: state.balanceA + htlc.amount,
+    balanceB: state.balanceB,
+  });
 }
 
 export function failHtlc(state: ChannelState, id: string): ChannelState {
@@ -56,9 +78,15 @@ export function failHtlc(state: ChannelState, id: string): ChannelState {
   if (!htlc) throw new UnknownHtlcError(id);
   const remaining = state.htlcs.filter((h) => h.id !== id);
   if (htlc.direction === 'AtoB') {
-    return { ...state, balanceA: state.balanceA + htlc.amount, htlcs: remaining };
+    return withHtlcsDerived(state, remaining, {
+      balanceA: state.balanceA + htlc.amount,
+      balanceB: state.balanceB,
+    });
   }
-  return { ...state, balanceB: state.balanceB + htlc.amount, htlcs: remaining };
+  return withHtlcsDerived(state, remaining, {
+    balanceA: state.balanceA,
+    balanceB: state.balanceB + htlc.amount,
+  });
 }
 
 export function expireHtlcs(state: ChannelState, nowMs: bigint): ChannelState {

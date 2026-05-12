@@ -166,6 +166,21 @@ export class MockChainAdapter implements ChainAdapter {
     return result;
   }
 
+  // H4: stubbed HTLC settlement methods. The mock doesn't simulate the
+  // on-chain Status.ResolvingHtlcs phase; tests that need full lifecycle
+  // coverage should use ViemChainAdapter against anvil (see e2e suite).
+  async claimHtlc(args: {
+    readonly channelId: ChannelId;
+  }): Promise<{ readonly txHash: `0x${string}` }> {
+    return { txHash: fakeHash(`claimHtlc|${args.channelId}`) };
+  }
+
+  async refundHtlc(args: {
+    readonly channelId: ChannelId;
+  }): Promise<{ readonly txHash: `0x${string}` }> {
+    return { txHash: fakeHash(`refundHtlc|${args.channelId}`) };
+  }
+
   async waitForFinalized(
     channelId: ChannelId,
     opts: { timeoutMs?: number } = {},

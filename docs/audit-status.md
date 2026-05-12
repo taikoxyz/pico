@@ -43,7 +43,7 @@ commit `c4e4cd1` and PR #15.
 | ID | Severity | Description | Status | Evidence |
 |---|---|---|---|---|
 | PC-01 | Critical | `dispute()` accepted closer-only signature | Fixed | `packages/contracts/src/PaymentChannel.sol:255` — `dispute(...)` takes `sigA, sigB` and calls `_verifyDualSig` |
-| PC-02 | High | HTLC + cooperative-close spec/impl divergence | Patched | `docs/protocol-spec.md` rewrites the v1 model: no close while HTLCs in flight; `closeCooperative` signs `CooperativeClose` with no HTLC root |
+| PC-02 | High | HTLC + cooperative-close spec/impl divergence | Resolved in v2 | v2 implements on-chain HTLC settlement: `claimHtlc`/`refundHtlc` settle each HTLC during the new `Status.ResolvingHtlcs` phase after a unilateral close. `closeCooperative` still requires zero in-flight HTLCs (and signs `CooperativeClose` with no HTLC root) since it's a single-shot path. See `docs/protocol-spec.md` §5.4 + `docs/release-notes-v2.md`. |
 | PC-03 | High | Cooperative close didn't verify dual sig | Fixed | `PaymentChannel.sol:179-190` decodes `CooperativeClose` and calls `_verifyDualCooperativeClose` |
 | PC-04 | Critical | `submitPenaltyProof` missing dual sig | Fixed | `PaymentChannel.sol:291-307` requires `sigA, sigB` |
 | PC-05 | High | Dispute deadlines unchecked | Fixed | `PaymentChannel.sol:261, 275, 299` enforce `block.timestamp < disputeDeadline`; dispute resets the deadline once via `!ch.penalized` (#15) |

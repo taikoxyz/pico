@@ -150,7 +150,23 @@ jobs:
               throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
             }
 
-            const reviewText = data.choices[0].message.content;
+            const choice = data.choices && data.choices[0];
+            const reviewText = (choice && choice.message && choice.message.content || '').trim();
+            const finishReason = choice && choice.finish_reason;
+
+            // Defensive guard: the API occasionally returns `200 OK` with empty content
+            // (content filter, length cap that triggers before the first token, model
+            // routing fallback, etc.). Without this check, the comment template
+            // ("## 🐋 DeepSeek Code Review\n\n${reviewText}\n\n---") posts with nothing
+            // between the header and footer — which is what was happening on PR updates.
+            if (!reviewText) {
+              const usage = data.usage ? JSON.stringify(data.usage) : 'unknown';
+              core.warning(
+                `DeepSeek returned no review content (finish_reason=${finishReason || 'unknown'}, usage=${usage}). ` +
+                `Skipping comment to avoid posting an empty review.`
+              );
+              return { success: false, reason: 'empty-content', finishReason };
+            }
 
             const triggerInfo = context.eventName === 'pull_request'
               ? 'Automatically triggered on PR update'

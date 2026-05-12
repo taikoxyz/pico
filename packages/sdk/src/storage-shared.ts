@@ -97,12 +97,17 @@ function serializeChannelState(state: ChannelState): SerializedChannelState {
 }
 
 function deserializeChannelState(s: SerializedChannelState): ChannelState {
+  const htlcs = s.htlcs.map(deserializeHtlc);
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     channelId: s.channelId as ChannelState['channelId'],
     version: BigInt(s.version),
     balanceA: BigInt(s.balanceA),
     balanceB: BigInt(s.balanceB),
-    htlcs: s.htlcs.map(deserializeHtlc),
+    htlcs,
+    htlcsCount: htlcs.length,
+    htlcsTotalLocked,
     finalized: s.finalized,
   };
 }

@@ -1,9 +1,12 @@
+import type { ChannelState, Htlc } from '@inferenceroom/pico-protocol';
+import { htlcMerkleProof } from '@inferenceroom/pico-protocol';
 import {
   encodeChannelStateForOnChain,
   generateKeysendKeypair,
+  localSigner,
   signatureToHex,
 } from '@inferenceroom/pico-sdk';
-import { http, createWalletClient, erc20Abi, parseAbi } from 'viem';
+import { http, type Hex, createWalletClient, erc20Abi, keccak256, parseAbi, sha256 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -18,7 +21,7 @@ import {
 } from './harness.js';
 
 const paymentChannelStatusAbi = parseAbi([
-  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
+  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer, bytes32 postedHtlcsRoot, uint256 htlcsTotalLocked, uint16 htlcsCount, uint64 htlcResolutionDeadline, uint256 pendingPayoutA, uint256 pendingPayoutB)',
 ]);
 
 const paymentChannelAttackAbi = parseAbi([
@@ -29,7 +32,11 @@ const paymentChannelAttackAbi = parseAbi([
 const ONE_USDC = 1_000_000n;
 const STATUS_OPEN = 1;
 const STATUS_CLOSING_UNILATERAL = 2;
-const STATUS_CLOSED = 3;
+// v2 inserted ResolvingHtlcs = 3 between ClosingUnilateral and Closed; the
+// `STATUS_RESOLVING_HTLCS` constant is exported for future tests that exercise
+// the post-dispute-window HTLC settlement phase.
+const STATUS_RESOLVING_HTLCS = 3;
+const STATUS_CLOSED = 4;
 
 async function readUsdcBalance(h: E2EHandle, addr: `0x${string}`): Promise<bigint> {
   return h.publicClient.readContract({
@@ -722,4 +729,240 @@ describe('e2e — phase 2D receiver offline then resume', () => {
       await bobReborn.transport.close();
     }
   }, 30_000);
+});
+
+// M7: end-to-end coverage for the v2 on-chain HTLC settlement flow.
+// Both parties dual-sign a ChannelState that carries one in-flight HTLC.
+// The state is posted via closeUnilateral; after the dispute window, finalize
+// transitions the channel to Status.ResolvingHtlcs; the test then exercises
+// either claim-with-preimage or refund-after-expiry and finalizes again,
+// asserting the on-chain payouts include `pendingPayout{A,B}` per the new path.
+describe('e2e — v2 HTLC settlement (M7)', () => {
+  let h: E2EHandle;
+  let alice: AliceBundle;
+
+  beforeEach(async () => {
+    h = await bootE2E();
+    alice = buildAliceClient(h);
+  }, 60_000);
+
+  afterEach(async () => {
+    await alice?.transport.close();
+    await h?.stop();
+  });
+
+  async function dualSignedHtlcState(
+    channelId: `0x${string}`,
+    htlc: Htlc,
+  ): Promise<{ state: ChannelState; sigAlice: Hex; sigHub: Hex }> {
+    const aliceSig = localSigner(h.alice.privateKey);
+    const hubSig = localSigner(h.hub.privateKey);
+    const state: ChannelState = {
+      channelId,
+      version: 2n,
+      balanceA: 100n * ONE_USDC - htlc.amount, // alice locked the htlc amount AtoB
+      balanceB: 0n,
+      htlcs: [htlc],
+      htlcsCount: 1,
+      htlcsTotalLocked: htlc.amount,
+      finalized: false,
+    };
+    const sigAlice = await aliceSig.signChannelState(state, h.chainId, h.adjudicator);
+    const sigHub = await hubSig.signChannelState(state, h.chainId, h.adjudicator);
+    return { state, sigAlice, sigHub };
+  }
+
+  function makeHtlc(args: { preimage: Hex; expiryMs: bigint }): Htlc {
+    const paymentHash = sha256(args.preimage);
+    return {
+      id: keccak256(args.preimage),
+      direction: 'AtoB',
+      amount: 10n * ONE_USDC,
+      paymentHash,
+      expiryMs: args.expiryMs,
+    };
+  }
+
+  it('force-close-with-htlc → claim with preimage → finalize pays hub the locked amount', async () => {
+    const channel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
+    }
+    const aliceWalletBefore = await readUsdcBalance(h, h.alice.address);
+    const hubWalletBefore = await readUsdcBalance(h, h.hub.address);
+
+    // Build an HTLC whose expiry comfortably outlasts the 24 h dispute window
+    // so that claim is still admissible after the warp.
+    const preimage = `0x${'aa'.repeat(32)}` as Hex;
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+    const expiryMs = (nowSeconds + 48n * 60n * 60n) * 1000n; // 48 h
+    const htlc = makeHtlc({ preimage, expiryMs });
+    const { state, sigAlice: _sigAlice, sigHub } = await dualSignedHtlcState(channel.id, htlc);
+
+    const aliceWallet = createWalletClient({
+      account: privateKeyToAccount(h.alice.privateKey),
+      chain: foundry,
+      transport: http(h.rpcUrl),
+    });
+
+    // Alice unilaterally closes carrying the in-flight HTLC. The contract
+    // accepts because the (root, count, total) triple is consistent and
+    // balanceA + balanceB + htlcsTotalLocked == 100 USDC.
+    await aliceWallet.writeContract({
+      address: h.paymentChannel,
+      abi: paymentChannelAttackAbi,
+      functionName: 'closeUnilateral',
+      args: [channel.id, encodeChannelStateForOnChain(state), sigHub],
+    });
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSING_UNILATERAL);
+
+    // Advance past the dispute window, then first finalize() → ResolvingHtlcs.
+    await timeWarp(h.rpcUrl, 24 * 60 * 60 + 1);
+    const finalizeAbi = parseAbi(['function finalize(bytes32 channelId)']);
+    await aliceWallet.writeContract({
+      address: h.paymentChannel,
+      abi: finalizeAbi,
+      functionName: 'finalize',
+      args: [channel.id],
+    });
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_RESOLVING_HTLCS);
+
+    // Hub posts the claim (in production a watchtower; here we drive the call
+    // directly with the hub's wallet to mirror what HtlcResolver.resolveChannel
+    // would do).
+    const { proof, sortedIndex, totalLeaves } = htlcMerkleProof([htlc], htlc.id);
+    const claimAbi = parseAbi([
+      'function claimHtlc(bytes32 channelId, (bytes32 id, uint256 amount, bytes32 paymentHash, uint64 expiry, uint8 direction) htlc, bytes32[] proof, uint256 sortedIndex, uint256 totalLeaves, bytes preimage)',
+    ]);
+    const hubWallet = createWalletClient({
+      account: privateKeyToAccount(h.hub.privateKey),
+      chain: foundry,
+      transport: http(h.rpcUrl),
+    });
+    await hubWallet.writeContract({
+      address: h.paymentChannel,
+      abi: claimAbi,
+      functionName: 'claimHtlc',
+      args: [
+        channel.id,
+        {
+          id: htlc.id,
+          amount: htlc.amount,
+          paymentHash: htlc.paymentHash,
+          expiry: htlc.expiryMs / 1000n,
+          direction: 0,
+        },
+        proof,
+        BigInt(sortedIndex),
+        BigInt(totalLeaves),
+        preimage,
+      ],
+    });
+
+    // Second finalize() pays out posted balances + pending payouts.
+    await aliceWallet.writeContract({
+      address: h.paymentChannel,
+      abi: finalizeAbi,
+      functionName: 'finalize',
+      args: [channel.id],
+    });
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
+
+    const aliceWalletAfter = await readUsdcBalance(h, h.alice.address);
+    const hubWalletAfter = await readUsdcBalance(h, h.hub.address);
+    // The before-snapshot is captured *after* `open()` drained 100 USDC into
+    // the contract, so the deltas here measure what each party gets back at
+    // finalize. Alice locked 10 AtoB → balanceA = 90 → she gets 90 back.
+    // Hub had no in-channel balance pre-claim, claim credits 10, finalize
+    // sends those 10 to its wallet.
+    expect(aliceWalletAfter - aliceWalletBefore).toBe(90n * ONE_USDC);
+    expect(hubWalletAfter - hubWalletBefore).toBe(10n * ONE_USDC);
+  }, 60_000);
+
+  it('force-close-with-htlc → refund after expiry → finalize returns the locked amount to alice', async () => {
+    const channel = await alice.client.open({
+      counterparty: h.hub.address,
+      amount: 100n * ONE_USDC,
+    });
+    {
+      const init = await alice.storage.loadLatestState(channel.id);
+      await h.hubServer.registerChannel(channel, init ?? undefined);
+    }
+    const aliceWalletBefore = await readUsdcBalance(h, h.alice.address);
+    const hubWalletBefore = await readUsdcBalance(h, h.hub.address);
+
+    // Same shape as the claim test but the preimage is never revealed and the
+    // expiry sits inside the dispute window so refund is admissible.
+    const preimage = `0x${'bb'.repeat(32)}` as Hex;
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+    const expiryMs = (nowSeconds + 12n * 60n * 60n) * 1000n; // 12 h, inside the 24 h window
+    const htlc = makeHtlc({ preimage, expiryMs });
+    const { state, sigHub } = await dualSignedHtlcState(channel.id, htlc);
+
+    const aliceWallet = createWalletClient({
+      account: privateKeyToAccount(h.alice.privateKey),
+      chain: foundry,
+      transport: http(h.rpcUrl),
+    });
+
+    await aliceWallet.writeContract({
+      address: h.paymentChannel,
+      abi: paymentChannelAttackAbi,
+      functionName: 'closeUnilateral',
+      args: [channel.id, encodeChannelStateForOnChain(state), sigHub],
+    });
+
+    await timeWarp(h.rpcUrl, 24 * 60 * 60 + 1);
+    const finalizeAbi = parseAbi(['function finalize(bytes32 channelId)']);
+    await aliceWallet.writeContract({
+      address: h.paymentChannel,
+      abi: finalizeAbi,
+      functionName: 'finalize',
+      args: [channel.id],
+    });
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_RESOLVING_HTLCS);
+
+    const { proof, sortedIndex, totalLeaves } = htlcMerkleProof([htlc], htlc.id);
+    const refundAbi = parseAbi([
+      'function refundHtlc(bytes32 channelId, (bytes32 id, uint256 amount, bytes32 paymentHash, uint64 expiry, uint8 direction) htlc, bytes32[] proof, uint256 sortedIndex, uint256 totalLeaves)',
+    ]);
+    await aliceWallet.writeContract({
+      address: h.paymentChannel,
+      abi: refundAbi,
+      functionName: 'refundHtlc',
+      args: [
+        channel.id,
+        {
+          id: htlc.id,
+          amount: htlc.amount,
+          paymentHash: htlc.paymentHash,
+          expiry: htlc.expiryMs / 1000n,
+          direction: 0,
+        },
+        proof,
+        BigInt(sortedIndex),
+        BigInt(totalLeaves),
+      ],
+    });
+
+    await aliceWallet.writeContract({
+      address: h.paymentChannel,
+      abi: finalizeAbi,
+      functionName: 'finalize',
+      args: [channel.id],
+    });
+    expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
+
+    const aliceWalletAfter = await readUsdcBalance(h, h.alice.address);
+    const hubWalletAfter = await readUsdcBalance(h, h.hub.address);
+    // Before-snapshot is captured after `open()` drained 100 USDC into the
+    // contract. Refund returns the full 100 (balance 90 + refunded HTLC 10)
+    // to alice's wallet; hub had no in-channel balance and receives nothing.
+    expect(aliceWalletAfter - aliceWalletBefore).toBe(100n * ONE_USDC);
+    expect(hubWalletAfter - hubWalletBefore).toBe(0n);
+  }, 60_000);
 });

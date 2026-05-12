@@ -31,6 +31,8 @@ async function makeRealSignedState(version: bigint): Promise<SignedState> {
     balanceA: 100n,
     balanceB: 200n,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
   };
   const data = buildChannelStateTypedData(state, CHAIN_ID, PAYMENT_CHANNEL);

@@ -17,19 +17,23 @@ const eventsAbi = parseAbi([
   'event ChannelClosingUnilateral(bytes32 indexed channelId, uint64 postedVersion, uint256 disputeDeadline)',
   'event DisputeRaised(bytes32 indexed channelId, uint64 version)',
   'event ChannelFinalized(bytes32 indexed channelId, uint256 payA, uint256 payB)',
+  // H6: v2 — watchtower needs to react to ResolvingHtlcs phase entry.
+  'event HtlcResolutionStarted(bytes32 indexed channelId, uint64 htlcResolutionDeadline)',
 ]);
 
 type EventName =
   | 'ChannelOpened'
   | 'ChannelClosingUnilateral'
   | 'DisputeRaised'
-  | 'ChannelFinalized';
+  | 'ChannelFinalized'
+  | 'HtlcResolutionStarted';
 
 const ALL_EVENT_NAMES: readonly EventName[] = [
   'ChannelOpened',
   'ChannelClosingUnilateral',
   'DisputeRaised',
   'ChannelFinalized',
+  'HtlcResolutionStarted',
 ];
 
 const DEFAULT_CONFIRMATIONS = 3;
@@ -48,7 +52,12 @@ function isReceiptNotFound(err: unknown): boolean {
   return (err as { name?: string } | null)?.name === 'TransactionReceiptNotFoundError';
 }
 
-export type WatcherEventKind = 'open' | 'closeUnilateral' | 'dispute' | 'finalize';
+export type WatcherEventKind =
+  | 'open'
+  | 'closeUnilateral'
+  | 'dispute'
+  | 'finalize'
+  | 'htlcResolutionStarted';
 
 export type WatcherEvent =
   | {
@@ -77,6 +86,13 @@ export type WatcherEvent =
       readonly channelId: `0x${string}`;
       readonly payA: bigint;
       readonly payB: bigint;
+      readonly txHash: `0x${string}`;
+      readonly blockNumber: bigint;
+    }
+  | {
+      readonly kind: 'htlcResolutionStarted';
+      readonly channelId: `0x${string}`;
+      readonly htlcResolutionDeadline: bigint;
       readonly txHash: `0x${string}`;
       readonly blockNumber: bigint;
     };
@@ -242,6 +258,16 @@ export class ChainEventWatcher {
       const version = args.version as bigint | undefined;
       if (version === undefined) return null;
       event = { kind: 'dispute', channelId, version, txHash, blockNumber };
+    } else if (eventName === 'HtlcResolutionStarted') {
+      const htlcResolutionDeadline = args.htlcResolutionDeadline as bigint | undefined;
+      if (htlcResolutionDeadline === undefined) return null;
+      event = {
+        kind: 'htlcResolutionStarted',
+        channelId,
+        htlcResolutionDeadline,
+        txHash,
+        blockNumber,
+      };
     } else {
       const payA = args.payA as bigint | undefined;
       const payB = args.payB as bigint | undefined;

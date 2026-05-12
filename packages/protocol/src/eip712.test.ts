@@ -14,7 +14,7 @@ import {
 import type { Address, Hex } from './types.js';
 
 const CHANNEL_STATE_TYPESTRING =
-  'ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)';
+  'ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)';
 const HTLC_TYPESTRING =
   'Htlc(bytes32 id,uint256 amount,bytes32 paymentHash,uint64 expiry,uint8 direction)';
 const UPDATE_TYPESTRING = `Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)${CHANNEL_STATE_TYPESTRING}`;
@@ -34,14 +34,14 @@ const verifyingContract = '0x1111111111111111111111111111111111111111' as Addres
 describe('eip712 — domain', () => {
   it('locks the domain name and version', () => {
     expect(EIP712_DOMAIN_NAME).toBe('pico');
-    expect(EIP712_DOMAIN_VERSION).toBe('1');
+    expect(EIP712_DOMAIN_VERSION).toBe('2');
   });
 
   it('buildDomain returns the expected shape for Hoodi', () => {
     const domain = buildDomain(TAIKO_HOODI_CHAIN_ID, verifyingContract);
     expect(domain).toEqual({
       name: 'pico',
-      version: '1',
+      version: '2',
       chainId: TAIKO_HOODI_CHAIN_ID,
       verifyingContract,
     });
@@ -106,6 +106,8 @@ describe('eip712 — hashTypedData smoke', () => {
         balanceA: 1_000_000n,
         balanceB: 2_000_000n,
         htlcsRoot: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        htlcsCount: 0,
+        htlcsTotalLocked: 0n,
         finalized: false,
       },
     });
@@ -120,6 +122,8 @@ describe('eip712 — hashTypedData smoke', () => {
       balanceA: 1_000_000n,
       balanceB: 2_000_000n,
       htlcsRoot: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const a = hashTypedData({

@@ -160,7 +160,11 @@ describeForked('Taiko mainnet fork lifecycle (gated by E2E_FORK_URL)', () => {
           });
 
           const channelsAbi = parseAbi([
-            'function channels(bytes32) view returns (address userA, address userB, address token, uint128 totalDeposit, uint128 balanceA, uint128 balanceB, uint8 status, uint64 postedVersion, uint64 disputeDeadline, address closer, bool penalized)',
+            // M3: refreshed to the v2 19-field Channel layout. The fork test
+            // targets the live PaymentChannel proxy, which since v2 returns
+            // the extended struct from `channels(bytes32)`. Keeping the old
+            // 11-field layout silently read garbage off the right-hand fields.
+            'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer, bytes32 postedHtlcsRoot, uint256 htlcsTotalLocked, uint16 htlcsCount, uint64 htlcResolutionDeadline, uint256 pendingPayoutA, uint256 pendingPayoutB)',
           ]);
           let posted = 0n;
           let penalized = false;
@@ -172,17 +176,25 @@ describeForked('Taiko mainnet fork lifecycle (gated by E2E_FORK_URL)', () => {
               functionName: 'channels',
               args: [channel.id],
             })) as readonly [
-              `0x${string}`,
-              `0x${string}`,
-              `0x${string}`,
-              bigint,
-              bigint,
-              bigint,
-              number,
-              bigint,
-              bigint,
-              `0x${string}`,
-              boolean,
+              `0x${string}`, // userA
+              `0x${string}`, // userB
+              `0x${string}`, // token
+              bigint, // amountA
+              bigint, // amountB
+              bigint, // openedAt
+              bigint, // disputeDeadline
+              bigint, // postedVersion
+              bigint, // postedBalanceA
+              bigint, // postedBalanceB
+              boolean, // penalized
+              number, // status
+              `0x${string}`, // closer
+              `0x${string}`, // postedHtlcsRoot
+              bigint, // htlcsTotalLocked
+              number, // htlcsCount
+              bigint, // htlcResolutionDeadline
+              bigint, // pendingPayoutA
+              bigint, // pendingPayoutB
             ];
             posted = row[7];
             penalized = row[10];

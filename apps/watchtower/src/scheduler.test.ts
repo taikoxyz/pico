@@ -23,6 +23,8 @@ function makeSignedState(version: bigint): SignedState {
       balanceA: 100n,
       balanceB: 200n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     },
     sigA: {

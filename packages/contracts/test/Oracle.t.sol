@@ -20,12 +20,12 @@ contract OracleTest is Test {
 
     // Type hashes — must agree with Adjudicator.sol verbatim.
     bytes32 internal constant CHANNEL_STATE_TYPEHASH = keccak256(
-        "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+        "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
     );
     bytes32 internal constant HTLC_TYPEHASH =
         keccak256("Htlc(bytes32 id,uint256 amount,bytes32 paymentHash,uint64 expiry,uint8 direction)");
     bytes32 internal constant UPDATE_TYPEHASH = keccak256(
-        "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+        "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
     );
     bytes32 internal constant COOPERATIVE_CLOSE_TYPEHASH = keccak256(
         "CooperativeClose(bytes32 channelId,uint64 version,uint256 finalBalanceA,uint256 finalBalanceB,uint64 signedAt,uint64 validUntil)"
@@ -51,7 +51,7 @@ contract OracleTest is Test {
         address verifyingContract = json.readAddress(".domain.verifyingContract");
         domainSeparator = keccak256(
             abi.encode(
-                EIP712_DOMAIN_TYPEHASH, keccak256(bytes("pico")), keccak256(bytes("1")), chainId, verifyingContract
+                EIP712_DOMAIN_TYPEHASH, keccak256(bytes("pico")), keccak256(bytes("2")), chainId, verifyingContract
             )
         );
     }
@@ -62,9 +62,23 @@ contract OracleTest is Test {
         uint256 balA,
         uint256 balB,
         bytes32 htlcsRoot,
+        uint16 htlcsCount,
+        uint256 htlcsTotalLocked,
         bool finalized
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(CHANNEL_STATE_TYPEHASH, channelId, version, balA, balB, htlcsRoot, finalized));
+        return keccak256(
+            abi.encode(
+                CHANNEL_STATE_TYPEHASH,
+                channelId,
+                version,
+                balA,
+                balB,
+                htlcsRoot,
+                htlcsCount,
+                htlcsTotalLocked,
+                finalized
+            )
+        );
     }
 
     function _eip712(bytes32 structHash) internal view returns (bytes32) {
@@ -112,13 +126,16 @@ contract OracleTest is Test {
             uint64 version = _u64(json.readString(string.concat(base, ".input.version")));
             uint256 balA = _u256(json.readString(string.concat(base, ".input.balanceA")));
             uint256 balB = _u256(json.readString(string.concat(base, ".input.balanceB")));
+            uint16 htlcsCount = uint16(_u256(json.readString(string.concat(base, ".input.htlcsCount"))));
+            uint256 htlcsTotalLocked = _u256(json.readString(string.concat(base, ".input.htlcsTotalLocked")));
             bool finalized = json.readBool(string.concat(base, ".input.finalized"));
 
             HTLC.Lock[] memory locks = _readHtlcs(base);
             bytes32 root = HTLC.rootOf(locks);
             assertEq(root, expectedRoot, "htlcsRoot mismatch (TS vs Solidity)");
 
-            bytes32 structHash = _hashState(channelId, version, balA, balB, root, finalized);
+            bytes32 structHash =
+                _hashState(channelId, version, balA, balB, root, htlcsCount, htlcsTotalLocked, finalized);
             assertEq(_eip712(structHash), expectedDigest, "ChannelState digest mismatch");
         }
     }
@@ -144,25 +161,33 @@ contract OracleTest is Test {
         for (uint256 i = 0; i < 12; i++) {
             string memory base = string.concat(".update[", vm.toString(i), "]");
             bytes32 expectedDigest = json.readBytes32(string.concat(base, ".digest"));
+            bytes32 nextHash = _readNextStateHash(string.concat(base, ".input.nextState"));
 
             bytes32 channelId = json.readBytes32(string.concat(base, ".input.channelId"));
             uint64 fromVersion = _u64(json.readString(string.concat(base, ".input.fromVersion")));
             uint64 toVersion = _u64(json.readString(string.concat(base, ".input.toVersion")));
 
-            string memory ns = string.concat(base, ".input.nextState");
-            bytes32 nsChannelId = json.readBytes32(string.concat(ns, ".channelId"));
-            uint64 nsVersion = _u64(json.readString(string.concat(ns, ".version")));
-            uint256 nsBalA = _u256(json.readString(string.concat(ns, ".balanceA")));
-            uint256 nsBalB = _u256(json.readString(string.concat(ns, ".balanceB")));
-            bool nsFinalized = json.readBool(string.concat(ns, ".finalized"));
-
-            HTLC.Lock[] memory locks = _readHtlcsAt(string.concat(ns, ".htlcs"));
-            bytes32 nsRoot = HTLC.rootOf(locks);
-
-            bytes32 nextHash = _hashState(nsChannelId, nsVersion, nsBalA, nsBalB, nsRoot, nsFinalized);
             bytes32 structHash = keccak256(abi.encode(UPDATE_TYPEHASH, channelId, fromVersion, toVersion, nextHash));
             assertEq(_eip712(structHash), expectedDigest, "Update digest mismatch");
         }
+    }
+
+    /// @dev Hoisted out of `test_updateDigestsMatchOracle` so the dozen-or-so locals
+    ///      that revive a nested ChannelState don't push the parent function past
+    ///      solc's 16-slot stack budget.
+    function _readNextStateHash(string memory ns) internal view returns (bytes32) {
+        bytes32 nsChannelId = json.readBytes32(string.concat(ns, ".channelId"));
+        uint64 nsVersion = _u64(json.readString(string.concat(ns, ".version")));
+        uint256 nsBalA = _u256(json.readString(string.concat(ns, ".balanceA")));
+        uint256 nsBalB = _u256(json.readString(string.concat(ns, ".balanceB")));
+        uint16 nsHtlcsCount = uint16(_u256(json.readString(string.concat(ns, ".htlcsCount"))));
+        uint256 nsHtlcsTotalLocked = _u256(json.readString(string.concat(ns, ".htlcsTotalLocked")));
+        bool nsFinalized = json.readBool(string.concat(ns, ".finalized"));
+
+        HTLC.Lock[] memory locks = _readHtlcsAt(string.concat(ns, ".htlcs"));
+        bytes32 nsRoot = HTLC.rootOf(locks);
+
+        return _hashState(nsChannelId, nsVersion, nsBalA, nsBalB, nsRoot, nsHtlcsCount, nsHtlcsTotalLocked, nsFinalized);
     }
 
     function _readHtlcsAt(string memory path) internal view returns (HTLC.Lock[] memory) {

@@ -149,7 +149,14 @@ contract PaymentChannelReplayTest is Fixtures {
         // alice tops up by 5 USDC; pre-state is sentinel (version 0, balances == amounts).
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
             state: Adjudicator.ChannelState({
-                channelId: id, version: 0, balanceA: FUND_A, balanceB: FUND_B, htlcsRoot: bytes32(0), finalized: false
+                channelId: id,
+                version: 0,
+                balanceA: FUND_A,
+                balanceB: FUND_B,
+                htlcsRoot: bytes32(0),
+                htlcsCount: 0,
+                htlcsTotalLocked: 0,
+                finalized: false
             }),
             sigA: hex"",
             sigB: hex""
@@ -160,6 +167,8 @@ contract PaymentChannelReplayTest is Fixtures {
             balanceA: FUND_A + 5_000_000,
             balanceB: FUND_B,
             htlcsRoot: bytes32(0),
+            htlcsCount: 0,
+            htlcsTotalLocked: 0,
             finalized: false
         });
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
@@ -193,6 +202,8 @@ contract PaymentChannelReplayTest is Fixtures {
             balanceA: balanceA,
             balanceB: balanceB,
             htlcsRoot: bytes32(0),
+            htlcsCount: 0,
+            htlcsTotalLocked: 0,
             finalized: false
         });
     }

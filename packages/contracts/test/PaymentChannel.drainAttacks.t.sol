@@ -43,13 +43,27 @@ contract PaymentChannelDrainAttacksTest is Fixtures {
 
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
             state: Adjudicator.ChannelState({
-                channelId: id, version: 0, balanceA: FUND_A, balanceB: 0, htlcsRoot: bytes32(0), finalized: false
+                channelId: id,
+                version: 0,
+                balanceA: FUND_A,
+                balanceB: 0,
+                htlcsRoot: bytes32(0),
+                htlcsCount: 0,
+                htlcsTotalLocked: 0,
+                finalized: false
             }),
             sigA: hex"",
             sigB: hex""
         });
         Adjudicator.ChannelState memory nextState = Adjudicator.ChannelState({
-            channelId: id, version: 1, balanceA: FUND_A, balanceB: 5_000_000, htlcsRoot: bytes32(0), finalized: false
+            channelId: id,
+            version: 1,
+            balanceA: FUND_A,
+            balanceB: 5_000_000,
+            htlcsRoot: bytes32(0),
+            htlcsCount: 0,
+            htlcsTotalLocked: 0,
+            finalized: false
         });
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
             state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)
@@ -72,7 +86,14 @@ contract PaymentChannelDrainAttacksTest is Fixtures {
 
         Adjudicator.SignedChannelState memory prev = Adjudicator.SignedChannelState({
             state: Adjudicator.ChannelState({
-                channelId: id, version: 0, balanceA: FUND_A, balanceB: 0, htlcsRoot: bytes32(0), finalized: false
+                channelId: id,
+                version: 0,
+                balanceA: FUND_A,
+                balanceB: 0,
+                htlcsRoot: bytes32(0),
+                htlcsCount: 0,
+                htlcsTotalLocked: 0,
+                finalized: false
             }),
             sigA: hex"",
             sigB: hex""
@@ -80,7 +101,14 @@ contract PaymentChannelDrainAttacksTest is Fixtures {
         // A "trick" next state with B credited rather than A. msg.sender will be alice,
         // who therefore expects A to be credited; the contract's "A delta" check fires.
         Adjudicator.ChannelState memory nextState = Adjudicator.ChannelState({
-            channelId: id, version: 1, balanceA: FUND_A, balanceB: 5_000_000, htlcsRoot: bytes32(0), finalized: false
+            channelId: id,
+            version: 1,
+            balanceA: FUND_A,
+            balanceB: 5_000_000,
+            htlcsRoot: bytes32(0),
+            htlcsCount: 0,
+            htlcsTotalLocked: 0,
+            finalized: false
         });
         Adjudicator.SignedChannelState memory next = Adjudicator.SignedChannelState({
             state: nextState, sigA: _signState(alicePk, nextState), sigB: _signState(bobPk, nextState)

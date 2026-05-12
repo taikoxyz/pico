@@ -49,6 +49,8 @@ function buildSentinelPrev(
       balanceA: amounts.amountA,
       balanceB: amounts.amountB,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     },
     sigA: SENTINEL_SIG,
@@ -469,6 +471,8 @@ export class TopUpHandler {
       balanceA: 0n,
       balanceB: 0n,
       htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: false,
     };
     const row: TopUpOfferRow = {
@@ -513,6 +517,8 @@ export class TopUpHandler {
             balanceA: amounts?.amountA ?? 0n,
             balanceB: amounts?.amountB ?? 0n,
             htlcs: [],
+            htlcsCount: 0,
+            htlcsTotalLocked: 0n,
             finalized: false,
           };
 

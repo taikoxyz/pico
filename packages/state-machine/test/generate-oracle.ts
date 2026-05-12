@@ -40,12 +40,16 @@ function makeChannelState(version: number, htlcCount: number, finalized: boolean
   for (let i = 0; i < htlcCount; i++) {
     htlcs.push(makeHtlc(version * 100 + i + 1, i % 2 === 0 ? 'AtoB' : 'BtoA'));
   }
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     channelId: hex32(version),
     version: BigInt(version),
     balanceA: BigInt(version * 10_000),
     balanceB: BigInt(version * 20_000),
     htlcs,
+    htlcsCount: htlcs.length,
+    htlcsTotalLocked,
     finalized,
   };
 }

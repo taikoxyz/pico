@@ -11,8 +11,11 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @notice EIP-712 typed-data verifier for pico signed channel artefacts.
 /// @dev Pure verification — never moves funds. The companion `PaymentChannel` is the only
 ///      contract that holds and pays out USDC; this contract just answers "did A and B sign
-///      this exact thing?". Domain is `name="pico", version="1"` to match
-///      `packages/protocol/src/eip712.ts`.
+///      this exact thing?". Domain is `name="pico", version="2"` to match
+///      `packages/protocol/src/eip712.ts`. v2 extends ChannelState with htlcsCount and
+///      htlcsTotalLocked so the on-chain conservation invariant
+///      `balanceA + balanceB + htlcsTotalLocked == amountA + amountB`
+///      can be enforced at unilateral close even when in-flight HTLCs exist.
 contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP712Upgradeable {
     /// @notice ABI-encodable channel state. Field order matches the off-chain typed-data spec.
     /// @param channelId Deterministic channel identifier.
@@ -20,6 +23,10 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
     /// @param balanceA `userA`'s balance owed if the state is finalised.
     /// @param balanceB `userB`'s balance owed if the state is finalised.
     /// @param htlcsRoot Merkle root over outstanding HTLCs (`bytes32(0)` if none).
+    /// @param htlcsCount Number of outstanding HTLCs (= leaves under `htlcsRoot`). Zero iff
+    ///        `htlcsRoot == bytes32(0)`.
+    /// @param htlcsTotalLocked Sum of `amount` over all outstanding HTLCs. Used to enforce
+    ///        `balanceA + balanceB + htlcsTotalLocked == amountA + amountB` at close.
     /// @param finalized True when both parties have agreed this is the last state of the channel.
     struct ChannelState {
         bytes32 channelId;
@@ -27,6 +34,8 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
         uint256 balanceA;
         uint256 balanceB;
         bytes32 htlcsRoot;
+        uint16 htlcsCount;
+        uint256 htlcsTotalLocked;
         bool finalized;
     }
 
@@ -74,14 +83,14 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
     }
 
     bytes32 internal constant CHANNEL_STATE_TYPEHASH = keccak256(
-        "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+        "ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
     );
 
     bytes32 internal constant HTLC_TYPEHASH =
         keccak256("Htlc(bytes32 id,uint256 amount,bytes32 paymentHash,uint64 expiry,uint8 direction)");
 
     bytes32 internal constant UPDATE_TYPEHASH = keccak256(
-        "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,bool finalized)"
+        "Update(bytes32 channelId,uint64 fromVersion,uint64 toVersion,ChannelState nextState)ChannelState(bytes32 channelId,uint64 version,uint256 balanceA,uint256 balanceB,bytes32 htlcsRoot,uint16 htlcsCount,uint256 htlcsTotalLocked,bool finalized)"
     );
 
     bytes32 internal constant COOPERATIVE_CLOSE_TYPEHASH = keccak256(
@@ -106,7 +115,7 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
         // intermediate `OwnershipTransferred(0, deployer)` event that OZ v4.9.6 would emit.
         _transferOwnership(initialOwner);
         __UUPSUpgradeable_init();
-        __EIP712_init("pico", "1");
+        __EIP712_init("pico", "2");
     }
 
     /// @notice EIP-712 struct hash of a `ChannelState`.
@@ -119,6 +128,8 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
                 state.balanceA,
                 state.balanceB,
                 state.htlcsRoot,
+                state.htlcsCount,
+                state.htlcsTotalLocked,
                 state.finalized
             )
         );
@@ -139,6 +150,8 @@ contract Adjudicator is Initializable, UUPSUpgradeable, OwnableUpgradeable, EIP7
                 u.nextState.balanceA,
                 u.nextState.balanceB,
                 u.nextState.htlcsRoot,
+                u.nextState.htlcsCount,
+                u.nextState.htlcsTotalLocked,
                 u.nextState.finalized
             )
         );

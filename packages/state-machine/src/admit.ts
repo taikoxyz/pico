@@ -27,7 +27,8 @@ export type AdmitFailureCode =
   | 'PREIMAGE_MISMATCH'
   | 'NOT_FINALIZED'
   | 'NON_EMPTY_HTLCS'
-  | 'FINALIZED_BALANCE_MISMATCH';
+  | 'FINALIZED_BALANCE_MISMATCH'
+  | 'HTLC_DERIVED_MISMATCH';
 
 export class StateAdmissionError extends Error {
   readonly code: AdmitFailureCode;
@@ -157,6 +158,26 @@ export async function admitSignedState(
     throw new StateAdmissionError(
       'CHANNEL_STATUS_INVALID',
       `cannot accept state for closed channel ${channel.id}`,
+    );
+  }
+
+  // M4: the on-chain contract relies on `htlcsCount` and `htlcsTotalLocked`
+  // being consistent with `htlcs` (the contract reads them from the signed
+  // typed-data digest, not the array). Reject internally-inconsistent states
+  // here so off-chain consumers never trust derived fields the contract would
+  // accept but treat as authoritative for conservation.
+  let derivedTotal = 0n;
+  for (const h of signed.state.htlcs) derivedTotal += h.amount;
+  if (signed.state.htlcsCount !== signed.state.htlcs.length) {
+    throw new StateAdmissionError(
+      'HTLC_DERIVED_MISMATCH',
+      `htlcsCount=${signed.state.htlcsCount} does not match htlcs.length=${signed.state.htlcs.length}`,
+    );
+  }
+  if (signed.state.htlcsTotalLocked !== derivedTotal) {
+    throw new StateAdmissionError(
+      'HTLC_DERIVED_MISMATCH',
+      `htlcsTotalLocked=${signed.state.htlcsTotalLocked} does not match Σ htlcs.amount=${derivedTotal}`,
     );
   }
 

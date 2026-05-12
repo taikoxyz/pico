@@ -43,6 +43,19 @@ export function validateUpdate(prev: ChannelState, update: Update): void {
   if (before.totalA + before.totalB !== after.totalA + after.totalB) {
     throw new BalanceMismatchError();
   }
+  // M5: also enforce the v2 conservation invariant using the *derived* fields
+  // (balanceA + balanceB + htlcsTotalLocked). The contract reads
+  // `htlcsTotalLocked` directly from the signed digest, so an off-chain state
+  // whose derived total disagrees with `Σ htlcs.amount` (caught by admit.ts
+  // M4) or whose pot moves between transitions (caught above) would be
+  // rejected on chain. Asserting it here too keeps the SDK's state-machine
+  // semantics aligned with the contract.
+  const beforeDerived = prev.balanceA + prev.balanceB + prev.htlcsTotalLocked;
+  const afterDerived =
+    update.nextState.balanceA + update.nextState.balanceB + update.nextState.htlcsTotalLocked;
+  if (beforeDerived !== afterDerived) {
+    throw new BalanceMismatchError();
+  }
 }
 
 export function applyUpdate(prev: ChannelState, update: Update): ChannelState {

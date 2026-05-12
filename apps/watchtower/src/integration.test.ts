@@ -101,7 +101,7 @@ async function anvilTimeWarp(rpcUrl: string, seconds: number): Promise<void> {
 const paymentChannelAbi = parseAbi([
   'function closeUnilateral(bytes32 channelId, bytes state, bytes sigCounterparty)',
   'function finalize(bytes32 channelId)',
-  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
+  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer, bytes32 postedHtlcsRoot, uint256 htlcsTotalLocked, uint16 htlcsCount, uint64 htlcResolutionDeadline, uint256 pendingPayoutA, uint256 pendingPayoutB)',
 ]);
 
 interface IntegrationFixture {

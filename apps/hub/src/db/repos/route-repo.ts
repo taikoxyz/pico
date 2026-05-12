@@ -91,19 +91,24 @@ function signedStateToJson(s: SignedState): string {
 
 function jsonToSignedState(json: string): SignedState {
   const p = JSON.parse(json) as SignedStateJson;
+  const htlcs = p.state.htlcs.map((h) => ({
+    id: h.id as Hex,
+    direction: h.direction,
+    amount: BigInt(h.amount),
+    paymentHash: h.paymentHash as Hex,
+    expiryMs: BigInt(h.expiryMs),
+  }));
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     state: {
       channelId: p.state.channelId as `0x${string}`,
       version: BigInt(p.state.version),
       balanceA: BigInt(p.state.balanceA),
       balanceB: BigInt(p.state.balanceB),
-      htlcs: p.state.htlcs.map((h) => ({
-        id: h.id as Hex,
-        direction: h.direction,
-        amount: BigInt(h.amount),
-        paymentHash: h.paymentHash as Hex,
-        expiryMs: BigInt(h.expiryMs),
-      })),
+      htlcs,
+      htlcsCount: htlcs.length,
+      htlcsTotalLocked,
       finalized: p.state.finalized,
     },
     sigA: hexToSignature(p.sigA as Hex),

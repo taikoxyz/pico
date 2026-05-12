@@ -29,6 +29,8 @@ function signed(version: bigint): SignedState {
     balanceA: 100n,
     balanceB: 0n,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
   };
   return { state, sigA: ZERO_SIG, sigB: ZERO_SIG };

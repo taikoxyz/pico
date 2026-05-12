@@ -68,6 +68,8 @@ async function preopenChannel(
     balanceA: 1_000_000n,
     balanceB: 0n,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
   };
   const aliceAccount = privateKeyToAccount(ALICE_PK);

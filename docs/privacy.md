@@ -136,10 +136,12 @@ calls `quote()`; integration into the route path is a follow-up.
 
 ## 5. Point Time-Locked Contracts (PTLCs) — `packages/state-machine/src/ptlc.ts`
 
-v1 HTLCs commit to `paymentHash = sha256(preimage)`, **identical on both
-legs** of a routed payment (§4.1). When on-chain HTLC settlement lands
-in v2 (the headline `§5.4 → v2` milestone), the two reveals would become
-a passive correlation oracle.
+HTLCs commit to `paymentHash = sha256(preimage)`, **identical on both
+legs** of a routed payment (§4.1). v2's on-chain HTLC settlement (§5.4)
+emits the preimage in `HtlcClaimed` events, turning the two reveals into
+a passive on-chain correlation oracle: if both legs of an A→hub→B
+payment ever force-close inside the same hub, an observer can link the
+two channels by matching `paymentHash`.
 
 A PTLC fixes this by using a secp256k1 *point* commitment `T = s·G` and
 a per-hop tweak `t`:

@@ -87,6 +87,8 @@ async function buildAliceState(
     balanceA,
     balanceB,
     htlcs: [],
+    htlcsCount: 0,
+    htlcsTotalLocked: 0n,
     finalized: false,
   };
   return { state, sigA: await aliceSign(state), sigB: ZERO_SIG };
@@ -282,6 +284,7 @@ describe('buildServer integration', () => {
           open: 0,
           'closing-cooperative': 0,
           'closing-unilateral': 0,
+          'resolving-htlcs': 0,
           disputed: 0,
           closed: 0,
         },
@@ -517,6 +520,8 @@ describe('buildServer integration', () => {
             balanceA: 0n,
             balanceB: 0n,
             htlcs: [],
+            htlcsCount: 0,
+            htlcsTotalLocked: 0n,
             finalized: false,
           },
           sigA: ZERO_SIG,
