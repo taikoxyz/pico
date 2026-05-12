@@ -16,8 +16,8 @@ describe('FlatPlusBpsFeePolicy', () => {
     const policy = new FlatPlusBpsFeePolicy();
     const q = policy.quoteBucketed(10_000n);
     expect(q.paddingToBucket).toBe(0n);
-    expect(q.fee).toBe(11n);
-    expect(q.senderHtlcAmount).toBe(10_000n + 11n);
+    expect(q.fee).toBe(3n);
+    expect(q.senderHtlcAmount).toBe(10_000n + 3n);
     expect(q.outgoingAmount).toBe(10_000n);
   });
 
