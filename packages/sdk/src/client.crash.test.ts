@@ -73,7 +73,11 @@ describe('persist-before-send', () => {
       defaultToken: TOKEN,
     });
 
-    const channel = await alice.open({ counterparty: bobAddr, amount: 1_000_000n, token: TOKEN });
+    const { channel } = await alice.open({
+      counterparty: bobAddr,
+      amount: 1_000_000n,
+      token: TOKEN,
+    });
     await bobStorage.saveChannel(channel);
     const initial = await aliceStorage.loadLatestState(channel.id);
     if (!initial) throw new Error('no initial state');

@@ -2,5 +2,5 @@
 // Source: apps/cli/package.json, packages/sdk/package.json, packages/protocol/package.json.
 
 export const CLI_VERSION = '2.0.2';
-export const SDK_VERSION = '2.0.2';
-export const PROTOCOL_VERSION = '2.0.2';
+export const SDK_VERSION = '2.0.3';
+export const PROTOCOL_VERSION = '2.0.3';

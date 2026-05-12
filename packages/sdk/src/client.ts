@@ -79,6 +79,15 @@ export interface OpenChannelArgs {
   readonly token?: Address;
 }
 
+/// Result of `ChannelClient.open()`. The on-chain `txHash` and `blockNumber`
+/// are surfaced so CLI / agent code can log them; they aren't persisted on
+/// the durable `Channel` record.
+export interface OpenedChannel {
+  readonly channel: Channel;
+  readonly txHash: Hex;
+  readonly blockNumber: bigint;
+}
+
 const ZERO_SIG: Signature = {
   r: '0x0000000000000000000000000000000000000000000000000000000000000000',
   s: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -179,7 +188,7 @@ export class ChannelClient {
     return created;
   }
 
-  async open(args: OpenChannelArgs): Promise<Channel> {
+  async open(args: OpenChannelArgs): Promise<OpenedChannel> {
     const me = await this.address();
     const token = args.token ?? this.opts.defaultToken;
     if (!token) throw new Error('open: token is required (no defaultToken configured)');
@@ -229,7 +238,7 @@ export class ChannelClient {
 
     await this.ensureSubscribed([channel.id]);
     this.emitter.emit('channel:opened', { channel });
-    return channel;
+    return { channel, txHash: onChain.txHash, blockNumber: onChain.blockNumber };
   }
 
   async ensureSubscribed(channelIds: readonly ChannelId[]): Promise<void> {
@@ -818,7 +827,10 @@ export class ChannelClient {
     return undefined;
   }
 
-  async close(channelId: ChannelId, opts: { cooperative?: boolean } = {}): Promise<void> {
+  async close(
+    channelId: ChannelId,
+    opts: { cooperative?: boolean } = {},
+  ): Promise<{ kind: 'cooperative' | 'unilateral'; txHash: Hex; blockNumber: bigint }> {
     const channel = await this.opts.storage.loadChannel(channelId);
     if (!channel) throw new Error(`unknown channel ${channelId}`);
     const signed = await this.opts.storage.loadLatestState(channelId);
@@ -901,19 +913,23 @@ export class ChannelClient {
             { allowPartialSigs: true, requireSignerAddresses: [counterpartyClose] },
           );
           await this.opts.storage.saveState(channelId, reply.signedCloseState);
-          await this.opts.chain.closeCooperative({
+          const coopResult = await this.opts.chain.closeCooperative({
             channelId,
             signedClose: reply.signedCooperativeClose,
           });
           await this.markClosed(channel);
-          return;
+          return {
+            kind: 'cooperative',
+            txHash: coopResult.txHash,
+            blockNumber: coopResult.blockNumber,
+          };
         }
       } catch (err) {
         this.emitter.emit('error', { error: err as Error, context: 'closeRequest fallback' });
       }
     }
 
-    await this.opts.chain.closeUnilateral({
+    const uniResult = await this.opts.chain.closeUnilateral({
       channelId,
       state: signed,
       mySide: iAmA ? 'A' : 'B',
@@ -926,6 +942,7 @@ export class ChannelClient {
         this.emitter.emit('error', { error: err as Error, context: 'waitForFinalized' });
       });
     this.emitter.emit('channel:closed', { channelId });
+    return { kind: 'unilateral', txHash: uniResult.txHash, blockNumber: uniResult.blockNumber };
   }
 
   /**
@@ -936,7 +953,7 @@ export class ChannelClient {
    */
   async closeUnilateralFromOpen(
     channelId: ChannelId,
-  ): Promise<{ disputeDeadlineMs: bigint; txHash: Hash }> {
+  ): Promise<{ disputeDeadlineMs: bigint; txHash: Hash; blockNumber: bigint }> {
     const channel = await this.opts.storage.loadChannel(channelId);
     if (!channel) throw new Error(`unknown channel ${channelId}`);
     const result = await this.opts.chain.closeUnilateralFromOpen({ channelId });
@@ -948,7 +965,11 @@ export class ChannelClient {
         this.emitter.emit('error', { error: err as Error, context: 'waitForFinalized' });
       });
     this.emitter.emit('channel:closed', { channelId });
-    return { disputeDeadlineMs: result.disputeDeadlineMs, txHash: result.txHash };
+    return {
+      disputeDeadlineMs: result.disputeDeadlineMs,
+      txHash: result.txHash,
+      blockNumber: result.blockNumber,
+    };
   }
 
   /**

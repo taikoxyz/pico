@@ -85,6 +85,7 @@ export class MockChainAdapter implements ChainAdapter {
       amountB: args.amountB,
       openedAtMs,
       txHash: fakeHash(`open-tx|${id}`),
+      blockNumber: BigInt(this.nonce),
     };
   }
 
@@ -97,7 +98,7 @@ export class MockChainAdapter implements ChainAdapter {
     ch.status = 'closed';
     const txHash = fakeHash(`close-coop|${args.channelId}`);
     this.emitFinalized(args.channelId, ch.postedBalanceA, ch.postedBalanceB, txHash);
-    return { txHash };
+    return { txHash, blockNumber: BigInt(this.nonce) };
   }
 
   async closeUnilateral(args: CloseUnilateralOnChainArgs): Promise<CloseUnilateralOnChainResult> {
@@ -111,6 +112,7 @@ export class MockChainAdapter implements ChainAdapter {
       txHash: fakeHash(`close-uni|${args.channelId}`),
       disputeDeadlineMs: BigInt(Date.now() + this.opts.disputeWindowMs),
       postedVersion: args.state.state.version,
+      blockNumber: BigInt(this.nonce),
     };
   }
 
@@ -130,6 +132,7 @@ export class MockChainAdapter implements ChainAdapter {
       txHash: fakeHash(`close-uni-open|${args.channelId}`),
       disputeDeadlineMs: BigInt(Date.now() + this.opts.disputeWindowMs),
       postedVersion: 0n,
+      blockNumber: BigInt(this.nonce),
     };
   }
 

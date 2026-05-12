@@ -1,6 +1,10 @@
+import { recoverAddress } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type AddressInfo, WebSocketServer } from 'ws';
+import { envelopeDigest, looksLikeSignedEnvelope } from './envelope.js';
 import { encodeHubMessage } from './hub-protocol.js';
+import { localSigner } from './local-signer.js';
 import { WebSocketTransport } from './transport.js';
 
 interface Harness {
@@ -177,5 +181,64 @@ describe('WebSocketTransport', () => {
     );
     await new Promise((r) => setTimeout(r, 50));
     expect(seen.sort()).toEqual([1, 2]);
+  });
+
+  it('wraps outgoing messages in a signed envelope when a signer is provided', async () => {
+    const SK = '0x0000000000000000000000000000000000000000000000000000000000000a11' as const;
+    const expectedAddr = privateKeyToAccount(SK).address.toLowerCase();
+    let wireSeen: string | undefined;
+    harness = await startEcho({
+      onMessage: (raw) => {
+        wireSeen = raw;
+        return undefined;
+      },
+    });
+    transport = new WebSocketTransport({
+      url: harness.url,
+      autoReconnect: false,
+      signer: localSigner(SK),
+    });
+    await transport.connect();
+    await transport.send({
+      id: 'subscribe-1',
+      kind: 'subscribe',
+      address: privateKeyToAccount(SK).address,
+      channelIds: [],
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(wireSeen).toBeDefined();
+    const parsed = JSON.parse(wireSeen as string);
+    expect(looksLikeSignedEnvelope(parsed)).toBe(true);
+    // The signer recoverable from the envelope must match our signer's address.
+    const digest = envelopeDigest({ nonce: parsed.nonce, ts: parsed.ts, payload: parsed.payload });
+    const recovered = (await recoverAddress({ hash: digest, signature: parsed.sig })).toLowerCase();
+    expect(recovered).toBe(expectedAddr);
+    // The wrapped payload still decodes to the original subscribe message.
+    const inner = JSON.parse(parsed.payload);
+    expect(inner.kind).toBe('subscribe');
+    expect(inner.id).toBe('subscribe-1');
+  });
+
+  it('sends raw (unwrapped) messages when no signer is provided', async () => {
+    let wireSeen: string | undefined;
+    harness = await startEcho({
+      onMessage: (raw) => {
+        wireSeen = raw;
+        return undefined;
+      },
+    });
+    transport = new WebSocketTransport({ url: harness.url, autoReconnect: false });
+    await transport.connect();
+    await transport.send({
+      id: 'unwrapped-1',
+      kind: 'subscribe',
+      address: '0x0000000000000000000000000000000000000099',
+      channelIds: [],
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(wireSeen).toBeDefined();
+    const parsed = JSON.parse(wireSeen as string);
+    expect(looksLikeSignedEnvelope(parsed)).toBe(false);
+    expect(parsed.kind).toBe('subscribe');
   });
 });

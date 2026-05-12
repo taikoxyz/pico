@@ -40,6 +40,7 @@ export interface OpenChannelOnChainResult {
   readonly amountB: bigint;
   readonly openedAtMs: bigint;
   readonly txHash: Hash;
+  readonly blockNumber: bigint;
 }
 
 export interface CloseCooperativeOnChainArgs {
@@ -55,12 +56,14 @@ export interface CloseUnilateralOnChainArgs {
 
 export interface CloseOnChainResult {
   readonly txHash: Hash;
+  readonly blockNumber: bigint;
 }
 
 export interface CloseUnilateralOnChainResult {
   readonly txHash: Hash;
   readonly disputeDeadlineMs: bigint;
   readonly postedVersion: bigint;
+  readonly blockNumber: bigint;
 }
 
 export interface FinalizedResult {
@@ -286,6 +289,7 @@ export class ViemChainAdapter implements ChainAdapter {
       amountB: ev.args.amountB,
       openedAtMs: block.timestamp * 1000n,
       txHash,
+      blockNumber: receipt.blockNumber,
     };
   }
 
@@ -308,8 +312,8 @@ export class ViemChainAdapter implements ChainAdapter {
       account,
       chain,
     });
-    await publicClient.waitForTransactionReceipt({ hash: txHash });
-    return { txHash };
+    const closeReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    return { txHash, blockNumber: closeReceipt.blockNumber };
   }
 
   async closeUnilateral(args: CloseUnilateralOnChainArgs): Promise<CloseUnilateralOnChainResult> {
@@ -342,6 +346,7 @@ export class ViemChainAdapter implements ChainAdapter {
       txHash,
       disputeDeadlineMs: ev.args.disputeDeadline * 1000n,
       postedVersion: ev.args.postedVersion,
+      blockNumber: receipt.blockNumber,
     };
   }
 
@@ -374,6 +379,7 @@ export class ViemChainAdapter implements ChainAdapter {
       txHash,
       disputeDeadlineMs: ev.args.disputeDeadline * 1000n,
       postedVersion: ev.args.postedVersion,
+      blockNumber: receipt.blockNumber,
     };
   }
 

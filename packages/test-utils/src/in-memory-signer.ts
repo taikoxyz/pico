@@ -65,4 +65,8 @@ export class InMemorySigner implements Signer {
     const fullInvoice: Invoice = { ...invoice, signature: '0x' };
     return this.account.signTypedData(buildInvoiceTypedData(fullInvoice, chainId));
   }
+
+  signEnvelope(digest: Hex): Promise<Hex> {
+    return this.account.sign({ hash: digest });
+  }
 }
