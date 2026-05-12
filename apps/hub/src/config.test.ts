@@ -121,7 +121,17 @@ describe('loadConfig', () => {
     expect(cfg.requireSignedEnvelope).toBe(true);
   });
 
-  it('rejects zero-address contract on non-anvil unless override is set', () => {
+  it('rejects non-anvil chain (hoodi) without operator token', () => {
+    expect(() =>
+      loadConfig({
+        CHAIN_ID: '167009',
+        HUB_PRIVATE_KEY: '0x5555555555555555555555555555555555555555555555555555555555555555',
+        HUB_REQUIRE_SIGNED_ENVELOPE: 'true',
+      }),
+    ).toThrow(/HUB_OPERATOR_TOKEN/);
+  });
+
+  it('rejects zero-address contract on non-anvil chain (hoodi) unless override is set', () => {
     expect(() =>
       loadConfig({
         CHAIN_ID: '167009',
