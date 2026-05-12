@@ -22,7 +22,7 @@ import { SqliteWatchtowerStore, type WatchtowerStore } from './storage.js';
 import { ChainEventWatcher, type WatcherEvent } from './watcher.js';
 
 const channelsViewAbi = parseAbi([
-  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
+  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer, bytes32 postedHtlcsRoot, uint256 htlcsTotalLocked, uint16 htlcsCount, uint64 htlcResolutionDeadline, uint256 pendingPayoutA, uint256 pendingPayoutB)',
 ]);
 
 const adjudicatorViewAbi = parseAbi(['function adjudicator() view returns (address)']);
@@ -158,6 +158,13 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
     boolean,
     number,
     Address,
+    // v2 fields:
+    `0x${string}`, // postedHtlcsRoot
+    bigint, // htlcsTotalLocked
+    number, // htlcsCount (uint16)
+    bigint, // htlcResolutionDeadline
+    bigint, // pendingPayoutA
+    bigint, // pendingPayoutB
   ];
 
   async function readChannelRow(channelId: ChannelId): Promise<ChannelRow> {

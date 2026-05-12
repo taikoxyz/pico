@@ -28,7 +28,9 @@ import {
 const ONE_USDC = 1_000_000n;
 const STATUS_OPEN = 1;
 const STATUS_CLOSING_UNILATERAL = 2;
-const STATUS_CLOSED = 3;
+// v2 inserted ResolvingHtlcs = 3; Closed shifted to 4.
+const STATUS_RESOLVING_HTLCS = 3;
+const STATUS_CLOSED = 4;
 
 // Hub admission policy default; matches DEFAULT_TOPUP_POLICY.defaultOfferAmount
 // in apps/hub/src/topup-policy.ts.
@@ -44,7 +46,7 @@ const FAST_POLL_ENV = {
 } as const;
 
 const paymentChannelStatusAbi = parseAbi([
-  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
+  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer, bytes32 postedHtlcsRoot, uint256 htlcsTotalLocked, uint16 htlcsCount, uint64 htlcResolutionDeadline, uint256 pendingPayoutA, uint256 pendingPayoutB)',
 ]);
 
 const paymentChannelCloseAbi = parseAbi([

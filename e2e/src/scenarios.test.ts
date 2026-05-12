@@ -18,7 +18,7 @@ import {
 } from './harness.js';
 
 const paymentChannelStatusAbi = parseAbi([
-  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer)',
+  'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer, bytes32 postedHtlcsRoot, uint256 htlcsTotalLocked, uint16 htlcsCount, uint64 htlcResolutionDeadline, uint256 pendingPayoutA, uint256 pendingPayoutB)',
 ]);
 
 const paymentChannelAttackAbi = parseAbi([
@@ -29,7 +29,11 @@ const paymentChannelAttackAbi = parseAbi([
 const ONE_USDC = 1_000_000n;
 const STATUS_OPEN = 1;
 const STATUS_CLOSING_UNILATERAL = 2;
-const STATUS_CLOSED = 3;
+// v2 inserted ResolvingHtlcs = 3 between ClosingUnilateral and Closed; the
+// `STATUS_RESOLVING_HTLCS` constant is exported for future tests that exercise
+// the post-dispute-window HTLC settlement phase.
+const STATUS_RESOLVING_HTLCS = 3;
+const STATUS_CLOSED = 4;
 
 async function readUsdcBalance(h: E2EHandle, addr: `0x${string}`): Promise<bigint> {
   return h.publicClient.readContract({
