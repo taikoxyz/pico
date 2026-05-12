@@ -41,6 +41,8 @@ describe('encodeChannelStateForOnChain', () => {
       balanceA: baseState.balanceA,
       balanceB: baseState.balanceB,
       htlcsRoot: EMPTY_HTLCS_ROOT,
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
       finalized: baseState.finalized,
     });
   });

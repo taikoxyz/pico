@@ -26,6 +26,8 @@ interface RawChannelState {
   balanceA: string;
   balanceB: string;
   htlcs: RawHtlc[];
+  htlcsCount: number;
+  htlcsTotalLocked: string;
   finalized: boolean;
 }
 interface RawUpdate {
@@ -68,6 +70,8 @@ function reviveChannelState(raw: RawChannelState): ChannelState {
     balanceA: BigInt(raw.balanceA),
     balanceB: BigInt(raw.balanceB),
     htlcs: raw.htlcs.map(reviveHtlc),
+    htlcsCount: raw.htlcsCount,
+    htlcsTotalLocked: BigInt(raw.htlcsTotalLocked),
     finalized: raw.finalized,
   };
 }

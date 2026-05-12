@@ -70,12 +70,16 @@ function buildState(
   balanceB: bigint,
   htlcs: readonly Htlc[] = [],
 ): ChannelState {
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     channelId,
     version,
     balanceA,
     balanceB,
     htlcs,
+    htlcsCount: htlcs.length,
+    htlcsTotalLocked,
     finalized: false,
   };
 }

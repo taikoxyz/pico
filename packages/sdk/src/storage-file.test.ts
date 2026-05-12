@@ -46,6 +46,8 @@ const signedState: SignedState = {
         expiryMs: 1_800_000_000_000n,
       },
     ],
+    htlcsCount: 1,
+    htlcsTotalLocked: 100n,
     finalized: false,
   },
   sigA: sig,

@@ -375,7 +375,7 @@ describe('watchtower recovery', () => {
     expect(handle.detector.getLatest(CHANNEL_ID)?.state.version).toBe(5n);
   });
 
-  it('WTW-005: remember() rejects state with non-empty htlcs', async () => {
+  it('WTW-005 (v2): remember() accepts state with non-empty htlcs as long as conservation holds', async () => {
     handle = await startWatchtower({
       rpcUrl: 'http://127.0.0.1:1',
       privateKey: FAKE_PRIVATE_KEY,
@@ -384,6 +384,9 @@ describe('watchtower recovery', () => {
       publicClient: mockPublicClientForChannel(),
       startHttp: false,
     });
+    // In v2 the contract accepts non-empty htlcs at dispute time, so the
+    // watchtower must persist them too. Conservation invariant:
+    // balanceA + balanceB + htlcsTotalLocked == totalFunding (= 300 here).
     const withHtlc = await buildSignedState(2n, {
       htlcs: [
         {
@@ -394,10 +397,12 @@ describe('watchtower recovery', () => {
           expiryMs: 99_999_999_999_999n,
         },
       ],
+      htlcsCount: 1,
+      htlcsTotalLocked: 50n,
       balanceA: 50n,
       balanceB: 200n,
     });
-    await expect(handle.remember(withHtlc)).rejects.toThrow(/non-empty HTLCs/);
+    await expect(handle.remember(withHtlc)).resolves.toBeUndefined();
   });
 
   it('WTW-005: remember() rejects state where balanceA + balanceB != totalFunding', async () => {

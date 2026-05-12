@@ -284,6 +284,7 @@ describe('buildServer integration', () => {
           open: 0,
           'closing-cooperative': 0,
           'closing-unilateral': 0,
+          'resolving-htlcs': 0,
           disputed: 0,
           closed: 0,
         },

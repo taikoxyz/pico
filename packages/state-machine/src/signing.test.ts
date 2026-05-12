@@ -48,12 +48,16 @@ function makeHtlc(idSuffix: string, amount: bigint, direction: 'AtoB' | 'BtoA' =
 }
 
 function makeState(version: bigint, htlcs: readonly Htlc[] = []): ChannelState {
+  let htlcsTotalLocked = 0n;
+  for (const h of htlcs) htlcsTotalLocked += h.amount;
   return {
     channelId,
     version,
     balanceA: 1_000_000n,
     balanceB: 2_000_000n,
     htlcs,
+    htlcsCount: htlcs.length,
+    htlcsTotalLocked,
     finalized: false,
   };
 }
