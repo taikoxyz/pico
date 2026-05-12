@@ -169,6 +169,41 @@ describe('PaymentRepo', () => {
     });
   });
 
+  describe('recent', () => {
+    const A = '0xchA' as ChannelId;
+    const B = '0xchB' as ChannelId;
+
+    it('returns the newest N rows across all channels, newest first', async () => {
+      for (let i = 0; i < 150; i++) {
+        await seed(h, {
+          id: `p${i.toString().padStart(3, '0')}`,
+          incoming: i % 2 === 0 ? A : B,
+          outgoing: i % 2 === 0 ? B : A,
+          createdAt: 1_000 + i,
+        });
+      }
+      const got = await h.repos.payments.recent(100);
+      expect(got).toHaveLength(100);
+      expect(got[0]?.id).toBe('p149');
+      expect(got[99]?.id).toBe('p050');
+    });
+
+    it('includes in-flight, settled, and failed rows', async () => {
+      await seed(h, { id: 'a', incoming: A, status: 'in_flight', createdAt: 3 });
+      await seed(h, { id: 'b', incoming: A, status: 'failed', createdAt: 2 });
+      await seed(h, { id: 'c', incoming: A, status: 'settled', createdAt: 1 });
+      const got = await h.repos.payments.recent(100);
+      expect(got.map((p) => p.id)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('returns [] for non-positive or non-finite limits', async () => {
+      await seed(h, { id: 'p1', incoming: A });
+      expect(await h.repos.payments.recent(0)).toEqual([]);
+      expect(await h.repos.payments.recent(-1)).toEqual([]);
+      expect(await h.repos.payments.recent(Number.NaN)).toEqual([]);
+    });
+  });
+
   it('counts payments by status', async () => {
     await h.repos.payments.create({
       id: 'p3',
