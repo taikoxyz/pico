@@ -300,7 +300,7 @@
         </tr>
         <tr>
           <td>Fee (on $1)</td>
-          <td class="pico-col">~$0.001</td>
+          <td class="pico-col">~$0.0002</td>
           <td>Flat + ppm + imbalance</td>
           <td>&lt;$0.002 target</td>
           <td>Not documented</td>
@@ -390,7 +390,7 @@
   <p>Pico's payment latency — one round-trip off-chain, sub-second — is a clear structural advantage over every on-ledger system. There is no mining, no block confirmation, no routing graph traversal. Lightning is comparable in the happy path (sub-second within an open channel) but adds routing retries under congestion and CLTV timeout overhead for multi-hop paths. XRP Ledger's 3–5 second on-ledger finality is too slow for streaming API metering loops. Visa authorization takes seconds but clearing takes 1–3 days; authorization is not final settlement.</p>
 
   <h3>Fees</h3>
-  <p>Pico charges <code>0.10% + 1 µUSDC</code> per payment. The table below makes the economics concrete at three payment sizes:</p>
+  <p>Pico charges <code>0.02% + 1 µUSDC</code> per payment. The table below makes the economics concrete at three payment sizes:</p>
 
   <div class="table-wrap">
     <table>
@@ -398,7 +398,7 @@
         <tr><th>System</th><th>Fee on $0.01</th><th>Fee on $1.00</th><th>Fee on $100</th></tr>
       </thead>
       <tbody>
-        <tr><td class="pico-col">pico</td><td>~$0.00001</td><td>~$0.001</td><td>~$0.10</td></tr>
+        <tr><td class="pico-col">pico</td><td>~$0.000002</td><td>~$0.0002</td><td>~$0.02</td></tr>
         <tr><td>Lightning (median)</td><td>~$0.000001</td><td>~$0.0001</td><td>~$0.01</td></tr>
         <tr><td>Visa (online)</td><td>Not viable</td><td>~$0.025 + $0.10 fixed</td><td>~$2.60</td></tr>
         <tr><td>XRP Ledger</td><td>&lt;$0.0001</td><td>&lt;$0.0001</td><td>&lt;$0.0001</td></tr>
@@ -611,7 +611,7 @@
     <li><strong>AI-agent-first design.</strong> No other system ships a purpose-built headless CLI for agent payments with <code>--json</code> output. This is a real moat in v1's target market.</li>
     <li><strong>USDC-native, no protocol token.</strong> Stable denomination eliminates the BTC volatility tax on Lightning. No token to manage, stake, or speculate on — removes an entire category of user friction and governance attack surface.</li>
     <li><strong>Simplest viable topology.</strong> 1-hop eliminates routing failures. Lightning's &lt;1% routing success rate on payments above $200 is a direct consequence of multi-hop complexity. Pico trades routing flexibility for deterministic delivery.</li>
-    <li><strong>Fee efficiency for USDC.</strong> 0.10% beats Visa (2–3%) and Connext (&lt;0.20%), and is competitive with Lightning (0–0.1%) while offering stablecoin settlement.</li>
+    <li><strong>Fee efficiency for USDC.</strong> 0.02% beats Visa (2–3%) and Connext (&lt;0.20%), and is competitive with Lightning (0–0.1%) while offering stablecoin settlement.</li>
     <li><strong>No governance, no bridges.</strong> Eliminates entire classes of attack surface (governance attacks, bridge exploits). The system cannot be upgraded without owner key action; there are no token holders to vote.</li>
     <li><strong>Capital recycling.</strong> Hub auto-recycle (§8.8) allows one pool of USDC to serve multiple sequential channels without idle periods. No equivalent is documented for Raiden or Connext.</li>
   </ol>
