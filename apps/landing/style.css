@@ -461,10 +461,23 @@ section {
   padding: 100px 0;
 }
 
+.token-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
 .usdc-card {
   background: var(--ink-850);
   border: 1px solid var(--ink-700);
   padding: 28px;
+}
+
+.field-note {
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  color: var(--ink-500);
+  margin-left: 8px;
 }
 
 .usdc-card .field {
@@ -811,6 +824,9 @@ section {
     grid-template-columns: 1fr;
   }
   .usdc-meta {
+    grid-template-columns: 1fr;
+  }
+  .token-grid {
     grid-template-columns: 1fr;
   }
   .hub-grid {
