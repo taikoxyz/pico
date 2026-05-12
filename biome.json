@@ -61,7 +61,8 @@
         "**/vite.config.ts",
         "**/tailwind.config.ts",
         "**/postcss.config.js",
-        "**/postcss.config.cjs"
+        "**/postcss.config.cjs",
+        "**/tsup.config.ts"
       ],
       "linter": {
         "rules": {

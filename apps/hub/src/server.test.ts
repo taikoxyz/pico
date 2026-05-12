@@ -228,6 +228,53 @@ describe('buildServer integration', () => {
     expect(r.status).toBe(501);
   });
 
+  it('GET /v1/payments/recent returns the newest 100 rows across all channels', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const chA = makeChannel(bytes32('f1'), alice, hub);
+    const chB = makeChannel(bytes32('f2'), alice, hub);
+    await built.api.ws.registerChannel(chA, await buildAliceState(chA, 100n, 0n));
+    await built.api.ws.registerChannel(chB, await buildAliceState(chB, 100n, 0n));
+
+    for (let i = 0; i < 120; i++) {
+      const ch = i % 2 === 0 ? chA : chB;
+      await built.repos.payments.create({
+        id: `pay-${i.toString().padStart(3, '0')}`,
+        paymentHash: bytes32(`d${i.toString(16)}`) as PaymentHash,
+        incomingChannelId: ch.id,
+        outgoingChannelId: ch.id,
+        recipient: alice,
+        amount: BigInt(i + 1),
+        fee: 1n,
+        status: 'settled',
+      });
+      // Force a deterministic created_at so ordering is well-defined.
+      await built.db.driver.exec('UPDATE payments SET created_at = ? WHERE id = ?', [
+        String(1_000 + i),
+        `pay-${i.toString().padStart(3, '0')}`,
+      ]);
+    }
+
+    const r = await fetch(`${baseUrl}/v1/payments/recent`);
+    const json = (await r.json()) as {
+      payments: { id: string; amount: string; fee: string; status: string }[];
+    };
+    expect(r.status).toBe(200);
+    expect(json.payments).toHaveLength(100);
+    expect(json.payments[0]?.id).toBe('pay-119');
+    expect(json.payments[99]?.id).toBe('pay-020');
+    expect(json.payments[0]?.amount).toBe('120');
+    expect(typeof json.payments[0]?.amount).toBe('string');
+    expect(typeof json.payments[0]?.fee).toBe('string');
+  });
+
+  it('GET /v1/payments/recent returns an empty list when no payments exist', async () => {
+    const r = await fetch(`${baseUrl}/v1/payments/recent`);
+    const json = (await r.json()) as { payments: unknown[] };
+    expect(r.status).toBe(200);
+    expect(json.payments).toEqual([]);
+  });
+
   it('GET /v1/stats reports channel breakdown and lifetime counters', async () => {
     const alice = privateKeyToAccount(ALICE_PK).address;
     const hub = privateKeyToAccount(HUB_PK).address;
@@ -594,6 +641,20 @@ describe('buildServer operator-token gate', () => {
     });
     expect(r.status).toBe(401);
     expect(built.channelPool.get(ch.id)).toBeUndefined();
+  });
+
+  it('rejects GET /v1/payments/recent without a bearer token', async () => {
+    const r = await fetch(`${baseUrl}/v1/payments/recent`);
+    expect(r.status).toBe(401);
+  });
+
+  it('accepts GET /v1/payments/recent with a valid bearer token', async () => {
+    const r = await fetch(`${baseUrl}/v1/payments/recent`, {
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(r.status).toBe(200);
+    const json = (await r.json()) as { payments: unknown[] };
+    expect(Array.isArray(json.payments)).toBe(true);
   });
 
   it('accepts POST /v1/channels/open with a valid bearer token', async () => {

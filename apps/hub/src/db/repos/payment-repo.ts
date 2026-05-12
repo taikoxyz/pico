@@ -138,6 +138,23 @@ export class PaymentRepo {
     return rows.map(rowToPayment);
   }
 
+  // Returns the most recent `limit` payments across all channels, newest first.
+  // created_at is stored as a stringified ms timestamp; CAST keeps ordering
+  // numeric (consistent with prunePerChannel) and id DESC breaks ties. The
+  // expression matches idx_payments_recent (migration 006) so the planner can
+  // serve the LIMIT directly from the index without a sort.
+  async recent(limit: number): Promise<readonly PaymentRecord[]> {
+    if (!Number.isFinite(limit) || limit <= 0) return [];
+    const n = Math.floor(limit);
+    const rows = await this.db.query<PaymentRow>(
+      `SELECT * FROM payments
+       ORDER BY CAST(created_at AS BIGINT) DESC, id DESC
+       LIMIT ?`,
+      [n],
+    );
+    return rows.map(rowToPayment);
+  }
+
   async countByStatus(): Promise<Record<PaymentStatus, number>> {
     const rows = await this.db.query<{ status: PaymentStatus; n: number }>(
       'SELECT status, COUNT(*) as n FROM payments GROUP BY status',

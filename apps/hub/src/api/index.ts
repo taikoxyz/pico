@@ -168,6 +168,37 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     };
   });
 
+  // Operator-only: lists the last 100 payments across all channels, newest
+  // first. Gated like /v1/channels because rows reveal per-channel and
+  // per-recipient activity. bigint fields are serialized as decimal strings.
+  app.get('/v1/payments/recent', async (req, reply) => {
+    if (!isOperator(req.headers.authorization)) {
+      void reply.code(401);
+      return { error: 'unauthorized' };
+    }
+    const rows = await deps.repos.payments.recent(100);
+    return {
+      payments: rows.map((p) => ({
+        id: p.id,
+        paymentHash: p.paymentHash,
+        ...(p.incomingChannelId !== undefined ? { incomingChannelId: p.incomingChannelId } : {}),
+        ...(p.outgoingChannelId !== undefined ? { outgoingChannelId: p.outgoingChannelId } : {}),
+        ...(p.incomingHtlcId !== undefined ? { incomingHtlcId: p.incomingHtlcId } : {}),
+        ...(p.outgoingHtlcId !== undefined ? { outgoingHtlcId: p.outgoingHtlcId } : {}),
+        recipient: p.recipient,
+        amount: p.amount.toString(),
+        fee: p.fee.toString(),
+        status: p.status,
+        ...(p.preimage !== undefined ? { preimage: p.preimage } : {}),
+        ...(p.reason !== undefined ? { reason: p.reason } : {}),
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        ...(p.settledAt !== undefined ? { settledAt: p.settledAt } : {}),
+        ...(p.failedAt !== undefined ? { failedAt: p.failedAt } : {}),
+      })),
+    };
+  });
+
   // Public hub identity. Clients use this to learn the hub's signing
   // address (which appears as one party on every channel) and the on-chain
   // contract addresses they should validate against before opening a
