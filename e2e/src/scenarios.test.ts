@@ -431,12 +431,13 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
         chain: foundry,
         transport: http(h.rpcUrl),
       });
-      await hubAttackerWallet.writeContract({
+      const closeHash = await hubAttackerWallet.writeContract({
         address: h.paymentChannel,
         abi: paymentChannelAttackAbi,
         functionName: 'closeUnilateral',
         args: [channel.id, encodeChannelStateForOnChain(stale.state), signatureToHex(stale.sigA)],
       });
+      await h.publicClient.waitForTransactionReceipt({ hash: closeHash });
       expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSING_UNILATERAL);
 
       let posted = 0n;

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pico — Competitive Evaluation</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2d3044;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-dim: #3730a3;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --blue: #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 2rem;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    header h1 span { color: var(--accent); }
+
+    header p {
+      color: var(--muted);
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #fff;
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin: 1.5rem 0 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+    }
+
+    p { margin-bottom: 0.9rem; color: var(--text); }
+
+    ul, ol { padding-left: 1.4rem; margin-bottom: 0.9rem; }
+    li { margin-bottom: 0.3rem; }
+
+    strong { color: #fff; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 1.2rem 0 1.8rem; border-radius: 8px; border: 1px solid var(--border); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      min-width: 600px;
+    }
+
+    thead tr { background: var(--surface); }
+
+    th {
+      text-align: left;
+      padding: 0.7rem 1rem;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    td:first-child { color: var(--muted); font-weight: 500; font-size: 0.82rem; white-space: nowrap; }
+
+    .pico-col { color: #fff !important; font-weight: 700 !important; }
+
+    /* Verdict badges */
+    .check { color: var(--green); font-weight: 700; }
+    .cross { color: var(--red); font-weight: 700; }
+    .partial { color: var(--yellow); font-weight: 700; }
+
+    /* Cards */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+      margin: 1.2rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+    }
+
+    .card h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.6rem;
+    }
+
+    .card p { font-size: 0.88rem; color: var(--muted); margin: 0; }
+
+    /* Verdict section */
+    .verdict-box {
+      background: var(--surface);
+      border: 1px solid var(--accent-dim);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 1.4rem 1.6rem;
+      margin: 1.5rem 0;
+    }
+
+    .verdict-box h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.7rem;
+    }
+
+    .verdict-box p { font-size: 0.92rem; color: var(--text); margin-bottom: 0.5rem; }
+    .verdict-box p:last-child { margin: 0; }
+
+    /* Strength / weakness lists */
+    .strength-list li::marker { color: var(--green); }
+    .weakness-list li::marker { color: var(--red); }
+
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: rgba(99,102,241,0.12);
+      color: #a5b4fc;
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+      font-size: 0.85em;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15em 0.5em;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tag-live { background: rgba(34,197,94,0.15); color: var(--green); }
+    .tag-research { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .tag-pre-ga { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+    .tag-dead { background: rgba(239,68,68,0.1); color: var(--red); }
+
+    .section-intro {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-bottom: 1rem;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1><span>pico</span> — Competitive Evaluation</h1>
+    <p>1-hop state channels on Taiko L2 vs. EVM state channels · Bitcoin Lightning · Visa/Mastercard · Ripple/XRP &nbsp;·&nbsp; May 2026</p>
+  </header>
+
+  <!-- QUICK REFERENCE TABLE -->
+  <h2>Quick Reference</h2>
+  <p class="section-intro">Side-by-side snapshot across all seven systems on the dimensions that matter for micropayment rails.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th class="pico-col">pico</th>
+          <th>Raiden</th>
+          <th>Connext</th>
+          <th>Perun</th>
+          <th>Lightning</th>
+          <th>Visa / MC</th>
+          <th>Ripple / XRP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Architecture</td>
+          <td class="pico-col">1-hop hub, state channels</td>
+          <td>Multi-hop, state channels</td>
+          <td>Intent-based bridging (ex-channels)</td>
+          <td>Virtual channels</td>
+          <td>Multi-hop, state channels</td>
+          <td>Centralised rails</td>
+          <td>Federated ledger + ODL</td>
+        </tr>
+        <tr>
+          <td>Settlement layer</td>
+          <td class="pico-col">Taiko L2</td>
+          <td>Ethereum L1</td>
+          <td>Multi-chain</td>
+          <td>Ethereum + others</td>
+          <td>Bitcoin L1</td>
+          <td>ACH / card backbone</td>
+          <td>XRP Ledger</td>
+        </tr>
+        <tr>
+          <td>Assets</td>
+          <td class="pico-col">USDC only</td>
+          <td>ERC-20 (any)</td>
+          <td>Multi-asset</td>
+          <td>ERC-20</td>
+          <td>BTC (+ stablecoin plugins)</td>
+          <td>Fiat only</td>
+          <td>XRP / issued tokens</td>
+        </tr>
+        <tr>
+          <td>Native token</td>
+          <td class="pico-col">None</td>
+          <td>RDN (governance)</td>
+          <td>NEXT</td>
+          <td>None</td>
+          <td>None</td>
+          <td>None</td>
+          <td>XRP</td>
+        </tr>
+        <tr>
+          <td>TPS (off-chain)</td>
+          <td class="pico-col">Hub-limited; undocumented</td>
+          <td>300–500 simulated (not live)</td>
+          <td>N/A (bridge, ~60 s latency)</td>
+          <td>Academic only</td>
+          <td>Unlimited in-channel; ~8 M tx/month on-net</td>
+          <td>1,700 avg · 65,000+ peak (Visa)</td>
+          <td>1,500 sustained · 65,000+ theoretical</td>
+        </tr>
+        <tr>
+          <td>Payment latency</td>
+          <td class="pico-col">~1 round-trip (sub-second)</td>
+          <td>&lt;1 s</td>
+          <td>&lt;60 s cross-chain</td>
+          <td>Sub-second (theory)</td>
+          <td>Sub-second to ms</td>
+          <td>Seconds (auth); T+1 clear</td>
+          <td>3–5 s on-ledger</td>
+        </tr>
+        <tr>
+          <td>Fee (on $1)</td>
+          <td class="pico-col">~$0.0002</td>
+          <td>Flat + ppm + imbalance</td>
+          <td>&lt;$0.002 target</td>
+          <td>Not documented</td>
+          <td>~$0.0001</td>
+          <td>~$0.025 + $0.10 min</td>
+          <td>&lt;$0.0001</td>
+        </tr>
+        <tr>
+          <td>Dispute / exit</td>
+          <td class="pico-col">24-hour window</td>
+          <td>Variable</td>
+          <td>N/A</td>
+          <td>Not documented</td>
+          <td>CLTV delta 14–144 blocks</td>
+          <td>Chargeback 120 days</td>
+          <td>Finality in 3–5 s</td>
+        </tr>
+        <tr>
+          <td>Trust model</td>
+          <td class="pico-col">Semi-trusted hub</td>
+          <td>Semi-trusted mediator</td>
+          <td>Trusted routers</td>
+          <td>Semi-trusted</td>
+          <td>Semi-trusted routing nodes</td>
+          <td>Fully centralised</td>
+          <td>Federated validators</td>
+        </tr>
+        <tr>
+          <td>Privacy</td>
+          <td class="pico-col">None</td>
+          <td>None</td>
+          <td>None</td>
+          <td>None</td>
+          <td>Onion routing (weak in practice)</td>
+          <td>Full KYC</td>
+          <td>Pseudonymous</td>
+        </tr>
+        <tr>
+          <td>Reversibility</td>
+          <td class="pico-col">No</td>
+          <td>No</td>
+          <td>No</td>
+          <td>No</td>
+          <td>No (once settled)</td>
+          <td>Yes — chargebacks 120 days</td>
+          <td>No (XRP) / Yes (issued tokens)</td>
+        </tr>
+        <tr>
+          <td>Status</td>
+          <td class="pico-col"><span class="tag tag-pre-ga">Pre-GA</span></td>
+          <td><span class="tag tag-live">Live</span> (minimal adoption)</td>
+          <td><span class="tag tag-live">Live</span> $71.9 M TVL</td>
+          <td><span class="tag tag-research">Research</span></td>
+          <td><span class="tag tag-live">Live</span> $280 M+ capacity</td>
+          <td><span class="tag tag-live">Live</span> global scale</td>
+          <td><span class="tag tag-live">Live</span> $15 B+/mo volume</td>
+        </tr>
+        <tr>
+          <td>AI-agent fit</td>
+          <td class="pico-col">Primary design target</td>
+          <td>Incidental</td>
+          <td>Poor (bridge latency)</td>
+          <td>Not applicable</td>
+          <td>Possible (BTC only)</td>
+          <td>None</td>
+          <td>Minimal</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+
+  <!-- SECTION 1 -->
+  <h2>1 · Throughput, Latency, and Fees</h2>
+
+  <h3>Throughput</h3>
+  <p>Pico's throughput is bounded by hub capacity and the number of concurrent open channels, not by any protocol limit. Off-chain state updates require only one round-trip between client and hub, so individual channel throughput is CPU- and network-limited in practice. No TPS figure is published. For context:</p>
+  <ul>
+    <li><strong>Lightning</strong> processes ~8 million transactions per month network-wide (early 2025); each channel is independent, no shared bottleneck.</li>
+    <li><strong>Visa/Mastercard</strong> handles 1,700 avg / 65,000+ peak TPS on a centralised shared ledger — not meaningfully comparable to channel throughput.</li>
+    <li><strong>XRP Ledger</strong> sustains ~1,500 on-ledger TPS, theoretical ceiling 65,000+.</li>
+    <li><strong>Raiden</strong> produced 300–500 TPS in simulated lab conditions; no live network numbers exist.</li>
+    <li><strong>Connext</strong> moved away from state channels and is now an intent-based cross-chain bridge targeting &lt;60 s latency — not a micropayment channel by architecture.</li>
+  </ul>
+
+  <h3>Latency</h3>
+  <p>Pico's payment latency — one round-trip off-chain, sub-second — is a clear structural advantage over every on-ledger system. There is no mining, no block confirmation, no routing graph traversal. Lightning is comparable in the happy path (sub-second within an open channel) but adds routing retries under congestion and CLTV timeout overhead for multi-hop paths. XRP Ledger's 3–5 second on-ledger finality is too slow for streaming API metering loops. Visa authorization takes seconds but clearing takes 1–3 days; authorization is not final settlement.</p>
+
+  <h3>Fees</h3>
+  <p>Pico charges <code>0.02% + 1 µUSDC</code> per payment. The table below makes the economics concrete at three payment sizes:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>System</th><th>Fee on $0.01</th><th>Fee on $1.00</th><th>Fee on $100</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="pico-col">pico</td><td>~$0.000002</td><td>~$0.0002</td><td>~$0.02</td></tr>
+        <tr><td>Lightning (median)</td><td>~$0.000001</td><td>~$0.0001</td><td>~$0.01</td></tr>
+        <tr><td>Visa (online)</td><td>Not viable</td><td>~$0.025 + $0.10 fixed</td><td>~$2.60</td></tr>
+        <tr><td>XRP Ledger</td><td>&lt;$0.0001</td><td>&lt;$0.0001</td><td>&lt;$0.0001</td></tr>
+        <tr><td>Connext</td><td>&lt;$0.002</td><td>&lt;$0.002</td><td>&lt;$0.20</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Lightning beats pico on raw fee percentage for BTC-denominated payments. XRP Ledger's fixed sub-cent fee is cheaper per transaction but requires XRP for gas (asset mismatch for USDC workloads). Visa/Mastercard is structurally unviable below ~$2 due to the fixed per-transaction component. <strong>Pico is the cheapest USDC-native option at micro-to-small payment scale.</strong></p>
+
+
+  <!-- SECTION 2 -->
+  <h2>2 · Trust and Decentralisation</h2>
+
+  <p class="section-intro">Pico's trust surface has three semi-trusted elements: the hub, the watchtower(s), and Taiko L2 itself.</p>
+
+  <ul>
+    <li><strong>Hub</strong>: cannot steal funds (HTLCs are hash-locked), but can refuse service or stall a cooperative close. User's recourse is unilateral close plus a 24-hour dispute window — structurally identical to how Lightning routing nodes behave.</li>
+    <li><strong>Watchtower</strong>: cannot steal; can fail to post a penalty proof within the 24-hour window. Recommended deployment is 2-of-3 independent operators.</li>
+    <li><strong>v1 HTLC limitation (material)</strong>: unilateral close rejects any state with in-flight HTLCs — they revert to an empty root on-chain. This is a <em>trusted-liveness</em> assumption, not fully trustless. On-chain HTLC settlement is deferred to v2. This is pico's most significant trust gap versus Lightning.</li>
+  </ul>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>System</th><th>Who can steal?</th><th>Who can stall?</th><th>Who can reverse?</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="pico-col">pico v1</td>
+          <td>Nobody (if watchtower live)</td>
+          <td>Hub can refuse service</td>
+          <td>Nobody</td>
+        </tr>
+        <tr>
+          <td>Lightning</td>
+          <td>Nobody (penalty tx deters)</td>
+          <td>Routing node (stalls HTLC until CLTV)</td>
+          <td>Nobody</td>
+        </tr>
+        <tr>
+          <td>Raiden</td>
+          <td>Nobody</td>
+          <td>Mediator</td>
+          <td>Nobody</td>
+        </tr>
+        <tr>
+          <td>Connext</td>
+          <td>Router (timing, not cryptographic)</td>
+          <td>Router offline</td>
+          <td>Nobody</td>
+        </tr>
+        <tr>
+          <td>Visa / MC</td>
+          <td>Nobody (issuer can freeze)</td>
+          <td>Nobody</td>
+          <td>Issuer / network (chargebacks up to 120 days)</td>
+        </tr>
+        <tr>
+          <td>XRP</td>
+          <td>Nobody (XRP)</td>
+          <td>Validators</td>
+          <td>Ripple (issued tokens only; not native XRP)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Pico and Lightning are comparable in trust design. Pico's 24-hour dispute window is roughly equivalent to Lightning's worst-case stacked CLTV delta (~144 blocks ≈ 24 hours at Bitcoin's 10-min block time), making exit latency parity between the two.</p>
+
+  <p>Visa/Mastercard's centralisation risk is categorically different: either network can de-platform a merchant unilaterally, freeze funds during disputes, and mandates KYC/AML for all participants. XRP is decentralised for native XRP transfers but Ripple's UNL governance creates concentration risk; the August 2025 SEC settlement ($50 M cash) resolved the immediate legal overhang but established that institutional XRP distribution can trigger securities liability.</p>
+
+
+  <!-- SECTION 3 -->
+  <h2>3 · Liquidity and UX</h2>
+
+  <h3>Channel setup</h3>
+  <p>Opening a pico channel requires one on-chain tx on Taiko L2 (gas is cheap). The minimum channel is 10 USDC. The hub then tops up inbound liquidity via a second on-chain tx. Compare to Lightning's JIT channels: LSPs like Phoenix open a channel automatically on first receive, with the liquidity fee bundled into the payment — no explicit two-step ceremony. Phoenix charges <strong>0.4% for JIT inbound channel creation</strong>, which is 4× pico's ongoing payment fee but eliminates manual channel management.</p>
+
+  <h3>Liquidity efficiency</h3>
+  <p>Pico's hub auto-recycle (the RECOMMENDED behavior in §8.8 of the protocol spec): recovered USDC from cooperative closes is immediately recycled to fund the next channel's <code>topUp</code>. A hub can serve N simultaneous channels with less than N × channel_size in capital because not all channels reach capacity simultaneously. Lightning has the same structural locked-capital problem but with more mature rebalancing tooling (circular rebalancing, submarine swaps, splicing). In practice, Lightning channel liquidity is highly imbalanced: the top 10% of hubs control 97% of liquidity (Gini ~0.97), and routing success collapses below 1% for payments above $200.</p>
+
+  <h3>Minimum viable payment size</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>System</th><th>Minimum viable payment</th><th>Reason</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="pico-col">pico</td><td>~$0.001</td><td>Fixed fee = 1 µUSDC; no dust limit</td></tr>
+        <tr><td>Lightning</td><td>~$0.005</td><td>Dust limit ~546 sat; sub-dust not routable</td></tr>
+        <tr><td>Visa / MC</td><td>~$1–2</td><td>Fixed interchange component kills economics below threshold</td></tr>
+        <tr><td>XRP Ledger</td><td>Trivially small</td><td>Per-tx cost &lt;$0.0001; but account reserve ~10 XRP (~$25) is onboarding friction</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Agent integration UX</h3>
+  <p>Pico's CLI (<code>pico pay --to &lt;addr&gt; --amount &lt;n&gt; --json</code>) is explicitly designed for headless agent use. Non-TypeScript callers parse the <code>--json</code> output. No wallet, no browser, no signing UI required.</p>
+  <ul>
+    <li><strong>Lightning</strong>: BOLT-compatible REST APIs exist but require node operator knowledge. No purpose-built agent CLI.</li>
+    <li><strong>Connext / Raiden</strong>: Ethereum-ecosystem tooling requiring wallet integration.</li>
+    <li><strong>Visa</strong>: Mastercard Commercial Connect offers B2B APIs for enterprise automation, not API metering between agents.</li>
+    <li><strong>XRP</strong>: Payment channels exist on-ledger but are essentially undocumented for agentic use cases.</li>
+  </ul>
+
+
+  <!-- SECTION 4 -->
+  <h2>4 · AI-Agent Micropayment Fit</h2>
+  <p class="section-intro">This is pico's designed-for market. A feature scoring view against the key requirements of agent-to-agent, API metering, and DVM payments.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Requirement</th>
+          <th class="pico-col">pico</th>
+          <th>Lightning</th>
+          <th>Connext</th>
+          <th>Raiden</th>
+          <th>Visa / MC</th>
+          <th>XRP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sub-cent payments</td>
+          <td class="pico-col"><span class="check">✓</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="check">✓</span></td>
+        </tr>
+        <tr>
+          <td>Stablecoin denomination</td>
+          <td class="pico-col"><span class="check">✓</span> USDC</td>
+          <td><span class="partial">~</span> plugins only</td>
+          <td><span class="check">✓</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="cross">✗</span> XRP only</td>
+        </tr>
+        <tr>
+          <td>No wallet / browser UX</td>
+          <td class="pico-col"><span class="check">✓</span> CLI-first</td>
+          <td><span class="cross">✗</span> node ops needed</td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="partial">~</span></td>
+        </tr>
+        <tr>
+          <td>Headless agent runtime</td>
+          <td class="pico-col"><span class="check">✓</span></td>
+          <td><span class="partial">~</span> REST APIs exist</td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="partial">~</span></td>
+        </tr>
+        <tr>
+          <td>Instant settlement (&lt;1 s)</td>
+          <td class="pico-col"><span class="check">✓</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="partial">~</span> 3–5 s</td>
+        </tr>
+        <tr>
+          <td>No KYC required</td>
+          <td class="pico-col"><span class="check">✓</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="partial">~</span></td>
+        </tr>
+        <tr>
+          <td>No native token required</td>
+          <td class="pico-col"><span class="check">✓</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span> NEXT</td>
+          <td><span class="cross">✗</span> RDN</td>
+          <td>N/A</td>
+          <td><span class="cross">✗</span> XRP gas</td>
+        </tr>
+        <tr>
+          <td>HTLC atomic settlement</td>
+          <td class="pico-col"><span class="partial">~</span> trusted-liveness v1</td>
+          <td><span class="check">✓</span> on-chain</td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="check">✓</span></td>
+          <td><span class="cross">✗</span></td>
+          <td><span class="partial">~</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Lightning is pico's closest direct competitor in this quadrant but is BTC-denominated (no native stablecoin), requires node operation, and has routing reliability issues for non-direct payments. Emerging competitors in the "agent payments" space include the x402 protocol (Coinbase/Base), Amazon Bedrock Agentcore Payments (May 2026), and Solana Pay.sh — all targeting the same narrative but on higher-adoption chains.</p>
+
+
+  <!-- SECTION 5 -->
+  <h2>5 · Competitive Positioning</h2>
+
+  <h3>Where pico is stronger</h3>
+  <ol class="strength-list">
+    <li><strong>AI-agent-first design.</strong> No other system ships a purpose-built headless CLI for agent payments with <code>--json</code> output. This is a real moat in v1's target market.</li>
+    <li><strong>USDC-native, no protocol token.</strong> Stable denomination eliminates the BTC volatility tax on Lightning. No token to manage, stake, or speculate on — removes an entire category of user friction and governance attack surface.</li>
+    <li><strong>Simplest viable topology.</strong> 1-hop eliminates routing failures. Lightning's &lt;1% routing success rate on payments above $200 is a direct consequence of multi-hop complexity. Pico trades routing flexibility for deterministic delivery.</li>
+    <li><strong>Fee efficiency for USDC.</strong> 0.02% beats Visa (2–3%) and Connext (&lt;0.20%), and is competitive with Lightning (0–0.1%) while offering stablecoin settlement.</li>
+    <li><strong>No governance, no bridges.</strong> Eliminates entire classes of attack surface (governance attacks, bridge exploits). The system cannot be upgraded without owner key action; there are no token holders to vote.</li>
+    <li><strong>Capital recycling.</strong> Hub auto-recycle (§8.8) allows one pool of USDC to serve multiple sequential channels without idle periods. No equivalent is documented for Raiden or Connext.</li>
+  </ol>
+
+  <h3>Where pico is weaker</h3>
+  <ol class="weakness-list">
+    <li><strong>v1 HTLC trust gap.</strong> In-flight HTLCs revert to empty root on unilateral close. Lightning's on-chain HTLC settlement is fully trustless. This is the most material gap for high-value or long-duration conditional payments. Scheduled for v2.</li>
+    <li><strong>Single-asset (v1).</strong> USDC only limits interoperability. Lightning is increasingly multi-asset via plugins. XRP Ledger supports any issued token. This is a design choice, not a limitation, but it restricts addressable market.</li>
+    <li><strong>Hub concentration risk.</strong> Every payment touches one specific hub. A hub going offline is service disruption — worse than a Lightning routing failure, where the wallet can retry a different path. Multi-hub support mitigates but doesn't eliminate this.</li>
+    <li><strong>Taiko-only.</strong> Not portable to other EVM chains. Lightning (Bitcoin) and Connext span many ecosystems. Taiko's footprint vs. Solana/Base is pico's biggest external market risk.</li>
+    <li><strong>No privacy.</strong> On-chain channel IDs are deterministic; the hub sees all amounts and payment hashes. Lightning's onion routing, while weak in practice due to topology analysis, provides more than pico's zero privacy.</li>
+    <li><strong>Unproven scale.</strong> All throughput/latency claims are architectural, not empirically measured. Lightning's 8 M+ monthly transactions is a real data point; pico has none yet.</li>
+    <li><strong>Watchtower dependency.</strong> The 24-hour dispute window with no live watchtower is unmitigated. Lightning has the same structural dependency but a more mature watchtower ecosystem and wider tooling.</li>
+  </ol>
+
+
+  <!-- VERDICT -->
+  <h2>Verdict</h2>
+
+  <div class="verdict-box">
+    <h4>The case for pico</h4>
+    <p>Pico occupies a defensible niche that no existing system targets well: <strong>USDC-denominated, sub-cent, headless agent-to-agent payments on a low-cost EVM L2 with no token or governance overhead</strong>. It beats Lightning on stablecoin settlement and UX simplicity; it beats Visa/Mastercard and Ripple on micropayment economics by 10–30×; it beats Raiden and Connext on production readiness and design clarity.</p>
+    <p>For its stated target — AI agents calling APIs, paying DVMs, metering sub-cent API usage — the 1-hop design is well-justified. Routing failures (Lightning's Achilles' heel above $200) simply don't exist in a topology where every payment takes exactly one hop through a known hub.</p>
+  </div>
+
+  <div class="verdict-box" style="border-left-color: var(--yellow); border-color: #713f12;">
+    <h4>The risks</h4>
+    <p><strong>Protocol:</strong> The v1 trusted-liveness HTLC assumption means pico is not fully trustless for in-flight payments. Lightning remains more trustless in this specific scenario. Until v2 ships on-chain HTLC settlement, this is an honest limitation that must be disclosed to users.</p>
+    <p><strong>Market:</strong> x402 (Coinbase/Base), Solana Pay.sh, and Amazon Bedrock Agentcore Payments are all emerging in the same "agent payments" narrative on higher-adoption chains. Taiko's current footprint vs. Solana and Base is pico's biggest external risk — not its protocol design. The protocol is sound; the ecosystem bet on Taiko is the open question.</p>
+  </div>
+
+  <div class="card-grid" style="margin-top: 1.5rem;">
+    <div class="card">
+      <h4>vs. Lightning</h4>
+      <p>Comparable trust model. Pico wins on stablecoin denomination, UX simplicity, and routing determinism. Lightning wins on raw fee rate, privacy (onion), trustless HTLC settlement, and ecosystem maturity.</p>
+    </div>
+    <div class="card">
+      <h4>vs. Raiden / Connext / Perun</h4>
+      <p>Pico is the only one targeting production with a working product. Raiden has minimal live adoption. Connext abandoned state channels. Perun is research-grade. Pico wins on clarity of purpose and production readiness.</p>
+    </div>
+    <div class="card">
+      <h4>vs. Visa / Mastercard</h4>
+      <p>Not the same market. Visa is 10–30× more expensive for online payments, structurally broken below $2, and requires full KYC. Pico addresses a workload Visa cannot serve economically.</p>
+    </div>
+    <div class="card">
+      <h4>vs. Ripple / XRP</h4>
+      <p>XRP Ledger has faster finality on-ledger and lower per-tx cost, but requires XRP for gas, has institutional rather than agent focus, and its payment channel feature is unused in practice. Pico is better suited to agent micropayments.</p>
+    </div>
+  </div>
+
+  <footer>
+    <p>Generated May 2026 · Sources: Raiden GitHub, DeFiLlama, 1ML, CoinLaw, Voltage, XRPL.org, SEC, Visa/Mastercard interchange schedules · Pico source: <code>/home/user/pico/docs/</code> and <code>/home/user/pico/packages/contracts/</code></p>
+  </footer>
+
+</div>
+</body>
+</html>
