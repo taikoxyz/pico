@@ -1,5 +1,14 @@
 # @inferenceroom/pico-examples
 
+## 2.0.4
+
+### Patch Changes
+
+- Updated dependencies [10eee8a]
+  - @inferenceroom/pico-protocol@2.1.1
+  - @inferenceroom/pico-sdk@2.1.1
+  - @inferenceroom/pico-test-utils@1.0.0
+
 ## 2.0.3
 
 ### Patch Changes
