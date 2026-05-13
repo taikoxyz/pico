@@ -466,5 +466,56 @@ describe('TopUpHandler concurrency (Scenario 12)', () => {
   });
 });
 
+describe('TopUpHandler.listPendingForCounterparty', () => {
+  let harness: Harness;
+  beforeEach(async () => {
+    harness = await makeHarness();
+  });
+  afterEach(async () => harness.h.cleanup());
+
+  it('returns proposed offers for a counterparty as ProposeTopUpMessage envelopes', async () => {
+    const ch = makeChannel('cc', harness.bobAccount.address, harness.hubAccount.address);
+    await harness.pool.register(ch, undefined, { amountA: 10_000_000n, amountB: 0n });
+    await harness.handler.evaluateNewChannel(ch);
+
+    const orig = harness.proposed[0]?.msg;
+    expect(orig).toBeDefined();
+    if (!orig) return;
+
+    const pending = await harness.handler.listPendingForCounterparty(harness.bobAccount.address);
+    expect(pending).toHaveLength(1);
+    const env = pending[0];
+    expect(env?.kind).toBe('proposeTopUp');
+    expect(env?.offerId).toBe(orig.offerId);
+    expect(env?.channelId).toBe(orig.channelId);
+    expect(env?.amount).toBe(orig.amount);
+    expect(env?.newState.version).toBe(orig.newState.version);
+    expect(env?.prevSig).toBe(orig.prevSig);
+    expect(env?.newSig).toBe(orig.newSig);
+  });
+
+  it('returns an empty list for a counterparty with no proposed offers', async () => {
+    const pending = await harness.handler.listPendingForCounterparty(harness.bobAccount.address);
+    expect(pending).toHaveLength(0);
+  });
+
+  it('skips offers past their validUntil deadline', async () => {
+    const ch = makeChannel('cd', harness.bobAccount.address, harness.hubAccount.address);
+    await harness.pool.register(ch, undefined, { amountA: 10_000_000n, amountB: 0n });
+    await harness.handler.evaluateNewChannel(ch);
+
+    const offers = await harness.h.repos.topupOffers.listByStatus('proposed');
+    expect(offers).toHaveLength(1);
+    const offer = offers[0];
+    if (!offer) return;
+    await harness.h.repos.topupOffers.update(offer.offerId, {
+      validUntilSec: 1n, // 1970-ish
+    });
+
+    const pending = await harness.handler.listPendingForCounterparty(harness.bobAccount.address);
+    expect(pending).toHaveLength(0);
+  });
+});
+
 // Touch unused `signatureToHex` so tree-shaking type checks remain stable.
 void signatureToHex;

@@ -600,6 +600,48 @@ export class TopUpHandler {
     );
     return row;
   }
+
+  /**
+   * Returns proposed-but-not-yet-accepted offer envelopes for `counterparty`,
+   * suitable for re-pushing over a freshly reopened WS session. Re-pushing
+   * is idempotent on the user side (offerId is stable) and does not mutate
+   * the persisted row.
+   */
+  async listPendingForCounterparty(counterparty: Address): Promise<ProposeTopUpMessage[]> {
+    const offers = await this.deps.repos.topupOffers.listByCounterparty(counterparty, ['proposed']);
+    const nowSec = BigInt(Math.floor(this.now() / 1000));
+    const envelopes: ProposeTopUpMessage[] = [];
+    for (const row of offers) {
+      if (row.validUntilSec < nowSec) continue;
+      envelopes.push(buildProposeTopUpEnvelope(row));
+    }
+    return envelopes;
+  }
+}
+
+/**
+ * Reconstructs a `ProposeTopUpMessage` envelope from a persisted
+ * `TopUpOfferRow`. Used by `listPendingForCounterparty` to re-push
+ * undelivered proposals on WS resubscribe. Must match the envelope
+ * shape produced inside `proposeUnderLock`.
+ */
+function buildProposeTopUpEnvelope(row: TopUpOfferRow): ProposeTopUpMessage {
+  return {
+    id: `proposeTopUp-${row.offerId}`,
+    kind: 'proposeTopUp',
+    channelId: row.channelId,
+    offerId: row.offerId,
+    amount: row.amount,
+    prevStateVersion: row.prevVersion,
+    newState: row.newState,
+    validUntil: row.validUntilSec,
+    feePolicy: null,
+    minLifetime: null,
+    maxInFlightHtlcs: 5,
+    partialAccepted: false,
+    prevSig: row.hubSigPrev,
+    newSig: row.hubSigNew,
+  };
 }
 
 export { hexToSignature };
