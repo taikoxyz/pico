@@ -1,7 +1,6 @@
 ---
 "@inferenceroom/pico-sdk": minor
 "@inferenceroom/pico-cli": minor
-"@inferenceroom/pico-test-utils": minor
 ---
 
 Fix the P0 envelope mismatch and ship a batch of CLI UX improvements
@@ -23,6 +22,17 @@ surfaced by the Taiko mainnet v2 smoke run.
   `{ kind, txHash, blockNumber }`. `closeUnilateralFromOpen()` adds
   `blockNumber`. `OpenChannelOnChainResult` / `CloseOnChainResult` /
   `CloseUnilateralOnChainResult` all expose `blockNumber`.
+- **Native ETH channels end-to-end.** `openChannel` and `topUp` now pass
+  `value: amount` when `token === 0x0000…0000`, and the `topUp` ABI entry
+  is `payable` so viem's type-check accepts `value`. `readTokenDecimals`
+  short-circuits `address(0)` to 18. ETH and ERC-20 paths are both unit-
+  tested in `chain-adapter.viem.test.ts`.
+- **`PostOpenSubscribeError`.** New exported error thrown by
+  `ChannelClient.open()` when the on-chain open succeeds but the subsequent
+  hub subscribe fails (timeout, hub down, indexer gap). Carries the
+  persisted `OpenedChannel` (channelId, txHash, blockNumber) plus the
+  underlying cause so operators can resume with `pico listen` instead of
+  losing the freshly-opened channel.
 
 ## Hub
 
@@ -52,6 +62,13 @@ surfaced by the Taiko mainnet v2 smoke run.
 - `pico keys drain --to <addr> [--tokens ...]` sweeps residual native ETH
   + listed ERC-20 balances to a target address. For cleaning up ephemeral
   smoke-test wallets.
+- `pico channel open` now supports **native ETH** (`--token 0x0000…0000`):
+  skips the ERC-20 approve block and uses the native-value path. Works on
+  chains where `address(0)` is allowlisted (e.g. Taiko mainnet v2).
+- `pico channel open` catches `PostOpenSubscribeError`: prints
+  `channelId` / `tx hash` / `block` in both JSON and human modes, writes a
+  recovery hint to stderr (`run \`pico listen\` to resume`), and exits 1
+  so scripts still treat partial success as failure.
 
 ## Test utils
 

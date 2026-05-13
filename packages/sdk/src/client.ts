@@ -34,6 +34,7 @@ import {
   ChannelNotOpenError,
   HtlcExpiredLocallyError,
   HubTimeoutError,
+  PostOpenSubscribeError,
   PreimageMismatchError,
   UnknownPaymentHashError,
 } from './errors.js';
@@ -236,9 +237,18 @@ export class ChannelClient {
     };
     await this.opts.storage.saveState(channel.id, signedState);
 
-    await this.ensureSubscribed([channel.id]);
+    const opened: OpenedChannel = {
+      channel,
+      txHash: onChain.txHash,
+      blockNumber: onChain.blockNumber,
+    };
+    try {
+      await this.ensureSubscribed([channel.id]);
+    } catch (err) {
+      throw new PostOpenSubscribeError(opened, err as Error);
+    }
     this.emitter.emit('channel:opened', { channel });
-    return { channel, txHash: onChain.txHash, blockNumber: onChain.blockNumber };
+    return opened;
   }
 
   async ensureSubscribed(channelIds: readonly ChannelId[]): Promise<void> {

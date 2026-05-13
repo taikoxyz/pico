@@ -2,6 +2,7 @@ import {
   type ChainId,
   TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
+  ZERO_ADDRESS,
 } from '@inferenceroom/pico-protocol';
 import { type Address, type PublicClient, erc20Abi, parseUnits } from 'viem';
 
@@ -62,11 +63,13 @@ export function parseAmount(args: {
 }
 
 /// Read `decimals()` from an ERC-20. Returns the integer value (8 for WBTC,
-/// 6 for USDC, 18 for most everything else).
+/// 6 for USDC, 18 for most everything else). The native-ETH sentinel
+/// `address(0)` has no contract, so short-circuit to 18.
 export async function readTokenDecimals(args: {
   client: PublicClient;
   token: Address;
 }): Promise<number> {
+  if (args.token === ZERO_ADDRESS) return 18;
   const dec = await args.client.readContract({
     address: args.token,
     abi: erc20Abi,

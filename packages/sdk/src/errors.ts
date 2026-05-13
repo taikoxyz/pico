@@ -1,3 +1,5 @@
+import type { OpenedChannel } from './client.js';
+
 export class SdkError extends Error {
   constructor(
     message: string,
@@ -61,5 +63,22 @@ export class TransportClosedError extends SdkError {
   constructor() {
     super('transport is closed', 'TRANSPORT_CLOSED');
     this.name = 'TransportClosedError';
+  }
+}
+
+/// Thrown by `ChannelClient.open()` when the on-chain openChannel tx succeeded
+/// and the channel was persisted locally, but the subsequent hub subscribe
+/// request failed (timeout, hub down, indexer gap). The on-chain action is
+/// irreversible; callers can recover by resubscribing later (e.g. `pico listen`).
+export class PostOpenSubscribeError extends SdkError {
+  constructor(
+    public readonly opened: OpenedChannel,
+    public readonly cause: Error,
+  ) {
+    super(
+      `channel opened on-chain (tx ${opened.txHash}) but hub subscribe failed: ${cause.message}`,
+      'POST_OPEN_SUBSCRIBE',
+    );
+    this.name = 'PostOpenSubscribeError';
   }
 }

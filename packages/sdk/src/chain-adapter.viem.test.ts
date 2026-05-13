@@ -1,4 +1,10 @@
-import { type Address, EMPTY_HTLCS_ROOT, type Hash, type Hex } from '@inferenceroom/pico-protocol';
+import {
+  type Address,
+  EMPTY_HTLCS_ROOT,
+  type Hash,
+  type Hex,
+  ZERO_ADDRESS,
+} from '@inferenceroom/pico-protocol';
 import {
   type Chain,
   type Log,
@@ -101,6 +107,185 @@ describe('ViemChainAdapter.openChannel', () => {
     await expect(
       adapter.openChannel({ userB: USER_B, token: TOKEN, amountA: 1n, amountB: 0n }),
     ).rejects.toThrow(/no chain/);
+  });
+
+  it('passes value: amountA when token is native ETH (address(0))', async () => {
+    const writeContract = vi.fn().mockResolvedValue(TX_HASH);
+    const waitForTransactionReceipt = vi.fn().mockResolvedValue({
+      blockNumber: 100n,
+      logs: [makeOpenedLog()],
+    });
+    const getBlock = vi.fn().mockResolvedValue({ timestamp: 1_700_000_000n });
+
+    const adapter = new ViemChainAdapter({
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      publicClient: { waitForTransactionReceipt, getBlock } as unknown as PublicClient,
+      walletClient: {
+        writeContract,
+        account: { address: USER_A } as unknown as WalletClient['account'],
+        chain: fakeChain,
+      } as unknown as WalletClient,
+    });
+
+    await adapter.openChannel({
+      userB: USER_B,
+      token: ZERO_ADDRESS,
+      amountA: 12_345n,
+      amountB: 0n,
+    });
+    expect(writeContract).toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: 'openChannel', value: 12_345n }),
+    );
+  });
+
+  it('does not pass value when token is an ERC-20', async () => {
+    const writeContract = vi.fn().mockResolvedValue(TX_HASH);
+    const waitForTransactionReceipt = vi.fn().mockResolvedValue({
+      blockNumber: 100n,
+      logs: [makeOpenedLog()],
+    });
+    const getBlock = vi.fn().mockResolvedValue({ timestamp: 1_700_000_000n });
+
+    const adapter = new ViemChainAdapter({
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      publicClient: { waitForTransactionReceipt, getBlock } as unknown as PublicClient,
+      walletClient: {
+        writeContract,
+        account: { address: USER_A } as unknown as WalletClient['account'],
+        chain: fakeChain,
+      } as unknown as WalletClient,
+    });
+
+    await adapter.openChannel({
+      userB: USER_B,
+      token: TOKEN,
+      amountA: 1_000_000n,
+      amountB: 0n,
+    });
+    const call = writeContract.mock.calls[0]?.[0] as { value?: bigint };
+    expect(call?.value ?? 0n).toBe(0n);
+  });
+});
+
+describe('ViemChainAdapter.topUp', () => {
+  function makeToppedUpLog(newVersion = 2n, amount = 500n): Log {
+    const topics = encodeEventTopics({
+      abi: paymentChannelAbi,
+      eventName: 'ToppedUp',
+      args: { channelId: CHANNEL_ID, depositor: USER_A },
+    });
+    const data =
+      `0x${pad(toHex(amount), { size: 32 }).slice(2)}${pad(toHex(newVersion), { size: 32 }).slice(2)}` as Hex;
+    return {
+      address: PAYMENT_CHANNEL,
+      topics: topics as readonly Hex[],
+      data,
+      blockNumber: 100n,
+      transactionHash: TX_HASH,
+      transactionIndex: 0,
+      logIndex: 0,
+      blockHash: `0x${'aa'.repeat(32)}` as Hex,
+      removed: false,
+    } as unknown as Log;
+  }
+
+  const sentinelSig = {
+    r: `0x${'00'.repeat(32)}` as Hex,
+    s: `0x${'00'.repeat(32)}` as Hex,
+    v: 0n,
+    yParity: 0,
+  } as const;
+  const prev = {
+    state: {
+      channelId: CHANNEL_ID,
+      version: 1n,
+      balanceA: 1_000n,
+      balanceB: 0n,
+      htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
+      finalized: false,
+    },
+    sigA: sentinelSig,
+    sigB: sentinelSig,
+  };
+  const next = {
+    state: {
+      channelId: CHANNEL_ID,
+      version: 2n,
+      balanceA: 1_500n,
+      balanceB: 0n,
+      htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
+      finalized: false,
+    },
+    sigA: sentinelSig,
+    sigB: sentinelSig,
+  };
+
+  it('skips approve and passes value: amount when token is native ETH', async () => {
+    const writeContract = vi.fn().mockResolvedValue(TX_HASH);
+    const waitForTransactionReceipt = vi.fn().mockResolvedValue({
+      blockNumber: 100n,
+      logs: [makeToppedUpLog()],
+    });
+
+    const adapter = new ViemChainAdapter({
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      publicClient: { waitForTransactionReceipt } as unknown as PublicClient,
+      walletClient: {
+        writeContract,
+        account: { address: USER_A } as unknown as WalletClient['account'],
+        chain: fakeChain,
+      } as unknown as WalletClient,
+    });
+
+    await adapter.topUp({
+      channelId: CHANNEL_ID,
+      token: ZERO_ADDRESS,
+      amount: 500n,
+      prev,
+      next,
+    });
+
+    expect(writeContract).toHaveBeenCalledTimes(1);
+    expect(writeContract).toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: 'topUp', value: 500n }),
+    );
+  });
+
+  it('calls approve and omits value when token is an ERC-20', async () => {
+    const writeContract = vi.fn().mockResolvedValue(TX_HASH);
+    const waitForTransactionReceipt = vi.fn().mockResolvedValue({
+      blockNumber: 100n,
+      logs: [makeToppedUpLog()],
+    });
+
+    const adapter = new ViemChainAdapter({
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      publicClient: { waitForTransactionReceipt } as unknown as PublicClient,
+      walletClient: {
+        writeContract,
+        account: { address: USER_A } as unknown as WalletClient['account'],
+        chain: fakeChain,
+      } as unknown as WalletClient,
+    });
+
+    await adapter.topUp({
+      channelId: CHANNEL_ID,
+      token: TOKEN,
+      amount: 500n,
+      prev,
+      next,
+    });
+
+    expect(writeContract).toHaveBeenCalledTimes(2);
+    expect(writeContract.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ functionName: 'approve' }),
+    );
+    const topupCall = writeContract.mock.calls[1]?.[0] as { value?: bigint };
+    expect(topupCall?.value ?? 0n).toBe(0n);
   });
 });
 
