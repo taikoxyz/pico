@@ -10,6 +10,7 @@ import {
 } from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
+  PostOpenSubscribeError,
   ViemChainAdapter,
   WebSocketTransport,
   localSigner,
@@ -119,6 +120,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
           (chainFor(chainId).rpcUrls.default.http[0] as string);
         const hubUrl = resolveHubUrl({ via: opts.via, env, chainId });
         warnLocalhostHubOnMainnet({ hubUrl, chainId, stderr });
+        let approveTxHash: `0x${string}` | undefined;
         try {
           const privateKey = await resolvePrivateKey({
             ...(opts.privateKey !== undefined ? { privateKey: opts.privateKey } : {}),
@@ -145,7 +147,6 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
             rawMode: opts.rawAmount,
           });
 
-          let approveTxHash: `0x${string}` | undefined;
           if (opts.approve && token !== ZERO_ADDRESS) {
             const current = await readAllowance({
               client: publicClient as unknown as PublicClient,
@@ -215,6 +216,30 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
             await transport.close();
           }
         } catch (err) {
+          if (err instanceof PostOpenSubscribeError) {
+            const opened = err.opened;
+            const payload = {
+              channelId: opened.channel.id,
+              openTxHash: opened.txHash,
+              blockNumber: opened.blockNumber.toString(),
+              ...(approveTxHash ? { approveTxHash } : {}),
+              channel: opened.channel,
+              warning: 'hub subscribe failed; channel is on-chain and persisted locally',
+              subscribeError: err.cause.message,
+            };
+            if (opts.json) emit(payload, stdout);
+            else {
+              if (approveTxHash) stdout.write(`approve tx: ${approveTxHash}\n`);
+              stdout.write(`openChannel tx: ${opened.txHash}\n`);
+              stdout.write(`channelId:     ${opened.channel.id}\n`);
+              stdout.write(`block:         ${opened.blockNumber.toString()}\n`);
+            }
+            stderr.write(
+              `warning: on-chain open succeeded but hub subscribe failed: ${err.cause.message}\nthe channel is recorded in local storage; retry by running \`pico listen\` to (re)subscribe.\n`,
+            );
+            process.exitCode = 1;
+            return;
+          }
           stderr.write(formatCliError(err));
           process.exitCode = 1;
         }
