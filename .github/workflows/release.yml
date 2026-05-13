@@ -28,8 +28,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # changesets/action does two things on a `push: main` build:
+      #   1. If unreleased changesets exist → open a "Version Packages" PR.
+      #   2. If a "Version Packages" PR has just been merged → publish to npm.
+      # The npm publish call inevitably fails today because the
+      # `@inferenceroom/*` scope isn't registered on npmjs.org. That's a
+      # separate operational problem (the SDK was never meant to ship to
+      # public npm); for the CI pipeline's purpose we only need the
+      # version-PR + version-bump-commit path to work. `continue-on-error`
+      # makes the publish-half failure non-fatal so the next step (Docker
+      # tag) still runs.
       - name: Publish or open version PR
         id: changesets
+        continue-on-error: true
         uses: changesets/action@v1
         with:
           publish: pnpm release
