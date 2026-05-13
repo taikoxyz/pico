@@ -91,7 +91,7 @@ describe('ChannelClient integration with MockHub', () => {
 
   async function openAliceBobChannel(): Promise<Channel> {
     // Alice opens a channel with Bob as counterparty.
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: bob.address,
       amount: 1_000_000n,
       token: TOKEN,

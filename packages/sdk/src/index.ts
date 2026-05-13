@@ -6,6 +6,7 @@ export {
   cooperativeCloseSolidityStruct,
 } from './contracts-abi.js';
 export * from './crypto.js';
+export * from './envelope.js';
 export * from './errors.js';
 export * from './events.js';
 export * from './hub-protocol.js';

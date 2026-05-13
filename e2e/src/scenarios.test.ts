@@ -72,7 +72,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 
   it('happy path: open 100, payDirect 5, cooperative close → alice 95 / hub 105', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -94,7 +94,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 
   it('sequential payDirect: 5 + 3 + 2 USDC, version increments, conserved balance', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -121,7 +121,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     const aliceBefore = await readUsdcBalance(h, h.alice.address);
     const hubBefore = await readUsdcBalance(h, h.hub.address);
 
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -138,7 +138,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 
   it('both-deposit channel: alice 60, hub 40, payDirect 10, close → wallets restored to 90/110', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 60n * ONE_USDC,
       counterpartyAmount: 40n * ONE_USDC,
@@ -160,7 +160,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 
   it('insufficient balance: payDirect throws, channel still cleanly closeable', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -183,7 +183,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 
   it('replay attack: dispute with same posted version reverts stale', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -223,7 +223,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 
   it('replay attack: closeUnilateral on already-closed channel reverts !open', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -257,7 +257,7 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
   });
 
   it('unilateral close → time-warp 24h → finalize pays out posted balances', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -312,7 +312,7 @@ describe('e2e — phase 2B agent-pay-agent (3-party HTLC)', () => {
   // provisioned via §8 topUp. Equivalent coverage:
   // - inbound-liquidity.scenarios.test.ts > Scenario 6 (Alice → Hub → Bob via topUp)
   it.skip('alice → hub → bob: invoice pay through real hub router', async () => {
-    const aliceChannel = await alice.client.open({
+    const { channel: aliceChannel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -321,7 +321,7 @@ describe('e2e — phase 2B agent-pay-agent (3-party HTLC)', () => {
       await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 0n,
       counterpartyAmount: 10n * ONE_USDC,
@@ -373,7 +373,7 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
   it('hub posts stale v3, watchtower penalty-proofs v6, finalize → alice gets 100% slash pot', async () => {
     const { startWatchtower } = await import('@inferenceroom/pico-watchtower');
 
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -504,7 +504,7 @@ describe('e2e — phase 2D hot-key rotation', () => {
   it('alice rotates to a new key, opens a fresh channel, on-chain ChannelOpened reflects new userA', async () => {
     const k1Bundle = buildClient(h, h.alice);
     try {
-      const ch1 = await k1Bundle.client.open({
+      const { channel: ch1 } = await k1Bundle.client.open({
         counterparty: h.hub.address,
         amount: 100n * ONE_USDC,
       });
@@ -525,7 +525,7 @@ describe('e2e — phase 2D hot-key rotation', () => {
 
     const k2Bundle = buildClient(h, newParty);
     try {
-      const ch2 = await k2Bundle.client.open({
+      const { channel: ch2 } = await k2Bundle.client.open({
         counterparty: h.hub.address,
         amount: 50n * ONE_USDC,
       });
@@ -570,7 +570,7 @@ describe('e2e — phase 2D hub-down recovery', () => {
   it('hub restarts; SDK auto-reconnects + re-subscribes; subsequent payDirect succeeds', async () => {
     const { startRealHub } = await import('./harness.js');
 
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -641,7 +641,7 @@ describe('e2e — phase 2D receiver offline then resume', () => {
 
   it('hub queues HTLC while bob is offline; bob reconnects, replays via subscribeAck.pendingHtlcs, settles', async () => {
     // Alice opens single-sided per spec §1 (amountB MUST be 0).
-    const aliceChannel = await alice.client.open({
+    const { channel: aliceChannel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -656,7 +656,7 @@ describe('e2e — phase 2D receiver offline then resume', () => {
     // opener-signed v=1 state (matches inbound-liquidity Scenario 5/6
     // pattern) so the hub uses its sentinel v=0 prev branch and produces a
     // v=1 fully co-signed state.
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -784,7 +784,7 @@ describe('e2e — v2 HTLC settlement (M7)', () => {
   }
 
   it('force-close-with-htlc → claim with preimage → finalize pays hub the locked amount', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });
@@ -884,7 +884,7 @@ describe('e2e — v2 HTLC settlement (M7)', () => {
   }, 60_000);
 
   it('force-close-with-htlc → refund after expiry → finalize returns the locked amount to alice', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 100n * ONE_USDC,
     });

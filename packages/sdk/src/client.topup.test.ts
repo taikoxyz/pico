@@ -96,6 +96,7 @@ class StubChainAdapter implements ChainAdapter {
       txHash: '0x1111111111111111111111111111111111111111111111111111111111111111' as Hash,
       disputeDeadlineMs: BigInt(Date.now() + 24 * 60 * 60 * 1000),
       postedVersion: 0n,
+      blockNumber: 0n,
     };
   }
   async topUp(args: TopUpOnChainArgs): Promise<TopUpOnChainResult> {

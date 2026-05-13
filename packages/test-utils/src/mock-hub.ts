@@ -371,8 +371,21 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
   wss.on('connection', (socket) => {
     socket.on('message', (raw) => {
       let msg: HubMessage;
+      // The mock hub mirrors the production hub's non-strict mode: accept
+      // both wrapped (envelope) and unwrapped messages.
       try {
-        msg = decodeHubMessage(raw.toString('utf8'));
+        const text = raw.toString('utf8');
+        const parsed = JSON.parse(text);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          typeof parsed.payload === 'string' &&
+          typeof parsed.sig === 'string'
+        ) {
+          msg = decodeHubMessage(parsed.payload);
+        } else {
+          msg = decodeHubMessage(text);
+        }
       } catch {
         return;
       }

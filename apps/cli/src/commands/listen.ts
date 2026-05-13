@@ -96,12 +96,12 @@ export function listenCommand(deps: ListenDeps = {}): Command {
           walletClient,
           paymentChannelAddress,
         });
-        const transport = new WebSocketTransport(
-          deps.transportOverride ?? { url: opts.hub, autoReconnect: true },
-        );
-        const storage = openStorage(env, deps.storageOverride);
         const signer: Signer =
           deps.signerOverride ?? (await import('@inferenceroom/pico-sdk')).localSigner(privateKey);
+        const transport = new WebSocketTransport(
+          deps.transportOverride ?? { url: opts.hub, autoReconnect: true, signer },
+        );
+        const storage = openStorage(env, deps.storageOverride);
         const keypair = generateKeysendKeypair();
 
         const client = new ChannelClient({

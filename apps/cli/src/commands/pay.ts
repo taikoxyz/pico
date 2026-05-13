@@ -115,12 +115,12 @@ export function payCommand(deps: PayDeps = {}): Command {
           walletClient,
           paymentChannelAddress,
         });
-        const transport = new WebSocketTransport(
-          deps.transportOverride ?? { url: opts.via, autoReconnect: false },
-        );
-        const storage = openStorage(env, deps.storageOverride);
         const signer: Signer =
           deps.signerOverride ?? (await import('@inferenceroom/pico-sdk')).localSigner(privateKey);
+        const transport = new WebSocketTransport(
+          deps.transportOverride ?? { url: opts.via, autoReconnect: false, signer },
+        );
+        const storage = openStorage(env, deps.storageOverride);
 
         let encryptionPubkey: `0x${string}` | undefined;
         let encryptionSecretKey: `0x${string}` | undefined;

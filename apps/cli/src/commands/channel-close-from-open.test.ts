@@ -40,7 +40,7 @@ describe('pico channel close-from-open', () => {
         client: {
           async closeUnilateralFromOpen(id) {
             calls.push(id);
-            return { txHash, disputeDeadlineMs: BigInt(deadlineMs) };
+            return { txHash, disputeDeadlineMs: BigInt(deadlineMs), blockNumber: 0n };
           },
         },
         dispose: async () => {},

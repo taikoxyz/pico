@@ -332,7 +332,7 @@ describe('integration: watchtower catches stale-state fraud on anvil', () => {
     if (!f) throw new Error('fixture not initialized');
     const fixture = f;
 
-    const channel: Channel = await fixture.client.open({
+    const { channel } = await fixture.client.open({
       counterparty: fixture.hub.address,
       amount: 100n * ONE_USDC,
     });

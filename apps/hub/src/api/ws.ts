@@ -826,11 +826,11 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     }
     let inner: HubMessage;
     let signer: Address | undefined;
-    if (deps.requireSignedEnvelope) {
-      if (!isSignedEnvelope(parsedAny)) {
-        deps.logger.warn('signed envelope required but message is unwrapped');
-        return;
-      }
+    if (deps.requireSignedEnvelope && !isSignedEnvelope(parsedAny)) {
+      deps.logger.warn('signed envelope required but message is unwrapped');
+      return;
+    }
+    if (isSignedEnvelope(parsedAny)) {
       const channels = deps.channelPool.list();
       const knownSigners = new Set<Address>();
       for (const c of channels) {

@@ -90,6 +90,13 @@ export class LocalSigner implements Signer {
     const fullInvoice: Invoice = { ...invoice, signature: '0x' };
     return this.account.signTypedData(buildInvoiceTypedData(fullInvoice, chainId));
   }
+
+  /// Raw secp256k1 signature over a 32-byte digest (no EIP-191 prefix).
+  /// Used by the WS transport to sign envelope digests so the hub can
+  /// recover the signer with viem's `recoverAddress({ hash, signature })`.
+  signEnvelope(digest: Hex): Promise<Hex> {
+    return this.account.sign({ hash: digest });
+  }
 }
 
 export function localSigner(privateKey: Hex): LocalSigner {

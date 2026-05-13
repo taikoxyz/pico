@@ -1,3 +1,4 @@
+import { buildEnvelope } from './envelope.js';
 import { TransportClosedError } from './errors.js';
 import {
   type ClientToHubMessage,
@@ -5,6 +6,7 @@ import {
   decodeHubMessage,
   encodeHubMessage,
 } from './hub-protocol.js';
+import type { Signer } from './signer.js';
 
 export interface TransportMessage {
   readonly id: string;
@@ -55,6 +57,11 @@ export interface WebSocketTransportOptions {
   readonly maxMissedPongs?: number;
   readonly requestTimeoutMs?: number;
   readonly autoReconnect?: boolean;
+  /// When set, every outgoing `ClientToHubMessage` is wrapped in a signed
+  /// envelope (nonce + ts + payload + sig). Required against hubs running
+  /// with `HUB_REQUIRE_SIGNED_ENVELOPE=true` (production / mainnet); harmless
+  /// against dev hubs once the auto-detect path is enabled.
+  readonly signer?: Signer;
 }
 
 interface PendingRequest {
@@ -71,6 +78,7 @@ export class WebSocketTransport implements Transport {
   private readonly maxMissedPongs: number;
   private readonly requestTimeoutMs: number;
   private readonly autoReconnect: boolean;
+  private readonly signer: Signer | undefined;
 
   private ws: MinimalWebSocket | undefined;
   private wsCtor: WebSocketCtor | undefined;
@@ -93,6 +101,14 @@ export class WebSocketTransport implements Transport {
     this.maxMissedPongs = opts.maxMissedPongs ?? 2;
     this.requestTimeoutMs = opts.requestTimeoutMs ?? 30_000;
     this.autoReconnect = opts.autoReconnect ?? true;
+    this.signer = opts.signer;
+  }
+
+  private async encodeForWire(msg: ClientToHubMessage): Promise<string> {
+    const payload = encodeHubMessage(msg);
+    if (!this.signer) return payload;
+    const env = await buildEnvelope(this.signer, payload);
+    return JSON.stringify(env);
   }
 
   isConnected(): boolean {
@@ -260,7 +276,8 @@ export class WebSocketTransport implements Transport {
     if (!this.connected || !this.ws) {
       throw new TransportClosedError();
     }
-    this.ws.send(encodeHubMessage(msg));
+    const wire = await this.encodeForWire(msg);
+    this.ws.send(wire);
   }
 
   async request(
@@ -271,6 +288,7 @@ export class WebSocketTransport implements Transport {
       throw new TransportClosedError();
     }
     const timeoutMs = opts.timeoutMs ?? this.requestTimeoutMs;
+    const wire = await this.encodeForWire(msg);
     return new Promise<HubToClientMessage>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(msg.id);
@@ -278,7 +296,7 @@ export class WebSocketTransport implements Transport {
       }, timeoutMs);
       this.pending.set(msg.id, { resolve, reject, timer });
       try {
-        this.ws?.send(encodeHubMessage(msg));
+        this.ws?.send(wire);
       } catch (err) {
         clearTimeout(timer);
         this.pending.delete(msg.id);

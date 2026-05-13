@@ -117,11 +117,11 @@ export function registerCloseFromOpen(parent: Command, deps: ChannelCloseFromOpe
             deps.contractAddressOverride ?? CONTRACT_ADDRESSES[chainId].PaymentChannel;
           const adjudicatorAddress =
             deps.adjudicatorAddressOverride ?? CONTRACT_ADDRESSES[chainId].Adjudicator;
+          const signer = localSigner(privateKey);
           const transport = new WebSocketTransport(
-            deps.transportOverride ?? { url: opts.via, autoReconnect: false },
+            deps.transportOverride ?? { url: opts.via, autoReconnect: false, signer },
           );
           const storage = openStorage(env, deps.storageOverride);
-          const signer = localSigner(privateKey);
           const chainAdapter = new ViemChainAdapter({
             publicClient,
             walletClient,

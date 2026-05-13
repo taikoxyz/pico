@@ -48,7 +48,7 @@ describe('ChannelClient.close fallback paths', () => {
       defaultToken: TOKEN,
       closeRequestTimeoutMs: 100,
     });
-    const channel = await client.open({ counterparty: bobAddr, amount: 1_000_000n });
+    const { channel } = await client.open({ counterparty: bobAddr, amount: 1_000_000n });
     let closed = false;
     client.on('channel:closed', () => {
       closed = true;
@@ -98,7 +98,7 @@ describe('ChannelClient.close fallback paths', () => {
       verifyingContract: VC,
       defaultToken: TOKEN,
     });
-    const channel = await client.open({ counterparty: bobAddr, amount: 500n });
+    const { channel } = await client.open({ counterparty: bobAddr, amount: 500n });
     await storage.delete(channel.id);
     await storage.saveChannel(channel);
     const bal = await client.getBalance(channel.id);
@@ -122,7 +122,7 @@ describe('ChannelClient.close fallback paths', () => {
       verifyingContract: VC,
       defaultToken: TOKEN,
     });
-    const channel = await client.open({ counterparty: bobAddr, amount: 500n });
+    const { channel } = await client.open({ counterparty: bobAddr, amount: 500n });
     hub.registerChannel(channel);
     await expect(client.pay({ to: bobAddr, amount: 10n })).rejects.toThrow(/invoice.*keysend/i);
     await transport.close();
@@ -144,7 +144,7 @@ describe('ChannelClient.close fallback paths', () => {
       verifyingContract: VC,
       defaultToken: TOKEN,
     });
-    const channel = await client.open({ counterparty: bobAddr, amount: 500n });
+    const { channel } = await client.open({ counterparty: bobAddr, amount: 500n });
     hub.registerChannel(channel);
     await expect(client.pay({ to: bobAddr, amount: 10n, keysend: true })).rejects.toThrow(
       /encryptionPubkey/i,
