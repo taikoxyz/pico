@@ -32,7 +32,7 @@ import type { Logger } from './logger.js';
 import type { HubMetrics } from './metrics.js';
 import type { KeyedMutex } from './mutex.js';
 import type { TopUpPolicyConfig } from './topup-policy.js';
-import { evaluateTopUp } from './topup-policy.js';
+import { evaluateTopUp, resolveDefaultOfferAmount } from './topup-policy.js';
 
 export const HOT_WALLET_KEY = 'hot-wallet';
 
@@ -133,14 +133,18 @@ export class TopUpHandler {
     if (!counterparty) return;
 
     await this.deps.hotWalletMutex.run(HOT_WALLET_KEY, async () => {
-      const ctx = await this.buildEvalContext(counterparty);
+      const ctx = await this.buildEvalContext(counterparty, channel.token);
       const decision = evaluateTopUp(this.deps.policyConfig, ctx);
       if (decision.approve === null) {
         this.deps.logger.info(
           { channelId: channel.id, counterparty, reason: decision.reason },
           'topup: queuing — admission policy rejected',
         );
-        await this.queueOffer(channel, counterparty, this.deps.policyConfig.defaultOfferAmount);
+        await this.queueOffer(
+          channel,
+          counterparty,
+          resolveDefaultOfferAmount(this.deps.policyConfig, channel.token),
+        );
         return;
       }
       await this.proposeUnderLock(channel, counterparty, decision.approve);
@@ -422,8 +426,12 @@ export class TopUpHandler {
     return undefined;
   }
 
-  private async buildEvalContext(counterparty: Address): Promise<{
+  private async buildEvalContext(
+    counterparty: Address,
+    token: Address,
+  ): Promise<{
     counterparty: Address;
+    token: Address;
     hubHotWalletUsdc: bigint;
     committedToCounterparty: bigint;
     outboundToCounterparty: bigint;
@@ -445,6 +453,7 @@ export class TopUpHandler {
       this.deps.liquidity.totalCommitted() + this.deps.liquidity.totalSubmitted();
     return {
       counterparty,
+      token,
       hubHotWalletUsdc,
       committedToCounterparty,
       outboundToCounterparty,
