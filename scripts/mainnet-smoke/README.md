@@ -96,10 +96,12 @@ gaps belong on a follow-up tracking ticket:
 1. `pico hub status` does not surface `chainId`, contract addresses, or
    the hub's hot-wallet address. Precheck verifies via `cast` and
    requires `--hub-hot-wallet` from the operator.
-2. `pico channel open` does not print the on-chain `ChannelOpened` tx
-   hash. Recover via `cast logs` after the open.
-3. `pico channel close` does not print the on-chain
-   `ChannelClosedCooperative` tx hash. Same workaround.
+2. ~~`pico channel open` does not print the on-chain `ChannelOpened` tx
+   hash.~~ *Fixed in #104:* the CLI now prints `openChannel tx: 0x…` in
+   both pretty and JSON output (`openTxHash` in JSON).
+3. ~~`pico channel close` does not print the on-chain
+   `ChannelClosedCooperative` tx hash.~~ *Fixed in #104:* the CLI now
+   prints `close (${kind}) tx: 0x…` and includes `txHash` in JSON.
 4. There is no CLI command to submit `closeUnilateral` with an *older*
    state. The dispute drill drops to raw `cast send` and an inline
    `node -e` snippet that imports `@inferenceroom/pico-sdk`'s
