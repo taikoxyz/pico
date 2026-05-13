@@ -10,6 +10,7 @@ import {
   describeCliError,
   formatCliError,
   parseAmount,
+  readMinChannelAmount,
   readTokenDecimals,
   resolveHubUrl,
   warnLocalhostHubOnMainnet,
@@ -159,5 +160,35 @@ describe('readTokenDecimals', () => {
     expect(readContract).toHaveBeenCalledWith(
       expect.objectContaining({ address: token, functionName: 'decimals' }),
     );
+  });
+});
+
+describe('readMinChannelAmount', () => {
+  it('calls minChannelAmount(token) on the PaymentChannel contract', async () => {
+    const readContract = vi.fn().mockResolvedValue(10_000_000_000_000_000n); // 0.01 ETH
+    const client = { readContract } as unknown as PublicClient;
+    const paymentChannelAddress = '0xA2665f2Fdf23CAA362b63F7A8902466f0504332d' as Address;
+    const min = await readMinChannelAmount({
+      client,
+      paymentChannelAddress,
+      token: ZERO_ADDRESS,
+    });
+    expect(min).toBe(10_000_000_000_000_000n);
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: paymentChannelAddress,
+        functionName: 'minChannelAmount',
+        args: [ZERO_ADDRESS],
+      }),
+    );
+  });
+
+  it('returns the per-token floor for an ERC-20', async () => {
+    const readContract = vi.fn().mockResolvedValue(1_000_000n); // 1 USDC
+    const client = { readContract } as unknown as PublicClient;
+    const paymentChannelAddress = '0xA2665f2Fdf23CAA362b63F7A8902466f0504332d' as Address;
+    const token = '0x07d83526730c7438048D55A4fc0b850e2aaB6f0b' as Address;
+    expect(await readMinChannelAmount({ client, paymentChannelAddress, token })).toBe(1_000_000n);
+    expect(readContract).toHaveBeenCalledWith(expect.objectContaining({ args: [token] }));
   });
 });
