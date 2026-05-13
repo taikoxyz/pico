@@ -18,7 +18,7 @@ function ctx(overrides: Partial<TopUpEvalContext> = {}): TopUpEvalContext {
   return {
     counterparty: COUNTERPARTY,
     token: USDC,
-    hubHotWalletUsdc: 100_000_000n,
+    hubHotWalletBalance: 100_000_000n,
     committedToCounterparty: 0n,
     outboundToCounterparty: 0n,
     totalCommitted: 0n,
@@ -37,7 +37,7 @@ describe('evaluateTopUp', () => {
   });
 
   it('rejects when hot-wallet headroom is exhausted', () => {
-    const r = evaluateTopUp(policy(), ctx({ hubHotWalletUsdc: 0n }));
+    const r = evaluateTopUp(policy(), ctx({ hubHotWalletBalance: 0n }));
     expect(r.approve).toBeNull();
     expect(r.reason).toContain('headroom');
   });
@@ -45,7 +45,7 @@ describe('evaluateTopUp', () => {
   it('rejects when totalCommitted equals hot-wallet (no headroom)', () => {
     const r = evaluateTopUp(
       policy(),
-      ctx({ hubHotWalletUsdc: 5_000_000n, totalCommitted: 5_000_000n }),
+      ctx({ hubHotWalletBalance: 5_000_000n, totalCommitted: 5_000_000n }),
     );
     expect(r.approve).toBeNull();
   });
@@ -68,7 +68,7 @@ describe('evaluateTopUp', () => {
   });
 
   it('caps offer by remaining headroom', () => {
-    const r = evaluateTopUp(policy(), ctx({ hubHotWalletUsdc: 3_000_000n, totalCommitted: 0n }));
+    const r = evaluateTopUp(policy(), ctx({ hubHotWalletBalance: 3_000_000n, totalCommitted: 0n }));
     expect(r.approve).toBe(3_000_000n);
   });
 
@@ -83,7 +83,7 @@ describe('evaluateTopUp', () => {
   it('caps offer by per-channel maximum', () => {
     const r = evaluateTopUp(
       policy({ defaultOfferAmount: 100_000_000n, maxInboundPerChannel: 8_000_000n }),
-      ctx({ hubHotWalletUsdc: 1_000_000_000n }),
+      ctx({ hubHotWalletBalance: 1_000_000_000n }),
     );
     expect(r.approve).toBe(8_000_000n);
   });
@@ -99,7 +99,7 @@ describe('evaluateTopUp', () => {
       DEFAULT_TOPUP_POLICY,
       ctx({
         token: ZERO_ADDRESS,
-        hubHotWalletUsdc: 5_000_000_000_000_000_000n, // 5 ETH
+        hubHotWalletBalance: 5_000_000_000_000_000_000n, // 5 ETH
       }),
     );
     expect(r.approve).toBe(50_000_000_000_000_000n); // 0.05 ETH

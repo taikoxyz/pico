@@ -162,7 +162,7 @@ async function makeHarness(
     token: TOKEN,
     policyConfig: { ...DEFAULT_TOPUP_POLICY, ...(opts.policyOverrides ?? {}) },
     hotWalletMutex,
-    readUsdcBalance: async () => harness.hubBalance,
+    readHotWalletBalance: async () => harness.hubBalance,
     pushProposeTopUp: (to, msg) => {
       proposed.push({ to, msg });
       return true;

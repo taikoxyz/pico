@@ -9,13 +9,6 @@ import {
 } from '@inferenceroom/pico-protocol';
 import { paymentChannelAbi } from '@inferenceroom/pico-sdk';
 import { http, type PublicClient, createPublicClient, parseAbiItem } from 'viem';
-
-/**
- * Sentinel signature placeholder for un-co-signed states. Identical to the
- * pattern used by `topup-handler.ts` when constructing prev-state envelopes
- * before the user has co-signed anything.
- */
-const SENTINEL_SIG: Signature = { r: EMPTY_SIG_BYTES, s: EMPTY_SIG_BYTES, v: 0 };
 import type { AutoRecycle } from './auto-recycle.js';
 import type { ChannelPool } from './channel-pool.js';
 import type { Repos } from './db/repos/index.js';
@@ -23,6 +16,13 @@ import type { DisputeHandler } from './dispute-handler.js';
 import type { Logger } from './logger.js';
 import type { HubMetrics } from './metrics.js';
 import type { TopUpHandler } from './topup-handler.js';
+
+/**
+ * Sentinel signature placeholder for un-co-signed states. Identical to the
+ * pattern used by `topup-handler.ts` when constructing prev-state envelopes
+ * before the user has co-signed anything.
+ */
+const SENTINEL_SIG: Signature = { r: EMPTY_SIG_BYTES, s: EMPTY_SIG_BYTES, v: 0 };
 
 const KV_KEY_LAST_BLOCK = 'chain_watcher.last_processed_block';
 const KV_KEY_LAST_BLOCK_HASH = 'chain_watcher.last_processed_block_hash';

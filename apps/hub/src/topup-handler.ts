@@ -76,8 +76,12 @@ export interface TopUpHandlerDeps {
   readonly token: Address;
   readonly policyConfig: TopUpPolicyConfig;
   readonly hotWalletMutex: KeyedMutex<string>;
-  /** Reads the hub's current USDC balance (RPC-backed in production). */
-  readonly readUsdcBalance: () => Promise<bigint>;
+  /**
+   * Reads the hub's current hot-wallet balance of `token` (RPC-backed in
+   * production). `ZERO_ADDRESS` means native ETH. Per-token because §8
+   * supports multi-token channel networks (round-3 finding #9).
+   */
+  readonly readHotWalletBalance: (token: Address) => Promise<bigint>;
   /** Push a `proposeTopUp` envelope to the user; returns true if a session was found. */
   readonly pushProposeTopUp: (toAddress: Address, msg: ProposeTopUpMessage) => boolean;
   /** Notify the user that the on-chain topUp has confirmed; returns true if delivered. */
@@ -432,12 +436,12 @@ export class TopUpHandler {
   ): Promise<{
     counterparty: Address;
     token: Address;
-    hubHotWalletUsdc: bigint;
+    hubHotWalletBalance: bigint;
     committedToCounterparty: bigint;
     outboundToCounterparty: bigint;
     totalCommitted: bigint;
   }> {
-    const hubHotWalletUsdc = await this.deps.readUsdcBalance();
+    const hubHotWalletBalance = await this.deps.readHotWalletBalance(token);
     const committedToCounterparty =
       this.deps.liquidity.perCounterpartyCommitted(counterparty) +
       this.deps.liquidity.perCounterpartySubmitted(counterparty);
@@ -454,7 +458,7 @@ export class TopUpHandler {
     return {
       counterparty,
       token,
-      hubHotWalletUsdc,
+      hubHotWalletBalance,
       committedToCounterparty,
       outboundToCounterparty,
       totalCommitted,

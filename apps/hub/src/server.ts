@@ -123,9 +123,10 @@ export async function buildServer(
     return (env.HUB_USDC_TOKEN ?? '0x0000000000000000000000000000000000000000') as `0x${string}`;
   }
 
-  async function readUsdcBalance(): Promise<bigint> {
-    const token = resolveToken();
-    if (token === '0x0000000000000000000000000000000000000000') return 0n;
+  async function readHotWalletBalance(token: `0x${string}`): Promise<bigint> {
+    if (token === '0x0000000000000000000000000000000000000000') {
+      return publicClientForChain.getBalance({ address: api.ws.hubAccount.address });
+    }
     const balance = (await publicClientForChain.readContract({
       address: token,
       abi: erc20Abi,
@@ -148,7 +149,7 @@ export async function buildServer(
     token: resolveToken(),
     policyConfig: DEFAULT_TOPUP_POLICY,
     hotWalletMutex,
-    readUsdcBalance,
+    readHotWalletBalance,
     pushProposeTopUp: (toAddress, msg) => api.ws.pushProposeTopUp(toAddress, msg),
     pushTopUpComplete: (toAddress, msg) => api.ws.pushTopUpComplete(toAddress, msg),
   });

@@ -128,7 +128,7 @@ describe('AutoRecycle.onClose', () => {
       token: TOKEN,
       policyConfig: DEFAULT_TOPUP_POLICY,
       hotWalletMutex,
-      readUsdcBalance: async () => hubBalance,
+      readHotWalletBalance: async () => hubBalance,
       pushProposeTopUp: (to, msg) => {
         proposed.push({ to, msg });
         return true;

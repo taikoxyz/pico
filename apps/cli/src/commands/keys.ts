@@ -8,6 +8,7 @@ import {
 import {
   decryptPrivateKey,
   encryptPrivateKey,
+  inflatedFeesFromBlock,
   isEncryptedKeyFile,
   parseKeyFile,
   serializeKeyFile,
@@ -335,29 +336,4 @@ async function runDrain(opts: DrainOpts, deps: KeysDeps): Promise<void> {
     (deps.stdout ?? process.stdout).write(formatCliError(err));
     process.exitCode = 1;
   }
-}
-
-/**
- * Returns gas fee overrides for `walletClient.writeContract`/`sendTransaction`
- * that decisively beat the chain's current basefee. Mirrors the SDK's
- * `ViemChainAdapter` helper (round-3 finding #13). On EIP-1559 chains
- * returns `{ maxFeePerGas, maxPriorityFeePerGas }`; on legacy chains
- * returns `{ gasPrice }`.
- */
-async function inflatedFeesFromBlock(
-  publicClient: PublicClient,
-): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | { gasPrice: bigint }> {
-  const MIN_PRIORITY_FEE = 1_000_000n;
-  try {
-    const block = await publicClient.getBlock({ blockTag: 'latest' });
-    if (block.baseFeePerGas !== null && block.baseFeePerGas !== undefined) {
-      const maxPriorityFeePerGas = MIN_PRIORITY_FEE;
-      const maxFeePerGas = block.baseFeePerGas * 4n + maxPriorityFeePerGas;
-      return { maxFeePerGas, maxPriorityFeePerGas };
-    }
-  } catch {
-    // fall through
-  }
-  const gp = (await publicClient.getGasPrice()) ?? 1n;
-  return { gasPrice: gp * 4n };
 }

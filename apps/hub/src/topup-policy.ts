@@ -83,7 +83,7 @@ export interface TopUpEvalContext {
   /** Token of the channel being evaluated; resolves per-token policy overrides. */
   readonly token: Address;
   /** Hub's spendable balance of `token` in its hot wallet (raw on-chain reading). */
-  readonly hubHotWalletUsdc: bigint;
+  readonly hubHotWalletBalance: bigint;
   /** Already-promised `token` to this counterparty across pending offers. */
   readonly committedToCounterparty: bigint;
   /** Existing hub-side balance across this counterparty's open channels. */
@@ -105,7 +105,7 @@ export interface TopUpEvalResult {
  * `topup-policy.test.ts`.
  */
 export function evaluateTopUp(cfg: TopUpPolicyConfig, ctx: TopUpEvalContext): TopUpEvalResult {
-  const headroom = ctx.hubHotWalletUsdc - ctx.totalCommitted;
+  const headroom = ctx.hubHotWalletBalance - ctx.totalCommitted;
   if (headroom <= 0n) {
     return { approve: null, reason: 'hot-wallet headroom exhausted' };
   }

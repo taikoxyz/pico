@@ -264,7 +264,7 @@ export interface ViemChainAdapterOptions {
  * basefee bumps don't strand the tx. If not, fall back to legacy
  * `gasPrice = 4 × eth_gasPrice`.
  */
-async function inflatedFeesFromBlock(
+export async function inflatedFeesFromBlock(
   publicClient: PublicClient,
 ): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | { gasPrice: bigint }> {
   // Minimum priority fee — keeps the tx attractive even when basefee dips.
