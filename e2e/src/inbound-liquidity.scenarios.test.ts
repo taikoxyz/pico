@@ -168,7 +168,7 @@ describe('inbound-liquidity scenarios', () => {
     const aliceUsdcBefore = await readUsdcBalance(h, h.alice.address);
     const pcUsdcBefore = await readUsdcBalance(h, h.paymentChannel);
 
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -195,7 +195,7 @@ describe('inbound-liquidity scenarios', () => {
 
   // ───────────── Scenario 2 ─────────────
   it('Scenario 2 — Alice pays the hub directly (`payDirect` 1 USDC)', async () => {
-    const channel = await alice.client.open({
+    const { channel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -222,7 +222,7 @@ describe('inbound-liquidity scenarios', () => {
 
   // ───────────── Scenario 3 ─────────────
   it('Scenario 3 — Bob opens a one-sided channel', async () => {
-    const aliceChannel = await alice.client.open({
+    const { channel: aliceChannel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -231,7 +231,7 @@ describe('inbound-liquidity scenarios', () => {
       await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -255,7 +255,7 @@ describe('inbound-liquidity scenarios', () => {
 
   // ───────────── Scenario 4 ─────────────
   it('Scenario 4 — Alice tries to pay Bob via the hub (FAILS without top-up)', async () => {
-    const aliceChannel = await alice.client.open({
+    const { channel: aliceChannel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -269,7 +269,7 @@ describe('inbound-liquidity scenarios', () => {
     // is 0). The hub's auto-topUp will attempt and fail on-chain ("prev bad
     // sig" — the v=1 state is sigA-only) so balanceB stays 0; the router then
     // rejects the pay with "hub liquidity 0".
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -300,7 +300,7 @@ describe('inbound-liquidity scenarios', () => {
 
   // ───────────── Scenario 5 ─────────────
   it('Scenario 5 — Hub auto-tops-up Bob’s channel (the new flow)', async () => {
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -331,7 +331,7 @@ describe('inbound-liquidity scenarios', () => {
 
   // ───────────── Scenario 6 ─────────────
   it('Scenario 6 — Alice pays Bob 1 USDC via hub (NOW WORKS)', async () => {
-    const aliceChannel = await alice.client.open({
+    const { channel: aliceChannel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -340,7 +340,7 @@ describe('inbound-liquidity scenarios', () => {
       await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -394,7 +394,7 @@ describe('inbound-liquidity scenarios', () => {
   it('Scenario 7 — Cooperative close of both channels', async () => {
     // Replay defense: after a successful coop close, the channel status is
     // Closed. Resubmitting any close (stale or fresh) reverts with `!open`.
-    const aliceChannel = await alice.client.open({
+    const { channel: aliceChannel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -403,7 +403,7 @@ describe('inbound-liquidity scenarios', () => {
       await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -495,7 +495,7 @@ describe('inbound-liquidity scenarios', () => {
   it('Scenario 8 — Hub recovers liquidity (no special call needed)', async () => {
     const hubUsdcStart = await readUsdcBalance(h, h.hub.address);
 
-    const aliceChannel = await alice.client.open({
+    const { channel: aliceChannel } = await alice.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -504,7 +504,7 @@ describe('inbound-liquidity scenarios', () => {
       await h.hubServer.registerChannel(aliceChannel, init ?? undefined);
     }
 
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });
@@ -581,7 +581,7 @@ describe('inbound-liquidity scenarios', () => {
     // recover his deposit via closeUnilateralFromOpen even though the hub
     // never co-signed any state.
     const bobUsdcBefore = await readUsdcBalance(h, h.bob.address);
-    const bobChannel = await bob.client.open({
+    const { channel: bobChannel } = await bob.client.open({
       counterparty: h.hub.address,
       amount: 10n * ONE_USDC,
     });

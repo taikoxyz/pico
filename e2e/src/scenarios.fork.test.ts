@@ -41,7 +41,7 @@ describeForked('Taiko mainnet fork lifecycle (gated by E2E_FORK_URL)', () => {
 
         const alice = buildAliceClient(env);
         try {
-          const channel = await alice.client.open({
+          const { channel } = await alice.client.open({
             counterparty: env.hub.address,
             amount: 100n * ONE_USDC,
           });
@@ -118,7 +118,7 @@ describeForked('Taiko mainnet fork lifecycle (gated by E2E_FORK_URL)', () => {
         });
 
         try {
-          const channel = await alice.client.open({
+          const { channel } = await alice.client.open({
             counterparty: env.hub.address,
             amount: 100n * ONE_USDC,
           });
