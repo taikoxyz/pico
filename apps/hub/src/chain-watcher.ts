@@ -3,9 +3,19 @@ import {
   type ChainId,
   type Channel,
   DEFAULT_DISPUTE_WINDOW_MS,
+  EMPTY_SIG_BYTES,
+  type Signature,
+  type SignedState,
 } from '@inferenceroom/pico-protocol';
 import { paymentChannelAbi } from '@inferenceroom/pico-sdk';
 import { http, type PublicClient, createPublicClient, parseAbiItem } from 'viem';
+
+/**
+ * Sentinel signature placeholder for un-co-signed states. Identical to the
+ * pattern used by `topup-handler.ts` when constructing prev-state envelopes
+ * before the user has co-signed anything.
+ */
+const SENTINEL_SIG: Signature = { r: EMPTY_SIG_BYTES, s: EMPTY_SIG_BYTES, v: 0 };
 import type { AutoRecycle } from './auto-recycle.js';
 import type { ChannelPool } from './channel-pool.js';
 import type { Repos } from './db/repos/index.js';
@@ -313,7 +323,28 @@ export class ChainWatcher {
           openedAt: openedAtMs,
           disputeWindowMs: DEFAULT_DISPUTE_WINDOW_MS,
         };
-        await this.deps.channelPool.register(channel, undefined, { amountA, amountB });
+        // Seed a sentinel-signed v0 state with the on-chain amounts so the
+        // router has something to apply HTLC updates onto. Without this,
+        // `channelPool.latest()` returns undefined for bootstrapped channels
+        // and any forwarded pay rejects with `no signed state for outgoing
+        // channel`. The sentinel sigs are the same EMPTY_SIG_BYTES pattern
+        // §8 already uses for un-co-signed prev states (see
+        // topup-handler.ts:`buildSentinelPrev`).
+        const v0SignedState: SignedState = {
+          state: {
+            channelId,
+            version: 0n,
+            balanceA: amountA,
+            balanceB: amountB,
+            htlcs: [],
+            htlcsCount: 0,
+            htlcsTotalLocked: 0n,
+            finalized: false,
+          },
+          sigA: SENTINEL_SIG,
+          sigB: SENTINEL_SIG,
+        };
+        await this.deps.channelPool.register(channel, v0SignedState, { amountA, amountB });
         known = this.deps.channelPool.get(channelId);
         this.deps.logger.info(
           { channelId, userA, userB, token },
