@@ -213,6 +213,59 @@ describe('ChainWatcher', () => {
     expect(amounts?.amountB).toBe(0n);
   });
 
+  it('falls back to wall-clock openedAt when getBlock fails on bootstrap', async () => {
+    const newChannelId = '0xcc';
+    const newUserB: `0x${string}` = '0x00000000000000000000000000000000000000B2';
+    const client = new FakeClient({
+      head: 10n,
+      logs: [
+        {
+          event: 'opened',
+          channelId: newChannelId,
+          args: {
+            userA: SAMPLE.userA,
+            userB: newUserB,
+            token: SAMPLE.token,
+            amountA: 1n,
+            amountB: 0n,
+          },
+          blockNumber: 5n,
+        },
+      ],
+    });
+    // Make getBlock reject when fetching the event's block timestamp, but
+    // succeed for the post-chunk tip-hash read (block 10).
+    client.getBlock = async (opts: { blockNumber: bigint }) => {
+      if (opts.blockNumber === 5n) throw new Error('rpc hiccup');
+      return {
+        hash: `0x${opts.blockNumber.toString(16).padStart(64, '0')}` as `0x${string}`,
+        timestamp: 1_700_000_000n,
+      };
+    };
+    const before = BigInt(Date.now());
+    const watcher = new ChainWatcher({
+      rpcUrl: 'http://test',
+      logger,
+      channelPool: pool,
+      repos: h.repos,
+      paymentChannelAddress: SAMPLE.contract,
+      metrics,
+      disputeHandler: new FakeDisputeHandler() as unknown as DisputeHandler,
+      chainId: 31337,
+      pollingIntervalMs: 60_000,
+      confirmations: 3,
+      publicClient: client as unknown as PublicClient,
+    });
+    await watcher.pollOnce();
+    const after = BigInt(Date.now());
+    const bootstrapped = pool.get(newChannelId);
+    expect(bootstrapped).toBeDefined();
+    expect(bootstrapped?.status).toBe('open');
+    expect(bootstrapped?.openedAt).toBeGreaterThan(0n);
+    expect(bootstrapped?.openedAt).toBeGreaterThanOrEqual(before);
+    expect(bootstrapped?.openedAt).toBeLessThanOrEqual(after);
+  });
+
   it('respects the confirmation buffer', async () => {
     const client = new FakeClient({
       head: 5n,

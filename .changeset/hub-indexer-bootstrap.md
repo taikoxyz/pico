@@ -16,7 +16,10 @@ errored with `subscribe timed out`.
 The watcher now registers the channel into the pool when `ChannelOpened`
 fires for an unknown channelId, using event-emitted
 `userA`/`userB`/`token`/`amountA`/`amountB` and the block timestamp for
-`openedAt`. Post-bootstrap, the WS handshake succeeds normally.
+`openedAt`. If `getBlock` fails, `openedAt` falls back to wall-clock time
+(rather than `0` / Jan 1 1970, which would mislead any consumer comparing
+`openedAt + disputeWindowMs` against now). Post-bootstrap, the WS
+handshake succeeds normally.
 
 Hub-only change; no SDK/protocol API surface impact. The patch bumps here
 exist only so the deploy-relevant package list in `release.yml` cuts a

@@ -289,14 +289,17 @@ export class ChainWatcher {
         if (!userA || !userB || !token || amountA === undefined || amountB === undefined) {
           continue;
         }
-        let openedAtMs = 0n;
+        // Fall back to wall-clock time if getBlock fails. A `0n` openedAt
+        // (Jan 1 1970) would make the channel look ancient to any future
+        // consumer that compares `openedAt + disputeWindowMs` against now.
+        let openedAtMs = BigInt(Date.now());
         try {
           const block = await this.client.getBlock({ blockNumber: log.blockNumber });
           openedAtMs = block.timestamp * 1000n;
         } catch (err) {
-          this.deps.logger.warn(
+          this.deps.logger.error(
             { err: (err as Error).message, channelId },
-            'getBlock for openedAt failed; using 0',
+            'getBlock for openedAt failed; falling back to wall-clock time',
           );
         }
         const channel: Channel = {
