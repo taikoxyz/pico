@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type { Address, ChainId, Channel, SignedState } from '@inferenceroom/pico-protocol';
 import type { FastifyInstance } from 'fastify';
 import { http, createPublicClient } from 'viem';
@@ -9,6 +10,39 @@ import type { LiquidityTracker } from '../liquidity.js';
 import type { Logger } from '../logger.js';
 import type { HubMetrics } from '../metrics.js';
 import { type WsHandle, registerWsRoutes } from './ws.js';
+
+/**
+ * Resolve the hub's display version at startup, with this precedence:
+ *   1. `HUB_RELEASE_TAG` env var — set at deploy time by render-manifests.sh
+ *      via the configmap. Always reflects the GKE-deployed image tag
+ *      (e.g. `v2.1.1`).
+ *   2. apps/hub/package.json — read relative to this module. Useful for
+ *      local dev where the env var isn't set.
+ *   3. `npm_package_version` — only present when launched via pnpm/npm.
+ *   4. `0.0.0` — final fallback.
+ *
+ * Round-2 finding #3: `/v1/health` reported `"0.0.0"` in production because
+ * the Docker entrypoint runs `node dist/server.js` directly, so the npm-set
+ * env var was absent and there was no other source.
+ */
+const HUB_VERSION = (() => {
+  const tag = process.env.HUB_RELEASE_TAG;
+  // Skip the unsubstituted placeholder if the configmap rendered with the
+  // raw `RELEASE_TAG` text (only happens when an operator applies the
+  // un-rendered manifest directly).
+  if (typeof tag === 'string' && tag.length > 0 && tag !== 'RELEASE_TAG') return tag;
+  try {
+    // dist/api/index.js → dist/api → dist → apps/hub. package.json sits at apps/hub/package.json.
+    const pkgUrl = new URL('../../package.json', import.meta.url);
+    const pkg = JSON.parse(readFileSync(pkgUrl, 'utf8')) as { version?: string };
+    if (typeof pkg.version === 'string' && pkg.version.length > 0 && pkg.version !== '0.0.0') {
+      return pkg.version;
+    }
+  } catch {
+    // fall through
+  }
+  return process.env.npm_package_version ?? '0.0.0';
+})();
 
 export interface ApiDeps {
   readonly channelPool: ChannelPool;
@@ -115,7 +149,7 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     void reply.code(healthy ? 200 : 503);
     return {
       status: healthy ? 'ok' : 'degraded',
-      version: process.env.npm_package_version ?? '0.0.0',
+      version: HUB_VERSION,
       checks,
       channels: deps.channelPool.list().length,
     };
