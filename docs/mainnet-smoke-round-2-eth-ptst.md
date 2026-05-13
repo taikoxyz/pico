@@ -168,3 +168,133 @@ Deployer's ETH decrease vs. start (0.04967 → 0.04964 ≈ 3e13 wei = $0.0001) i
 - **Investigate hub indexer (#1)**: confirm whether `pico-hub` `v2.0.4` is running an event indexer at all, what RPC it points at, and what its last-indexed block is. Highest priority before any further on-chain operations against this hub.
 - **Wire ETH support end-to-end (#2)**: two surgical changes in `cli-helpers.ts` and `chain-adapter.ts`; then re-run this exact plan with `--token 0x0000000000000000000000000000000000000000`.
 - **Remove PTST from allowlist**: not now — per `docs/test-erc20.md`, deferred until smoke testing concludes, which it has not (findings 1–2 must be resolved first).
+
+---
+
+## Phase C retry (2026-05-13, post-`v2.1.1`)
+
+Tracking issue: [#100](https://github.com/taikoxyz/pico/issues/100). Re-ran Phase C with two fresh roles (frank, gabby) after the two HIGH gaps from this round were supposedly closed by PR #99 (CLI/SDK native-ETH) and PR #102 (hub `ChannelOpened` bootstrap).
+
+### Deploy gate (the actual "make GKE current" step)
+
+The original target was `v2.1.0`, which the round-2 Phase 0 marked PASS for digest + rollout. But the `v2.1.0` git tag points at `e44bd5b` (Version Packages #101) — committed *before* PR #102 (`10eee8a`). So the image rolled out as `v2.1.0` does not contain the hub-bootstrap fix at all. Verified by reading the running container's `/repo/apps/hub/dist/chain-watcher.js` lines 195-220: only the `if (known)` branch existed; no `else` / bootstrap; no `"channel bootstrapped from chain"` log message. Empirically reproduced by rewinding `chain_watcher.last_processed_block` to before the test event and confirming the watcher's cursor advanced past the event with the channel never registered.
+
+The corresponding Version Packages PR #103 (`89f4839`) was supposed to bump `pico-sdk`/`pico-protocol` to `2.1.1`, triggering `release.yml` → `gke-images.yml` chain. `release.yml` run [25798343477](https://github.com/taikoxyz/pico/actions/runs/25798343477) failed at the npm publish step with `E404 ... '@inferenceroom/pico-sdk@2.1.1' is not in this registry` (the `@inferenceroom` scope is not registered on npmjs.org — separate finding from this smoke). Because `changesets/action`'s "Tag release for Docker build" step is gated on `published == 'true'`, no `v2.1.1` git tag was ever created and the GKE image was never rebuilt.
+
+Unblocked by manually pushing `git tag v2.1.1 89f4839 && git push origin v2.1.1`, which triggered `gke-images.yml` run [25800501512](https://github.com/taikoxyz/pico/actions/runs/25800501512). Build + deploy succeeded in ~4 m total. Confirmed the new digest carries tag `v2.1.1` and that `/repo/apps/hub/dist/chain-watcher.js:239` now reads `"channel bootstrapped from chain"`.
+
+| Field | Value |
+|---|---|
+| Hub image (after) | `…/pico/hub@sha256:0d54b83f7a3157bfcebd07aeb70bc55717e6493d6c691f776462217d730e3281` = `v2.1.1` |
+| Watchtower image (after) | rolled, same v2.1.1 build |
+| `/v1/health` | `{"status":"ok","checks":{"db":"ok","chain":"ok"}}` (still reports `"version":"0.0.0"` — round-2 finding #3 unfixed) |
+
+### Wallets
+
+| Role | Address | Encrypted key |
+|---|---|---|
+| frank | `0xbAFB6a280c52B62A7abB08740bEB9B14a3eEdc77` | `~/.pico/frank/key.enc` |
+| gabby | `0xCD0260fd9c4aE547eFB7cEF3b07bF1de22184ab1` | `~/.pico/gabby/key.enc` |
+
+Passphrases under gitignored `.context/round-3-secrets.env` (mode 0600).
+
+### Funding (Phase B re-run)
+
+Issue #100's plan was 0.025 ETH/role. Deployer only had `0.04964 ETH` at the start (carried over from end-of-round-2) so the smoke was run at scaled-down values: 0.015 ETH/role funding, 0.01 ETH/channel (the contract's `minChannelAmount[0x0]`), 0.001 ETH invoice.
+
+First-pass funding was 0.006 ETH/role until I learned the channel min the hard way (CLI surfaced only the opaque `chain error: Contract Call:` — `cast call` revealed the actual revert reason `amount<min`). Topped each role up by another 0.009 ETH to reach 0.015 ETH total.
+
+| Action | Tx |
+|---|---|
+| Fund 0.006 ETH → frank | [`0xc7965b6c…`](https://taikoscan.io/tx/0xc7965b6c487f8a08764918d675371a15d475c2d6da45baf3807ed81a62eda2e9) |
+| Fund 0.006 ETH → gabby | [`0x1dfb4465…`](https://taikoscan.io/tx/0x1dfb446509ec64231c5d18c5bd22a562098745235425e1f459072a0721d1f97e) |
+| Top-up 0.009 ETH → frank | [`0xbf934605…`](https://taikoscan.io/tx/0xbf934605633b69cf49c0b9977aa23956788f94d408d7ee986473bdf1da99166b) |
+| Top-up 0.009 ETH → gabby | [`0x97f0bb36…`](https://taikoscan.io/tx/0x97f0bb36fe4b48a08787c1b1006985049de08216b6504af01adb67628e395782) |
+
+### Phase C.1 — native-ETH channel open (PASS on-chain; subscribe race)
+
+| Role | channelId | Open tx | Block | amountA |
+|---|---|---|---|---|
+| frank | `0xec896c9d9719fa059b6e3fb54777d21a6b2a86355888dc0bced84009858b8dc2` | [`0x1893eed0…`](https://taikoscan.io/tx/0x1893eed004a1ca3389f073658398628b371a0f107e7ca8f83954c348bcba53a1) | 6,678,536 | 0.01 ETH |
+| gabby | `0x94ee136ebb01ad1931610825345bb751edd9d7fed9d6450098aaed3caa715966` | [`0xf968ca5c…`](https://taikoscan.io/tx/0xf968ca5c07f4952c97fef77cd09994c4a582eb6c20371f48059a74e6a2b50d4d) | 6,679,272 | 0.01 ETH |
+
+PR #99 fix is correct end-to-end: `readTokenDecimals(0x0)` short-circuits to 18 and `ViemChainAdapter.openChannel` passes `value: amountA` for `token == ZERO_ADDRESS`. Both channels minted `ChannelOpened` on-chain.
+
+But the CLI exited non-zero on each open with `"transport request 'subscribe' timed out after 10000ms"`. The chain-watcher's defaults (`pollingIntervalMs = 4000`, `confirmations = 3`) mean the hub needs up to ~12 s after on-chain inclusion to register a freshly-bootstrapped channel, while the CLI's WS subscribe gives up at 10 s. The CLI's warning message ("retry by running `pico listen`") is correct: the channel is locally persisted, on-chain, and indeed registered ~2 s later. PR #102's bootstrap is working as designed; the failure is a CLI/timing mismatch (round-2 finding #7 still rotting).
+
+### Phase C.2 — pay flow (FAIL: §8 topup is unusable for native ETH)
+
+With both channels bootstrapped, gabby's listen connected cleanly. Gabby created a 0.001-ETH (1e15 wei) invoice; frank paid it. Pay output:
+
+```
+{"stage":"verifying"}
+payment failed: router: no signed state for outgoing channel 0x94ee136e…
+```
+
+Hub log on the open events:
+
+```
+channel registered + channel bootstrapped from chain   ← both channels, PR #102 works
+topup: proposed offerId=0xb0f3…  amount=5000000  delivered=false
+topup: proposed offerId=0x6172…  amount=5000000  delivered=false
+htlcFail for unknown outgoing htlc
+```
+
+Three new HIGH findings come out of this:
+
+- **`§8` topup amount is hard-coded for USDC.** `apps/hub/src/topup-policy.ts:22` sets `defaultOfferAmount: 5_000_000n // 5 USDC`. The handler proposes that exact integer regardless of channel token decimals — on a native-ETH channel (18 decimals) that's `5e6 wei ≈ 5 picoether ≈ $1e-11`. No real payment can be forwarded.
+- **`§8` topup delivery is fire-and-forget.** Hub proposes immediately when the chain-watcher bootstraps the channel. If the user's `pico listen` subscribes *after* that propose (in our case ~80 s later), `pushProposeTopUp` writes `delivered: false` and the offer is never re-pushed.
+- **Bootstrapped channel has no `v0` signed state.** The chain-watcher's `channelPool.register(channel, undefined, …)` passes `undefined` for `initialState`. Combined with the two above, the hub's router can't accept any HTLC because the outgoing channel has nothing to apply the update onto. The §8 topup-handler is the intended path to establish v0+hub-liquidity, and both halves of that path are broken in this configuration.
+
+Net: the WS-handshake gap from round-2 is closed, but the *next* gap downstream — hub inbound liquidity for native-ETH channels — is wide open. Without it, no payment can be routed regardless of how cleanly the open succeeds.
+
+### Phase C.3 — close (anti-hostage path, no off-chain state)
+
+Cooperative close needs a signed state; there isn't one. `pico channel close --cooperative` surfaces another opaque `chain error: Contract Call:` instead of routing automatically to `closeUnilateralFromOpen` (the same anti-hostage path round-2 used for PTST). `pico channel close-from-open` is the right command — once you know to type it.
+
+| Role | Close tx | Block | Notes |
+|---|---|---|---|
+| gabby | [`0xc8045936…`](https://taikoscan.io/tx/0xc8045936addfd2093d4557908ddc34e96b578ef22ccfe440e9266dba3c0004f8) | (landed normally) | `pico channel close-from-open` worked first try |
+| frank | [`0xa2f072f2…`](https://taikoscan.io/tx/0xa2f072f28cac27198086ff87cd320894085b435908df3eaabe032cc1fe318199) | 6,679,745 | First attempt stuck at `gasPrice = 12_000_000 wei` (0.012 gwei) vs chain floor `~39_209_958 wei`. Unstuck by `cast send` with same nonce + `--gas-price 100_000_000` |
+
+Both channels in `ClosingUnilateral`. Dispute deadline ≈ `2026-05-14T13:13:17Z`. After that, anyone may `finalize(channelId)` to release each side's principal (0.01 ETH → frank, 0.01 ETH → gabby).
+
+### Phase D — drain residual to deployer
+
+`pico keys drain --to <deployer>` still aborts with `total cost ... exceeds the balance of the account` on near-empty wallets (round-2 finding #4 unfixed). Drained manually via `cast send --gas-price 78_419_916 --gas-limit 21000 --value (balance − 21000·gasPrice)`:
+
+| Role | Drain tx |
+|---|---|
+| frank | [`0x2ecdf22c…`](https://taikoscan.io/tx/0x2ecdf22c689f14431af5bd9fe76f515a7a1d2893752c7d6203c1e4aef7dd9bd5) |
+| gabby | [`0xbbde0c3f…`](https://taikoscan.io/tx/0xbbde0c3fbab97e1378ad5cc966bb8982c92b18e4f737ddcfc06a3504c4c0a0b9) |
+
+### Final balances
+
+| Account | ETH |
+|---|---|
+| frank | 0.00000144 (dust) |
+| gabby | 0.00000144 (dust) |
+| PaymentChannel (locked) | 0.02 (recoverable via `finalize` after 2026-05-14T13:13:17Z) |
+| deployer | 0.02962 |
+
+Deployer started this addendum at `0.04964`. End at `0.02962`. Of the `0.02002` ETH spent, `0.02` is principal currently locked in channels (recoverable) and ~`0.00002` is aggregate gas. PTST untouched.
+
+### Findings — addendum
+
+| # | Severity | Component | Finding |
+|---|---|---|---|
+| 9 | **HIGH** | hub | §8 topup `defaultOfferAmount: 5_000_000n` is hard-coded for USDC (6 decimals). For native-ETH (18 decimals) it offers `5e6 wei ≈ 5 picoether` — useless. Scale offer per channel token decimals (or store per-token defaults in `topup-policy.ts`). |
+| 10 | **HIGH** | hub | §8 topup delivery is fire-and-forget. `pushProposeTopUp` records `delivered: false` if the user isn't subscribed at the moment of propose; offers never re-push on `subscribe`. New users who run `pico channel open` then `pico listen` immediately after will frequently miss the initial offer. |
+| 11 | **HIGH** | hub | Chain-watcher bootstrap registers channel metadata only — `register(channel, undefined, amounts)` — with no v0 signed state. Combined with #9/#10, the router has nothing to apply HTLC updates onto and fails any pay with `no signed state for outgoing channel`. |
+| 12 | **HIGH** | release infra | Release pipeline coupling: changesets `published == 'true'` gates the docker-image tag. Any npm publish failure (e.g. the `@inferenceroom/*` scope not existing) silently blocks GKE deploys with no operator alert. The two pipelines should be decoupled — Docker tag should fire on any version bump that touches the deploy-relevant package list, regardless of npm publish status. |
+| 13 | medium | CLI | `pico channel close-from-open` submits at a low fixed `gas-price` (~12_000_000 wei observed). On Taiko mainnet the basefee floor is ~39 M wei, so the tx sits indefinitely. Compute `gasPrice` via `eth_gasPrice` plus a small premium. |
+| 14 | medium | CLI | `pico channel close --cooperative` on a freshly opened channel surfaces opaque `chain error: Contract Call:`. The CLI should detect "no v0 state" and route to the close-from-open path automatically (or print a clear error pointing at the right command). |
+| 15 | low | contracts | `minChannelAmount[address(0)] = 1e16` is undocumented in `IPaymentChannel.sol` and not mentioned in the landing-page native-ETH copy. The CLI should `cast call minChannelAmount(token)` before submitting and surface a clear `--amount must be ≥ X.XXX ETH` error rather than `chain error: Contract Call:` with no detail. |
+
+### Follow-up
+
+- **Recover locked principal**: on 2026-05-14T13:13:17Z+, call `finalize` for `0xec896c9d…` and `0x94ee136e…` (in addition to the round-2 PTST channels listed above).
+- **Cut the §8 inbound-liquidity story for native ETH**: address #9, #10, #11 together. The simplest viable wedge is per-token `defaultOfferAmount` in `topup-policy.ts` plus a re-push of `proposed` offers on every `subscribe` ack. Bootstrap should optionally seed a v0 with `balanceA = amountA, balanceB = amountB`.
+- **Decouple release pipeline (#12)**: cut the Docker tag from `version-bump-merged && deploy-relevant-package-touched`, not from `npm-published`. Independently, fix the `@inferenceroom/*` npm scope so `release.yml` can actually publish.
+- **Round-4 retry**: only after #9-#12 are addressed. Re-use the same `frank`/`gabby` roles or generate `henry`/`isla`.
+
