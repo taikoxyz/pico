@@ -252,8 +252,46 @@ export interface ViemChainAdapterOptions {
   readonly paymentChannelAddress: Address;
 }
 
+/**
+ * Returns gas fee overrides for `walletClient.writeContract` that
+ * decisively beat the chain's current basefee. On Taiko mainnet (round-3
+ * smoke, issue #100 finding #13), viem's default `eth_gasPrice` returned
+ * a stale value (~0.012 gwei) while the chain's actual floor was
+ * ~0.039 gwei, leaving close-from-open txs stuck in mempool indefinitely.
+ *
+ * Strategy: read the latest block's `baseFeePerGas`. If EIP-1559 is
+ * supported, return `maxFeePerGas = 4 × basefee + tip` so subsequent
+ * basefee bumps don't strand the tx. If not, fall back to legacy
+ * `gasPrice = 4 × eth_gasPrice`.
+ */
+async function inflatedFeesFromBlock(
+  publicClient: PublicClient,
+): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | { gasPrice: bigint }> {
+  // Minimum priority fee — keeps the tx attractive even when basefee dips.
+  const MIN_PRIORITY_FEE = 1_000_000n; // 0.001 gwei
+  try {
+    const block = await publicClient.getBlock({ blockTag: 'latest' });
+    if (block.baseFeePerGas !== null && block.baseFeePerGas !== undefined) {
+      const maxPriorityFeePerGas = MIN_PRIORITY_FEE;
+      const maxFeePerGas = block.baseFeePerGas * 4n + maxPriorityFeePerGas;
+      return { maxFeePerGas, maxPriorityFeePerGas };
+    }
+  } catch {
+    // Block fetch failed — fall through to legacy path.
+  }
+  const gp = await publicClient.getGasPrice();
+  return { gasPrice: gp * 4n };
+}
+
 export class ViemChainAdapter implements ChainAdapter {
   constructor(private readonly opts: ViemChainAdapterOptions) {}
+
+  /** @internal */
+  private fees(): Promise<
+    { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | { gasPrice: bigint }
+  > {
+    return inflatedFeesFromBlock(this.opts.publicClient);
+  }
 
   async openChannel(args: OpenChannelOnChainArgs): Promise<OpenChannelOnChainResult> {
     const { walletClient, publicClient, paymentChannelAddress } = this.opts;
@@ -263,6 +301,7 @@ export class ViemChainAdapter implements ChainAdapter {
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
     const isNative = args.token === ZERO_ADDRESS;
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -271,6 +310,7 @@ export class ViemChainAdapter implements ChainAdapter {
       account,
       chain,
       value: isNative ? args.amountA : 0n,
+      ...fees,
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
@@ -307,6 +347,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const sigA = signatureToHex(args.signedClose.sigA);
     const sigB = signatureToHex(args.signedClose.sigB);
 
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -314,6 +355,7 @@ export class ViemChainAdapter implements ChainAdapter {
       args: [args.channelId, closeBytes, sigA, sigB],
       account,
       chain,
+      ...fees,
     });
     const closeReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
     return { txHash, blockNumber: closeReceipt.blockNumber };
@@ -329,6 +371,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const stateBytes = encodeChannelStateForOnChain(args.state.state);
     const counterpartySig = signatureToHex(args.mySide === 'A' ? args.state.sigB : args.state.sigA);
 
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -336,6 +379,7 @@ export class ViemChainAdapter implements ChainAdapter {
       args: [args.channelId, stateBytes, counterpartySig],
       account,
       chain,
+      ...fees,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
     const logs = parseEventLogs({
@@ -362,6 +406,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const chain = walletClient.chain;
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -369,6 +414,7 @@ export class ViemChainAdapter implements ChainAdapter {
       args: [args.channelId],
       account,
       chain,
+      ...fees,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
     const logs = parseEventLogs({
@@ -395,6 +441,7 @@ export class ViemChainAdapter implements ChainAdapter {
 
     const isNative = args.token === ZERO_ADDRESS;
     if (!isNative && args.approve !== false) {
+      const approveFees = await this.fees();
       const approveHash = await walletClient.writeContract({
         address: args.token,
         abi: erc20Abi,
@@ -402,6 +449,7 @@ export class ViemChainAdapter implements ChainAdapter {
         args: [paymentChannelAddress, args.amount],
         account,
         chain,
+        ...approveFees,
       });
       await publicClient.waitForTransactionReceipt({ hash: approveHash });
     }
@@ -413,6 +461,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const prevTuple = buildSignedStateTuple(args.prev, prevSentinel);
     const nextTuple = buildSignedStateTuple(args.next, false);
 
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -421,6 +470,7 @@ export class ViemChainAdapter implements ChainAdapter {
       account,
       chain,
       value: isNative ? args.amount : 0n,
+      ...fees,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
     const logs = parseEventLogs({
@@ -440,6 +490,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const chain = walletClient.chain;
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -447,6 +498,7 @@ export class ViemChainAdapter implements ChainAdapter {
       args: [channelId],
       account,
       chain,
+      ...fees,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
     const logs = parseEventLogs({
@@ -466,6 +518,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const chain = walletClient.chain;
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -486,6 +539,7 @@ export class ViemChainAdapter implements ChainAdapter {
       ],
       account,
       chain,
+      ...fees,
     });
     await publicClient.waitForTransactionReceipt({ hash: txHash });
     return { txHash };
@@ -498,6 +552,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const chain = walletClient.chain;
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
+    const fees = await this.fees();
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -517,6 +572,7 @@ export class ViemChainAdapter implements ChainAdapter {
       ],
       account,
       chain,
+      ...fees,
     });
     await publicClient.waitForTransactionReceipt({ hash: txHash });
     return { txHash };

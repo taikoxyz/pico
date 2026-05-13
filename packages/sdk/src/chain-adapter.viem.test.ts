@@ -54,11 +54,18 @@ describe('ViemChainAdapter.openChannel', () => {
       blockNumber: 100n,
       logs: [makeOpenedLog()],
     });
-    const getBlock = vi.fn().mockResolvedValue({ timestamp: 1_700_000_000n });
+    const getBlock = vi
+      .fn()
+      .mockResolvedValue({ timestamp: 1_700_000_000n, baseFeePerGas: 1_000_000_000n });
+    const getGasPrice = vi.fn().mockResolvedValue(1_000_000_000n);
 
     const adapter = new ViemChainAdapter({
       paymentChannelAddress: PAYMENT_CHANNEL,
-      publicClient: { waitForTransactionReceipt, getBlock } as unknown as PublicClient,
+      publicClient: {
+        waitForTransactionReceipt,
+        getBlock,
+        getGasPrice,
+      } as unknown as PublicClient,
       walletClient: {
         writeContract,
         account: { address: USER_A } as unknown as WalletClient['account'],
@@ -115,11 +122,18 @@ describe('ViemChainAdapter.openChannel', () => {
       blockNumber: 100n,
       logs: [makeOpenedLog()],
     });
-    const getBlock = vi.fn().mockResolvedValue({ timestamp: 1_700_000_000n });
+    const getBlock = vi
+      .fn()
+      .mockResolvedValue({ timestamp: 1_700_000_000n, baseFeePerGas: 1_000_000_000n });
+    const getGasPrice = vi.fn().mockResolvedValue(1_000_000_000n);
 
     const adapter = new ViemChainAdapter({
       paymentChannelAddress: PAYMENT_CHANNEL,
-      publicClient: { waitForTransactionReceipt, getBlock } as unknown as PublicClient,
+      publicClient: {
+        waitForTransactionReceipt,
+        getBlock,
+        getGasPrice,
+      } as unknown as PublicClient,
       walletClient: {
         writeContract,
         account: { address: USER_A } as unknown as WalletClient['account'],
@@ -138,17 +152,107 @@ describe('ViemChainAdapter.openChannel', () => {
     );
   });
 
+  it('inflates maxFeePerGas to 4× basefee + tip on EIP-1559 chains', async () => {
+    const writeContract = vi.fn().mockResolvedValue(TX_HASH);
+    const waitForTransactionReceipt = vi.fn().mockResolvedValue({
+      blockNumber: 100n,
+      logs: [makeOpenedLog()],
+    });
+    const getBlock = vi
+      .fn()
+      .mockResolvedValue({ timestamp: 1_700_000_000n, baseFeePerGas: 50_000_000n });
+    const getGasPrice = vi.fn().mockResolvedValue(50_000_000n);
+
+    const adapter = new ViemChainAdapter({
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      publicClient: {
+        waitForTransactionReceipt,
+        getBlock,
+        getGasPrice,
+      } as unknown as PublicClient,
+      walletClient: {
+        writeContract,
+        account: { address: USER_A } as unknown as WalletClient['account'],
+        chain: fakeChain,
+      } as unknown as WalletClient,
+    });
+
+    await adapter.openChannel({
+      userB: USER_B,
+      token: TOKEN,
+      amountA: 1_000n,
+      amountB: 0n,
+    });
+
+    const call = writeContract.mock.calls[0]?.[0] as {
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+      gasPrice?: bigint;
+    };
+    // 50_000_000 * 4 + 1_000_000 (tip) = 201_000_000
+    expect(call?.maxFeePerGas).toBe(201_000_000n);
+    expect(call?.maxPriorityFeePerGas).toBe(1_000_000n);
+    expect(call?.gasPrice).toBeUndefined();
+  });
+
+  it('falls back to gasPrice when block has no baseFeePerGas', async () => {
+    const writeContract = vi.fn().mockResolvedValue(TX_HASH);
+    const waitForTransactionReceipt = vi.fn().mockResolvedValue({
+      blockNumber: 100n,
+      logs: [makeOpenedLog()],
+    });
+    // baseFeePerGas omitted (pre-EIP-1559 chain)
+    const getBlock = vi.fn().mockResolvedValue({ timestamp: 1_700_000_000n });
+    const getGasPrice = vi.fn().mockResolvedValue(100_000_000n);
+
+    const adapter = new ViemChainAdapter({
+      paymentChannelAddress: PAYMENT_CHANNEL,
+      publicClient: {
+        waitForTransactionReceipt,
+        getBlock,
+        getGasPrice,
+      } as unknown as PublicClient,
+      walletClient: {
+        writeContract,
+        account: { address: USER_A } as unknown as WalletClient['account'],
+        chain: fakeChain,
+      } as unknown as WalletClient,
+    });
+
+    await adapter.openChannel({
+      userB: USER_B,
+      token: TOKEN,
+      amountA: 1_000n,
+      amountB: 0n,
+    });
+
+    const call = writeContract.mock.calls[0]?.[0] as {
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+    };
+    // 100_000_000 * 4 = 400_000_000
+    expect(call?.gasPrice).toBe(400_000_000n);
+    expect(call?.maxFeePerGas).toBeUndefined();
+  });
+
   it('does not pass value when token is an ERC-20', async () => {
     const writeContract = vi.fn().mockResolvedValue(TX_HASH);
     const waitForTransactionReceipt = vi.fn().mockResolvedValue({
       blockNumber: 100n,
       logs: [makeOpenedLog()],
     });
-    const getBlock = vi.fn().mockResolvedValue({ timestamp: 1_700_000_000n });
+    const getBlock = vi
+      .fn()
+      .mockResolvedValue({ timestamp: 1_700_000_000n, baseFeePerGas: 1_000_000_000n });
+    const getGasPrice = vi.fn().mockResolvedValue(1_000_000_000n);
 
     const adapter = new ViemChainAdapter({
       paymentChannelAddress: PAYMENT_CHANNEL,
-      publicClient: { waitForTransactionReceipt, getBlock } as unknown as PublicClient,
+      publicClient: {
+        waitForTransactionReceipt,
+        getBlock,
+        getGasPrice,
+      } as unknown as PublicClient,
       walletClient: {
         writeContract,
         account: { address: USER_A } as unknown as WalletClient['account'],
@@ -233,7 +337,11 @@ describe('ViemChainAdapter.topUp', () => {
 
     const adapter = new ViemChainAdapter({
       paymentChannelAddress: PAYMENT_CHANNEL,
-      publicClient: { waitForTransactionReceipt } as unknown as PublicClient,
+      publicClient: {
+        waitForTransactionReceipt,
+        getBlock: vi.fn().mockResolvedValue({ baseFeePerGas: 1_000_000_000n }),
+        getGasPrice: vi.fn().mockResolvedValue(1_000_000_000n),
+      } as unknown as PublicClient,
       walletClient: {
         writeContract,
         account: { address: USER_A } as unknown as WalletClient['account'],
@@ -264,7 +372,11 @@ describe('ViemChainAdapter.topUp', () => {
 
     const adapter = new ViemChainAdapter({
       paymentChannelAddress: PAYMENT_CHANNEL,
-      publicClient: { waitForTransactionReceipt } as unknown as PublicClient,
+      publicClient: {
+        waitForTransactionReceipt,
+        getBlock: vi.fn().mockResolvedValue({ baseFeePerGas: 1_000_000_000n }),
+        getGasPrice: vi.fn().mockResolvedValue(1_000_000_000n),
+      } as unknown as PublicClient,
       walletClient: {
         writeContract,
         account: { address: USER_A } as unknown as WalletClient['account'],
