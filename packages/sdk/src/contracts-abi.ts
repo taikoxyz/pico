@@ -44,7 +44,7 @@ export const paymentChannelAbi = [
   {
     type: 'function',
     name: 'topUp',
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     inputs: [
       { name: 'channelId', type: 'bytes32' },
       { name: 'amount', type: 'uint256' },

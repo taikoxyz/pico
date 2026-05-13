@@ -6,6 +6,7 @@ import {
   TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
+  ZERO_ADDRESS,
 } from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
@@ -145,7 +146,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
           });
 
           let approveTxHash: `0x${string}` | undefined;
-          if (opts.approve) {
+          if (opts.approve && token !== ZERO_ADDRESS) {
             const current = await readAllowance({
               client: publicClient as unknown as PublicClient,
               token,

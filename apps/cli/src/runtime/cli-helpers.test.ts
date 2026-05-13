@@ -1,10 +1,16 @@
-import { TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID } from '@inferenceroom/pico-protocol';
-import { describe, expect, it } from 'vitest';
+import {
+  TAIKO_HOODI_CHAIN_ID,
+  TAIKO_MAINNET_CHAIN_ID,
+  ZERO_ADDRESS,
+} from '@inferenceroom/pico-protocol';
+import type { Address, PublicClient } from 'viem';
+import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_HUB_URL,
   describeCliError,
   formatCliError,
   parseAmount,
+  readTokenDecimals,
   resolveHubUrl,
   warnLocalhostHubOnMainnet,
 } from './cli-helpers.js';
@@ -134,5 +140,24 @@ describe('describeCliError / formatCliError', () => {
 
   it('tags unknown errors as cli', () => {
     expect(describeCliError(new Error('boom')).tag).toBe('cli');
+  });
+});
+
+describe('readTokenDecimals', () => {
+  it('returns 18 for the native-ETH sentinel without calling the contract', async () => {
+    const readContract = vi.fn();
+    const client = { readContract } as unknown as PublicClient;
+    expect(await readTokenDecimals({ client, token: ZERO_ADDRESS })).toBe(18);
+    expect(readContract).not.toHaveBeenCalled();
+  });
+
+  it('reads decimals() from the token contract for ERC-20s', async () => {
+    const readContract = vi.fn().mockResolvedValue(6);
+    const client = { readContract } as unknown as PublicClient;
+    const token = '0x07d83526730c7438048D55A4fc0b850e2aaB6f0b' as Address;
+    expect(await readTokenDecimals({ client, token })).toBe(6);
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({ address: token, functionName: 'decimals' }),
+    );
   });
 });

@@ -1,12 +1,13 @@
-import type {
-  Address,
-  ChannelId,
-  ChannelState,
-  CooperativeClose,
-  Hex,
-  Signature,
-  SignedCooperativeClose,
-  SignedState,
+import {
+  type Address,
+  type ChannelId,
+  type ChannelState,
+  type CooperativeClose,
+  type Hex,
+  type Signature,
+  type SignedCooperativeClose,
+  type SignedState,
+  ZERO_ADDRESS,
 } from '@inferenceroom/pico-protocol';
 import { computeHtlcsRoot } from '@inferenceroom/pico-state-machine';
 import {
@@ -261,6 +262,7 @@ export class ViemChainAdapter implements ChainAdapter {
     const chain = walletClient.chain;
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
+    const isNative = args.token === ZERO_ADDRESS;
     const txHash = await walletClient.writeContract({
       address: paymentChannelAddress,
       abi: paymentChannelAbi,
@@ -268,6 +270,7 @@ export class ViemChainAdapter implements ChainAdapter {
       args: [args.userB, args.token, args.amountA, args.amountB],
       account,
       chain,
+      value: isNative ? args.amountA : 0n,
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
@@ -390,7 +393,8 @@ export class ViemChainAdapter implements ChainAdapter {
     const chain = walletClient.chain;
     if (!chain) throw new Error('ViemChainAdapter: walletClient has no chain');
 
-    if (args.approve !== false) {
+    const isNative = args.token === ZERO_ADDRESS;
+    if (!isNative && args.approve !== false) {
       const approveHash = await walletClient.writeContract({
         address: args.token,
         abi: erc20Abi,
@@ -416,6 +420,7 @@ export class ViemChainAdapter implements ChainAdapter {
       args: [args.channelId, args.amount, prevTuple, nextTuple],
       account,
       chain,
+      value: isNative ? args.amount : 0n,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
     const logs = parseEventLogs({
