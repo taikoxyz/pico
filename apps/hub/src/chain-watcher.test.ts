@@ -47,12 +47,22 @@ interface FakeLog {
 class FakeClient {
   head = 100n;
   logs: FakeLog[] = [];
+  blockTimestamps = new Map<bigint, bigint>();
   constructor(args: { head?: bigint; logs?: FakeLog[] } = {}) {
     if (args.head !== undefined) this.head = args.head;
     if (args.logs) this.logs = args.logs;
   }
   async getBlockNumber(): Promise<bigint> {
     return this.head;
+  }
+  async getBlock(opts: { blockNumber: bigint }): Promise<{
+    hash: `0x${string}`;
+    timestamp: bigint;
+  }> {
+    return {
+      hash: `0x${opts.blockNumber.toString(16).padStart(64, '0')}` as `0x${string}`,
+      timestamp: this.blockTimestamps.get(opts.blockNumber) ?? 1_700_000_000n,
+    };
   }
   async getLogs(opts: {
     fromBlock: bigint;
@@ -150,6 +160,57 @@ describe('ChainWatcher', () => {
     expect(pool.get(SAMPLE.id)?.status).toBe('closing-unilateral');
     expect(fakeDispute.notifications).toHaveLength(1);
     expect(fakeDispute.notifications[0]?.attackerVersion).toBe(3n);
+  });
+
+  it('bootstraps an unknown channel from a ChannelOpened event', async () => {
+    const newChannelId = '0xbb';
+    const newUserB: `0x${string}` = '0x00000000000000000000000000000000000000B1';
+    const client = new FakeClient({
+      head: 10n,
+      logs: [
+        {
+          event: 'opened',
+          channelId: newChannelId,
+          args: {
+            userA: SAMPLE.userA,
+            userB: newUserB,
+            token: SAMPLE.token,
+            amountA: 1234n,
+            amountB: 0n,
+          },
+          blockNumber: 5n,
+        },
+      ],
+    });
+    client.blockTimestamps.set(5n, 1_800_000_000n);
+    const watcher = new ChainWatcher({
+      rpcUrl: 'http://test',
+      logger,
+      channelPool: pool,
+      repos: h.repos,
+      paymentChannelAddress: SAMPLE.contract,
+      metrics,
+      disputeHandler: new FakeDisputeHandler() as unknown as DisputeHandler,
+      chainId: 31337,
+      pollingIntervalMs: 60_000,
+      confirmations: 3,
+      publicClient: client as unknown as PublicClient,
+    });
+    expect(pool.get(newChannelId)).toBeUndefined();
+    await watcher.pollOnce();
+    const bootstrapped = pool.get(newChannelId);
+    expect(bootstrapped).toBeDefined();
+    expect(bootstrapped?.status).toBe('open');
+    expect(bootstrapped?.userA).toBe(SAMPLE.userA);
+    expect(bootstrapped?.userB).toBe(newUserB);
+    expect(bootstrapped?.token).toBe(SAMPLE.token);
+    expect(bootstrapped?.contract).toBe(SAMPLE.contract);
+    expect(bootstrapped?.chainId).toBe(31337);
+    expect(bootstrapped?.openedAt).toBe(1_800_000_000_000n);
+    expect(bootstrapped?.disputeWindowMs).toBe(86_400_000);
+    const amounts = await h.repos.channels.getAmounts(newChannelId);
+    expect(amounts?.amountA).toBe(1234n);
+    expect(amounts?.amountB).toBe(0n);
   });
 
   it('respects the confirmation buffer', async () => {
