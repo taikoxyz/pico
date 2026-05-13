@@ -1,4 +1,9 @@
-import type { Address, ChainId } from '@inferenceroom/pico-protocol';
+import {
+  type Address,
+  type ChainId,
+  type Channel,
+  DEFAULT_DISPUTE_WINDOW_MS,
+} from '@inferenceroom/pico-protocol';
 import { paymentChannelAbi } from '@inferenceroom/pico-sdk';
 import { http, type PublicClient, createPublicClient, parseAbiItem } from 'viem';
 import type { AutoRecycle } from './auto-recycle.js';
@@ -267,29 +272,68 @@ export class ChainWatcher {
     for (const log of opened) {
       const channelId = log.args.channelId;
       if (!channelId) continue;
-      const known = this.deps.channelPool.get(channelId);
+      let known = this.deps.channelPool.get(channelId);
       if (known) {
         await this.deps.channelPool.setStatus(channelId, 'open');
         this.deps.logger.info({ channelId }, 'channel opened on-chain');
+      } else {
+        // Bootstrap: the SDK never tells the hub about a new channel out-of-band,
+        // so without this branch the WS envelope check (which builds known-signers
+        // from `channelPool.list()`) rejects every legitimate first message from a
+        // freshly-opened channel's party with `not a known channel party`.
+        const userA = log.args.userA;
+        const userB = log.args.userB;
+        const token = log.args.token;
+        const amountA = log.args.amountA;
+        const amountB = log.args.amountB;
+        if (!userA || !userB || !token || amountA === undefined || amountB === undefined) {
+          continue;
+        }
+        // Fall back to wall-clock time if getBlock fails. A `0n` openedAt
+        // (Jan 1 1970) would make the channel look ancient to any future
+        // consumer that compares `openedAt + disputeWindowMs` against now.
+        let openedAtMs = BigInt(Date.now());
+        try {
+          const block = await this.client.getBlock({ blockNumber: log.blockNumber });
+          openedAtMs = block.timestamp * 1000n;
+        } catch (err) {
+          this.deps.logger.error(
+            { err: (err as Error).message, channelId },
+            'getBlock for openedAt failed; falling back to wall-clock time',
+          );
+        }
+        const channel: Channel = {
+          id: channelId,
+          chainId: this.deps.chainId,
+          contract: this.deps.paymentChannelAddress,
+          userA,
+          userB,
+          token,
+          status: 'open',
+          openedAt: openedAtMs,
+          disputeWindowMs: DEFAULT_DISPUTE_WINDOW_MS,
+        };
+        await this.deps.channelPool.register(channel, undefined, { amountA, amountB });
+        known = this.deps.channelPool.get(channelId);
+        this.deps.logger.info(
+          { channelId, userA, userB, token },
+          'channel bootstrapped from chain',
+        );
       }
       // §8 — auto-evaluate freshly opened channels where the hub is userB
       // (or userA). The handler decides whether to immediately propose a
       // top-up or queue it.
-      if (this.deps.topupHandler && this.deps.hubAddress) {
-        const userA = log.args.userA;
-        const userB = log.args.userB;
-        if (userA && userB) {
-          const hub = this.deps.hubAddress.toLowerCase();
-          const hubInChannel = userA.toLowerCase() === hub || userB.toLowerCase() === hub;
-          if (hubInChannel && known) {
-            try {
-              await this.deps.topupHandler.evaluateNewChannel(known);
-            } catch (err) {
-              this.deps.logger.warn(
-                { err: (err as Error).message, channelId },
-                'topup-handler evaluateNewChannel failed',
-              );
-            }
+      if (this.deps.topupHandler && this.deps.hubAddress && known) {
+        const hub = this.deps.hubAddress.toLowerCase();
+        const hubInChannel = known.userA.toLowerCase() === hub || known.userB.toLowerCase() === hub;
+        if (hubInChannel) {
+          try {
+            await this.deps.topupHandler.evaluateNewChannel(known);
+          } catch (err) {
+            this.deps.logger.warn(
+              { err: (err as Error).message, channelId },
+              'topup-handler evaluateNewChannel failed',
+            );
           }
         }
       }
