@@ -93,6 +93,34 @@ export async function readAllowance(args: {
   });
 }
 
+/// Read `minChannelAmount(token)` from the PaymentChannel contract.
+/// Returns the per-token floor for `amountA + amountB`. Surfacing this
+/// pre-flight lets `pico channel open` emit a clear error instead of
+/// the opaque `chain error: Contract Call:` an on-chain `amount<min`
+/// revert produces (round-3 finding #15).
+const minChannelAmountAbi = [
+  {
+    type: 'function',
+    name: 'minChannelAmount',
+    stateMutability: 'view',
+    inputs: [{ name: 'token', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const;
+
+export async function readMinChannelAmount(args: {
+  client: PublicClient;
+  paymentChannelAddress: Address;
+  token: Address;
+}): Promise<bigint> {
+  return args.client.readContract({
+    address: args.paymentChannelAddress,
+    abi: minChannelAmountAbi,
+    functionName: 'minChannelAmount',
+    args: [args.token],
+  });
+}
+
 /// Decode a viem error into a one-line human message and a tag. Used by the
 /// CLI's outermost try/catch so an on-chain revert isn't surfaced as
 /// "WebSocket error".
