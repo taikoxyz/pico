@@ -89,6 +89,14 @@ contract ChannelHandler is Test {
         bytes memory sigB = _signCoopClose(bobPk, cc);
         channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
+        if (channel.pendingWithdrawals(address(token), alice) > 0) {
+            vm.prank(alice);
+            channel.withdraw(address(token));
+        }
+        if (channel.pendingWithdrawals(address(token), bob) > 0) {
+            vm.prank(bob);
+            channel.withdraw(address(token));
+        }
         totalWithdrawn += total;
         _removeOpenAt(idx);
     }
@@ -174,6 +182,15 @@ contract ChannelHandler is Test {
         }
         uint256 total = ch.amountA + ch.amountB;
         channel.finalize(id);
+
+        if (channel.pendingWithdrawals(address(token), alice) > 0) {
+            vm.prank(alice);
+            channel.withdraw(address(token));
+        }
+        if (channel.pendingWithdrawals(address(token), bob) > 0) {
+            vm.prank(bob);
+            channel.withdraw(address(token));
+        }
         totalWithdrawn += total;
         _removeOpenAt(idx);
     }

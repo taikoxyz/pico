@@ -29,11 +29,11 @@ GPT-5, Gemini, etc.) are tracked under
 
 | Status | Count |
 |---|---|
-| Fixed | 39 |
+| Fixed | 42 |
 | Patched-not-reaudited | 16 |
 | Open | 1 |
 | Won't-fix | 0 |
-| **Total** | **56** |
+| **Total** | **59** |
 
 The single **Open** row is PC-09 (proxy ownership / multisig + timelock).
 H-10 and H-11 (hub-advertised fee policy and authoritative liquidity from
@@ -41,6 +41,13 @@ states) land in **Patched-not-reaudited** above; both are tracked as
 follow-ups under [issue #21](https://github.com/taikoxyz/pico/issues/21)
 alongside PC-09, but they are not counted as Open because partial
 remediations have shipped (see Evidence column for each row).
+
+U-01, U-02, U-03 (USDC pause, reverting-receiver, Circle blocklist — all
+HIGH severity, filed from PR #127 as issue #129) are marked **Fixed
+pending external auditor sign-off** below. The fix (pull-pattern
+`pendingWithdrawals` + `withdraw`) shipped in v2.1. **No `v2.1.*` tag
+may be cut until an external auditor (Spearbit / Trail of Bits / Cantina)
+provides written sign-off.**
 
 ## Protocol core
 
@@ -59,6 +66,20 @@ commit `c4e4cd1` and PR #15.
 | PC-08 | Medium | Hoodi listed as supported in protocol constants | Fixed | `packages/protocol/src/constants.ts:19-23` excludes `TAIKO_HOODI_CHAIN_ID` from `SUPPORTED_CHAIN_IDS` |
 | PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | Deploy/transfer scripts now require contract owners and 48h timelock checks (`packages/contracts/script/{Deploy,DeployTimelock,TransferOwnership}.s.sol`), but on-chain owner-code/key-custody evidence is still an operator gate tracked under [issue #21](https://github.com/taikoxyz/pico/issues/21) and #35 |
 | PC-10 | Info | EIP-712 oracle should remain pinned and crosstested | Fixed | Oracle pinned via existing forge fuzz + crosstest; no regressions |
+
+## v2.1 — pull-pattern disbursement (issue #129, filed from PR #127)
+
+Source: PR #127 §4 USDC + ETH risks table. Shipped in v2.1 (`PaymentChannel.sol`
+`pendingWithdrawals` mapping + `withdraw(token)` function + `_credit` helper;
+`closeCooperative` and `finalize` credit instead of push).
+
+**External auditor sign-off required before `v2.1.*` tag. No exceptions.**
+
+| ID | Severity | Description | Status | Evidence |
+|---|---|---|---|---|
+| U-01 | High | Circle pauses USDC → every `safeTransfer` in `closeCooperative`/`finalize` reverts; channels frozen until unpause | **Fixed pending external auditor sign-off** | `PaymentChannel.sol` — `closeCooperative` and `finalize` now call `_credit(token, user, amount)` instead of `_payOut`. `_credit` writes to `pendingWithdrawals[token][user]`; no ERC-20 transfer occurs until `withdraw(token)` is called. Token pause can no longer block state transition. `test/PaymentChannel.pullPattern.t.sol:test_u01_pausedToken_finalizeAdvancesState_withdrawResumesAfterUnpause` and `test_u01_pausedToken_coopCloseAdvancesState_withdrawResumesAfterUnpause`. |
+| U-02 | High | Recipient contract `receive()` reverts → `closeCooperative`/`finalize` revert; channel funds stuck | **Fixed pending external auditor sign-off** | Same pull-pattern change. Each party's credit is isolated in `pendingWithdrawals[token][user]`; a reverting `receive()` in `withdraw` only reverts that party's call and does not affect the counterparty's independently-held credit. `test/PaymentChannel.pullPattern.t.sol:test_u02_revertingReceiver_onlyBlocksItself_counterpartyUnaffected`. |
+| U-03 | High | Circle blocklist on either party → `finalize` reverts permanently; un-blocklisted side cannot exit | **Fixed pending external auditor sign-off** | Same pull-pattern change. `finalize` credits both `pendingWithdrawals` entries unconditionally. The blocked party's `withdraw` reverts (ERC-20 rejects the transfer) but the un-blocked party's `withdraw` succeeds independently. `test/PaymentChannel.pullPattern.t.sol:test_u03_blocklistedPartyCannotWithdraw_counterpartyCanWithdrawIndependently`. |
 
 ## Hub
 

@@ -89,6 +89,11 @@ contract PaymentChannelHtlcSettlementTest is Fixtures {
         // htlcsCount drained -> finalize pays out
         channel.finalize(channelId);
 
+        vm.prank(alice);
+        channel.withdraw(address(token));
+        vm.prank(bob);
+        channel.withdraw(address(token));
+
         assertEq(token.balanceOf(bob), bobBalBefore + FUND_B + HTLC_AMOUNT, "bob payout");
         assertEq(token.balanceOf(alice), FUND_A - HTLC_AMOUNT, "alice payout");
     }
@@ -131,6 +136,11 @@ contract PaymentChannelHtlcSettlementTest is Fixtures {
         vm.warp(htlc.expiry + 1);
         channel.refundHtlc(channelId, htlc, proof, 0, 1);
         channel.finalize(channelId);
+
+        vm.prank(alice);
+        channel.withdraw(address(token));
+        vm.prank(bob);
+        channel.withdraw(address(token));
 
         // alice (sender) is refunded the locked amount
         assertEq(token.balanceOf(alice), FUND_A, "alice refunded");
@@ -197,6 +207,11 @@ contract PaymentChannelHtlcSettlementTest is Fixtures {
         vm.warp(block.timestamp + channel.MAX_HTLC_DURATION() + channel.HTLC_RESOLUTION_GRACE() + 1);
         channel.refundHtlc(channelId, htlc, new bytes32[](0), 0, 1);
         channel.finalize(channelId);
+
+        vm.prank(alice);
+        channel.withdraw(address(token));
+        vm.prank(bob);
+        channel.withdraw(address(token));
 
         assertEq(token.balanceOf(alice), FUND_A, "alice refunded");
         assertEq(token.balanceOf(bob), FUND_B, "bob unchanged");

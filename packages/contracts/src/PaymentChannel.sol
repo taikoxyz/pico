@@ -41,13 +41,11 @@ import {HTLC} from "./HTLC.sol";
 ///       - Fee-on-transfer and rebasing tokens are NOT supported. The owner allowlist
 ///         is the gate; `safeTransferFrom` does not verify received-amount equals
 ///         requested-amount, so allowlisting such a token would break balance conservation.
-///       - ETH disbursements use `call{value:}` with `require(ok)`. If either channel
-///         participant is a contract whose `receive()` reverts (or consumes more than the
-///         63/64 gas the EVM forwards), `closeCooperative` and `finalize` will revert and
-///         the channel funds are stuck. Counterparties for ETH channels SHOULD be EOAs or
-///         contracts with a trivial `receive() external payable {}`. A future revision may
-///         move to a pull-pattern (per-address `pendingWithdrawals` + `withdraw()`) so a
-///         failing payout leg cannot block the other party's funds.
+///       - Disbursements use a **pull-pattern**: `closeCooperative` and `finalize` credit
+///         `pendingWithdrawals[token][user]` rather than pushing funds directly. Each party
+///         claims their balance by calling `withdraw(token)`. This means a reverting
+///         `receive()`, a USDC pause (U-01), or a Circle blocklist entry (U-03) on one
+///         party cannot block the counterparty's withdrawal.
 ///       - UUPS upgradeable behind `ERC1967Proxy`. `_authorizeUpgrade` is gated by an owner.
 contract PaymentChannel is
     IPaymentChannel,
@@ -140,18 +138,26 @@ contract PaymentChannel is
     ///         `setMinChannelAmount`.
     mapping(address => uint256) public minChannelAmount;
 
-    /// @dev Storage gap for upgrade safety. Shrunk from 44 to 42 to accommodate:
+    /// @notice Claimable balances from closed channels. Credited by `closeCooperative` and
+    ///         `finalize`; claimed by `withdraw`. Indexed as `[token][user]`.
+    mapping(address => mapping(address => uint256)) public pendingWithdrawals;
+
+    /// @dev Storage gap for upgrade safety. Shrunk from 44 to 41 to accommodate:
     ///      - `htlcResolved` (one slot, new in v2)
     ///      - `minChannelAmount` (one slot, new in v2)
+    ///      - `pendingWithdrawals` (one slot, new in v2.1)
     ///      The seven new fields embedded in `Channel` live in the per-channel mapping
     ///      and don't consume top-level storage.
-    uint256[42] private __gap;
+    uint256[41] private __gap;
 
     /// @notice Emitted when the owner toggles a token's allowlist entry.
     event TokenAllowed(address indexed token, bool allowed);
 
     /// @notice Emitted when the owner sets a per-token minimum channel funding.
     event MinChannelAmountSet(address indexed token, uint256 amount);
+
+    /// @notice Emitted when a user withdraws from their `pendingWithdrawals` balance.
+    event Withdrawn(address indexed token, address indexed user, uint256 amount);
 
     /// @notice Emitted when a successful penalty proof slashes the unilateral closer.
     event PenaltyApplied(bytes32 indexed channelId, address indexed cheater, address indexed beneficiary);
@@ -246,21 +252,30 @@ contract PaymentChannel is
         IERC20(token).safeTransferFrom(from, address(this), amount);
     }
 
-    /// @dev Send `amount` of `token` to `to`. For native ETH, uses a low-level `call`
-    ///      with no calldata; the caller is responsible for CEI ordering (state writes
-    ///      before this disbursement). If `to` is a contract whose `receive()` reverts,
-    ///      the call reverts and the enclosing close/finalize tx fails — locking the
-    ///      channel until the offending side cooperates with a different `to`. See the
-    ///      contract-level NatSpec for the v1 mitigation (vet contract counterparties)
-    ///      and the planned pull-pattern follow-up.
-    function _payOut(address token, address to, uint256 amount) internal {
+    /// @dev Credit `amount` of `token` to `to`'s `pendingWithdrawals` balance.
+    ///      The recipient claims the credit via `withdraw(token)`. Using credits rather
+    ///      than direct pushes means a reverting `receive()` or a token-level pause/blocklist
+    ///      on one recipient cannot revert the whole close transaction or trap the other
+    ///      party's funds.
+    function _credit(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
+        pendingWithdrawals[token][to] += amount;
+    }
+
+    /// @notice Withdraw the caller's accumulated `pendingWithdrawals` balance for `token`.
+    ///         CEI ordering: balance zeroed before any external call.
+    /// @param token ERC-20 token address, or `address(0)` for native ETH.
+    function withdraw(address token) external nonReentrant {
+        uint256 amount = pendingWithdrawals[token][msg.sender];
+        require(amount > 0, "nothing to withdraw");
+        pendingWithdrawals[token][msg.sender] = 0;
         if (token == address(0)) {
-            (bool ok,) = payable(to).call{value: amount}("");
+            (bool ok,) = payable(msg.sender).call{value: amount}("");
             require(ok, "ETH send fail");
         } else {
-            IERC20(token).safeTransfer(to, amount);
+            IERC20(token).safeTransfer(msg.sender, amount);
         }
+        emit Withdrawn(token, msg.sender, amount);
     }
 
     /// @inheritdoc IPaymentChannel
@@ -349,8 +364,8 @@ contract PaymentChannel is
         ch.postedVersion = cc.version;
         ch.status = Status.Closed;
 
-        _payOut(token, userA, payA);
-        _payOut(token, userB, payB);
+        _credit(token, userA, payA);
+        _credit(token, userB, payB);
 
         emit ChannelClosedCooperative(channelId, payA, payB, cc.signedAt);
     }
@@ -635,8 +650,8 @@ contract PaymentChannel is
 
         ch.status = Status.Closed;
 
-        _payOut(token, userA, payA);
-        _payOut(token, userB, payB);
+        _credit(token, userA, payA);
+        _credit(token, userB, payB);
 
         emit ChannelFinalized(channelId, payA, payB);
     }
