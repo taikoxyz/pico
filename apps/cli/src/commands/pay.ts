@@ -17,7 +17,8 @@ import { http, type Chain, createPublicClient, createWalletClient, defineChain }
 import { privateKeyToAccount } from 'viem/accounts';
 import { decodeInvoiceEnvelope } from '../runtime/invoice-envelope.js';
 import { emit } from '../runtime/output.js';
-import { resolvePrivateKey } from '../runtime/signer.js';
+import { assertArgvKeyAllowed, resolvePrivateKey } from '../runtime/signer.js';
+import { assertWithinCaps, recordSpend, spendCapsFromEnv } from '../runtime/spend-guard.js';
 import { openStorage } from '../runtime/storage.js';
 
 export interface PayDeps {
@@ -104,11 +105,22 @@ export function payCommand(deps: PayDeps = {}): Command {
         const rpcUrl =
           opts.rpc ?? env.PICO_RPC_URL ?? (chainFor(chainId).rpcUrls.default.http[0] as string);
 
+        // A-01 (PR #127): reject argv-supplied keys on mainnet unless explicitly
+        // opted in. argv leaks via shell history, ps, and CI logs.
+        assertArgvKeyAllowed(
+          opts.privateKey !== undefined ? { privateKey: opts.privateKey } : {},
+          chainId,
+          env,
+        );
         const privateKey = await resolvePrivateKey({
           ...(opts.privateKey !== undefined ? { privateKey: opts.privateKey } : {}),
           ...(opts.keyFile !== undefined ? { keyFile: opts.keyFile } : {}),
           env,
         });
+        // A-01 (PR #127): enforce per-tx + daily spend caps from env vars
+        // PICO_PAYMENT_MAX_RAW and PICO_PAYMENT_DAILY_RAW. Caps are in raw
+        // base units (channel-token-decimal-agnostic).
+        const spendCaps = spendCapsFromEnv(env);
         const account = privateKeyToAccount(privateKey);
         const chain = chainFor(chainId);
         const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
@@ -154,8 +166,10 @@ export function payCommand(deps: PayDeps = {}): Command {
             opts.revealPreimage ? p : '***redacted (use --reveal-preimage to show)***';
           if (opts.invoice) {
             const invoice = decodeInvoiceEnvelope(opts.invoice);
+            assertWithinCaps(spendCaps, BigInt(invoice.amount));
             if (opts.json) emit({ stage: 'verifying' }, stdout);
             const result = await client.pay({ invoice });
+            recordSpend(BigInt(invoice.amount));
             if (opts.json) {
               emit(
                 {
@@ -175,14 +189,17 @@ export function payCommand(deps: PayDeps = {}): Command {
             if (!opts.recipientPubkey) {
               throw new Error('--keysend requires --recipient-pubkey');
             }
+            const keysendAmount = BigInt(opts.amount);
+            assertWithinCaps(spendCaps, keysendAmount);
             if (opts.json) emit({ stage: 'verifying' }, stdout);
             const result = await client.pay({
               to: opts.to,
-              amount: BigInt(opts.amount),
+              amount: keysendAmount,
               keysend: true,
               recipientEncryptionPubkey: opts.recipientPubkey,
               ...(opts.memo !== undefined ? { memo: opts.memo } : {}),
             });
+            recordSpend(keysendAmount);
             if (opts.json) {
               emit(
                 {
