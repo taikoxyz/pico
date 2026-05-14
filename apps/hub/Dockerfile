@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
@@ -13,7 +13,7 @@ RUN pnpm --filter @inferenceroom/pico-protocol build && \
     pnpm --filter @inferenceroom/pico-sdk build && \
     pnpm --filter @inferenceroom/pico-hub build
 
-FROM node:20-alpine
+FROM node:26-alpine
 ARG INCLUDE_LITESTREAM=0
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
