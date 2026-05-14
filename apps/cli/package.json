@@ -27,7 +27,7 @@
     "pino-pretty": "^11.3.0",
     "prompts": "^2.4.2",
     "viem": "^2.21.0",
-    "ws": "^8.18.0"
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@inferenceroom/pico-dvm-adapter": "workspace:*",
