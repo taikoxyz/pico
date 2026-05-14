@@ -223,8 +223,13 @@ describe('ChainWatcher', () => {
     expect(v0?.state.balanceB).toBe(0n);
     expect(v0?.state.htlcs).toEqual([]);
     expect(v0?.state.finalized).toBe(false);
-    expect(v0?.sigA.r).toBe(EMPTY_SIG_BYTES);
-    expect(v0?.sigB.r).toBe(EMPTY_SIG_BYTES);
+    // Sentinel sig fields are 32-byte zero blobs (a `Signature.r`/`s` is
+    // 32 bytes — not 65, which is `EMPTY_SIG_BYTES`'s length).
+    const zero32 = `0x${'00'.repeat(32)}`;
+    expect(v0?.sigA.r).toBe(zero32);
+    expect(v0?.sigB.r).toBe(zero32);
+    expect(v0?.sigA.s).toBe(zero32);
+    expect(v0?.sigB.s).toBe(zero32);
     expect(v0?.sigA.v).toBe(0);
   });
 
