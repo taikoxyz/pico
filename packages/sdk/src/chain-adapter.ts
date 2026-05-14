@@ -213,6 +213,40 @@ function encodeTopUpSig(sig: Signature, sentinel: boolean): Hex {
   return sentinel && isSentinelSig(sig) ? ('0x' as Hex) : signatureToHex(sig);
 }
 
+const CHANNEL_STATUS_OPEN = 1; // enum Status { None, Open, ClosingUnilateral, ResolvingHtlcs, Closed }
+
+/**
+ * Polls `channels(channelId).status` until it reads as `Open` or attempts
+ * are exhausted. Used by `topUp` to avoid `!open` reverts on a freshly
+ * opened channel when the RPC node's `latest` block view lags behind the
+ * canonical chain head. Resolves silently after the last attempt — if the
+ * channel really is not open, the subsequent `writeContract` will still
+ * surface the revert from the contract itself.
+ */
+async function waitForChannelOpen(
+  publicClient: PublicClient,
+  paymentChannelAddress: Address,
+  channelId: ChannelId,
+  opts: { attempts: number; intervalMs: number },
+): Promise<void> {
+  for (let i = 0; i < opts.attempts; i++) {
+    try {
+      const ch = (await publicClient.readContract({
+        address: paymentChannelAddress,
+        abi: paymentChannelAbi,
+        functionName: 'channels',
+        args: [channelId],
+      })) as { status: number };
+      if (ch.status === CHANNEL_STATUS_OPEN) return;
+    } catch {
+      // Swallow transient read errors — retry below.
+    }
+    if (i < opts.attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, opts.intervalMs));
+    }
+  }
+}
+
 function buildSignedStateTuple(
   signed: SignedState,
   sentinel: boolean,
@@ -460,6 +494,18 @@ export class ViemChainAdapter implements ChainAdapter {
       isSentinelSig(args.prev.sigB);
     const prevTuple = buildSignedStateTuple(args.prev, prevSentinel);
     const nextTuple = buildSignedStateTuple(args.next, false);
+
+    // Round-4 follow-up: when the channel was opened just seconds before this
+    // top-up attempt, the RPC node's `latest` block view used by
+    // `eth_estimateGas` may not yet include the `openChannel` tx, causing
+    // the contract to revert with `!open` (the channel mapping returns its
+    // zero default → status == Status.None). Poll the on-chain channel
+    // status until it is `Open` before submitting. 8 × 1s ≈ 16 s of grace
+    // covers Taiko's 2 s block time plus typical RPC propagation lag.
+    await waitForChannelOpen(publicClient, paymentChannelAddress, args.channelId, {
+      attempts: 8,
+      intervalMs: 1_000,
+    });
 
     const fees = await this.fees();
     const txHash = await walletClient.writeContract({

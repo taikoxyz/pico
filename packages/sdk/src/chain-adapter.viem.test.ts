@@ -341,6 +341,7 @@ describe('ViemChainAdapter.topUp', () => {
         waitForTransactionReceipt,
         getBlock: vi.fn().mockResolvedValue({ baseFeePerGas: 1_000_000_000n }),
         getGasPrice: vi.fn().mockResolvedValue(1_000_000_000n),
+        readContract: vi.fn().mockResolvedValue({ status: 1 }),
       } as unknown as PublicClient,
       walletClient: {
         writeContract,
@@ -376,6 +377,7 @@ describe('ViemChainAdapter.topUp', () => {
         waitForTransactionReceipt,
         getBlock: vi.fn().mockResolvedValue({ baseFeePerGas: 1_000_000_000n }),
         getGasPrice: vi.fn().mockResolvedValue(1_000_000_000n),
+        readContract: vi.fn().mockResolvedValue({ status: 1 }),
       } as unknown as PublicClient,
       walletClient: {
         writeContract,
