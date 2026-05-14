@@ -36,7 +36,13 @@ export interface TopUpPolicyConfig {
  *   0.05 ETH → 0.0001 ETH so a 0.05 ETH hub hot wallet can service ~500
  *   channels instead of 1. Per-channel and per-counterparty caps stay so
  *   multiple repeat top-ups can grow inbound to the same channel/user.
+ * - PTST mainnet test token (18-decimal, allowlisted on the v2 contract):
+ *   2 / 10 / 100 PTST offer/channel/counterparty. The scalar fallback
+ *   (`5_000_000n`) is USDC-shaped and would resolve to 5e-12 PTST for
+ *   any 18-decimal allowlisted ERC-20, breaking pay routing the same
+ *   way it broke native-ETH before this override.
  */
+const PTST_MAINNET = '0x3CF2321323C23c9F91daFe99E2b121cab5cE3759';
 export const DEFAULT_TOPUP_POLICY: TopUpPolicyConfig = {
   maxInboundPerCounterparty: 100_000_000n, // 100 USDC
   maxInboundPerChannel: 10_000_000n, //  10 USDC
@@ -44,12 +50,15 @@ export const DEFAULT_TOPUP_POLICY: TopUpPolicyConfig = {
   offerValidityMs: 5 * 60_000, //   5 minutes
   perTokenDefaultOfferAmount: {
     [ZERO_ADDRESS.toLowerCase()]: 100_000_000_000_000n, // 0.0001 ETH
+    [PTST_MAINNET.toLowerCase()]: 2_000_000_000_000_000_000n, // 2 PTST
   },
   perTokenMaxInboundPerChannel: {
     [ZERO_ADDRESS.toLowerCase()]: 100_000_000_000_000_000n, // 0.1 ETH
+    [PTST_MAINNET.toLowerCase()]: 10_000_000_000_000_000_000n, // 10 PTST
   },
   perTokenMaxInboundPerCounterparty: {
     [ZERO_ADDRESS.toLowerCase()]: 1_000_000_000_000_000_000n, // 1 ETH
+    [PTST_MAINNET.toLowerCase()]: 100_000_000_000_000_000_000n, // 100 PTST
   },
 };
 
