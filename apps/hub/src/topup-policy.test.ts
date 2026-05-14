@@ -102,7 +102,7 @@ describe('evaluateTopUp', () => {
         hubHotWalletBalance: 5_000_000_000_000_000_000n, // 5 ETH
       }),
     );
-    expect(r.approve).toBe(50_000_000_000_000_000n); // 0.05 ETH
+    expect(r.approve).toBe(100_000_000_000_000n); // 0.0001 ETH
   });
 
   it('falls back to scalar defaultOfferAmount when token not in override map', () => {
@@ -114,7 +114,7 @@ describe('evaluateTopUp', () => {
 describe('resolveDefaultOfferAmount', () => {
   it('returns per-token override when present', () => {
     expect(resolveDefaultOfferAmount(DEFAULT_TOPUP_POLICY, ZERO_ADDRESS)).toBe(
-      50_000_000_000_000_000n,
+      100_000_000_000_000n,
     );
   });
 
@@ -124,7 +124,7 @@ describe('resolveDefaultOfferAmount', () => {
 
   it('matches address case-insensitively', () => {
     const upper = ZERO_ADDRESS.toUpperCase().replace('0X', '0x') as Address;
-    expect(resolveDefaultOfferAmount(DEFAULT_TOPUP_POLICY, upper)).toBe(50_000_000_000_000_000n);
+    expect(resolveDefaultOfferAmount(DEFAULT_TOPUP_POLICY, upper)).toBe(100_000_000_000_000n);
   });
 });
 

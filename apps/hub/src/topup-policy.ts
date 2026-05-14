@@ -31,8 +31,11 @@ export interface TopUpPolicyConfig {
 /**
  * Default policy for v1 hubs.
  * - USDC (6-decimal): 5 / 10 / 100 USDC offer/channel/counterparty.
- * - Native ETH (18-decimal): 0.05 / 0.1 / 1 ETH offer/channel/counterparty —
- *   the round-2/3 per-channel cap intent.
+ * - Native ETH (18-decimal): 0.0001 / 0.1 / 1 ETH offer/channel/counterparty.
+ *   Round-4 smoke (issue #100 follow-up) lowered the ETH per-offer from
+ *   0.05 ETH → 0.0001 ETH so a 0.05 ETH hub hot wallet can service ~500
+ *   channels instead of 1. Per-channel and per-counterparty caps stay so
+ *   multiple repeat top-ups can grow inbound to the same channel/user.
  */
 export const DEFAULT_TOPUP_POLICY: TopUpPolicyConfig = {
   maxInboundPerCounterparty: 100_000_000n, // 100 USDC
@@ -40,7 +43,7 @@ export const DEFAULT_TOPUP_POLICY: TopUpPolicyConfig = {
   defaultOfferAmount: 5_000_000n, //   5 USDC
   offerValidityMs: 5 * 60_000, //   5 minutes
   perTokenDefaultOfferAmount: {
-    [ZERO_ADDRESS.toLowerCase()]: 50_000_000_000_000_000n, // 0.05 ETH
+    [ZERO_ADDRESS.toLowerCase()]: 100_000_000_000_000n, // 0.0001 ETH
   },
   perTokenMaxInboundPerChannel: {
     [ZERO_ADDRESS.toLowerCase()]: 100_000_000_000_000_000n, // 0.1 ETH
