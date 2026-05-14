@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  security-events: write
 
 env:
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -136,6 +137,110 @@ jobs:
             echo "hub_image=${hub_image}"
             echo "watchtower_image=${watchtower_image}"
           } >> "$GITHUB_OUTPUT"
+
+      # ---------------------------------------------------------------
+      # Image hardening: vulnerability scan, SBOM, and signing.
+      # NOTE FOR OPERATORS: cosign signing requires two repository secrets:
+      #   COSIGN_PRIVATE_KEY  - cosign key reference. Recommended: a GCP
+      #                         KMS-backed key, e.g.
+      #                         gcpkms://projects/<proj>/locations/<loc>/keyRings/<ring>/cryptoKeys/<key>/cryptoKeyVersions/<ver>
+      #                         (preferred over a raw cosign.key blob).
+      #   COSIGN_PASSWORD     - password for the key (empty string when
+      #                         using a KMS reference).
+      # When either secret is missing, the signing step is skipped so the
+      # release is not blocked, but unsigned images will fail Binary
+      # Authorization in production. Configure these before relying on
+      # signature verification in the GKE admission policy.
+      # ---------------------------------------------------------------
+
+      - name: Trivy scan - hub
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.digest.outputs.hub_image }}
+          format: sarif
+          output: trivy-hub.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+
+      - name: Upload Trivy SARIF - hub
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-hub.sarif
+          category: trivy-hub
+
+      - name: Trivy scan - watchtower
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.digest.outputs.watchtower_image }}
+          format: sarif
+          output: trivy-watchtower.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+
+      - name: Upload Trivy SARIF - watchtower
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-watchtower.sarif
+          category: trivy-watchtower
+
+      - name: Generate SBOM - hub
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.digest.outputs.hub_image }}
+          format: spdx-json
+          output-file: sbom-hub.spdx.json
+          upload-artifact: false
+
+      - name: Generate SBOM - watchtower
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.digest.outputs.watchtower_image }}
+          format: spdx-json
+          output-file: sbom-watchtower.spdx.json
+          upload-artifact: false
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sboms-${{ steps.images.outputs.release_tag }}
+          path: |
+            sbom-hub.spdx.json
+            sbom-watchtower.spdx.json
+          if-no-files-found: error
+
+      - name: Check cosign signing availability
+        id: cosign_gate
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+        run: |
+          if [ -n "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::COSIGN_PRIVATE_KEY secret not set; images were built and scanned but NOT signed. Binary Authorization will reject these images if signature verification is enforced."
+          fi
+
+      - name: Install cosign
+        if: steps.cosign_gate.outputs.sign == 'true'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign images with cosign
+        if: steps.cosign_gate.outputs.sign == 'true'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          HUB_IMAGE: ${{ steps.digest.outputs.hub_image }}
+          WATCHTOWER_IMAGE: ${{ steps.digest.outputs.watchtower_image }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$HUB_IMAGE"
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$WATCHTOWER_IMAGE"
 
       - name: Render GKE manifests
         run: |

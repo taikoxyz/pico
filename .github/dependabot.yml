@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels: ["deps", "ci"]
+    groups:
+      dev-deps:
+        dependency-type: "development"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels: ["deps", "ci"]
+  - package-ecosystem: "docker"
+    directory: "/apps/hub"
+    schedule:
+      interval: "monthly"
+    labels: ["deps", "ci", "docker"]
+  - package-ecosystem: "docker"
+    directory: "/apps/watchtower"
+    schedule:
+      interval: "monthly"
+    labels: ["deps", "ci", "docker"]
