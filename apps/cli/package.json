@@ -35,13 +35,13 @@
     "@inferenceroom/pico-sdk": "workspace:*",
     "@inferenceroom/pico-state-machine": "workspace:*",
     "@inferenceroom/pico-test-utils": "workspace:*",
-    "@types/node": "^22.10.0",
+    "@types/node": "^25.7.0",
     "@types/prompts": "^2.4.9",
     "@types/ws": "^8.5.13",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^4.1.6",
     "tsup": "^8.3.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.8"
+    "tsx": "^4.21.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }

@@ -25,9 +25,9 @@
     "viem": "^2.21.0"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^2.1.8",
-    "fast-check": "^3.23.1",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.8"
+    "@vitest/coverage-v8": "^4.1.6",
+    "fast-check": "^4.8.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }
