@@ -69,6 +69,8 @@ export interface RouterDeps {
   readonly verifyingContract: Address;
   readonly expiryBufferMs?: bigint;
   readonly logger: Logger;
+  /** R-06: per-token per-counterparty cap map (lowercase token address → bigint). */
+  readonly perCounterpartyCaps?: ReadonlyMap<string, bigint>;
 }
 
 export class Router {
@@ -142,7 +144,13 @@ export class Router {
     };
     const admit = checkHtlcAdmissible(outgoingHtlc, admissionCtx);
     if (!admit.ok) {
-      throw new Error(`router: ${admit.reason}`);
+      const reason = admit.reason ?? 'htlc not admissible';
+      const cap = admissionCtx.maxPerCounterpartyValue;
+      const suffix =
+        reason.includes('counterparty') && cap !== undefined
+          ? ` (per-counterparty cap: ${cap.toString()})`
+          : '';
+      throw new Error(`router: ${reason}${suffix}`);
     }
     const timing = checkTimeoutDelta(req.incomingHtlc.expiryMs, outgoingExpiry);
     if (!timing.ok) {
@@ -331,21 +339,19 @@ export class Router {
   }
 
   /**
-   * Per-counterparty aggregate value cap, in the channel token's base units.
-   * The protocol-level `MAX_HTLC_VALUE_PER_COUNTERPARTY` constant (`1e8` = 100
-   * USDC at 6 decimals) is the USDC default; for tokens with different decimal
-   * places (native ETH at 18, PTST at 18) the same scalar would clamp away
-   * any non-trivial payment. Round-4 smoke (issue #100 follow-up) showed
-   * even a 0.00001 ETH payment (1e13 wei) was being rejected against the
-   * 1e8 USDC scalar. Per-token overrides match the topup-policy intent
-   * (1 ETH and 100 PTST counterparts).
+   * R-06: Per-counterparty aggregate value cap, in the channel token's base
+   * units. Resolved from the env-configured caps map (keyed by lowercase token
+   * address) with `MAX_HTLC_VALUE_PER_COUNTERPARTY` as the fallback for
+   * unknown tokens.
    */
   private maxPerCounterpartyValueFor(token: Address): bigint {
-    const ZERO = '0x0000000000000000000000000000000000000000';
-    const PTST = '0x3CF2321323C23c9F91daFe99E2b121cab5cE3759';
-    if (token.toLowerCase() === ZERO) return 1_000_000_000_000_000_000n; // 1 ETH
-    if (token.toLowerCase() === PTST.toLowerCase()) return 100_000_000_000_000_000_000n; // 100 PTST
-    return MAX_HTLC_VALUE_PER_COUNTERPARTY; // 100 USDC default
+    const lower = token.toLowerCase();
+    const caps = this.deps.perCounterpartyCaps;
+    if (caps) {
+      const override = caps.get(lower);
+      if (override !== undefined) return override;
+    }
+    return MAX_HTLC_VALUE_PER_COUNTERPARTY;
   }
 
   /**

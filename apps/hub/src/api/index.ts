@@ -62,6 +62,8 @@ export interface ApiDeps {
   readonly nonceWindowMs: number;
   readonly paymentRetentionPerChannel: number;
   readonly operatorToken: string | undefined;
+  /** R-06: per-token per-counterparty cap map (lowercase token → bigint string). */
+  readonly perCounterpartyCaps?: ReadonlyMap<string, bigint>;
 }
 
 export interface ApiHandle {
@@ -238,6 +240,13 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
   // contract addresses they should validate against before opening a
   // channel. Static for the lifetime of the process.
   app.get('/v1/info', async () => {
+    // R-06: serialize bigint cap values as strings to avoid JS Number loss.
+    const perCounterpartyCaps: Record<string, string> = {};
+    if (deps.perCounterpartyCaps) {
+      for (const [token, cap] of deps.perCounterpartyCaps) {
+        perCounterpartyCaps[token] = cap.toString();
+      }
+    }
     return {
       version: 1,
       hubAddress,
@@ -248,6 +257,7 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
       },
       requireSignedEnvelope: deps.requireSignedEnvelope,
       nonceWindowMs: deps.nonceWindowMs,
+      perCounterpartyCaps,
     };
   });
 
@@ -317,6 +327,7 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     requireSignedEnvelope: deps.requireSignedEnvelope,
     nonceWindowMs: deps.nonceWindowMs,
     paymentRetentionPerChannel: deps.paymentRetentionPerChannel,
+    ...(deps.perCounterpartyCaps ? { perCounterpartyCaps: deps.perCounterpartyCaps } : {}),
   });
 
   return { ws };

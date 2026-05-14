@@ -70,7 +70,24 @@ export interface WatchtowerStore {
   loadAllSignedStates(): readonly SignedState[];
   recordObservation(obs: WatchtowerObservation): number;
   markObservationSubmitted(rowid: number, txHash: `0x${string}`, submittedAtMs: number): void;
-  markObservationIncluded(rowid: number, includedAtMs: number): void;
+  /**
+   * Mark an observation as included on-chain.
+   * R-05: blockHash and blockNumber are stored so that rewindForReorg can
+   * identify which observations need re-evaluation if the inclusion block is
+   * later orphaned by a reorg.
+   */
+  markObservationIncluded(
+    rowid: number,
+    includedAtMs: number,
+    blockHash: `0x${string}`,
+    blockNumber: bigint,
+  ): void;
+  /**
+   * R-05: re-evaluate observations included in blocks whose block_number is
+   * >= fromBlock by clearing their included status. Returns the channelIds
+   * of affected observations so the caller can re-trigger penalty evaluation.
+   */
+  rewindForReorg(fromBlock: bigint): readonly ChannelId[];
   putInFlight(row: InFlightTx): void;
   getInFlight(channelId: ChannelId): InFlightTx | undefined;
   listInFlight(): readonly InFlightTx[];
@@ -121,6 +138,8 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
   private recordObservationStmt?: Database.Statement;
   private markObservationSubmittedStmt?: Database.Statement;
   private markObservationIncludedStmt?: Database.Statement;
+  private rewindForReorgStmt?: Database.Statement;
+  private rewindForReorgSelectStmt?: Database.Statement;
   private putInFlightStmt?: Database.Statement;
   private getInFlightStmt?: Database.Statement;
   private listInFlightStmt?: Database.Statement;
@@ -146,6 +165,11 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
   init(): void {
     if (this.initialized) return;
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        applied_at_ms INTEGER NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS signed_states (
         channel_id TEXT PRIMARY KEY,
         version TEXT NOT NULL,
@@ -186,8 +210,28 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
         learned_at_ms INTEGER NOT NULL
       );
     `);
+    // R-05: add block_hash and block_number to watchtower_observations for
+    // reorg-aware inclusion tracking. Applied via _migrations so existing DBs
+    // receive the columns without data loss.
+    this.applyMigration('r05_observation_block_hash', () => {
+      this.db.exec(`
+        ALTER TABLE watchtower_observations ADD COLUMN block_hash TEXT;
+        ALTER TABLE watchtower_observations ADD COLUMN block_number INTEGER;
+      `);
+    });
     this.prepareStatements();
     this.initialized = true;
+  }
+
+  private applyMigration(name: string, fn: () => void): void {
+    const already = this.db.prepare('SELECT id FROM _migrations WHERE name = ?').get(name) as
+      | { id: number }
+      | undefined;
+    if (already) return;
+    fn();
+    this.db
+      .prepare('INSERT INTO _migrations (name, applied_at_ms) VALUES (?, ?)')
+      .run(name, Date.now());
   }
 
   putPreimage(record: PreimageRecord): void {
@@ -259,9 +303,30 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
     stmt.run({ id: rowid, tx_hash: txHash, submitted_at_ms: submittedAtMs });
   }
 
-  markObservationIncluded(rowid: number, includedAtMs: number): void {
+  markObservationIncluded(
+    rowid: number,
+    includedAtMs: number,
+    blockHash: `0x${string}`,
+    blockNumber: bigint,
+  ): void {
     const stmt = this.requireMarkIncluded();
-    stmt.run({ id: rowid, included_at_ms: includedAtMs });
+    stmt.run({
+      id: rowid,
+      included_at_ms: includedAtMs,
+      block_hash: blockHash,
+      block_number: Number(blockNumber),
+    });
+  }
+
+  rewindForReorg(fromBlock: bigint): readonly ChannelId[] {
+    const selectStmt = this.requireRewindForReorgSelect();
+    const updateStmt = this.requireRewindForReorg();
+    const fromBlockNum = Number(fromBlock);
+    const rows = selectStmt.all({ from_block: fromBlockNum }) as { channel_id: string }[];
+    if (rows.length > 0) {
+      updateStmt.run({ from_block: fromBlockNum });
+    }
+    return rows.map((r) => r.channel_id as ChannelId);
   }
 
   putInFlight(row: InFlightTx): void {
@@ -367,8 +432,17 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
     `);
     this.markObservationIncludedStmt = this.db.prepare(`
       UPDATE watchtower_observations
-      SET included_at_ms = @included_at_ms
+      SET included_at_ms = @included_at_ms, block_hash = @block_hash, block_number = @block_number
       WHERE id = @id
+    `);
+    this.rewindForReorgSelectStmt = this.db.prepare(`
+      SELECT DISTINCT channel_id FROM watchtower_observations
+      WHERE included_at_ms IS NOT NULL AND block_number >= @from_block
+    `);
+    this.rewindForReorgStmt = this.db.prepare(`
+      UPDATE watchtower_observations
+      SET included_at_ms = NULL, block_hash = NULL, block_number = NULL
+      WHERE included_at_ms IS NOT NULL AND block_number >= @from_block
     `);
     this.putInFlightStmt = this.db.prepare(`
       INSERT INTO in_flight_txs (channel_id, tx_hash, submitted_at_ms, nonce, max_fee_per_gas, attempts, observation_id)
@@ -431,6 +505,14 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
     if (!this.markObservationIncludedStmt)
       throw new Error('SqliteWatchtowerStore: init() not called');
     return this.markObservationIncludedStmt;
+  }
+  private requireRewindForReorgSelect(): Database.Statement {
+    if (!this.rewindForReorgSelectStmt) throw new Error('SqliteWatchtowerStore: init() not called');
+    return this.rewindForReorgSelectStmt;
+  }
+  private requireRewindForReorg(): Database.Statement {
+    if (!this.rewindForReorgStmt) throw new Error('SqliteWatchtowerStore: init() not called');
+    return this.rewindForReorgStmt;
   }
   private requirePutInFlight(): Database.Statement {
     if (!this.putInFlightStmt) throw new Error('SqliteWatchtowerStore: init() not called');

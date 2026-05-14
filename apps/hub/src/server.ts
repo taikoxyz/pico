@@ -115,6 +115,7 @@ export async function buildServer(
     nonceWindowMs: config.nonceWindowMs,
     paymentRetentionPerChannel: config.paymentRetentionPerChannel,
     operatorToken: config.operatorToken,
+    perCounterpartyCaps: config.perCounterpartyCaps,
   });
 
   // Build the §8 inbound liquidity stack. It needs the WS push callback and

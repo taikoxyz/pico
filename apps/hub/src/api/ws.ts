@@ -62,6 +62,8 @@ export interface WsDeps {
    * built here), so we set it post-construction via `attachTopUpHandler`.
    */
   readonly topupHandler?: TopUpHandler;
+  /** R-06: per-token per-counterparty cap map passed through to the Router. */
+  readonly perCounterpartyCaps?: ReadonlyMap<string, bigint>;
 }
 
 export interface WsHandle {
@@ -95,6 +97,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     chainId: deps.chainId,
     verifyingContract: deps.verifyingContract,
     logger: deps.logger,
+    ...(deps.perCounterpartyCaps ? { perCounterpartyCaps: deps.perCounterpartyCaps } : {}),
   });
   await router.hydrate(deps.repos);
 

@@ -29,11 +29,11 @@ GPT-5, Gemini, etc.) are tracked under
 
 | Status | Count |
 |---|---|
-| Fixed | 39 |
+| Fixed | 42 |
 | Patched-not-reaudited | 16 |
 | Open | 1 |
 | Won't-fix | 0 |
-| **Total** | **56** |
+| **Total** | **59** |
 
 The single **Open** row is PC-09 (proxy ownership / multisig + timelock).
 H-10 and H-11 (hub-advertised fee policy and authoritative liquidity from
@@ -135,6 +135,17 @@ plus the Tier B / C / D agent commits in this branch.
 | EOD-09 | Low | ROADMAP.md status drift | Fixed | This commit syncs P8/P9/P10 statuses |
 | EOD-10 | Low | Watchtower DB encryption-at-rest unclear | Patched-not-reaudited | README + watchtower runbook clarify SQLite plaintext + filesystem encryption requirement |
 | EOD-11 | Low | README links broken | Fixed | README links updated to `docs/learning/` |
+
+## PR #127 follow-up findings (issue #128)
+
+Identified during the gap-closure pass for PR #127. Landed in the follow-up PR
+closing issue #128.
+
+| ID | Severity | Description | Status | Evidence |
+|---|---|---|---|---|
+| R-04 | Medium | Wallet-level nonce race on concurrent `submitPenalty` | Fixed | `apps/watchtower/src/mutex.ts` new `Mutex`; `responder.ts` wraps `_submitPenalty` in `walletMutex.run()`; test `responder.concurrentNonce.test.ts` asserts distinct nonces under concurrent calls |
+| R-05 | Medium | Block-hash absent on observations; reorg-evicted penalty tx not re-submitted | Fixed | `storage.ts` adds `block_hash`/`block_number` columns via `_migrations` table; `markObservationIncluded` stores them; `rewindForReorg(fromBlock)` clears inclusion state and returns affected channelIds; test `responder.reorg.test.ts` |
+| R-06 | Medium | Per-token HTLC cap hardcoded; not exposed on `/v1/info` | Fixed | `config.ts` parses `PICO_HUB_PER_COUNTERPARTY_CAP_<token>=<value>` env vars with ETH/PTST defaults; `RouterDeps.perCounterpartyCaps` replaces hardcoded map; `GET /v1/info` returns `perCounterpartyCaps`; SDK README documents shape; test `router.perCounterpartyCap.test.ts` |
 
 ## Stale-claim sweep (non-audit-ID items)
 

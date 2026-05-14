@@ -113,6 +113,8 @@ describe('PenaltyResponder', () => {
     pub.waitForTransactionReceipt.mockResolvedValueOnce({
       status: 'success',
       transactionHash: txHash,
+      blockHash: `0x${'ab'.repeat(32)}` as Hash,
+      blockNumber: 100n,
     });
 
     const before = await readCounter();
@@ -185,7 +187,12 @@ describe('PenaltyResponder', () => {
         () =>
           new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout')), 60_000)),
       )
-      .mockResolvedValueOnce({ status: 'success', transactionHash: secondHash });
+      .mockResolvedValueOnce({
+        status: 'success',
+        transactionHash: secondHash,
+        blockHash: `0x${'ab'.repeat(32)}` as Hash,
+        blockNumber: 100n,
+      });
 
     const responder = new PenaltyResponder({
       rpcUrl: 'http://localhost:0',
@@ -275,6 +282,8 @@ describe('PenaltyResponder', () => {
     pub.getTransactionReceipt.mockResolvedValueOnce({
       status: 'success',
       transactionHash: existingHash,
+      blockHash: `0x${'ab'.repeat(32)}` as Hash,
+      blockNumber: 50n,
     });
 
     const responder = new PenaltyResponder({

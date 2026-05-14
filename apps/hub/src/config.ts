@@ -7,9 +7,41 @@ import {
   DEFAULT_HUB_FEE_FLAT,
   ETHEREUM_MAINNET_CHAIN_ID,
   type Hex,
+  MAX_HTLC_VALUE_PER_COUNTERPARTY,
   TAIKO_MAINNET_CHAIN_ID,
 } from '@inferenceroom/pico-protocol';
 import { assertProductionConfig } from './config-validate.js';
+
+// Hardcoded per-token defaults (match the values previously in router.ts).
+// Keys are lowercase token addresses.
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const PTST_ADDRESS = '0x3cf2321323c23c9f91dafe99e2b121cab5ce3759';
+const DEFAULT_CAPS: ReadonlyMap<string, bigint> = new Map([
+  [ZERO_ADDRESS, 1_000_000_000_000_000_000n], // 1 ETH
+  [PTST_ADDRESS, 100_000_000_000_000_000_000n], // 100 PTST
+]);
+
+/**
+ * R-06: parse per-counterparty HTLC cap overrides from the environment.
+ * Variables follow the pattern:
+ *   PICO_HUB_PER_COUNTERPARTY_CAP_<LOWERCASE_TOKEN_HEX>=<BIGINT_VALUE>
+ * Example:
+ *   PICO_HUB_PER_COUNTERPARTY_CAP_0xabcd...=500000000000000000
+ */
+function parsePerCounterpartyCaps(env: NodeJS.ProcessEnv): ReadonlyMap<string, bigint> {
+  const caps = new Map(DEFAULT_CAPS);
+  const PREFIX = 'PICO_HUB_PER_COUNTERPARTY_CAP_';
+  for (const [key, value] of Object.entries(env)) {
+    if (!key.startsWith(PREFIX) || !value) continue;
+    const token = key.slice(PREFIX.length).toLowerCase();
+    try {
+      caps.set(token, BigInt(value));
+    } catch {
+      throw new Error(`${key}: cannot parse "${value}" as bigint`);
+    }
+  }
+  return caps;
+}
 
 export interface HubConfig {
   readonly port: number;
@@ -31,6 +63,8 @@ export interface HubConfig {
   readonly nonceWindowMs: number;
   readonly paymentRetentionPerChannel: number;
   readonly operatorToken: string | undefined;
+  /** R-06: per-token per-counterparty HTLC cap map (lowercase token address → bigint). */
+  readonly perCounterpartyCaps: ReadonlyMap<string, bigint>;
 }
 
 function parseChainId(raw: string | undefined): ChainId {
@@ -92,6 +126,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
       100,
     ),
     operatorToken: env.HUB_OPERATOR_TOKEN,
+    perCounterpartyCaps: parsePerCounterpartyCaps(env),
   };
 
   if (env.PICO_SKIP_PROD_ASSERT !== 'true') {
@@ -104,3 +139,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
 
   return cfg;
 }
+
+// Re-export for tests and API handlers that need the fallback value.
+export { MAX_HTLC_VALUE_PER_COUNTERPARTY as DEFAULT_PER_COUNTERPARTY_CAP };
