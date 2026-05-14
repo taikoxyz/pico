@@ -1,6 +1,6 @@
 {
   "name": "@inferenceroom/pico-sdk",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "private": false,
   "license": "MIT",
   "description": "Browser- and Node-compatible client SDK for opening, paying, and closing pico payment channels.",
@@ -13,7 +13,10 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
