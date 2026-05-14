@@ -60,6 +60,27 @@ export async function buildServer(
 
   const liquidity = new LiquidityTracker();
   await liquidity.hydrate(repos.htlcs);
+  // Round-4 follow-up: liquidity.hydrate restores in-flight HTLC
+  // reservations but does NOT restore per-channel outbound/inbound
+  // snapshots. Snapshots are normally seeded by `registerChannel` during
+  // chain-watcher bootstrap, which only runs for unknown channels; on a
+  // restart every channel is already in the pool, so the snapshot stays
+  // empty and the router returns `available outbound 0` for everything
+  // — blocking pay routing entirely. Seed from the latest co-signed
+  // state in `channelPool` so the router immediately reflects post-top-up
+  // balances after a hub restart.
+  {
+    const hubAddrLower = privateKeyToAccount(config.hubPrivateKey).address.toLowerCase();
+    for (const channel of channelPool.list()) {
+      const latest = channelPool.latest(channel.id);
+      if (!latest) continue;
+      const hubIsA = channel.userA.toLowerCase() === hubAddrLower;
+      liquidity.set(channel.id, {
+        outbound: hubIsA ? latest.state.balanceA : latest.state.balanceB,
+        inbound: hubIsA ? latest.state.balanceB : latest.state.balanceA,
+      });
+    }
+  }
 
   const disputeHandler = new DisputeHandler({
     logger,
