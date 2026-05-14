@@ -1,6 +1,6 @@
 {
   "name": "@inferenceroom/pico-protocol",
-  "version": "2.1.8",
+  "version": "2.1.9",
   "private": false,
   "license": "MIT",
   "description": "Shared types, EIP-712 schemas, and constants for the pico state-channel protocol.",
@@ -13,7 +13,11 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "README.md"],
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
