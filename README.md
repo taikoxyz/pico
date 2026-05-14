@@ -94,31 +94,31 @@ Any-language agents shell out to the CLI; non-TS callers parse the `--json` outp
 
 ## Status
 
-Pre-GA staging. AI-audited (DeepSeek, see `docs/audit/`), with critical
-and high code findings addressed or tracked. The main remaining launch gates
-are operator-controlled: verify current owner-key custody, revoke/cold-store
-the deployer key, publish the real PGP key, run restore/paging/security
-drills, and complete the real-USDC mainnet smoke channel. Mainnet config
-gates fail-fast on dev keys and unsigned envelopes
+Pre-GA staging. AI-audited (DeepSeek + multi-agent), with critical and high
+code findings addressed or tracked. The main remaining launch gates are
+operator-controlled: verify current owner-key custody, revoke/cold-store the
+deployer key, publish the real PGP key, run restore/paging/security drills,
+and complete the real-USDC mainnet smoke channel. Mainnet config gates
+fail-fast on dev keys and unsigned envelopes
 (`apps/{hub,watchtower}/src/config-validate.ts`); state-acceptance gates
 (`packages/state-machine/src/admit.ts`) verify hub-supplied states before
 the SDK persists them.
 
-Production-readiness work is tracked on GitHub. See the master tracker
-[issue #21](https://github.com/taikoxyz/pico/issues/21) for the full
-sub-issue checklist and
-[`docs/audit-status.md`](./docs/audit-status.md) for the per-finding
-reconciliation.
+Production-readiness is summarized in
+[`final_readiness_report.html`](./final_readiness_report.html) — the single
+source of truth for design, implementation, test, and documentation
+readiness. Live operational work is tracked on
+[issue #21](https://github.com/taikoxyz/pico/issues/21).
 
 ## Documentation
 
+- [`final_readiness_report.html`](./final_readiness_report.html) — **the
+  single source of truth** for production readiness (design, implementation,
+  tests, documentation). Re-generated per release-candidate tag.
 - [Issue #21](https://github.com/taikoxyz/pico/issues/21) — master
-  production-readiness tracker. **Start here if you want to know what's
-  left.** Sub-issues are categorized (`code` / `test` / `gke` /
-  `taiko-contract` / `docs` / `audit` / `ci`) and prioritized
-  (`high` / `medium` / `low`).
-- [`docs/audit-status.md`](./docs/audit-status.md) — per-finding audit
-  reconciliation against current code.
+  production-readiness tracker. Sub-issues are categorized
+  (`code` / `test` / `gke` / `taiko-contract` / `docs` / `audit` / `ci`)
+  and prioritized (`high` / `medium` / `low`).
 - [`docs/learning/index.html`](./docs/learning/index.html) — per-component
   HTML tutorials, offline-readable.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — components, trust assumptions,

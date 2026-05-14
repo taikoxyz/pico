@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>pico — Final Production Readiness Report (Taiko mainnet + GKE, ETH + USDC)</title>
+<style>
+  :root{
+    --bg:#0d1117;--panel:#161b22;--panel2:#1f242d;--border:#30363d;
+    --text:#e6edf3;--muted:#8b949e;--accent:#7c83ff;--accent-dim:#3b3f8b;
+    --green:#3fb950;--red:#f85149;--orange:#f0883e;--yellow:#d29922;
+    --blue:#58a6ff;--purple:#bc8cff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}
+  code,pre,.mono{font-family:"JetBrains Mono",Menlo,Consolas,monospace;font-size:.85em}
+  code{background:rgba(124,131,255,.13);color:#c4c8ff;padding:.1em .35em;border-radius:3px}
+  pre{background:var(--panel);border:1px solid var(--border);padding:1rem;border-radius:6px;overflow-x:auto;margin:.8rem 0}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .layout{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+  nav.toc{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--panel);border-right:1px solid var(--border);padding:1.5rem 1rem;font-size:.86rem}
+  nav.toc h3{color:var(--accent);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;margin:1rem 0 .5rem}
+  nav.toc h3:first-child{margin-top:0}
+  nav.toc a{display:block;padding:.22rem .6rem;border-radius:4px;color:var(--muted)}
+  nav.toc a:hover{color:var(--text);background:rgba(124,131,255,.08)}
+  nav.toc .sub{padding-left:1rem;font-size:.78rem}
+
+  main{padding:2rem 2.5rem;max-width:1240px}
+  @media (max-width:980px){.layout{grid-template-columns:1fr}nav.toc{position:static;height:auto}main{padding:1.2rem}}
+
+  header.page{border-bottom:1px solid var(--border);padding-bottom:2rem;margin-bottom:2.5rem}
+  header.page h1{font-size:2.2rem;font-weight:800;letter-spacing:-.02em;color:#fff}
+  header.page h1 span{color:var(--accent)}
+  header.page .subtitle{color:var(--muted);margin-top:.6rem;font-size:1rem}
+  header.page .meta{color:var(--muted);margin-top:.6rem;font-size:.78rem}
+  header.page .pill-row{margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem}
+  .pill{display:inline-block;font-size:.74rem;padding:.18em .65em;border-radius:999px;background:var(--panel2);color:var(--muted);border:1px solid var(--border)}
+
+  h2{font-size:1.55rem;font-weight:700;color:#fff;margin:3rem 0 1.2rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);scroll-margin-top:1rem}
+  h2 .num{color:var(--accent);margin-right:.5rem;font-variant-numeric:tabular-nums}
+  h3{font-size:1.13rem;font-weight:600;color:var(--accent);margin:1.8rem 0 .7rem;scroll-margin-top:1rem}
+  h4{font-size:1rem;font-weight:700;color:#fff;margin:1.2rem 0 .5rem}
+  p{margin-bottom:.9rem}
+  ul,ol{padding-left:1.4rem;margin-bottom:1rem}
+  li{margin-bottom:.3rem}
+  strong{color:#fff}
+
+  .badge{display:inline-block;font-size:.7rem;font-weight:800;padding:.16em .55em;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle}
+  .badge-crit{background:rgba(248,81,73,.18);color:var(--red)}
+  .badge-high{background:rgba(240,136,62,.18);color:var(--orange)}
+  .badge-med{background:rgba(210,153,34,.2);color:var(--yellow)}
+  .badge-low{background:rgba(139,148,158,.2);color:var(--muted)}
+  .badge-ok{background:rgba(63,185,80,.18);color:var(--green)}
+  .badge-info{background:rgba(88,166,255,.18);color:var(--blue)}
+  .badge-new{background:rgba(188,140,255,.18);color:var(--purple)}
+
+  .verdict{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:1.3rem 1.5rem;margin:1.5rem 0}
+  .verdict.crit{border-left-color:var(--red);border-color:rgba(248,81,73,.35)}
+  .verdict.warn{border-left-color:var(--orange);border-color:rgba(240,136,62,.35)}
+  .verdict.ok{border-left-color:var(--green);border-color:rgba(63,185,80,.35)}
+  .verdict h4{color:#fff;margin-bottom:.6rem}
+  .verdict.crit h4{color:var(--red)}
+  .verdict.warn h4{color:var(--orange)}
+  .verdict.ok h4{color:var(--green)}
+
+  .scorecards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin:1.2rem 0}
+  .score{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem;text-align:center}
+  .score .label{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .score .value{font-size:2rem;font-weight:800;margin:.4rem 0;line-height:1}
+  .score .bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+  .score .bar span{display:block;height:100%}
+  .v-green{color:var(--green)}.v-yellow{color:var(--yellow)}.v-orange{color:var(--orange)}.v-red{color:var(--red)}.v-blue{color:var(--blue)}
+  .b-green{background:var(--green)}.b-yellow{background:var(--yellow)}.b-orange{background:var(--orange)}.b-red{background:var(--red)}.b-blue{background:var(--blue)}
+
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px;margin:1rem 0 1.5rem}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:600px}
+  thead tr{background:var(--panel)}
+  th{text-align:left;padding:.6rem .9rem;color:var(--muted);font-weight:700;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+  td{padding:.55rem .9rem;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+  td code{white-space:nowrap}
+  td.small{font-size:.78rem;color:var(--muted)}
+
+  .finding{border-left:3px solid var(--muted);padding:.8rem 1rem;margin:.7rem 0;background:rgba(255,255,255,.02);border-radius:0 4px 4px 0}
+  .finding.crit{border-left-color:var(--red);background:rgba(248,81,73,.04)}
+  .finding.high{border-left-color:var(--orange);background:rgba(240,136,62,.04)}
+  .finding.med{border-left-color:var(--yellow);background:rgba(210,153,34,.04)}
+  .finding.low{border-left-color:var(--muted);background:rgba(139,148,158,.04)}
+  .finding.ok{border-left-color:var(--green);background:rgba(63,185,80,.04)}
+  .finding .head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:.3rem}
+  .finding .title{font-weight:700;color:#fff}
+  .finding .meta{color:var(--muted);font-size:.78rem}
+
+  .callout{background:linear-gradient(135deg,rgba(124,131,255,.06),rgba(188,140,255,.06));border:1px solid rgba(124,131,255,.25);border-radius:8px;padding:1rem 1.3rem;margin:1.2rem 0}
+  .callout h4{color:var(--accent);margin-bottom:.4rem}
+
+  .check{color:var(--green);font-weight:800}
+  .cross{color:var(--red);font-weight:800}
+  .partial{color:var(--yellow);font-weight:800}
+
+  footer{margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <h3>Sections</h3>
+  <a href="#summary">0. Executive summary</a>
+  <a href="#methodology">1. Methodology</a>
+  <a href="#architecture">2. Architecture snapshot</a>
+  <a href="#contracts">3. Smart contracts</a>
+  <a href="#runtime">4. Off-chain runtime</a>
+  <a href="#asset-support">5. ETH + USDC support</a>
+  <a href="#tests">6. Test coverage</a>
+  <a href="#infra">7. Infra / GKE</a>
+  <a href="#cicd">8. CI/CD &amp; supply chain</a>
+  <a href="#ops">9. Observability + backup</a>
+  <a href="#docs">10. Documentation &amp; runbooks</a>
+  <a href="#security-compliance">11. Security &amp; compliance</a>
+  <a href="#findings">12. Findings register</a>
+  <a href="#decision">13. GO/NO-GO &amp; action plan</a>
+  <a href="#appendix">14. Appendix</a>
+  <h3>Verdicts at a glance</h3>
+  <a href="#summary" class="sub"><span class="badge badge-crit">NO-GO</span> Mainnet GA</a>
+  <a href="#summary" class="sub"><span class="badge badge-ok">PASS</span> Code quality (Solidity)</a>
+  <a href="#summary" class="sub"><span class="badge badge-ok">PASS</span> Code quality (runtime)</a>
+  <a href="#summary" class="sub"><span class="badge badge-med">PARTIAL</span> Infra / GKE manifests</a>
+  <a href="#summary" class="sub"><span class="badge badge-high">FAIL</span> Operator gates &amp; drills</a>
+  <a href="#summary" class="sub"><span class="badge badge-high">FAIL</span> External audit + PGP</a>
+</nav>
+
+<main>
+
+<header class="page">
+  <h1><span>pico</span> — Final Production Readiness Report</h1>
+  <p class="subtitle">Honest, comprehensive review of design, implementation, tests, and documentation against
+  the goal of <strong>operating a hub on Taiko mainnet (chainId&nbsp;167000) hosted on GKE</strong>, with
+  <strong>ETH</strong> and <strong>USDC</strong> support.</p>
+  <p class="meta">Generated 2026-05-14 · Branch <code>claude/audit-readiness-report-UhMKo</code> · HEAD <code>cf0d0eb</code> · v2.1.9 · Single source of truth (supersedes <code>production-readiness-audit.html</code> and <code>docs/audit/multi-agent-*.md</code>).</p>
+  <div class="pill-row">
+    <span class="pill">Design vs code</span>
+    <span class="pill">Reentrancy / pull-pattern</span>
+    <span class="pill">ETH + USDC</span>
+    <span class="pill">Hub + watchtower</span>
+    <span class="pill">SDK + CLI</span>
+    <span class="pill">GKE manifests</span>
+    <span class="pill">Observability</span>
+    <span class="pill">Backup &amp; restore</span>
+    <span class="pill">Threat model</span>
+    <span class="pill">Runbooks &amp; drills</span>
+    <span class="pill">Compliance</span>
+  </div>
+</header>
+
+<!-- ============================================================ -->
+<h2 id="summary"><span class="num">0.</span>Executive summary</h2>
+
+<div class="verdict crit">
+  <h4>Verdict: <span class="cross">NO-GO</span> for Taiko mainnet GA today.</h4>
+  <p>The codebase is in strong technical shape — Solidity, hub, watchtower, SDK, and state-machine all pass their test suites; the v2.1 pull-pattern fix for U-01/U-02/U-03 is implemented and tested; admission gates, per-channel mutex, reorg handling, and HTLC settlement are mature. The blockers are <strong>operational and external</strong>, not coding. Specifically:</p>
+  <ol>
+    <li><strong>No external audit sign-off on v2.1.</strong> <code>docs/audit-status.md:76</code> states explicitly that no <code>v2.1.*</code> tag may be cut until Spearbit / Trail of Bits / Cantina deliver a written report. Pico has been DeepSeek-audited (42 fixed, 16 patched-not-reaudited, 1 open) and internally multi-agent-reviewed; an independent human audit has not happened.</li>
+    <li><strong>PGP disclosure channel is still a placeholder.</strong> <code>SECURITY.md:20</code> contains <code>&lt;PICO_PGP_FINGERPRINT_TODO&gt;</code>; <code>pgp-key.asc.placeholder</code> sits at repo root. Encrypted vulnerability reports cannot be received.</li>
+    <li><strong>PC-09 still <em>Open</em>.</strong> Proxy ownership lives at a deployer EOA (<code>0x327fa3…</code>). Deploy scripts now wire a 48-hour <code>TimelockController</code> + Safe multisig, but on-chain owner-code and key-custody evidence is not yet recorded in <code>docs/launch-log.md</code>.</li>
+    <li><strong>Real-USDC mainnet smoke not executed.</strong> Round-4 (2026-05-14) passed end-to-end with ETH + PTST only. The <code>docs/launch-log.md</code> "Real-USDC mainnet smoke" gate is blank.</li>
+    <li><strong>None of the production drills are recorded as run.</strong> Backup restore, paging, security disclosure, owner-custody verification: all <code>PENDING</code> in <code>docs/launch-log.md:26–55</code>.</li>
+    <li><strong>Operational chrome is incomplete.</strong> Cloud Armor security policy must be created out-of-band; Alertmanager webhook URLs are still <code>url_file</code> Secret references that operators have to populate; image signing (cosign) is conditional on an optional <code>COSIGN_PRIVATE_KEY</code>; Binary Authorization is not yet enforced on the cluster.</li>
+  </ol>
+  <p>The shortest credible path to <span class="check">GO</span> is roughly 4–8 weeks of audit and drill execution — <em>not</em> a re-architecture. See <a href="#decision">§13</a>.</p>
+</div>
+
+<div class="scorecards">
+  <div class="score"><div class="label">Overall readiness</div><div class="value v-orange">58%</div><div class="bar"><span class="b-orange" style="width:58%"></span></div></div>
+  <div class="score"><div class="label">Solidity contracts</div><div class="value v-green">88%</div><div class="bar"><span class="b-green" style="width:88%"></span></div></div>
+  <div class="score"><div class="label">Off-chain runtime</div><div class="value v-green">82%</div><div class="bar"><span class="b-green" style="width:82%"></span></div></div>
+  <div class="score"><div class="label">Test coverage</div><div class="value v-green">85%</div><div class="bar"><span class="b-green" style="width:85%"></span></div></div>
+  <div class="score"><div class="label">Infra / GKE</div><div class="value v-yellow">72%</div><div class="bar"><span class="b-yellow" style="width:72%"></span></div></div>
+  <div class="score"><div class="label">CI / supply chain</div><div class="value v-yellow">75%</div><div class="bar"><span class="b-yellow" style="width:75%"></span></div></div>
+  <div class="score"><div class="label">Documentation</div><div class="value v-yellow">78%</div><div class="bar"><span class="b-yellow" style="width:78%"></span></div></div>
+  <div class="score"><div class="label">Operational drills</div><div class="value v-red">10%</div><div class="bar"><span class="b-red" style="width:10%"></span></div></div>
+  <div class="score"><div class="label">External audit + PGP</div><div class="value v-red">15%</div><div class="bar"><span class="b-red" style="width:15%"></span></div></div>
+  <div class="score"><div class="label">Real-USDC mainnet validation</div><div class="value v-red">25%</div><div class="bar"><span class="b-red" style="width:25%"></span></div></div>
+</div>
+
+<h3>Top 10 findings (prioritized)</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>#</th><th>Severity</th><th>Finding</th><th>Source of truth</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><span class="badge badge-crit">CRITICAL</span></td><td>v2.1 ships without external auditor sign-off; release embargo states no <code>v2.1.*</code> tag without it</td><td><code>docs/audit-status.md:76</code></td></tr>
+<tr><td>2</td><td><span class="badge badge-crit">CRITICAL</span></td><td>PGP key + fingerprint placeholders; encrypted disclosure channel inoperative</td><td><code>SECURITY.md:20</code>, <code>pgp-key.asc.placeholder</code></td></tr>
+<tr><td>3</td><td><span class="badge badge-crit">CRITICAL</span></td><td>PC-09 still Open: on-chain owner is an EOA; Timelock + Safe transfer not yet evidenced</td><td><code>docs/audit-status.md:67</code>, <code>docs/launch-log.md:7–24</code></td></tr>
+<tr><td>4</td><td><span class="badge badge-high">HIGH</span></td><td>Real-USDC smoke (open → topUp → pay → close on Taiko mainnet) not executed</td><td><code>docs/launch-log.md:50–56</code></td></tr>
+<tr><td>5</td><td><span class="badge badge-high">HIGH</span></td><td>Production drills not run: restore, paging, security disclosure</td><td><code>docs/launch-log.md:26–49</code></td></tr>
+<tr><td>6</td><td><span class="badge badge-high">HIGH</span></td><td>Alertmanager pager/triage webhook URLs are <code>url_file</code> placeholders; secrets not bootstrapped</td><td><code>infra/k8s/04-alertmanager.yaml:39–52</code>, <code>infra/monitoring/alertmanager.yml</code></td></tr>
+<tr><td>7</td><td><span class="badge badge-high">HIGH</span></td><td>Cloud Armor security policy referenced but created out-of-band; GKE Ingress will warn-and-attach if missing</td><td><code>infra/k8s/01-hub.yaml:107–141</code></td></tr>
+<tr><td>8</td><td><span class="badge badge-high">HIGH</span></td><td>Cosign image signing is opt-in; without <code>COSIGN_PRIVATE_KEY</code> images are unsigned. Binary Authorization not enforced</td><td><code>.github/workflows/gke-images.yml:217–243</code></td></tr>
+<tr><td>9</td><td><span class="badge badge-high">HIGH</span></td><td>Single CODEOWNER (<code>@dantaik</code>); no second on-call; runbook <code>&lt;paging-contact&gt;</code> markers unfilled</td><td><code>SECURITY.md:86–91</code>, <code>docs/runbooks/README.md:5</code></td></tr>
+<tr><td>10</td><td><span class="badge badge-med">MEDIUM</span></td><td>Hub <code>/v1/health</code> lacks chain-watcher-lag and pending-tx-age probes; HSTS header not set by app; operator-token compare not constant-time</td><td><code>apps/hub/src/server.ts</code>, <code>infra/k8s/01-hub.yaml:151</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="methodology"><span class="num">1.</span>Methodology</h2>
+<p>This report was produced over a single working session by reading every cited file at HEAD (commit <code>cf0d0eb</code>, branch <code>claude/audit-readiness-report-UhMKo</code>) and running the available test suites. Where ambiguity remained, claims in prior reports (<code>docs/audit-status.md</code>, <code>docs/audit/multi-agent-*.md</code>, <code>production-readiness-audit.html</code>) were re-verified against current source. Multi-agent exploration was used to widen the coverage:</p>
+<ul>
+  <li><strong>Contracts agent</strong> — read <code>packages/contracts/src/*.sol</code>, deploy scripts, and every <code>test/*.t.sol</code>.</li>
+  <li><strong>Runtime agent</strong> — read <code>apps/hub/src/**</code>, <code>apps/watchtower/src/**</code>, <code>packages/sdk/src/**</code>, <code>packages/state-machine/src/**</code>, <code>apps/cli/src/**</code> and ran the suites.</li>
+  <li><strong>Infra/CI agent</strong> — read every file under <code>infra/</code>, all <code>.github/workflows/*.yml</code>, and the GKE manifest renderer.</li>
+  <li><strong>Docs agent</strong> — read every doc and runbook under <code>docs/</code> and the top-level policy files.</li>
+</ul>
+<p>Tests actually executed during this session (after <code>pnpm exec turbo run build</code>):</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Package</th><th>Files</th><th>Tests</th><th>Result</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>packages/state-machine</code></td><td>12</td><td>138</td><td><span class="check">all pass</span></td><td>admit, signing, htlc, channel, replay, invoice, preimage, topup, ptlc, oracle</td></tr>
+<tr><td><code>packages/protocol</code></td><td>5</td><td>65</td><td><span class="check">all pass</span></td><td>constants, eip-712 oracle, htlc-root, topup-messages</td></tr>
+<tr><td><code>packages/sdk</code></td><td>24</td><td>152</td><td><span class="check">all pass</span></td><td>client (mock/topup/close/crash/restart), key-file, storage, hub-protocol, transport, signature codec, stealth, invoice, keysend</td></tr>
+<tr><td><code>apps/hub</code></td><td>26</td><td>177</td><td><span class="check">all pass</span></td><td>config, server gates, router (incl. hydrate + perCounterpartyCap), chain-watcher, dispute-handler, topup-handler, channel-pool, liquidity, fee-policy, mutex, auto-recycle</td></tr>
+<tr><td><code>apps/watchtower</code></td><td>13</td><td>82 / 84</td><td><span class="partial">2 env-only flakes</span></td><td>(a) <code>index.test.ts</code>: <code>EAFNOSUPPORT</code> binding <code>::</code> (sandbox lacks IPv6); (b) <code>integration.test.ts</code>: missing <code>packages/contracts/out/MockERC20.sol/MockERC20.json</code> because <code>forge build</code> wasn't run. Neither is a code defect.</td></tr>
+<tr><td><code>packages/contracts</code> (forge)</td><td>16</td><td>179 functions / 1k-100k fuzz runs</td><td>not run in this sandbox (no forge)</td><td>CI <code>test-solidity</code> and nightly <code>forge-nightly</code> are green per latest run; per-file inventory in <a href="#tests">§6</a></td></tr>
+</tbody></table></div>
+<p class="small">Raw run logs are available in the agent transcripts under <code>/tmp/claude-0/-home-user-pico/…/tasks/</code>. No production secrets or RPC endpoints were used.</p>
+
+<!-- ============================================================ -->
+<h2 id="architecture"><span class="num">2.</span>Architecture snapshot</h2>
+<p>pico is a <strong>1-hop state-channel network</strong>: every channel terminates at a hub, every payment is <code>client → hub → recipient</code>. v1 supports a single asset per channel; the contract surface accepts native ETH (<code>token == address(0)</code>) and any owner-allowlisted ERC-20, with USDC as the v1 default. The protocol is frozen at <code>version: '2'</code> in the EIP-712 domain.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Component</th><th>Package</th><th>Function</th><th>Trust</th></tr></thead>
+<tbody>
+<tr><td>Contracts</td><td><code>packages/contracts</code></td><td>UUPS-proxied PaymentChannel + Adjudicator + HTLC; pull-pattern <code>pendingWithdrawals</code></td><td>trustless (on-chain)</td></tr>
+<tr><td>Protocol types</td><td><code>packages/protocol</code></td><td>EIP-712 schemas, chain/USDC constants, event kinds</td><td>shared</td></tr>
+<tr><td>State machine</td><td><code>packages/state-machine</code></td><td>Pure-fn channel + HTLC transitions; admit-gates</td><td>I/O-free, browser-safe</td></tr>
+<tr><td>SDK</td><td><code>packages/sdk</code></td><td>Signer interface, key-file encryption, WS transport, viem adapter</td><td>user-side</td></tr>
+<tr><td>CLI</td><td><code>apps/cli</code></td><td>v1 agent runtime (<code>pico pay</code>, <code>pico listen</code>, channel ops)</td><td>user-side</td></tr>
+<tr><td>Hub</td><td><code>apps/hub</code></td><td>Fastify + WS + SQLite/litestream; router, chain-watcher, topup, dispute</td><td>semi-trusted; cannot steal</td></tr>
+<tr><td>Watchtower</td><td><code>apps/watchtower</code></td><td>Standalone fraud monitor; penalty + HTLC resolution</td><td>semi-trusted; cannot steal</td></tr>
+<tr><td>DVM adapter</td><td><code>packages/dvm-adapter</code></td><td>Nostr DVM helpers (<code>@experimental</code>; throws on use)</td><td>Phase 2 only</td></tr>
+</tbody></table></div>
+<p>Trust model and 1-hop justification are accurately documented in <code>ARCHITECTURE.md</code> and <code>docs/protocol-spec.md</code>. v2.1 pull-pattern disbursement and v2 HTLC on-chain settlement (<code>Status.ResolvingHtlcs</code>) are both reflected in <code>docs/release-notes-v2.md</code> and the protocol spec.</p>
+
+<!-- ============================================================ -->
+<h2 id="contracts"><span class="num">3.</span>Smart contract audit</h2>
+
+<h3>3.1 Code shape</h3>
+<ul>
+  <li><code>packages/contracts/src/PaymentChannel.sol</code> — 797 lines; UUPS proxy; ownable; per-token allowlist + min channel amount; pull-pattern <code>pendingWithdrawals[token][user]</code> + <code>withdraw(token)</code>; full HTLC settlement in <code>Status.ResolvingHtlcs</code> with Merkle-proof <code>claimHtlc</code> / <code>refundHtlc</code>.</li>
+  <li><code>Adjudicator.sol</code> — 247 lines; <code>EIP712Upgradeable</code> with domain <code>("pico", "2")</code>; dual-signature verification for <code>ChannelState</code> and <code>CooperativeClose</code>.</li>
+  <li><code>HTLC.sol</code> — 145 lines; ordered Merkle proof verification, totals checks.</li>
+  <li>Deploy scripts: <code>Deploy.s.sol</code>, <code>DeployTimelock.s.sol</code> (hardcoded 48h min delay), <code>TransferOwnership.s.sol</code> (post-conditions verify owner and contract-ness), <code>UpgradePaymentChannel.s.sol</code> (bundles <code>reinitializeV2</code> for v1→v2 USDC min-amount seeding).</li>
+</ul>
+
+<h3>3.2 Security posture</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Property</th><th>Status</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Reentrancy + CEI</td><td><span class="check">OK</span></td><td><code>nonReentrant</code> on every fund-bearing function (openChannel/topUp/closeCooperative/closeUnilateral*/dispute/submitPenaltyProof/finalize/claimHtlc/refundHtlc/withdraw). Pull-pattern <code>withdraw</code> zeroes balance before transfer; covered by <code>test/PaymentChannel.pullPattern.t.sol:386–411</code>.</td></tr>
+<tr><td>Pull-pattern (U-01/02/03 fix)</td><td><span class="check">OK; awaiting external audit</span></td><td><code>_credit(token,to,amount)</code> in <code>closeCooperative</code> + <code>finalize</code>; <code>withdraw(token)</code> with zero-out-first. Tests: <code>test_u01_pausedToken_*</code>, <code>test_u02_revertingReceiver_onlyBlocksItself_*</code>, <code>test_u03_blocklistedPartyCannotWithdraw_*</code>.</td></tr>
+<tr><td>Dual-signature verification</td><td><span class="check">OK</span></td><td><code>Adjudicator.sol</code> <code>_hashTypedDataV4</code>; dual-sig helpers verify <code>sigA→userA</code> and <code>sigB→userB</code>. Channel state, cooperative close, and penalty proof all require both signatures.</td></tr>
+<tr><td>Version monotonicity / replay</td><td><span class="check">OK</span></td><td><code>closeCooperative</code>, <code>dispute</code>, <code>submitPenaltyProof</code> all require <code>s.version &gt; postedVersion</code>. <code>channelId = keccak256(address(this), userA, userB, token, timestamp, nonce)</code> binds to the proxy address. EIP-712 chainId binds to deployment chain.</td></tr>
+<tr><td>HTLC settlement</td><td><span class="check">OK</span></td><td>Merkle proof verification; <code>htlcResolutionDeadline = NOW + MAX_HTLC_DURATION + HTLC_RESOLUTION_GRACE</code>; penalty short-circuit gives full pot to non-closer.</td></tr>
+<tr><td>ETH vs ERC-20 codepath</td><td><span class="check">OK</span></td><td><code>token == address(0)</code> path uses <code>msg.value</code> in openChannel/topUp and low-level call with value in withdraw; ERC-20 path uses <code>SafeERC20</code>. ETH-channel must open with <code>amountB == 0</code> (PaymentChannel.sol:299).</td></tr>
+<tr><td>Fee-on-transfer / rebasing tokens</td><td><span class="badge badge-med">DOCUMENTED LIMITATION</span></td><td>Header comment 41–43 explicitly states these are unsupported. USDC + ETH on Taiko are unaffected; the surface is not <em>hardened</em> against future allowlisted tokens of that shape. Owner discipline required.</td></tr>
+<tr><td>Pause / circuit breaker</td><td><span class="badge badge-info">INTENTIONAL ABSENCE</span></td><td>No contract pause. Token-level pause/blocklist failures are absorbed by the pull pattern — disbursement decoupled from state advancement.</td></tr>
+<tr><td>Proxy ownership / Timelock</td><td><span class="cross">OPEN (PC-09)</span></td><td>Scripts are correct, but on-chain owner is still the deployer EOA <code>0x327fa3…</code> per <code>README.md</code> + <code>docs/launch-log.md:7–13</code>. Owner transfer to <code>TimelockController</code> + Safe must complete before GA.</td></tr>
+<tr><td>Chain-ID pinning in deploy scripts</td><td><span class="partial">PARTIAL</span></td><td>EIP-712 domain binds chainId implicitly. Foundry scripts do <em>not</em> assert <code>block.chainid == 167000</code>; operator must verify RPC. Document mandatory dry-run + post-deploy bytecode parity check.</td></tr>
+<tr><td><code>reinitializeV2</code> upgrade procedure</td><td><span class="partial">DOC GAP</span></td><td>Comment requires <code>upgradeToAndCall</code> bundling. <code>UpgradePaymentChannel.s.sol</code> already does it correctly; the failure mode is operator skipping the script. Mainnet-deploy runbook line-item required.</td></tr>
+<tr><td>TestToken (PTST) on mainnet allowlist</td><td><span class="partial">CONFIRM</span></td><td>Post-smoke removal not yet evidenced in launch log. PTST allowed minting would not put real user funds at risk (separate allowlist entry), but it is grit.</td></tr>
+</tbody></table></div>
+
+<h3>3.3 Findings</h3>
+<div class="finding crit">
+  <div class="head"><span class="title">SC-01 — External audit gate not satisfied</span><span class="meta"><span class="badge badge-crit">CRITICAL</span></span></div>
+  <p><code>docs/audit-status.md:50,76</code> says: <em>"No <code>v2.1.*</code> tag may be cut until an external auditor (Spearbit / Trail of Bits / Cantina) provides written sign-off."</em> v2.1.9 is tagged. Either the policy must be amended in writing or an external auditor's report must be added to <code>docs/audit/</code>. Pico has been DeepSeek-audited and internally multi-agent-reviewed but neither is equivalent to an external human audit for an on-chain custody surface.</p>
+  <p><strong>Action</strong>: Engage an audit firm; freeze new v2.x features until written sign-off is in repo.</p>
+</div>
+<div class="finding crit">
+  <div class="head"><span class="title">SC-02 — Owner is an EOA (PC-09 still Open)</span><span class="meta"><span class="badge badge-crit">CRITICAL</span></span></div>
+  <p>Until the Taikoscan owner readout shows a <code>TimelockController</code> address with <code>getMinDelay() == 172800</code> and a Safe multisig as proposer/executor, a single key compromise can change the token allowlist, change min amounts, or push a malicious UUPS upgrade. <code>TransferOwnership.s.sol</code> is correct; it just hasn't been run on mainnet.</p>
+  <p><strong>Action</strong>: Run <code>TransferOwnership.s.sol</code>; record the tx hash, the new owner contract address, and the Safe signer set in <code>docs/launch-log.md</code>. Sweep + cold-store the deployer EOA immediately afterwards.</p>
+</div>
+<div class="finding high">
+  <div class="head"><span class="title">SC-03 — Foundry scripts do not assert <code>block.chainid</code></span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p>Operator error could deploy to the wrong network. Mitigation: <code>mainnet-deploy.md</code> runbook line-item + bytecode-parity post-deploy check (already present in <code>e2e/src/scenarios.fork.test.ts</code> for the v2.1.x bytecode).</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">SC-04 — Fee-on-transfer hardening</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>Owner discipline is the only thing preventing a future allowlist of a fee-on-transfer token from breaking balance conservation. Doc-only mitigation today; consider a runtime "check received == requested" gate in v2.2 if scope expands beyond ETH+USDC.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="runtime"><span class="num">4.</span>Off-chain runtime audit</h2>
+
+<h3>4.1 Hub (<code>apps/hub</code>)</h3>
+<ul>
+  <li><strong>Production gates</strong> — <code>config-validate.ts:10–87</code> rejects all 7 well-known dev keys on non-Anvil chainIds, demands explicit <code>HUB_PRIVATE_KEY</code>, mandates <code>HUB_REQUIRE_SIGNED_ENVELOPE=true</code>, mandates <code>HUB_OPERATOR_TOKEN</code>, refuses zero contract addresses, and refuses chains whose protocol map slot is still <code>ZERO_ADDRESS</code>. Mainnet startup will fail loud rather than fall back to a defaulted dev key.</li>
+  <li><strong>Admit gates</strong> — <code>apps/hub/src/api/ws.ts</code> imports <code>admitSignedState</code>, <code>admitHtlcOffer</code>, <code>admitHtlcSettle</code>, <code>admitHtlcFail</code>, <code>admitClose</code> from <code>@inferenceroom/pico-state-machine</code>; each is wired into the corresponding ingestion path before any DB write. <code>verifyEnvelope</code> is enforced (line 892) when <code>requireSignedEnvelope</code> is true.</li>
+  <li><strong>Per-channel mutex</strong> — <code>KeyedMutex&lt;ChannelId&gt;</code> in <code>ws.ts:115</code> guards pay-route construction (incoming+outgoing). Locks are taken in a deterministic order; deadlock-free.</li>
+  <li><strong>Reservation/durability</strong> — <code>channelPool.hydrate()</code>, <code>liquidity.hydrate(repos.htlcs)</code>, and snapshot seeding from the latest co-signed state run before the chain watcher starts (<code>server.ts:64–88</code>). In-flight routes are persisted in <code>payment_routes</code>; <code>router.loadInflight</code> rehydrates them on restart.</li>
+  <li><strong>Chain watcher</strong> — <code>chain-watcher.ts</code> chunks <code>getLogs</code> to ≤500 blocks; <code>rewindForReorg</code> detects block-hash mismatch and falls back one chunk. <em>Caveat</em>: chunk-based rewind is correct only for reorg depths &lt; chunk size. Taiko mainnet historical reorgs are well below 50 blocks; assumption documented but not asserted.</li>
+  <li><strong>Dispute handler</strong> — <code>dispute-handler.ts</code> picks <code>latestDisputeEligible()</code>, compares against the attacker's posted version, refuses sentinel bootstrap v0 states.</li>
+  <li><strong>TopUp + auto-recycle</strong> — <code>topup-handler.ts</code> enforces one in-flight topup per channel; <code>auto-recycle.ts</code> hydrates and re-uses recovered liquidity in the same token. Hot-wallet mutex serializes liquidity operations.</li>
+  <li><strong>Metrics binding</strong> — <code>server.ts:223–229</code> binds <code>PROMETHEUS_PORT</code> to <code>METRICS_BIND_ADDR</code> (defaults to <code>127.0.0.1</code> in production). In the GKE manifest the bind address is widened to <code>::</code> for in-cluster scrape (<code>infra/k8s/01-hub.yaml:27</code>); ingress is locked down by NetworkPolicy.</li>
+</ul>
+
+<h3>4.2 Watchtower (<code>apps/watchtower</code>)</h3>
+<ul>
+  <li><strong>Production gates</strong> — <code>config-validate.ts</code> rejects dev keys, requires explicit <code>WATCHTOWER_PRIVATE_KEY</code>, refuses <code>MODE=service</code>, validates penalty threshold + scheduler interval + confirmations.</li>
+  <li><strong>R-04 wallet nonce race</strong> — <code>mutex.ts</code> + <code>responder.ts</code> wrap <code>_submitPenalty</code> in <code>walletMutex.run()</code>. <code>responder.concurrentNonce.test.ts</code> asserts distinct nonces under concurrent submission.</li>
+  <li><strong>R-05 reorg / inclusion bookkeeping</strong> — Observations table carries <code>block_hash</code> and <code>block_number</code>; <code>rewindForReorg(fromBlock)</code> clears inclusion state for affected channelIds. Covered by <code>responder.reorg.test.ts</code>.</li>
+  <li><strong>WTW-001 confirmation flush</strong> — <code>watcher.ts</code> has an independent <code>confirmationFlushInterval</code> that flushes pending events that crossed confirmation depth even with no new logs.</li>
+  <li><strong>WTW-003 stuck-tx replacement</strong> — <code>responder.ts:121–150</code> replaces stuck tx with the same nonce and bumped fee after <code>inclusionTimeoutMs</code>.</li>
+  <li><strong>WTW-010 receipt status</strong> — <code>responder.ts:144,237</code> require <code>receipt.status === 'success'</code>.</li>
+  <li><strong>HTLC resolver</strong> — <code>htlc-resolver.ts</code> issues <code>claimHtlc</code> with Merkle proof when a preimage is known and HTLC not expired, otherwise <code>refundHtlc</code> after expiry. Idempotent because the contract refuses double-settlement.</li>
+</ul>
+
+<h3>4.3 SDK + CLI + state-machine</h3>
+<ul>
+  <li><strong>F-01 admit gates</strong> — SDK client imports <code>admitSignedState</code> at lines 20–23 and calls it before persisting any hub-supplied state (paths at 389, 627, 785, 916). The state-machine is the single point of truth.</li>
+  <li><strong>F-03 invoice replay</strong> — <code>storage-file.ts:170</code> <code>markInvoiceConsumed</code> is idempotent; <code>client.ts:419–421</code> rejects already-consumed invoices.</li>
+  <li><strong>F-05 hot-key durability</strong> — <code>storage-file.ts:1,52–55,60,79,104–108</code> fsyncs the file and parent dir; <code>0o600</code> files and <code>0o700</code> directories. Encryption: scrypt(N=2^17, r=8, p=1) + xsalsa20-poly1305.</li>
+  <li><strong>EOD-01 verifyingContract</strong> — CLI and SDK use <code>CONTRACT_ADDRESSES[chainId].Adjudicator</code> as the EIP-712 verifyingContract, matching the contracts' own domain. Hub uses the same.</li>
+  <li><strong>State-machine admit</strong> — <code>admit.ts</code> exposes <code>admitSignedState</code>, <code>admitHtlcOffer</code>, <code>admitHtlcSettle</code>, <code>admitHtlcFail</code>, <code>admitClose</code>. 138/138 tests pass.</li>
+</ul>
+
+<h3>4.4 Findings</h3>
+<div class="finding high">
+  <div class="head"><span class="title">RT-01 — Operator-token compare is not constant-time</span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p>Hub's bearer-token check uses string <code>===</code> (timing-sensitive). For an over-the-internet admin token with 32 bytes of entropy this is a small risk, but it is cheap to fix. <strong>Action</strong>: replace with <code>crypto.timingSafeEqual</code> + length check.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">RT-02 — Hub <code>/v1/health</code> probe is shallow</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>Probes DB ping and RPC <code>getBlockNumber</code>, but not chain-watcher staleness, pending-tx age, or scheduler tick. Operators can't see "hub is running but events aren't being processed." <strong>Action</strong>: expose <code>chainWatcherLagBlocks</code> and <code>oldestPendingTxAgeMs</code> in health JSON; consider returning 503 above documented thresholds.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">RT-03 — Reorg rewind is chunk-granular, not per-block-hash walk</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>Safe today on Taiko (shallow reorgs), but the assumption should be explicit. <strong>Action</strong>: document the depth assumption in <code>docs/threat-model.md</code> and add a metric alert if observed rewind depth approaches chunk size.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">RT-04 — HSTS header not set in hub app</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p><code>infra/k8s/01-hub.yaml:148–152</code> already calls this out: GCE Ingress does not inject HSTS, so the hub must. <strong>Action</strong>: 5-line Fastify middleware emitting <code>Strict-Transport-Security: max-age=63072000; includeSubDomains; preload</code>.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">RT-05 — H-10 / H-11 still "Patched-not-reaudited"</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>SDK defaults to <code>DEFAULT_HUB_FEE_BPS/FLAT</code> from protocol constants rather than honoring a hub-advertised fee policy. Liquidity is hydrated from the latest co-signed state plus snapshot; full authoritative liquidity-from-states is a v2.2 item. Both should be disclosed in the v1.0 release notes.</p>
+</div>
+<div class="finding low">
+  <div class="head"><span class="title">RT-06 — Graceful shutdown does not explicitly drain WS</span><span class="meta"><span class="badge badge-low">LOW</span></span></div>
+  <p><code>server.ts:279–284</code> stops the chain watcher and closes the DB but does not drain active WS sessions. Acceptable for v1; document client reconnect window in SDK README.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="asset-support"><span class="num">5.</span>ETH + USDC support</h2>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Concern</th><th>ETH</th><th>USDC</th></tr></thead>
+<tbody>
+<tr><td>Contract address</td><td><code>address(0)</code> sentinel; allowlisted via <code>setTokenAllowed(address(0), true)</code></td><td><code>0x07d83526730c7438048D55A4fc0b850e2aaB6f0b</code> (Taiko-bridged, 6 decimals) — <code>packages/protocol/src/constants.ts:48–55</code></td></tr>
+<tr><td>Funding path</td><td>Native <code>msg.value</code>; ETH channels must open with <code>amountB == 0</code> (single-sided)</td><td><code>SafeERC20.safeTransferFrom</code>; <code>msg.value == 0</code> enforced for ERC-20 channels</td></tr>
+<tr><td>Disbursement (v2.1)</td><td><code>_credit</code> → <code>pendingWithdrawals[0x0][user]</code>; <code>withdraw</code> uses low-level call with value</td><td><code>_credit</code> → <code>pendingWithdrawals[usdc][user]</code>; <code>withdraw</code> uses <code>SafeERC20</code></td></tr>
+<tr><td>Pause / blocklist resilience</td><td>N/A (no issuer)</td><td><span class="check">RESILIENT</span> — Circle pause / blocklist affects only <code>withdraw</code>, not state advancement. The un-blocked side withdraws independently. Covered by <code>test_u01_*</code>, <code>test_u02_*</code>, <code>test_u03_*</code>.</td></tr>
+<tr><td>Min channel amount</td><td><code>10^16</code> wei (0.01 ETH) — <code>MIN_CHANNEL_AMOUNT_ETH</code></td><td><code>10_000_000</code> (10 USDC) — <code>MIN_CHANNEL_AMOUNT_USDC</code></td></tr>
+<tr><td>Per-counterparty cap</td><td><code>PICO_HUB_PER_COUNTERPARTY_CAP_0x0000…</code></td><td><code>PICO_HUB_PER_COUNTERPARTY_CAP_0x07d83526…</code> — exposed on <code>GET /v1/info</code></td></tr>
+<tr><td>Decimals handling</td><td>18 — CLI reads via <code>readTokenDecimals</code> with native-token short-circuit (fixed in v2.1.x)</td><td>6 — pinned in <code>USDC_TOKENS</code></td></tr>
+<tr><td>Hub config</td><td>Treated as just another allowlisted token via <code>address(0)</code> sentinel; cap map keyed lowercase</td><td>Same — channel token is immutable per channel</td></tr>
+<tr><td>Watchtower</td><td>Token-agnostic; submits penalty and resolves HTLCs without reading token value</td><td>Same</td></tr>
+<tr><td>Mainnet smoke evidence</td><td>Round-4 (2026-05-14): 0.0001-ETH channel + 0.00001-ETH pay end-to-end <span class="check">PASS</span></td><td><strong>Real-USDC smoke not yet executed.</strong> Round-2/Round-4 used PTST (test ERC-20). Fork tests exercise USDC via whale impersonation when <code>E2E_USDC_WHALE</code> is set.</td></tr>
+<tr><td>Compliance disclosure</td><td>None required (no issuer)</td><td><code>COMPLIANCE.md:14–40</code> documents pause/blocklist/mint-burn powers and requires operator ToS disclosure</td></tr>
+</tbody></table></div>
+
+<div class="callout">
+  <h4>Bottom line on USDC</h4>
+  <p>The <strong>code</strong> handles USDC's pause/blocklist surface correctly via the v2.1 pull pattern, and the test suite verifies each U-* path with isolation. What's missing is <strong>real-world execution evidence on Taiko mainnet</strong>: open a channel with real USDC, top up, pay, cooperatively close, and then unilaterally close in a separate channel and finalize after the 24-hour dispute window. This is the "real-USDC mainnet smoke" gate in <code>docs/launch-log.md:50–56</code>.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="tests"><span class="num">6.</span>Test coverage</h2>
+
+<h3>6.1 Solidity (<code>packages/contracts/test</code>)</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>File</th><th>LoC</th><th>Tests</th><th>Focus</th></tr></thead>
+<tbody>
+<tr><td><code>PaymentChannel.t.sol</code></td><td>892</td><td>59</td><td>Full lifecycle: open/topup/close/dispute/finalize</td></tr>
+<tr><td><code>PaymentChannel.pullPattern.t.sol</code></td><td>557</td><td>12</td><td>U-01/02/03 pause/blocklist/reverting-receive; reentrancy guard</td></tr>
+<tr><td><code>PaymentChannel.htlcSettlement.t.sol</code></td><td>261</td><td>10</td><td>ResolvingHtlcs phase, Merkle claim/refund, penalty short-circuit</td></tr>
+<tr><td><code>PaymentChannel.eth.t.sol</code></td><td>248</td><td>9</td><td>Native-ETH lifecycle incl. topUp + finalize + penalty</td></tr>
+<tr><td><code>PaymentChannel.invariant.t.sol</code></td><td>336</td><td>handler-based</td><td>Invariant: <code>totalDeposited &gt;= totalWithdrawn</code> across random ops</td></tr>
+<tr><td><code>PaymentChannel.replay.t.sol</code></td><td>225</td><td>6</td><td>Version monotonicity, stale state rejection</td></tr>
+<tr><td><code>PaymentChannel.topUp.t.sol</code></td><td>308</td><td>—</td><td>topUp peer-auth, allowance, per-token state</td></tr>
+<tr><td><code>PaymentChannel.fuzz.t.sol</code></td><td>158</td><td>fuzz</td><td>Property-based on signed-state ingestion</td></tr>
+<tr><td><code>PaymentChannel.genericErc20.t.sol</code></td><td>165</td><td>5</td><td>Decimals-agnostic ERC-20 paths</td></tr>
+<tr><td><code>PaymentChannel.drainAttacks.t.sol</code></td><td>137</td><td>3</td><td>Inbound-liquidity drain vectors</td></tr>
+<tr><td><code>PaymentChannel.closeFromOpen.t.sol</code></td><td>138</td><td>—</td><td>Anti-hostage <code>closeUnilateralFromOpen</code></td></tr>
+<tr><td><code>HTLC.t.sol</code> + <code>HTLC.merkleProof.t.sol</code></td><td>231 + 178</td><td>—</td><td>Merkle proof edge cases</td></tr>
+<tr><td><code>Adjudicator.t.sol</code> + <code>Oracle.t.sol</code></td><td>343 + 227</td><td>—</td><td>EIP-712 dual-sig + cross-tested oracle</td></tr>
+<tr><td><code>TransferOwnership.t.sol</code></td><td>184</td><td>—</td><td>Governance transition post-conditions</td></tr>
+</tbody></table></div>
+<p>CI runs <code>forge test -vvv</code> per PR (1k fuzz runs); <code>forge-nightly.yml</code> cron pushes invariant/fuzz to 100k runs. Coverage thresholds are <em>not</em> enforced in CI.</p>
+
+<h3>6.2 TypeScript (this session, post-build)</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Package</th><th>Files</th><th>Tests passed</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>packages/state-machine</code></td><td>12</td><td>138 / 138</td><td>admit, signing, htlc, channel, replay, invoice, preimage, topup, ptlc, oracle, cross-channel replay</td></tr>
+<tr><td><code>packages/protocol</code></td><td>5</td><td>65 / 65</td><td>EIP-712 oracle, htlc-root, constants, topup-messages</td></tr>
+<tr><td><code>packages/sdk</code></td><td>24</td><td>152 / 152</td><td>client (mockhub, topup, close, crash, restart, posthook), key-file, storage (file + indexeddb), hub-protocol, transport, signature codec, stealth, invoice, keysend, recipient rotation, signer, local-signer, chain-adapter (incl. viem path)</td></tr>
+<tr><td><code>apps/hub</code></td><td>26</td><td>177 / 177</td><td>config, server gates, router (incl. <code>hydrate</code> + <code>perCounterpartyCap</code>), chain-watcher, dispute-handler, topup-handler, channel-pool, liquidity, fee-policy, mutex, auto-recycle</td></tr>
+<tr><td><code>apps/watchtower</code></td><td>13</td><td>82 / 84</td><td>Two env-only flakes (no IPv6 in sandbox; missing <code>forge build</code> artifacts). Real CI runs both green.</td></tr>
+</tbody></table></div>
+
+<h3>6.3 E2E (<code>e2e/src</code>)</h3>
+<p>Four suites; describe blocks reviewed at <code>scenarios.test.ts:61,305,372,507,572,638,756</code> and <code>inbound-liquidity.scenarios.test.ts:150</code>:</p>
+<ul>
+  <li><strong>Phase 1</strong> happy paths: open / payDirect / sequential / no-payment close / both-sided / insufficient balance / replay rejection / unilateral-close-then-finalize.</li>
+  <li><strong>Phase 2B</strong> 3-party HTLC agent-pay-agent.</li>
+  <li><strong>Phase 2C</strong> watchtower wins dispute (hub posts v3, watchtower disputes with v6, Alice gets full pot).</li>
+  <li><strong>Phase 2D</strong> hot-key rotation; hub-down recovery + reconnect; receiver-offline-then-resume via <code>subscribeAck.pendingHtlcs</code>.</li>
+  <li><strong>v2 HTLC settlement</strong> (M7): force-close-with-HTLC → claim with preimage → finalize; refund after expiry → finalize.</li>
+  <li><strong>Inbound liquidity</strong>: 8+ scenarios incl. anti-hostage unilateral close from initial state.</li>
+  <li><strong>Fork suite</strong> (<code>scenarios.fork.test.ts</code>): bytecode parity boot against real Taiko mainnet; value-flow tests via <code>anvil_impersonateAccount</code> + <code>E2E_USDC_WHALE</code>. CI requires <code>TAIKO_MAINNET_RPC_URL</code> on protected/main/release refs.</li>
+  <li><strong>Backup-restore</strong>: synthetic hub-DB restore validation.</li>
+</ul>
+
+<h3>6.4 Gaps</h3>
+<ul>
+  <li>Coverage thresholds not enforced in CI; <code>coverage</code> job generates reports but does not gate the merge.</li>
+  <li>No Solidity-specific static analysis (Slither / Mythril) in CI; CodeQL only covers JS/TS.</li>
+  <li>No integration test that exercises ETH + USDC in the same hub deployment side-by-side; tests are per-asset.</li>
+  <li>SDK / hub integration of hub-advertised fee policy (H-10) and authoritative liquidity-from-states (H-11) lack end-to-end coverage in <code>e2e/</code>.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="infra"><span class="num">7.</span>Infrastructure &amp; GKE</h2>
+
+<h3>7.1 Manifests (<code>infra/k8s</code>)</h3>
+<p>All eight manifests (<code>00-namespace.yaml</code> through <code>07-pdb.yaml</code>, plus rendered <code>06-networkpolicy.yaml</code>) are real, not templates. Pods run hardened:</p>
+<ul>
+  <li><code>runAsNonRoot: true</code>, <code>runAsUser: 1000</code>, <code>fsGroup: 1000</code>, <code>seccompProfile.RuntimeDefault</code></li>
+  <li>Container: <code>readOnlyRootFilesystem: true</code>, <code>allowPrivilegeEscalation: false</code>, <code>capabilities.drop: [ALL]</code></li>
+  <li><code>automountServiceAccountToken: false</code></li>
+  <li>Hub + watchtower: single-replica <code>StatefulSet</code> with PVC + litestream sidecar (RW required for litestream sequence table)</li>
+  <li>Resources: 250m CPU / 512 MiB request, no CPU limit (event-loop burst), memory limit == request (deterministic OOM)</li>
+  <li>Startup / readiness / liveness probes on <code>/v1/health</code> and <code>/health</code></li>
+  <li>NetworkPolicy default-deny + explicit allow rules: GCE LB CIDRs → hub:3030; Prometheus → hub:9090, watchtower:3031; egress to 0.0.0.0/0 except RFC-1918 on 443 only (RPC + R2)</li>
+  <li>PodDisruptionBudget <code>minAvailable: 1</code> for every workload; safe across node drains and GKE auto-upgrades</li>
+  <li>Hub Ingress: GCE managed cert <code>pico-hub-cert-v2</code>, global static IP <code>pico-hub-ip</code>, <code>BackendConfig</code> with health check on <code>/v1/health</code>, <code>FrontendConfig</code> with HTTPS redirect + <code>MODERN</code> SSL policy</li>
+  <li>Cloud Armor security policy <code>pico-hub-armor</code> referenced; XSS, SQLi rules, 100 req/min rate limit</li>
+  <li>Secrets mounted as files at <code>/etc/pico/secrets</code> with <code>defaultMode: 0400</code>; <code>envFrom secretRef</code> kept for compatibility while app reads <code>PICO_SECRETS_DIR</code> (TODO in code)</li>
+</ul>
+
+<h3>7.2 Bootstrap + secrets</h3>
+<p><code>infra/k8s/bootstrap-gcp.sh</code> creates the GKE Autopilot cluster, enables APIs, sets up Workload Identity Federation, deployer service account, reserved IP, and required GitHub repo variables. <code>secrets-bootstrap.sh</code> validates secrets (rejects known dev keys) and applies them with <code>kubectl</code>. Secrets are stored as plain Kubernetes Secrets (not GCP Secret Manager CSI yet).</p>
+
+<h3>7.3 Findings</h3>
+<div class="finding high">
+  <div class="head"><span class="title">INF-01 — Alertmanager webhook secrets not yet populated</span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p><code>infra/k8s/04-alertmanager.yaml:39–52</code> uses <code>url_file</code> references to <code>/etc/alertmanager/secrets/ALERTMANAGER_{DEFAULT,PAGER,TRIAGE}_WEBHOOK_URL</code>. The matching Secret entries must be set via <code>secrets-bootstrap.sh --bootstrap-monitoring --env-file .secrets/monitoring-prod.env</code> with real PagerDuty / Slack / Linear URLs before launch. Source template still has <code>http://localhost:5001</code> placeholders.</p>
+</div>
+<div class="finding high">
+  <div class="head"><span class="title">INF-02 — Cloud Armor policy must be created out-of-band</span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p><code>infra/k8s/01-hub.yaml:107–141</code>: BackendConfig references <code>pico-hub-armor</code>; manifest does not create it. Bootstrap script does not include the <code>gcloud compute security-policies create</code> calls. If the policy is missing when the manifest applies, the GCE Ingress controller warns and attaches an unprotected backend — silent degradation. Add to <code>mainnet-deploy.md</code> as a numbered preflight step.</p>
+</div>
+<div class="finding high">
+  <div class="head"><span class="title">INF-03 — Cosign signing is opt-in; Binary Authorization not enforced</span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p><code>.github/workflows/gke-images.yml:217–243</code> skips signing if <code>COSIGN_PRIVATE_KEY</code> is unset (warn-only). The cluster does not enforce Binary Authorization. <strong>Action</strong>: provision a Cloud KMS-backed cosign key, populate the secret, and enable a Binary Authorization policy requiring signed images.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">INF-04 — Single RPC endpoint; no failover or circuit-breaker</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>Hub and watchtower read a single <code>RPC_URL</code> secret. An RPC outage stalls the hub. <strong>Action</strong>: document the manual restart procedure with an alternate RPC; consider client-side round-robin in v2.2.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">INF-05 — Secrets are plain Kubernetes Secrets, not GCP Secret Manager CSI</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>v1-acceptable, but lacks audit trail and auto-rotation. <strong>Action</strong>: target v2.0 migration to <code>secrets-store.csi.x-k8s.io</code> + GCP Secret Manager.</p>
+</div>
+<div class="finding low">
+  <div class="head"><span class="title">INF-06 — No HPA / multi-replica</span><span class="meta"><span class="badge badge-low">LOW</span></span></div>
+  <p>Single-replica by design (SQLite-backed). Acceptable for v1; document SLA expectations.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="cicd"><span class="num">8.</span>CI/CD &amp; supply chain</h2>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Workflow</th><th>Trigger</th><th>What it does</th><th>Gate?</th></tr></thead>
+<tbody>
+<tr><td><code>ci.yml</code></td><td>PR + main</td><td>lint, typecheck, build, k8s-manifests, test-ts, test-solidity (<code>forge test -vvv</code>), e2e, e2e-fork (requires <code>TAIKO_MAINNET_RPC_URL</code> on protected refs), coverage</td><td><span class="check">Required</span></td></tr>
+<tr><td><code>forge-nightly.yml</code></td><td>Cron daily</td><td>Foundry invariant + fuzz at 100k runs</td><td>Cron only; does not gate releases</td></tr>
+<tr><td><code>codeql.yml</code></td><td>PR + cron Mon</td><td>JS/TS <code>security-and-quality</code> queries</td><td><span class="check">SARIF upload</span></td></tr>
+<tr><td><code>secret-scan.yml</code></td><td>PR + main + tags</td><td><code>scripts/scan-secrets.sh tree</code></td><td><span class="check">Required</span></td></tr>
+<tr><td><code>security-md-lint.yml</code></td><td>PR + main</td><td>Validates <code>SECURITY.md</code> shape + PGP placeholder removal atomicity</td><td><span class="check">Required</span></td></tr>
+<tr><td><code>gke-images.yml</code></td><td><code>v*</code> tag</td><td>Build hub + watchtower; Trivy scan (CRITICAL/HIGH fail); SBOM (SPDX); optional cosign; render manifests; trigger deploy</td><td>Tag-only</td></tr>
+<tr><td><code>deploy.yml</code></td><td>workflow_call from gke-images.yml or manual</td><td>OIDC auth, resolve digest, render manifests, <code>kubectl apply</code>, rollout-status, health probe verification, image-digest verification</td><td>Environment <code>production</code></td></tr>
+<tr><td><code>backup-drill.yml</code></td><td>Monthly cron</td><td>Staging litestream restore drill</td><td>Opens issue on failure</td></tr>
+<tr><td><code>backup-drill-prod.yml</code></td><td>Quarterly cron</td><td>Prod litestream restore drill; matrix hub + watchtower</td><td>Opens issue on failure</td></tr>
+<tr><td><code>release.yml</code></td><td>main push</td><td>Changesets; tag deploy-relevant version bumps</td><td>—</td></tr>
+<tr><td><code>fly-deploy.yml</code></td><td>—</td><td>Legacy Fly deploy path (not v1 production)</td><td>—</td></tr>
+<tr><td><code>deepseek-review.yml</code></td><td>PR</td><td>AI review (DeepSeek)</td><td>Advisory</td></tr>
+<tr><td><code>pages.yml</code></td><td>docs change</td><td>GitHub Pages publish for learning docs</td><td>—</td></tr>
+</tbody></table></div>
+
+<h3>8.1 Findings</h3>
+<div class="finding med">
+  <div class="head"><span class="title">CI-01 — Coverage thresholds not enforced</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p><code>ci.yml:183–229</code> runs <code>test:coverage</code> for hub / watchtower / CLI but does not fail on regressions. CONTRIBUTING.md states 70% line coverage; CI does not enforce it.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">CI-02 — No Solidity static analysis</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>CodeQL covers JS/TS only. Add Slither or a custom AST check on <code>packages/contracts/src</code>.</p>
+</div>
+<div class="finding low">
+  <div class="head"><span class="title">CI-03 — Secret scan runs after push to main</span><span class="meta"><span class="badge badge-low">LOW</span></span></div>
+  <p>Lefthook pre-commit + CI gate cover staged + tree scans. History scans are an on-demand step. Document expectation.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ops"><span class="num">9.</span>Observability, backup &amp; restore</h2>
+
+<h3>9.1 Prometheus alerts (<code>infra/monitoring/alerts.yml</code>)</h3>
+<p>17 rules across critical / high / warning. Critical: <code>HubDown</code>, <code>WatchtowerDown</code>, <code>WatchtowerRpcDown</code>, <code>DisputeOpened</code>, <code>PenaltySubmissionStalled</code>, <code>HubHotWalletGasLow</code>, <code>WatchtowerHotWalletGasLow</code>. High: <code>ChainWatcherLagging</code>, <code>WatchtowerOldestPendingTxStale</code>, <code>WatchtowerSubmissionFailures</code>, <code>PvcAlmostFull</code>, <code>PodRestartLoop</code>. Warning: <code>PaymentFailureRateHigh</code>, <code>HubLiquidityLow</code>, <code>HubMemoryHigh</code>, <code>WatchtowerEvaluationStalled</code>, <code>HubChannelOpenStalled</code>. Coverage is good; SLO / burn-rate alerts are absent.</p>
+
+<h3>9.2 Backup &amp; restore</h3>
+<ul>
+  <li>Litestream sidecar (image pinned to <code>litestream/litestream:0.3.13</code>) replicates each SQLite DB to S3-compatible storage (R2) every 10 s with a 30-day retention.</li>
+  <li><code>infra/scripts/restore-drill.sh</code> is functional: downloads the latest snapshot via litestream, validates required tables (<code>channels, signed_states, payment_routes, htlcs, payments</code> for hub; <code>signed_states, watchtower_observations, in_flight_txs</code> for watchtower), and checks SHA-256 stability.</li>
+  <li><code>backup-drill.yml</code> (staging) runs monthly; <code>backup-drill-prod.yml</code> runs quarterly with <code>PROD_LITESTREAM_*</code> secrets and opens an issue on failure.</li>
+  <li>No documented RTO/RPO targets; the design implies &lt;10 s RPO and &lt;5–10 min RTO.</li>
+</ul>
+
+<h3>9.3 Findings</h3>
+<div class="finding med">
+  <div class="head"><span class="title">OPS-01 — No SLO / burn-rate alerts</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>Alerts cover binary up/down, but there's no latency p99 or availability SLO. Define and instrument before public traffic.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">OPS-02 — Restore drill validates structure but not failover</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>The script restores to a target volume and asserts row presence; it does not switch the running pod to the restored DB and verify recovery of in-flight payments end-to-end. Add an integration step to the quarterly drill.</p>
+</div>
+<div class="finding low">
+  <div class="head"><span class="title">OPS-03 — RTO / RPO targets undocumented</span><span class="meta"><span class="badge badge-low">LOW</span></span></div>
+  <p>Document explicit targets in <code>docs/runbooks/backup-restore.md</code> so on-call can grade an incident response.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="docs"><span class="num">10.</span>Documentation &amp; runbooks</h2>
+
+<h3>10.1 Top-level docs</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Doc</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><code>README.md</code></td><td><span class="check">REAL</span></td></tr>
+<tr><td><code>SECURITY.md</code></td><td><span class="partial">REAL but PGP fingerprint placeholder</span></td></tr>
+<tr><td><code>SECURITY_HALL_OF_FAME.md</code></td><td>template; no real entries</td></tr>
+<tr><td><code>COMPLIANCE.md</code></td><td><span class="check">REAL</span> — accurate framing as non-custodial framework, operator-burden compliance</td></tr>
+<tr><td><code>ARCHITECTURE.md</code></td><td><span class="check">REAL</span></td></tr>
+<tr><td><code>CONTRIBUTING.md</code></td><td><span class="check">REAL</span></td></tr>
+<tr><td><code>docs/protocol-spec.md</code></td><td><span class="check">REAL (v2 frozen)</span></td></tr>
+<tr><td><code>docs/threat-model.md</code></td><td><span class="check">REAL (v1 frozen)</span></td></tr>
+<tr><td><code>docs/audit-status.md</code></td><td><span class="check">REAL</span> — 59 findings reconciled, 1 Open, 16 Patched-not-reaudited</td></tr>
+<tr><td><code>docs/launch-log.md</code></td><td>template; 6 gates, 1 PARTIAL, 5 PENDING</td></tr>
+<tr><td><code>docs/release-notes-v1.0-draft.md</code></td><td>DRAFT — explicitly "Do not publish until issue #49 passes"</td></tr>
+<tr><td><code>docs/release-notes-v2.md</code></td><td><span class="check">REAL</span> — v2 HTLC settlement spec</td></tr>
+<tr><td><code>docs/mainnet-smoke-round-2-eth-ptst.md</code></td><td><span class="check">REAL (2026-05-13)</span> — 8 findings, 2 HIGH, fixed in v2.1.3+</td></tr>
+<tr><td><code>docs/mainnet-smoke-round-4.md</code></td><td><span class="check">REAL (2026-05-14)</span> — PASS ETH + PTST</td></tr>
+<tr><td><code>docs/learning/*.html</code></td><td><span class="check">REAL</span> — 9 per-component tutorials</td></tr>
+</tbody></table></div>
+
+<h3>10.2 Runbooks (<code>docs/runbooks/</code>)</h3>
+<p>15 runbooks; all 13 incident-response runbooks are operationally complete (trigger, triage, containment, recovery, post-mortem template). <code>mainnet-deploy.md</code> is a 31-item preflight checklist with every item unchecked. None have been drilled per <code>launch-log.md</code>. Every runbook contains literal <code>&lt;paging-contact&gt;</code> markers by design — operator substitution required.</p>
+
+<h3>10.3 Findings</h3>
+<div class="finding crit">
+  <div class="head"><span class="title">DOC-01 — PGP fingerprint and key file are placeholders</span><span class="meta"><span class="badge badge-crit">CRITICAL</span></span></div>
+  <p><code>SECURITY.md:20</code>: <code>&lt;PICO_PGP_FINGERPRINT_TODO&gt;</code>. <code>pgp-key.asc.placeholder</code> at repo root. Encrypted disclosure is documented as "not yet accepted." <strong>Action</strong>: generate the key on an air-gapped host, publish it, replace the placeholder atomically (the <code>security-md-lint</code> workflow enforces atomicity).</p>
+</div>
+<div class="finding high">
+  <div class="head"><span class="title">DOC-02 — Drills not executed</span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p>Restore, paging, security-disclosure, owner-custody verification, real-USDC smoke all <code>PENDING</code> in <code>docs/launch-log.md</code>. The runbooks are written; they need to be run.</p>
+</div>
+<div class="finding high">
+  <div class="head"><span class="title">DOC-03 — Single CODEOWNER and unfilled paging contacts</span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p><code>CODEOWNERS</code> = <code>@dantaik</code>; <code>SECURITY.md:86–91</code> notes "degenerate single-person schedule". Mainnet operation requires at least a primary + secondary on-call.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">DOC-04 — Mainnet-deploy preflight has 31 unchecked items</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p>By design; this is the launch checklist. Tracked alongside drills.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="security-compliance"><span class="num">11.</span>Security &amp; compliance posture</h2>
+
+<h3>11.1 Code-side</h3>
+<ul>
+  <li><strong>Contracts</strong>: reentrancy, CEI, pull-pattern, dual-sig, version monotonicity, chain-id-binding via EIP-712 — see <a href="#contracts">§3</a>.</li>
+  <li><strong>Off-chain</strong>: dev-key refusal, signed-envelope auth, operator token gate, admit gates on every signed-state path, key file encryption + fsync + perms — see <a href="#runtime">§4</a>.</li>
+  <li><strong>Image supply chain</strong>: Trivy CRITICAL/HIGH failing gate on every release; SBOM upload (SPDX); cosign optional. Binary Authorization not enforced.</li>
+  <li><strong>Secret scanning</strong>: <code>gitleaks</code> via <code>scripts/scan-secrets.sh</code>; pre-commit hook + CI required gate.</li>
+</ul>
+
+<h3>11.2 Compliance (per <code>COMPLIANCE.md</code>)</h3>
+<p>Pico is framed as a non-custodial framework; operators are responsible for jurisdictional posture (US MSB/MTL, EU MiCA CASP, UK FCA, Singapore PSA, Japan FSA). Pico does <em>not</em>: (a) screen sanctioned addresses, (b) collect KYC, (c) impose retention policy, (d) produce regulator-ready exports. <code>COMPLIANCE.md</code> documents each gap honestly and gives operators the integration points (admit-gate, <code>storage.ts</code> tables). Operator preflight checklist is unchecked but present (<code>COMPLIANCE.md:161–171</code>).</p>
+
+<h3>11.3 Findings</h3>
+<div class="finding high">
+  <div class="head"><span class="title">SEC-01 — No external audit on v2.1 yet</span><span class="meta"><span class="badge badge-high">HIGH</span></span></div>
+  <p>Covered as SC-01 above; restated here for emphasis. v2.1 ships a new disbursement surface; a third-party audit pass on the diff is non-negotiable for a custody-adjacent contract.</p>
+</div>
+<div class="finding med">
+  <div class="head"><span class="title">SEC-02 — No sanctions screening reference shim</span><span class="meta"><span class="badge badge-med">MEDIUM</span></span></div>
+  <p><code>COMPLIANCE.md:42–59</code> says the operator must integrate a screening vendor at the admit-gate. No reference middleware ships with pico. For an operator-facing project this is honest; flagged so operators don't miss it.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="findings"><span class="num">12.</span>Findings register</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>ID</th><th>Sev</th><th>Area</th><th>Finding</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>SC-01</td><td><span class="badge badge-crit">CRIT</span></td><td>Contracts</td><td>v2.1 ships without external audit sign-off</td><td><code>docs/audit-status.md:76</code></td></tr>
+<tr><td>SC-02</td><td><span class="badge badge-crit">CRIT</span></td><td>Contracts</td><td>Owner is an EOA; Timelock + Safe transfer not evidenced on-chain</td><td><code>docs/audit-status.md:67</code>; <code>docs/launch-log.md</code></td></tr>
+<tr><td>DOC-01</td><td><span class="badge badge-crit">CRIT</span></td><td>Security</td><td>PGP key + fingerprint are placeholders</td><td><code>SECURITY.md:20</code></td></tr>
+<tr><td>SC-03</td><td><span class="badge badge-high">HIGH</span></td><td>Contracts</td><td>Foundry deploy scripts do not assert <code>block.chainid</code></td><td><code>packages/contracts/script/*.s.sol</code></td></tr>
+<tr><td>RT-01</td><td><span class="badge badge-high">HIGH</span></td><td>Hub</td><td>Operator-token compare not constant-time</td><td><code>apps/hub/src/api/index.ts</code></td></tr>
+<tr><td>INF-01</td><td><span class="badge badge-high">HIGH</span></td><td>Infra</td><td>Alertmanager webhook secrets are placeholders</td><td><code>infra/k8s/04-alertmanager.yaml</code></td></tr>
+<tr><td>INF-02</td><td><span class="badge badge-high">HIGH</span></td><td>Infra</td><td>Cloud Armor policy created out-of-band; manifest references missing object</td><td><code>infra/k8s/01-hub.yaml:107–141</code></td></tr>
+<tr><td>INF-03</td><td><span class="badge badge-high">HIGH</span></td><td>Supply chain</td><td>Cosign signing optional; Binary Authorization not enforced</td><td><code>.github/workflows/gke-images.yml:217–243</code></td></tr>
+<tr><td>DOC-02</td><td><span class="badge badge-high">HIGH</span></td><td>Ops</td><td>Production drills not executed</td><td><code>docs/launch-log.md:26–55</code></td></tr>
+<tr><td>DOC-03</td><td><span class="badge badge-high">HIGH</span></td><td>Ops</td><td>Single CODEOWNER; <code>&lt;paging-contact&gt;</code> markers unfilled</td><td><code>SECURITY.md:86–91</code>; <code>docs/runbooks/README.md</code></td></tr>
+<tr><td>USDC-01</td><td><span class="badge badge-high">HIGH</span></td><td>Asset</td><td>Real-USDC mainnet smoke not executed</td><td><code>docs/launch-log.md:50–56</code></td></tr>
+<tr><td>SC-04</td><td><span class="badge badge-med">MED</span></td><td>Contracts</td><td>Fee-on-transfer / rebasing tokens unsupported by design; doc-only mitigation</td><td><code>PaymentChannel.sol:41–43</code></td></tr>
+<tr><td>RT-02</td><td><span class="badge badge-med">MED</span></td><td>Hub</td><td><code>/v1/health</code> lacks chain-watcher-lag and pending-tx-age probes</td><td><code>apps/hub/src/server.ts</code></td></tr>
+<tr><td>RT-03</td><td><span class="badge badge-med">MED</span></td><td>Hub</td><td>Reorg rewind is chunk-granular; assumption undocumented</td><td><code>apps/hub/src/chain-watcher.ts</code></td></tr>
+<tr><td>RT-04</td><td><span class="badge badge-med">MED</span></td><td>Hub</td><td>HSTS header not set by app</td><td><code>infra/k8s/01-hub.yaml:148–152</code></td></tr>
+<tr><td>RT-05</td><td><span class="badge badge-med">MED</span></td><td>SDK / Hub</td><td>H-10 hub-advertised fee policy &amp; H-11 authoritative liquidity-from-states partial</td><td><code>docs/audit-status.md:99–100</code></td></tr>
+<tr><td>INF-04</td><td><span class="badge badge-med">MED</span></td><td>Infra</td><td>Single RPC; no failover</td><td><code>apps/hub/src/config.ts</code></td></tr>
+<tr><td>INF-05</td><td><span class="badge badge-med">MED</span></td><td>Infra</td><td>Plain Kubernetes Secrets; no GCP Secret Manager CSI</td><td><code>infra/k8s/01-hub.yaml:239–251</code></td></tr>
+<tr><td>CI-01</td><td><span class="badge badge-med">MED</span></td><td>CI</td><td>Coverage thresholds not enforced</td><td><code>.github/workflows/ci.yml:183–229</code></td></tr>
+<tr><td>CI-02</td><td><span class="badge badge-med">MED</span></td><td>CI</td><td>No Solidity static analysis (Slither)</td><td><code>.github/workflows/codeql.yml</code></td></tr>
+<tr><td>OPS-01</td><td><span class="badge badge-med">MED</span></td><td>Observability</td><td>No SLO / burn-rate alerts</td><td><code>infra/monitoring/alerts.yml</code></td></tr>
+<tr><td>OPS-02</td><td><span class="badge badge-med">MED</span></td><td>Backup</td><td>Restore drill does not exercise failover</td><td><code>infra/scripts/restore-drill.sh</code></td></tr>
+<tr><td>DOC-04</td><td><span class="badge badge-med">MED</span></td><td>Docs</td><td><code>mainnet-deploy.md</code> 31 unchecked preflight items</td><td><code>docs/runbooks/mainnet-deploy.md</code></td></tr>
+<tr><td>SEC-02</td><td><span class="badge badge-med">MED</span></td><td>Compliance</td><td>No reference sanctions-screening shim ships with pico</td><td><code>COMPLIANCE.md:42–59</code></td></tr>
+<tr><td>RT-06</td><td><span class="badge badge-low">LOW</span></td><td>Hub</td><td>Graceful shutdown does not drain WS</td><td><code>apps/hub/src/server.ts:279–284</code></td></tr>
+<tr><td>OPS-03</td><td><span class="badge badge-low">LOW</span></td><td>Ops</td><td>RTO / RPO targets undocumented</td><td><code>docs/runbooks/backup-restore.md</code></td></tr>
+<tr><td>CI-03</td><td><span class="badge badge-low">LOW</span></td><td>CI</td><td>Secret scan on history is on-demand only</td><td><code>scripts/scan-secrets.sh</code></td></tr>
+<tr><td>INF-06</td><td><span class="badge badge-low">LOW</span></td><td>Infra</td><td>No HPA; single-replica by design</td><td><code>infra/k8s/README.md</code></td></tr>
+</tbody></table></div>
+
+<!-- ============================================================ -->
+<h2 id="decision"><span class="num">13.</span>GO/NO-GO &amp; action plan</h2>
+
+<div class="verdict crit">
+  <h4>Recommendation: <span class="cross">NO-GO</span> for mainnet GA today.</h4>
+  <p>Code quality is high enough to deserve a launch, but six external/operational gates must close first. None of them require code changes you don't already have.</p>
+</div>
+
+<h3>13.1 Must-close gates (ordered for shortest path to GA)</h3>
+<ol>
+  <li><strong>External audit</strong> — engage Spearbit / Trail of Bits / Cantina on v2.1.x; merge the report into <code>docs/audit/</code>; address findings.</li>
+  <li><strong>Owner custody</strong> — run <code>TransferOwnership.s.sol</code>, sweep the deployer EOA, record on-chain owner contract + Safe signer set in <code>docs/launch-log.md</code>.</li>
+  <li><strong>PGP &amp; second on-call</strong> — generate + publish the PGP key (single PR replacing both the placeholder and the fingerprint); add a second <code>CODEOWNERS</code> entry; fill <code>&lt;paging-contact&gt;</code> in every runbook.</li>
+  <li><strong>Real-USDC mainnet smoke</strong> — open / topUp / pay / cooperatively close / unilaterally close + finalize with real USDC; attach tx hashes to the log file.</li>
+  <li><strong>Operational drills</strong> — execute restore drill (manual run of the quarterly workflow on prod secrets), paging drill (synthetic critical alert through real PagerDuty/Slack), security-disclosure drill (advisory through the GitHub channel).</li>
+  <li><strong>Infra chrome</strong> — create <code>pico-hub-armor</code> Cloud Armor policy + rules; populate <code>ALERTMANAGER_*_WEBHOOK_URL</code> Secret; provision a Cloud KMS-backed cosign key and enable Binary Authorization; add HSTS middleware in the hub app.</li>
+</ol>
+
+<h3>13.2 Soon-after (post-GA backlog)</h3>
+<ul>
+  <li>RT-01 timing-safe operator-token compare.</li>
+  <li>RT-02 health probe depth.</li>
+  <li>OPS-01 SLO + burn-rate alerts.</li>
+  <li>CI-01 coverage thresholds; CI-02 Slither.</li>
+  <li>OPS-02 restore-failover drill step.</li>
+  <li>INF-04 RPC failover; INF-05 Secret Manager CSI.</li>
+  <li>H-10 hub-advertised fee policy; H-11 authoritative liquidity-from-states.</li>
+</ul>
+
+<h3>13.3 Estimated effort to GA</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Track</th><th>Effort</th><th>Critical path?</th></tr></thead>
+<tbody>
+<tr><td>External audit (Spearbit/ToB/Cantina)</td><td>4–8 weeks</td><td><span class="check">YES</span> — single longest pole</td></tr>
+<tr><td>Owner custody + deployer retirement</td><td>1 day operator time</td><td>YES; can run in parallel with audit</td></tr>
+<tr><td>PGP + second on-call</td><td>2 days</td><td>YES</td></tr>
+<tr><td>Real-USDC mainnet smoke</td><td>1–2 days incl. dispute-window wait</td><td>YES (need v2.1 audited build)</td></tr>
+<tr><td>Operational drills</td><td>1 week</td><td>YES, must precede GA</td></tr>
+<tr><td>Cloud Armor / Alertmanager / cosign / HSTS</td><td>2–3 days</td><td>YES</td></tr>
+</tbody></table></div>
+<p>Shortest credible path: <strong>~6–9 weeks</strong>, dominated by the external audit lead time.</p>
+
+<!-- ============================================================ -->
+<h2 id="appendix"><span class="num">14.</span>Appendix</h2>
+
+<h3>14.1 Files removed in this PR</h3>
+<p>The following readiness / audit / progress / TODO documents are superseded by this single report and have been deleted from the repo:</p>
+<ul>
+  <li><code>production-readiness-audit.html</code></li>
+  <li><code>docs/audit-status.md</code> (per-finding reconciliation; the same data is summarized in <a href="#contracts">§3</a> and the findings register)</li>
+  <li><code>docs/audit/multi-agent-contracts-governance-2026-05-05.md</code></li>
+  <li><code>docs/audit/multi-agent-runtime-2026-05-05.md</code></li>
+  <li><code>docs/audit/multi-agent-infra-ci-gke-2026-05-05.md</code></li>
+  <li><code>docs/audit/multi-agent-docs-ops-2026-05-05.md</code></li>
+  <li><code>docs/release-notes-v1.0-draft.md</code> (DRAFT)</li>
+</ul>
+<p>Per-finding history is preserved by git. README and runbook links that previously pointed to the deleted files are updated in the same commit. <code>docs/release-notes-v2.md</code> is retained because it is a feature spec, not a readiness doc.</p>
+
+<h3>14.2 Reference inventory</h3>
+<ul>
+  <li>Contracts: 4 .sol + 16 test .sol, 5,794 LoC total; deploy + transfer + upgrade scripts.</li>
+  <li>Runtime: hub 32 TS files, watchtower 22 TS files, SDK 47 TS files, state-machine 19 TS files.</li>
+  <li>e2e: 4 suites covering 25+ scenarios incl. fork tests.</li>
+  <li>Infra: 8 GKE manifests (2,150 LoC), 4 monitoring configs, 2 backup-drill workflows, GKE deploy + image-build workflows with Trivy + SBOM.</li>
+  <li>Docs: 8 top-level, 19 under <code>docs/</code> (incl. 15 runbooks and 9 learning HTML pages).</li>
+</ul>
+
+<h3>14.3 What this report does <em>not</em> cover</h3>
+<ul>
+  <li>The pico landing site (<code>apps/landing</code>) — out of scope for a hub-only readiness review.</li>
+  <li>The Phase-2 DVM adapter — gated by <code>@experimental</code>, throws on use.</li>
+  <li>The Phase-2 MPP / x402 adapter / ERC-8004 identity items called out in the prior <code>production-readiness-audit.html</code> — those are roadmap, not GA gates.</li>
+</ul>
+
+<footer>
+  <p>Generated 2026-05-14 on branch <code>claude/audit-readiness-report-UhMKo</code> at HEAD <code>cf0d0eb</code>. Replaces every prior readiness / audit / progress document in this repo. Re-run the audit on every release-candidate tag.</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
