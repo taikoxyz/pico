@@ -44,7 +44,12 @@ export async function buildServer(
   const config = loadConfig(env);
   const app = Fastify({ logger: { level: config.logLevel } });
 
-  await app.register(websocket);
+  // R-03 (PR #127): cap WS frame size at 64 KiB. The hub's largest legitimate
+  // frame is a signed-state batch (~few KB); a 64 KiB ceiling rejects DoS
+  // attempts (the previous default was effectively unbounded).
+  await app.register(websocket, {
+    options: { maxPayload: 64 * 1024 },
+  });
 
   const db = openDatabase(config, { logger });
   await db.ready();

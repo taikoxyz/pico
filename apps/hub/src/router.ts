@@ -282,6 +282,15 @@ export class Router {
     return undefined;
   }
 
+  // R-01 (PR #127): expose pre-route outgoing channel lookup so ws.ts can
+  // take the per-outgoing-channel mutex BEFORE route() reads + signs against
+  // latestOutgoing. Without this the read+sign in route() races with another
+  // concurrent pay through the same outgoing channel; recordState would
+  // silently drop the second's signed v(N+1) but it still landed in payment_routes.
+  resolveOutgoingChannel(recipient: Address): Channel | undefined {
+    return this.findChannelBetween(this.deps.hubAccount.address, recipient);
+  }
+
   /** Count of routed-but-unsettled HTLCs whose outgoing channel is `channelId`. */
   private countPendingOnChannel(channelId: ChannelId): number {
     let count = 0;
