@@ -3,7 +3,7 @@ import {
   type ChainId,
   type Channel,
   DEFAULT_DISPUTE_WINDOW_MS,
-  EMPTY_SIG_BYTES,
+  type Hex,
   type Signature,
   type SignedState,
 } from '@inferenceroom/pico-protocol';
@@ -18,11 +18,16 @@ import type { HubMetrics } from './metrics.js';
 import type { TopUpHandler } from './topup-handler.js';
 
 /**
- * Sentinel signature placeholder for un-co-signed states. Identical to the
- * pattern used by `topup-handler.ts` when constructing prev-state envelopes
- * before the user has co-signed anything.
+ * Sentinel signature placeholder for un-co-signed states. A `Signature`
+ * has `r` and `s` as 32-byte fields each (NOT 65 — `EMPTY_SIG_BYTES` is
+ * the *whole 65-byte sig blob*). Using `EMPTY_SIG_BYTES` here produced
+ * 132-char r/s components and `signatureToHex(sentinel)` returned a
+ * 264-char hex blob that subsequently failed `hexToSignature` on hub
+ * restart (round-4 hotfix). The dispute-handler also treats any signature
+ * with all-zero `r`/`s` as sentinel and refuses to submit it on-chain.
  */
-const SENTINEL_SIG: Signature = { r: EMPTY_SIG_BYTES, s: EMPTY_SIG_BYTES, v: 0 };
+const SENTINEL_SIG_FIELD: Hex = `0x${'00'.repeat(32)}` as Hex;
+const SENTINEL_SIG: Signature = { r: SENTINEL_SIG_FIELD, s: SENTINEL_SIG_FIELD, v: 0 };
 
 const KV_KEY_LAST_BLOCK = 'chain_watcher.last_processed_block';
 const KV_KEY_LAST_BLOCK_HASH = 'chain_watcher.last_processed_block_hash';

@@ -36,7 +36,13 @@ import { evaluateTopUp, resolveDefaultOfferAmount } from './topup-policy.js';
 
 export const HOT_WALLET_KEY = 'hot-wallet';
 
-const SENTINEL_SIG: Signature = { r: EMPTY_SIG_BYTES, s: EMPTY_SIG_BYTES, v: 0 };
+// A `Signature` has 32-byte `r`/`s` fields each (NOT 65). `EMPTY_SIG_BYTES`
+// is the whole 65-byte sig blob and only belongs in `prevSig`/`hubSigPrev`-
+// style envelope fields. Using it for `Signature.r`/`s` produced 264-char
+// hex blobs that crashed the hub on the next restart's `loadAllLatest`
+// (round-4 hotfix).
+const SENTINEL_SIG_FIELD: Hex = `0x${'00'.repeat(32)}` as Hex;
+const SENTINEL_SIG: Signature = { r: SENTINEL_SIG_FIELD, s: SENTINEL_SIG_FIELD, v: 0 };
 
 function buildSentinelPrev(
   channel: Channel,
