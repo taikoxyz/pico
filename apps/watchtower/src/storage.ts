@@ -73,6 +73,7 @@ export interface WatchtowerStore {
   markObservationIncluded(rowid: number, includedAtMs: number): void;
   putInFlight(row: InFlightTx): void;
   getInFlight(channelId: ChannelId): InFlightTx | undefined;
+  listInFlight(): readonly InFlightTx[];
   clearInFlight(channelId: ChannelId): void;
   putMeta(key: string, value: string): void;
   getMeta(key: string): string | undefined;
@@ -122,6 +123,7 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
   private markObservationIncludedStmt?: Database.Statement;
   private putInFlightStmt?: Database.Statement;
   private getInFlightStmt?: Database.Statement;
+  private listInFlightStmt?: Database.Statement;
   private clearInFlightStmt?: Database.Statement;
   private putMetaStmt?: Database.Statement;
   private getMetaStmt?: Database.Statement;
@@ -290,6 +292,20 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
     };
   }
 
+  listInFlight(): readonly InFlightTx[] {
+    const stmt = this.requireListInFlight();
+    const rows = stmt.all() as InFlightRow[];
+    return rows.map((row) => ({
+      channelId: row.channel_id as ChannelId,
+      txHash: row.tx_hash as `0x${string}`,
+      submittedAtMs: row.submitted_at_ms,
+      nonce: row.nonce,
+      maxFeePerGas: BigInt(row.max_fee_per_gas),
+      attempts: row.attempts,
+      ...(row.observation_id !== null ? { observationId: row.observation_id } : {}),
+    }));
+  }
+
   clearInFlight(channelId: ChannelId): void {
     const stmt = this.requireClearInFlight();
     stmt.run({ channel_id: channelId });
@@ -370,6 +386,10 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
       FROM in_flight_txs
       WHERE channel_id = @channel_id
     `);
+    this.listInFlightStmt = this.db.prepare(`
+      SELECT channel_id, tx_hash, submitted_at_ms, nonce, max_fee_per_gas, attempts, observation_id
+      FROM in_flight_txs
+    `);
     this.clearInFlightStmt = this.db.prepare(`
       DELETE FROM in_flight_txs WHERE channel_id = @channel_id
     `);
@@ -419,6 +439,10 @@ export class SqliteWatchtowerStore implements WatchtowerStore {
   private requireGetInFlight(): Database.Statement {
     if (!this.getInFlightStmt) throw new Error('SqliteWatchtowerStore: init() not called');
     return this.getInFlightStmt;
+  }
+  private requireListInFlight(): Database.Statement {
+    if (!this.listInFlightStmt) throw new Error('SqliteWatchtowerStore: init() not called');
+    return this.listInFlightStmt;
   }
   private requireClearInFlight(): Database.Statement {
     if (!this.clearInFlightStmt) throw new Error('SqliteWatchtowerStore: init() not called');

@@ -883,12 +883,14 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   }
 
   app.get('/ws', { websocket: true }, (socket) => {
+    deps.metrics.wsActiveConnections.inc();
     socket.on('message', (raw: Buffer) => {
       void authorizeAndDispatch(socket, raw.toString('utf8')).catch((err) => {
         deps.logger.error({ err }, 'ws handler error');
       });
     });
     socket.on('close', () => {
+      deps.metrics.wsActiveConnections.dec();
       for (const [k, sess] of sessions) {
         if (sess.socket === socket) sessions.delete(k);
       }

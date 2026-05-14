@@ -14,7 +14,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, taiko } from 'viem/chains';
 import type { Logger } from './logger.js';
-import { penaltiesSubmittedTotal } from './metrics.js';
+import { penaltiesSubmittedTotal, rpcErrorsTotal, submissionFailedTotal } from './metrics.js';
 import type { InFlightTx, WatchtowerStore } from './storage.js';
 
 const penaltyAbi = parseAbi([
@@ -206,11 +206,15 @@ export class PenaltyResponder {
     } catch (err) {
       const msg = (err as Error).message;
       if (/stale/i.test(msg)) {
+        submissionFailedTotal.inc({ reason: 'stale' });
         this.clearInFlight(channelId);
         this.deps.logger.error(
           { channelId, version: evidence.state.version },
           'dispute reverted as stale; our state is not newer than posted version',
         );
+      } else {
+        submissionFailedTotal.inc({ reason: 'submit_error' });
+        rpcErrorsTotal.inc({ method: 'writeContract' });
       }
       throw err;
     }
@@ -233,6 +237,7 @@ export class PenaltyResponder {
       const receipt = await this.tryWaitForReceipt(currentTxHash, this.inclusionTimeoutMs);
       if (receipt) {
         if (receipt.status !== 'success') {
+          submissionFailedTotal.inc({ reason: 'reverted' });
           this.deps.logger.error(
             {
               channelId,
@@ -263,6 +268,7 @@ export class PenaltyResponder {
       }
 
       if (attempts >= this.maxAttempts) {
+        submissionFailedTotal.inc({ reason: 'inclusion_timeout' });
         throw new Error(
           `responder: penalty inclusion timed out after ${attempts} attempts (channelId=${channelId})`,
         );
@@ -288,11 +294,15 @@ export class PenaltyResponder {
       } catch (err) {
         const msg = (err as Error).message;
         if (/stale/i.test(msg)) {
+          submissionFailedTotal.inc({ reason: 'stale' });
           this.clearInFlight(channelId);
           this.deps.logger.error(
             { channelId, version: evidence.state.version },
             'dispute reverted as stale on retry; clearing in-flight',
           );
+        } else {
+          submissionFailedTotal.inc({ reason: 'submit_error' });
+          rpcErrorsTotal.inc({ method: 'writeContract' });
         }
         throw err;
       }

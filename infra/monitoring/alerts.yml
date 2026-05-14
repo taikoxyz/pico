@@ -109,3 +109,90 @@ groups:
         annotations:
           summary: "Watchtower has channels but is not evaluating"
           description: "channels_watched > 0 yet evaluations rate == 0 for 15m. Check scheduler + chain watcher logs."
+
+      # === Hot-wallet gas & operational gauges (PR #127 K-01/K-02) ===
+
+      - alert: HubHotWalletGasLow
+        # 0.05 ETH = 5e16 wei. Below this the hub cannot pay for top-up txs.
+        expr: pico_hub_hot_wallet_eth_balance_wei < 5e16
+        for: 5m
+        labels:
+          severity: critical
+          team: hub
+        annotations:
+          summary: "Hub hot wallet ETH balance below 0.05"
+          description: "{{ $labels.address }} has {{ $value | humanize }} wei"
+
+      - alert: WatchtowerHotWalletGasLow
+        expr: pico_watchtower_hot_wallet_eth_balance_wei < 5e16
+        for: 5m
+        labels:
+          severity: critical
+          team: watchtower
+        annotations:
+          summary: "Watchtower hot wallet ETH balance below 0.05"
+          description: "{{ $labels.address }} has {{ $value | humanize }} wei. Penalty txs will start failing."
+
+      - alert: ChainWatcherLagging
+        expr: pico_hub_chain_watcher_lag_blocks > 50
+        for: 5m
+        labels:
+          severity: high
+          team: hub
+        annotations:
+          summary: "Hub chain watcher is lagging the chain head"
+          description: "Lag exceeds 50 blocks for 5m. Dispute / topup events may be delayed."
+
+      - alert: WatchtowerOldestPendingTxStale
+        # 5 minutes (300_000 ms). A penalty tx older than this is almost
+        # certainly stuck and needs operator attention.
+        expr: pico_watchtower_oldest_pending_tx_age_ms > 300000
+        for: 5m
+        labels:
+          severity: high
+          team: watchtower
+        annotations:
+          summary: "Watchtower has a pending penalty tx older than 5m"
+          description: "Oldest in-flight penalty tx age: {{ $value | humanizeDuration }}"
+
+      - alert: WatchtowerSubmissionFailures
+        expr: rate(pico_watchtower_submission_failed_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: high
+          team: watchtower
+        annotations:
+          summary: "Watchtower penalty submission failure rate elevated"
+          description: "Submission failure rate > 0.05/s over 5m. Check responder logs."
+
+      - alert: PvcAlmostFull
+        expr: kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes < 0.15
+        for: 10m
+        labels:
+          severity: high
+          team: infra
+        annotations:
+          summary: "PersistentVolume is < 15% available"
+          description: "PVC {{ $labels.persistentvolumeclaim }} in {{ $labels.namespace }} is almost full."
+
+      - alert: PodRestartLoop
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0.1
+        for: 10m
+        labels:
+          severity: high
+          team: infra
+        annotations:
+          summary: "Pod restarting too frequently"
+          description: "{{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} is in a restart loop."
+
+      - alert: HubChannelOpenStalled
+        # Reuses the existing payments-total counter (`result="failed"`) since
+        # no separate payments_failed_total exists yet.
+        expr: rate(pico_hub_payments_total{result="failed"}[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: medium
+          team: hub
+        annotations:
+          summary: "Hub payment-failure rate elevated"
+          description: "Failed payments > 0.1/s over 10m. Channels may be stuck opening or routing."
