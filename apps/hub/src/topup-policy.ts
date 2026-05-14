@@ -93,7 +93,7 @@ export interface TopUpEvalContext {
 }
 
 export interface TopUpEvalResult {
-  /** `null` = reject; otherwise the approved amount in USDC base units. */
+  /** `null` = reject; otherwise the approved amount in `ctx.token`'s base units. */
   readonly approve: bigint | null;
   readonly reason?: string;
 }
