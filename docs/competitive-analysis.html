@@ -195,6 +195,11 @@
     .tag-research { background: rgba(234,179,8,0.15); color: var(--yellow); }
     .tag-pre-ga { background: rgba(99,102,241,0.15); color: #a5b4fc; }
     .tag-dead { background: rgba(239,68,68,0.1); color: var(--red); }
+    .tag-dormant { background: rgba(148,163,184,0.15); color: var(--muted); }
+    .tag-pivoted { background: rgba(59,130,246,0.15); color: var(--blue); }
+    .threat-high { color: var(--red); font-weight: 700; }
+    .threat-med  { color: var(--yellow); font-weight: 700; }
+    .threat-low  { color: var(--green); font-weight: 700; }
 
     .section-intro {
       color: var(--muted);
@@ -216,7 +221,7 @@
 
   <header>
     <h1><span>pico</span> — Competitive Evaluation</h1>
-    <p>1-hop state channels on Taiko L2 vs. EVM state channels · Bitcoin Lightning · Visa/Mastercard · Ripple/XRP &nbsp;·&nbsp; May 2026</p>
+    <p>1-hop USDC state channels on Taiko L2 vs. x402 · Lightning (Taproot Assets) · Solana Pay.sh · Stripe MPP · SKALE · Stellar · XRP/RLUSD · Visa/Mastercard &nbsp;·&nbsp; May 2026 (rev 2)</p>
   </header>
 
   <!-- QUICK REFERENCE TABLE -->
@@ -351,12 +356,12 @@
         <tr>
           <td>Status</td>
           <td class="pico-col"><span class="tag tag-pre-ga">Pre-GA</span></td>
-          <td><span class="tag tag-live">Live</span> (minimal adoption)</td>
-          <td><span class="tag tag-live">Live</span> $71.9 M TVL</td>
+          <td><span class="tag tag-dormant">Dormant</span> last major release 2021</td>
+          <td><span class="tag tag-pivoted">Pivoted</span> rebranded to Everclear; channels deprecated</td>
           <td><span class="tag tag-research">Research</span></td>
-          <td><span class="tag tag-live">Live</span> $280 M+ capacity</td>
+          <td><span class="tag tag-live">Live</span> ~$490M cap; USDT via Taproot Assets Mar 2026</td>
           <td><span class="tag tag-live">Live</span> global scale</td>
-          <td><span class="tag tag-live">Live</span> $15 B+/mo volume</td>
+          <td><span class="tag tag-live">Live</span> RLUSD ~$293M on XRPL; Mastercard pilot</td>
         </tr>
         <tr>
           <td>AI-agent fit</td>
@@ -600,7 +605,31 @@
     </table>
   </div>
 
-  <p>Lightning is pico's closest direct competitor in this quadrant but is BTC-denominated (no native stablecoin), requires node operation, and has routing reliability issues for non-direct payments. Emerging competitors in the "agent payments" space include the x402 protocol (Coinbase/Base), Amazon Bedrock Agentcore Payments (May 2026), and Solana Pay.sh — all targeting the same narrative but on higher-adoption chains.</p>
+  <p>Lightning is pico's closest direct competitor in this quadrant, and as of March 2026 it ships USDT via Taproot Assets — no longer BTC-only. The bigger competitive threat is the agent-payments standards stack: x402 (Coinbase / AWS / Stripe / Cloudflare), Stripe MPP (Feb 2026), Amazon Bedrock AgentCore Payments (May 2026 GA), Solana Pay.sh (Apr 2026), and SKALE Expand-on-Base. These ship on higher-adoption chains with first-class facilitator infrastructure pico cannot match on distribution.</p>
+
+
+  <!-- SECTION 4b — Agent-Payment Standards Landscape -->
+  <h2>4b · Agent-Payment Standards Landscape (x402, MPP, ERC-8004)</h2>
+  <p class="section-intro">A new category emerged in 2025–2026: HTTP-native payment standards designed for AI agents calling APIs. Pico must position relative to these standards, not just to channel-based competitors.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Standard</th><th>Backers</th><th>Model</th><th>Settlement chains</th><th>2026 traction</th><th>Threat to pico</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>x402</strong></td><td>Coinbase, AWS, Stripe, Cloudflare, Vercel</td><td>HTTP 402 + facilitator</td><td>Base, Solana, Polygon, Stellar, SKALE</td><td>169M+ tx · ~$600M annualised vol · zero protocol fee</td><td><span class="threat-high">HIGH</span></td></tr>
+        <tr><td><strong>MPP (Multi-Payment Protocol)</strong></td><td>Stripe, Tempo</td><td>Session pre-auth + streamed micropayments</td><td>Stellar (Soroban), Tempo, Base</td><td>Live Feb 2026; Stripe-funded</td><td><span class="threat-high">HIGH</span></td></tr>
+        <tr><td><strong>AgentCore Payments</strong></td><td>AWS + Coinbase + Stripe</td><td>Bedrock-native agent wallet</td><td>USDC on Base + Solana</td><td>GA May 2026</td><td><span class="threat-high">HIGH</span></td></tr>
+        <tr><td><strong>Solana Pay.sh</strong></td><td>Solana Foundation + Google Cloud</td><td>Direct USDC tx per call</td><td>Solana</td><td>Live Apr 2026; 75+ APIs</td><td><span class="threat-high">HIGH</span></td></tr>
+        <tr><td><strong>SKALE Expand (ERC-8004)</strong></td><td>SKALE, Ethereum WG</td><td>Gasless x402 + trustless agent identity</td><td>L3 on Base</td><td>Live Nov 2025; v4 Jan 2026; Private MPPs Mar 2026</td><td><span class="threat-med">MED</span></td></tr>
+        <tr><td>Celo (L2)</td><td>cLabs + OP Stack + EigenDA</td><td>Direct ERC-20; MiniPay UX</td><td>Ethereum L2</td><td>&gt;$65B stablecoin vol since L2; 11M MiniPay wallets; 840k DAU; Stripe Bridge May 2026</td><td><span class="threat-med">MED</span></td></tr>
+        <tr><td>Stellar (x402 / MPP)</td><td>Stellar Development Foundation</td><td>Direct tx + Soroban-native MPP</td><td>Stellar</td><td>MPP-native via Soroban</td><td><span class="threat-med">MED</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>Pico positioning recommendation:</strong> Rather than compete head-on with x402 (which has shipped distribution that pico cannot match), pico should expose an <strong>x402-compatible facilitator endpoint</strong> on top of channels. For high-frequency callers (sustained &gt;1 call/s to one provider), the channel pre-fund + off-chain HTLC update is materially cheaper than every-call settlement on Base. This converts x402 from competitor to distribution: x402 traffic routes through a pico channel when both parties have one open.</p>
 
 
   <!-- SECTION 5 -->
@@ -625,6 +654,10 @@
     <li><strong>No privacy.</strong> On-chain channel IDs are deterministic; the hub sees all amounts and payment hashes. Lightning's onion routing, while weak in practice due to topology analysis, provides more than pico's zero privacy.</li>
     <li><strong>Unproven scale.</strong> All throughput/latency claims are architectural, not empirically measured. Lightning's 8 M+ monthly transactions is a real data point; pico has none yet.</li>
     <li><strong>Watchtower dependency.</strong> The 24-hour dispute window with no live watchtower is unmitigated. Lightning has the same structural dependency but a more mature watchtower ecosystem and wider tooling.</li>
+    <li><strong>Adoption gap is now structural.</strong> x402 processed 169M+ transactions in its first year on $600M annualized volume, deployed by Coinbase, AWS, Stripe, and Cloudflare. Pico is pre-GA. The "agent payments" narrative race is decided; pico must compete on TCO at sustained high volume, not on standard-setting.</li>
+    <li><strong>No streaming / session model surfaced.</strong> Stripe MPP (Feb 2026) standardised session pre-auth + streamed micro-payments — semantically what pico channels already do, but not marketed as MPP-compatible. Risk of pico being perceived as an older state-channel model rather than a modern MPP backend.</li>
+    <li><strong>No ERC-8004 trustless-agent identity.</strong> SKALE shipped this Jan 2026 as a differentiator; pico has no equivalent.</li>
+    <li><strong>Privacy gap widens.</strong> SKALE Private MPPs (Mar 27, 2026) hide amounts on-chain. Pico's privacy roadmap (stealth, fee bucketing, ephemeral Nostr keys) is scaffolded but not wired into <code>ChannelClient</code>.</li>
   </ol>
 
 
@@ -638,9 +671,10 @@
   </div>
 
   <div class="verdict-box" style="border-left-color: var(--yellow); border-color: #713f12;">
-    <h4>The risks</h4>
-    <p><strong>Protocol:</strong> v2 now ships on-chain HTLC settlement (Merkle proof + preimage claim, post-expiry refund) so pico is structurally trustless for in-flight payments — equivalent to Lightning's HTLC-success/HTLC-timeout transactions. Residual risks are operational: watchtower liveness during the resolution window, and the preimage emitted in <code>HtlcClaimed</code> events giving a force-closing pair of channels a correlation oracle (mitigated by PTLCs once they land).</p>
-    <p><strong>Market:</strong> x402 (Coinbase/Base), Solana Pay.sh, and Amazon Bedrock Agentcore Payments are all emerging in the same "agent payments" narrative on higher-adoption chains. Taiko's current footprint vs. Solana and Base is pico's biggest external risk — not its protocol design. The protocol is sound; the ecosystem bet on Taiko is the open question.</p>
+    <h4>The risks (May 2026)</h4>
+    <p><strong>Protocol:</strong> v2 ships on-chain HTLC settlement (Merkle proof + preimage claim, post-expiry refund), closing the trustless-liveness gap. Residual risks are operational: watchtower liveness during the resolution window, and the preimage emitted in <code>HtlcClaimed</code> events giving a force-closing pair a correlation oracle (mitigated by PTLCs once they land).</p>
+    <p><strong>Market:</strong> The 2025–2026 emergence of x402 (Coinbase, ~$600M annualised, 169M+ tx), Stripe MPP, AWS Bedrock AgentCore Payments, and Solana Pay.sh has commoditised "agent payments." Pico cannot win the standard-setting race on Base/Solana. Defensible niche: <strong>channel-backed acceleration of x402 / MPP for sustained high-frequency callers</strong>, where amortising on-chain settlement across thousands of off-chain updates beats per-call settlement economics. Repositioning as an x402-compatible backend (rather than a competitor) is the recommended strategic pivot.</p>
+    <p><strong>Lightning narrowed:</strong> USDT live on Lightning via Taproot Assets (Mar 21, 2026) erodes pico's "USDC-native vs BTC-only" positioning. Lightning is now a genuine stablecoin competitor with ~$490M capacity, ~17k nodes, and Tether-backed marketing distribution.</p>
   </div>
 
   <div class="card-grid" style="margin-top: 1.5rem;">
@@ -663,7 +697,7 @@
   </div>
 
   <footer>
-    <p>Generated May 2026 · Sources: Raiden GitHub, DeFiLlama, 1ML, CoinLaw, Voltage, XRPL.org, SEC, Visa/Mastercard interchange schedules · Pico source: <code>/home/user/pico/docs/</code> and <code>/home/user/pico/packages/contracts/</code></p>
+    <p>Generated May 2026 (revision 2) · Sources: btc.network, Lightning Labs, Tether, 1ML, Bitcoin Visuals, Raiden GitHub, Everclear / Messari, XRPL.org, CoinDesk, Coinbase x402 docs, AWS, Stripe blog, Solana Foundation, Stellar Foundation, SKALE blog, Polygon blog, Circle / Noble, DefiLlama · Threat ratings methodology: addressable workload overlap × current adoption × distribution moat.</p>
   </footer>
 
 </div>
