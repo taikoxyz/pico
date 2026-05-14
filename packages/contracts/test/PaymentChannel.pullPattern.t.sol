@@ -248,9 +248,7 @@ contract PaymentChannelPullPatternTest is Fixtures {
 
         ptoken.pause();
         // closeCooperative MUST succeed even while token is paused
-        channel.closeCooperative(
-            id, abi.encode(cc), _signCoopClose(alicePk, cc), _signCoopClose(bobPk, cc)
-        );
+        channel.closeCooperative(id, abi.encode(cc), _signCoopClose(alicePk, cc), _signCoopClose(bobPk, cc));
         assertEq(uint256(channel.channels(id).status), uint256(PaymentChannel.Status.Closed));
 
         ptoken.unpause();

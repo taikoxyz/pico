@@ -59,8 +59,14 @@ contract PaymentChannelFuzzTest is Fixtures {
         uint256 balB0 = token.balanceOf(bob);
         channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
-        if (finalA > 0) { vm.prank(alice); channel.withdraw(address(token)); }
-        if (finalB > 0) { vm.prank(bob); channel.withdraw(address(token)); }
+        if (finalA > 0) {
+            vm.prank(alice);
+            channel.withdraw(address(token));
+        }
+        if (finalB > 0) {
+            vm.prank(bob);
+            channel.withdraw(address(token));
+        }
 
         assertEq(token.balanceOf(alice), balA0 + finalA);
         assertEq(token.balanceOf(bob), balB0 + finalB);
