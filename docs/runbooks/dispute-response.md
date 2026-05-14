@@ -1,4 +1,7 @@
-# Dispute response (DRAFT — verify before P10)
+# Dispute response
+
+> Replace `<paging-contact>` with your PagerDuty/Opsgenie escalation policy
+> before mainnet operations.
 
 ## When this fires
 
@@ -6,7 +9,8 @@
   freshest state for.
 - Hub `dispute-handler` selects a state that does not match the latest
   off-chain signed state in our DB.
-- Pager: `TODO(contact)`.
+- `pico_watchtower_oldest_closing_deadline_remaining_ms` < dispute window / 3.
+- Pager: `<paging-contact>`.
 
 ## Goal
 
@@ -42,6 +46,9 @@ Wait for `receipt.status === "success"` before declaring success.
 
 - `cast call <PaymentChannel> "channelStatus(bytes32)" 0x...` returns "Disputed".
 - Hub metrics: `pico_hub_dispute_total{outcome="won"}` incremented.
+- `pico_watchtower_hot_wallet_eth_balance_wei` did not approach zero during
+  the dispute (penalty-tx gas consumption is bounded).
+- `pico_watchtower_pending_tx_count` returns to baseline.
 
 ## After-action
 

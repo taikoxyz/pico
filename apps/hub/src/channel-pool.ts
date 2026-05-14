@@ -71,6 +71,21 @@ export class ChannelPool {
   }
 
   /**
+   * R-02 (PR #127): Update the in-memory latest-state cache without writing
+   * to the DB. Use this when the caller has already persisted the state
+   * inside its own DB transaction (e.g. handlePay persists outgoingHubSigned
+   * + htlcs + payments + payment_routes atomically). The lock is still taken
+   * so concurrent readers see a consistent view.
+   */
+  async recordStateMemoryOnly(channelId: ChannelId, state: SignedState): Promise<void> {
+    await this.locks.run(channelId, async () => {
+      const existing = this.latestState.get(channelId);
+      if (existing && state.state.version <= existing.state.version) return;
+      this.latestState.set(channelId, state);
+    });
+  }
+
+  /**
    * Persist a channel's on-chain `amountA` / `amountB` after a top-up
    * (§8). Caller is responsible for ensuring concurrency control via the
    * hot-wallet mutex; this method only persists and updates the in-memory

@@ -11,12 +11,12 @@ import {
   type Signer,
   ViemChainAdapter,
   WebSocketTransport,
-  generateKeysendKeypair,
 } from '@inferenceroom/pico-sdk';
 import { Command } from 'commander';
 import pino from 'pino';
 import { http, type Chain, createPublicClient, createWalletClient, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { loadOrCreateKeysendKeypair } from '../runtime/keysend-keypair.js';
 import { resolvePrivateKey } from '../runtime/signer.js';
 import { openStorage } from '../runtime/storage.js';
 
@@ -102,7 +102,10 @@ export function listenCommand(deps: ListenDeps = {}): Command {
           deps.transportOverride ?? { url: opts.hub, autoReconnect: true, signer },
         );
         const storage = openStorage(env, deps.storageOverride);
-        const keypair = generateKeysendKeypair();
+        // R-09: persist the keysend keypair so in-flight keysend payloads remain
+        // decryptable across `listen` restarts. Without this the keypair was
+        // regenerated each run and any in-flight keysend memo became unreadable.
+        const keypair = loadOrCreateKeysendKeypair();
 
         const client = new ChannelClient({
           signer,

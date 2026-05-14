@@ -56,4 +56,25 @@ describe('KeyedMutex', () => {
     await Promise.all([km.run('a', work), km.run('a', work)]);
     expect(maxInflight).toBe(1);
   });
+
+  it('frees per-key locks once all work for a key completes (no leak)', async () => {
+    const km = new KeyedMutex<string>();
+    for (let i = 0; i < 100; i++) {
+      await km.run(`key-${i}`, async () => i);
+    }
+    expect(km.size).toBe(0);
+  });
+
+  it('keeps the lock alive while concurrent work for the same key is queued', async () => {
+    const km = new KeyedMutex<string>();
+    const a = km.run('k', async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    const b = km.run('k', async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(km.size).toBe(1);
+    await Promise.all([a, b]);
+    expect(km.size).toBe(0);
+  });
 });

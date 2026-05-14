@@ -32,6 +32,23 @@ export function assertNonDevKeyForChain(privateKey: string, chainId: ChainId): v
   }
 }
 
+// Closes A-01 (PR #127) for the CLI agent surface: on non-anvil chains, reject
+// argv-supplied private keys unless the operator opts in via PICO_ALLOW_ARGV_KEY=1.
+// argv leaks via shell history, `ps`, and CI logs; the encrypted key file is the
+// supported path. The env var keeps the test/CI escape hatch explicit.
+export function assertArgvKeyAllowed(
+  opts: { privateKey?: `0x${string}` },
+  chainId: ChainId,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if (!opts.privateKey) return;
+  if (chainId === ANVIL_DEV_CHAIN_ID) return;
+  if (env.PICO_ALLOW_ARGV_KEY === '1') return;
+  throw new Error(
+    `refusing --private-key on chainId=${chainId}: argv leaks via shell history, ps, and CI logs. Use --key-file or PICO_ALLOW_ARGV_KEY=1 to opt in explicitly.`,
+  );
+}
+
 export interface ResolveSignerOpts {
   readonly privateKey?: `0x${string}`;
   readonly keyFile?: string;

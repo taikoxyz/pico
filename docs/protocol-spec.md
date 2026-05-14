@@ -1,10 +1,12 @@
-# pico protocol specification (v1)
+# pico protocol specification (v2)
 
-> Status: **§0–§8 frozen** as of v1.1 (2026-05). Wire format and EIP-712 schemas
-> in sections 0 through 8 are normative for v1 contracts, state-machine, SDK,
-> hub, and watchtower. Changes to any field, type, or hash function in those
-> sections require a protocol version bump in the EIP-712 domain (`version: '1'`
-> → `'2'`).
+> Status: **§0–§8 frozen** as of v2 (2026-05). Wire format and EIP-712 schemas
+> in sections 0 through 8 are normative for v2 contracts, state-machine, SDK,
+> hub, and watchtower. The EIP-712 domain has been bumped to `version: '2'`
+> for on-chain trustless HTLC settlement (§5.4); v1 signatures cannot be
+> replayed against v2 contracts. Any further breaking change to a field,
+> type, or hash function in those sections requires another domain version
+> bump (`'2'` → `'3'`).
 >
 > **§8 (inbound liquidity / `topUp`) is implemented as of v1.1.** The
 > `PaymentChannel.sol` `topUp` and `closeUnilateralFromOpen` functions, the SDK
@@ -154,6 +156,8 @@ A `ChannelState` is the canonical authoritative state of a channel at a given ve
 | `balanceA` | `uint256` | channel-token smallest-units owned by userA, *not* including in-flight HTLCs |
 | `balanceB` | `uint256` | channel-token smallest-units owned by userB, *not* including in-flight HTLCs |
 | `htlcsRoot` | `bytes32` | Merkle root over the in-flight HTLC set (§3) |
+| `htlcsCount` | `uint16` | Number of HTLCs in the set (= leaves under `htlcsRoot`). Zero iff `htlcsRoot == bytes32(0)`. v2 addition. |
+| `htlcsTotalLocked` | `uint256` | Sum of `amount` across the in-flight HTLC set. Used to enforce `balanceA + balanceB + htlcsTotalLocked == amountA + amountB` at close (§5.4). v2 addition. |
 | `finalized` | `bool` | Set true on cooperative close; rejects further updates |
 
 **Invariants:**
@@ -345,7 +349,8 @@ exchanged yet:
 **Standard close (post-update)**:
 
 1. Party calls `PaymentChannel.closeUnilateral(state, sigA, sigB)` with the latest
-   dual-signed `ChannelState`. `state.htlcsRoot` MUST be `bytes32(0)` (see §5.4).
+   dual-signed `ChannelState`. In v2, `state.htlcsRoot` MAY be non-empty;
+   see §5.4 for the on-chain `Status.ResolvingHtlcs` settlement that follows.
 2. Contract verifies both signatures via EIP-712, records `(state, deadline = now + 24h)`.
 3. Channel transitions to `closing-unilateral`.
 
@@ -475,16 +480,17 @@ newer state during the window, blocking the steal. See `docs/threat-model.md`
 ```ts
 {
   name: 'pico',
-  version: '1',
+  version: '2',
   chainId: 167000 | 167009,   // Taiko mainnet | Hoodi (typed support; see note)
   verifyingContract: <Adjudicator address>,
 }
 ```
 
-The `version: '1'` field is the **protocol version byte** (per EIP-712 conventions,
-it is a string but functionally identical). Signatures from a v1 deployment will not
-verify against a v2 contract and vice versa, providing replay protection across
-protocol upgrades.
+The `version: '2'` field is the **protocol version byte** (per EIP-712 conventions,
+it is a string but functionally identical). v1 was `'1'`; the bump to `'2'`
+landed with on-chain HTLC settlement (§5.4). Signatures from a v1 deployment
+do not verify against a v2 contract and vice versa, providing replay protection
+across protocol upgrades.
 
 **Hoodi note**: chainId `167009` is permitted by the EIP-712 type but is **not
 in the v1 production `SUPPORTED_CHAIN_IDS`** (see `packages/protocol/src/constants.ts`)
@@ -497,7 +503,7 @@ constants module before signatures are accepted by tooling that consults
 
 | primaryType | Fields | Used for |
 |-------------|--------|----------|
-| `ChannelState` | `channelId, version, balanceA, balanceB, htlcsRoot, finalized` | The canonical signed state |
+| `ChannelState` | `channelId, version, balanceA, balanceB, htlcsRoot, htlcsCount, htlcsTotalLocked, finalized` | The canonical signed state. v2 adds `htlcsCount: uint16` and `htlcsTotalLocked: uint256` so the on-chain conservation invariant `balanceA + balanceB + htlcsTotalLocked == amountA + amountB` can be enforced at close even with in-flight HTLCs (§5.4). |
 | `Htlc` | `id, amount, paymentHash, expiry, direction` | Standalone HTLC commitment |
 | `Update` | `channelId, fromVersion, toVersion, nextState: ChannelState` | Transition wrapper proving prev→next intent |
 | `CooperativeClose` | `channelId, version, finalBalanceA, finalBalanceB, signedAt, validUntil` | Cooperative-close authorization. `version` MUST be strictly greater than the channel's on-chain `postedVersion`. `validUntil` is a `uint64` Unix-second deadline; the contract rejects when `block.timestamp > validUntil`. |
@@ -531,8 +537,9 @@ See `docs/threat-model.md` for full adversary models. Headline assumptions:
 - **Watchtower availability**: the protocol's safety against a malicious counterparty
   during user offline-periods relies on a watchtower being able to post during the
   24-hour window. A watchtower reachable from at least one well-connected RPC suffices.
-- **Replay protection**: EIP-712 domain `version: '1'` + `chainId` + `verifyingContract`
-  uniquely scope every signature.
+- **Replay protection**: EIP-712 domain `version: '2'` + `chainId` + `verifyingContract`
+  uniquely scope every signature. Signatures produced under v1 (`version: '1'`)
+  cannot verify against v2 contracts.
 - **Eclipse / relay layer**: hub WebSocket compromise does not endanger funds (HTLCs
   prevent theft) but can stall payments; clients should track multiple Nostr relays.
 - **Chain reorg**: applications wait `≥ 12 blocks` (Taiko safety boundary) before
@@ -794,6 +801,56 @@ A symmetric `spliceOut(channelId, amount, newState)` function permits a party
 to **withdraw** part of their deposit during a channel's life, gated by a
 co-signed state where their balance decreases by `amount`. This is deferred
 to v1.5; the topUp construction is forward-compatible.
+
+## 9. Privacy roadmap
+
+v2 ships with a baseline privacy posture; see
+[`privacy.md`](./privacy.md) for the full non-normative discussion. The
+short summary of what does and does not leak today:
+
+- **What's in place (v2):** stealth recipient addresses with rotation per
+  invoice, ephemeral Nostr pubkeys for DVM advertisements, payment-hash
+  rotation per payment, and the hub-as-mixer property inherited from
+  1-hop routing (the hub sees both legs but external observers see only
+  one channel per user).
+- **What leaks today:** on-chain `ChannelOpened` / `topUp` / `Closed`
+  events reveal funding amounts and timing; the hub WS sees the full
+  payment graph; HTLC `paymentHash` is reused across a single payment's
+  two legs (sender ↔ hub and hub ↔ recipient).
+- **Fee bucketing (proposed):** clients SHOULD round amounts to small
+  buckets (e.g. `1, 5, 10, 50, 100 USDC`) so identical payments are
+  indistinguishable from each other in the hub's logs. Off-chain only;
+  no protocol change.
+- **PTLC migration (v3 candidate):** replacing HTLC hashlocks with PTLCs
+  (point time-locked contracts) breaks the hub's ability to correlate the
+  two legs by `paymentHash`. The migration path is a clean v3 bump (new
+  EIP-712 version, new field set) — no v2 compatibility expected.
+
+Privacy guarantees in this section are aspirational targets, not
+threat-model claims. See `docs/threat-model.md` for the adversaries the
+v2 deployment defends against today.
+
+## 10. Future work
+
+Items deferred past v2 and tracked under [issue #21](https://github.com/taikoxyz/pico/issues/21):
+
+- **PTLC migration** — see §9 above. New EIP-712 domain version,
+  point-locked contracts replace SHA-256 hashlocks; eliminates the
+  payment-hash correlation leak across hub legs.
+- **Multi-token-pair watchtower** — current watchtower scales per-channel
+  signed-state storage at ~5× v1 due to full HTLC-set persistence (see
+  `docs/release-notes-v2.md` "Watchtower DB sizing"). A retention policy
+  hardened across multi-token deployments is pending.
+- **Multi-hub routing** — v2 keeps the 1-hop hub-and-spoke topology
+  (ARCHITECTURE.md "Why 1-hop"). A future revision may extend to 2-hop
+  routing via co-operating hubs without onion routing; design is open.
+- **EIP-2612 permit** — `topUp` (§8) currently requires a separate
+  `approve` tx. Adopting permit signatures would collapse the open / top-up
+  flows for permit-supporting tokens to a single transaction.
+- **Pull-pattern withdraw** — `closeCooperative` and `finalize` currently
+  push funds via `transfer` / `call{value:}`. A pull-pattern alternative
+  would harden against malicious `receive()` reverts on ETH channels (§1
+  "ETH channels" note).
 
 ## See also
 

@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pico — Production Readiness Audit (Comprehensive, May 2026)</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #232636;
+      --border: #2d3044;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-dim: #3730a3;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --orange: #f97316;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.7;
+    }
+    .layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+    nav.toc {
+      position: sticky; top: 0; height: 100vh; overflow-y: auto;
+      background: var(--surface); border-right: 1px solid var(--border);
+      padding: 1.4rem 1rem; font-size: 0.85rem;
+    }
+    nav.toc h3 { color: var(--accent); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.6rem; margin-top: 1rem; }
+    nav.toc h3:first-child { margin-top: 0; }
+    nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    nav.toc a:hover, nav.toc a.active { color: var(--text); background: rgba(99,102,241,0.1); }
+    nav.toc .sub { padding-left: 0.8rem; font-size: 0.8rem; }
+    main { padding: 2rem 2.5rem; max-width: 1180px; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      nav.toc { position: static; height: auto; }
+      main { padding: 1.2rem; }
+    }
+    header.page {
+      border-bottom: 1px solid var(--border); padding-bottom: 2rem; margin-bottom: 2.5rem;
+    }
+    header.page h1 { font-size: 2.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
+    header.page h1 span { color: var(--accent); }
+    header.page .subtitle { color: var(--muted); margin-top: 0.5rem; font-size: 0.95rem; }
+    header.page .meta { color: var(--muted); margin-top: 0.7rem; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; }
+    h2 {
+      font-size: 1.5rem; font-weight: 700; color: #fff;
+      margin: 3rem 0 1.2rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border);
+      scroll-margin-top: 1rem;
+    }
+    h2 .num { color: var(--accent); margin-right: 0.5rem; font-variant-numeric: tabular-nums; }
+    h3 { font-size: 1.1rem; font-weight: 600; color: var(--accent); margin: 2rem 0 0.8rem; scroll-margin-top: 1rem; }
+    h4 { font-size: 0.98rem; font-weight: 600; color: #fff; margin: 1.4rem 0 0.5rem; }
+    p { margin-bottom: 0.9rem; color: var(--text); }
+    ul, ol { padding-left: 1.4rem; margin-bottom: 0.9rem; }
+    li { margin-bottom: 0.35rem; }
+    strong { color: #fff; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(99,102,241,0.12); color: #a5b4fc;
+      padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.85em;
+    }
+    pre {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 1rem; overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+      color: var(--text); margin: 0.8rem 0 1.2rem;
+    }
+    .table-wrap { overflow-x: auto; margin: 1.2rem 0 1.8rem; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; min-width: 600px; }
+    thead tr { background: var(--surface); }
+    th {
+      text-align: left; padding: 0.7rem 1rem; color: var(--muted);
+      font-weight: 600; font-size: 0.74rem; text-transform: uppercase;
+      letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    .finding-critical { border-left: 3px solid var(--red); padding: 0.8rem 1rem; margin: 0.8rem 0; background: rgba(239,68,68,0.04); border-radius: 0 6px 6px 0; }
+    .finding-high { border-left: 3px solid var(--orange); padding: 0.8rem 1rem; margin: 0.8rem 0; background: rgba(249,115,22,0.04); border-radius: 0 6px 6px 0; }
+    .finding-medium { border-left: 3px solid var(--yellow); padding: 0.8rem 1rem; margin: 0.8rem 0; background: rgba(234,179,8,0.04); border-radius: 0 6px 6px 0; }
+    .finding-low { border-left: 3px solid var(--muted); padding: 0.8rem 1rem; margin: 0.8rem 0; background: rgba(148,163,184,0.04); border-radius: 0 6px 6px 0; }
+    .finding-ok { border-left: 3px solid var(--green); padding: 0.8rem 1rem; margin: 0.8rem 0; background: rgba(34,197,94,0.04); border-radius: 0 6px 6px 0; }
+    .badge {
+      display: inline-block; font-size: 0.7rem; font-weight: 700;
+      padding: 0.18em 0.6em; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle;
+    }
+    .badge-crit { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge-high { background: rgba(249,115,22,0.15); color: var(--orange); }
+    .badge-med { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .badge-low { background: rgba(148,163,184,0.15); color: var(--muted); }
+    .badge-ok { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-info { background: rgba(59,130,246,0.15); color: var(--blue); }
+    .badge-new { background: rgba(168,85,247,0.15); color: var(--purple); }
+    .verdict-box {
+      background: var(--surface); border: 1px solid var(--accent-dim);
+      border-left: 3px solid var(--accent); border-radius: 8px; padding: 1.4rem 1.6rem; margin: 1.5rem 0;
+    }
+    .verdict-box.crit { border-left-color: var(--red); border-color: #7f1d1d; }
+    .verdict-box.warn { border-left-color: var(--yellow); border-color: #713f12; }
+    .verdict-box.ok { border-left-color: var(--green); border-color: #14532d; }
+    .verdict-box h4 { font-size: 1.05rem; font-weight: 700; color: var(--accent); margin-bottom: 0.7rem; }
+    .verdict-box.crit h4 { color: var(--red); }
+    .verdict-box.warn h4 { color: var(--yellow); }
+    .verdict-box.ok h4 { color: var(--green); }
+    .score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin: 1.2rem 0; }
+    .score-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.2rem; text-align: center;
+    }
+    .score-card .score-value { font-size: 2.2rem; font-weight: 800; margin: 0.5rem 0; line-height: 1; }
+    .score-card .score-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .progress-bar { height: 8px; background: var(--border); border-radius: 4px; margin: 0.6rem 0; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; }
+    .progress-fill.green { background: var(--green); }
+    .progress-fill.yellow { background: var(--yellow); }
+    .progress-fill.red { background: var(--red); }
+    .progress-fill.orange { background: var(--orange); }
+    .progress-fill.blue { background: var(--blue); }
+    .check { color: var(--green); font-weight: 700; }
+    .cross { color: var(--red); font-weight: 700; }
+    .partial { color: var(--yellow); font-weight: 700; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0 1rem; }
+    .pill { display: inline-block; padding: 0.2em 0.6em; border-radius: 999px; font-size: 0.74rem; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+    .callout {
+      background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06));
+      border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 8px; padding: 1.1rem 1.4rem; margin: 1.2rem 0;
+    }
+    .callout h4 { color: var(--accent); margin-bottom: 0.5rem; font-size: 0.95rem; }
+    footer {
+      margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 0.82rem;
+    }
+    .kbd { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; padding: 0.1em 0.4em; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--surface); color: var(--text); }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <h3>Sections</h3>
+  <a href="#summary">Executive Summary</a>
+  <a href="#methodology">Methodology</a>
+  <a href="#sec-1">1. Design-vs-Code</a>
+  <a href="#sec-2">2. Test Coverage</a>
+  <a href="#sec-3">3. Deployment &amp; GKE</a>
+  <a href="#sec-4">4. USDC + ETH Risks</a>
+  <a href="#sec-5">5. Security &amp; Threats</a>
+  <a href="#sec-6">6. Ops &amp; Runbooks</a>
+  <a href="#sec-7">7. Competitive Study</a>
+  <a href="#sec-8">8. Features &amp; Roadmap</a>
+  <a href="#sec-9">9. Action Plan</a>
+  <a href="#sec-10">10. Appendix</a>
+</nav>
+
+<main>
+
+<header class="page">
+  <h1><span>pico</span> — Production Readiness Audit</h1>
+  <p class="subtitle">Comprehensive evaluation for Taiko mainnet + GKE deployment, USDC + ETH payment processing.</p>
+  <p class="meta">May 2026 · multi-agent audit · target: chain id 167000 (Taiko mainnet)</p>
+  <div class="pill-row">
+    <span class="pill">Design vs Code</span>
+    <span class="pill">Test Coverage</span>
+    <span class="pill">Deployment / GKE</span>
+    <span class="pill">USDC + ETH risks</span>
+    <span class="pill">Threat Model</span>
+    <span class="pill">Operations</span>
+    <span class="pill">Competitive Study</span>
+    <span class="pill">Roadmap</span>
+  </div>
+</header>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="summary"><span class="num">§0</span>Executive Summary</h2>
+
+<div class="score-grid">
+  <div class="score-card">
+    <div class="score-label">Overall Readiness</div>
+    <div class="score-value" style="color: var(--orange);">52%</div>
+    <div class="progress-bar"><div class="progress-fill orange" style="width: 52%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">+7pts vs prior audit on verified code-side strength</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Protocol / Contracts</div>
+    <div class="score-value" style="color: var(--green);">82%</div>
+    <div class="progress-bar"><div class="progress-fill green" style="width: 82%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">1 Critical (spec drift), reentrancy/CEI verified, governance pending</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Runtime Services</div>
+    <div class="score-value" style="color: var(--yellow);">68%</div>
+    <div class="progress-bar"><div class="progress-fill yellow" style="width: 68%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">2 new High findings (race, durability)</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Test Coverage</div>
+    <div class="score-value" style="color: var(--yellow);">70%</div>
+    <div class="progress-bar"><div class="progress-fill yellow" style="width: 70%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">690+ cases; ~16 critical gaps</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Deployment / GKE</div>
+    <div class="score-value" style="color: var(--red);">40%</div>
+    <div class="progress-bar"><div class="progress-fill red" style="width: 40%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">No hot-wallet obs, no Cloud Armor, no PDB, runbooks reference phantom metrics</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Security &amp; Ops</div>
+    <div class="score-value" style="color: var(--red);">35%</div>
+    <div class="progress-bar"><div class="progress-fill red" style="width: 35%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">6 PENDING gates; 4 DRAFT runbooks; no AI-agent spend controls</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Competitive Position</div>
+    <div class="score-value" style="color: var(--orange);">55%</div>
+    <div class="progress-bar"><div class="progress-fill orange" style="width: 55%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">x402 ecosystem (169M+ tx) is structural threat; pivot to x402-backend</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Compliance</div>
+    <div class="score-value" style="color: var(--red);">15%</div>
+    <div class="progress-bar"><div class="progress-fill red" style="width: 15%;"></div></div>
+    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;">No COMPLIANCE.md; no sanctions screening; MSB posture undefined</div>
+  </div>
+</div>
+
+<div class="verdict-box crit">
+  <h4>Overall Verdict: NOT READY for Taiko mainnet GA</h4>
+  <p>The protocol design and v2 contracts are <strong>sound</strong> (181/181 Forge tests pass; reentrancy + CEI verified; no critical contract-level bugs found). However, four classes of issue block mainnet:</p>
+  <ol style="margin-top: 0.5rem;">
+    <li><strong>One Critical doc-vs-code drift</strong> in EIP-712 domain (<code>version: '1'</code> in spec, <code>'2'</code> in code) — external SDK authors mis-sign on first attempt.</li>
+    <li><strong>Two newly identified High runtime issues</strong>: a concurrent-pay race in the hub router (R-01) and a payment durability orphan-state window (R-02). Both are pre-existing in HEAD.</li>
+    <li><strong>GKE observability + ops are thin</strong>: no hot-wallet ETH balance alert, runbooks reference metrics that don't exist, no <code>PodDisruptionBudget</code>, no Cloud Armor, no canary or automated rollback, no external audit firm engaged.</li>
+    <li><strong>Six operator gates remain PENDING</strong> from <code>launch-log.md</code> (owner custody, deployer retirement, restore drill, paging drill, disclosure drill, real-USDC smoke). The contract owner is still a deployer EOA (PC-09 open).</li>
+  </ol>
+  <p style="margin-top: 0.5rem;"><strong>Estimated time to GA:</strong> 5–8 weeks of focused work. Critical path: §9 Action Plan items 1–10.</p>
+</div>
+
+<h3 id="summary-key-findings">Headline findings (new this audit)</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>ID</th><th>Severity</th><th>Finding</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>N-01</td><td><span class="badge badge-crit">CRITICAL</span></td><td>EIP-712 domain version drift: spec <code>'1'</code> vs code <code>'2'</code></td><td><a href="#sec-1-2">§1.2</a></td></tr>
+      <tr><td>R-01</td><td><span class="badge badge-crit">CRITICAL</span></td><td>Hub router: concurrent pays on same outgoing channel produce orphan signed state</td><td><a href="#sec-2-2">§2.2</a></td></tr>
+      <tr><td>R-02</td><td><span class="badge badge-high">HIGH</span></td><td>Outgoing-state recorded outside payment DB transaction → crash-window replay</td><td><a href="#sec-2-2">§2.2</a></td></tr>
+      <tr><td>R-03</td><td><span class="badge badge-high">HIGH</span></td><td>No WS frame-size limit, no rate limiting → DoS exposure on hub</td><td><a href="#sec-2-2">§2.2</a></td></tr>
+      <tr><td>N-02</td><td><span class="badge badge-high">HIGH</span></td><td>Spec §6.2 omits <code>htlcsCount</code>, <code>htlcsTotalLocked</code> from <code>ChannelState</code></td><td><a href="#sec-1-2">§1.2</a></td></tr>
+      <tr><td>K-01</td><td><span class="badge badge-crit">CRITICAL</span></td><td>Runbooks reference Prometheus metrics that don't exist in code</td><td><a href="#sec-3-4">§3.4</a></td></tr>
+      <tr><td>K-02</td><td><span class="badge badge-crit">CRITICAL</span></td><td>No alert for hub or watchtower hot-wallet ETH balance</td><td><a href="#sec-3-4">§3.4</a></td></tr>
+      <tr><td>K-03</td><td><span class="badge badge-high">HIGH</span></td><td>Hub Ingress has no Cloud Armor / no SSL policy pinned / no HSTS</td><td><a href="#sec-3-2">§3.2</a></td></tr>
+      <tr><td>K-04</td><td><span class="badge badge-high">HIGH</span></td><td>Secrets via env vars (<code>envFrom: secretRef</code>) — leak to crash dumps</td><td><a href="#sec-3-1">§3.1</a></td></tr>
+      <tr><td>K-05</td><td><span class="badge badge-high">HIGH</span></td><td>Single zone, no PDB, no canary, no automated rollback</td><td><a href="#sec-3-1">§3.1</a></td></tr>
+      <tr><td>A-01</td><td><span class="badge badge-crit">CRITICAL</span></td><td>AI-agent CLI has no recipient confirm, no spend cap, no rate limit</td><td><a href="#sec-5-2">§5.2</a></td></tr>
+      <tr><td>U-01</td><td><span class="badge badge-high">HIGH</span></td><td>Circle USDC pause / blocklist freezes channel finalization — no pull-pattern exit</td><td><a href="#sec-4">§4</a></td></tr>
+      <tr><td>U-02</td><td><span class="badge badge-high">HIGH</span></td><td>Recipient contract <code>receive()</code> revert traps channel funds — no pull-pattern exit</td><td><a href="#sec-4">§4</a></td></tr>
+      <tr><td>C-01</td><td><span class="badge badge-high">HIGH</span></td><td>x402 (169M+ tx, AWS/Stripe/Coinbase backers) is structural threat; reposition as backend</td><td><a href="#sec-7-3">§7.3</a></td></tr>
+      <tr><td>O-01</td><td><span class="badge badge-high">HIGH</span></td><td>4/8 runbooks DRAFT with phantom-metric references and TODO contacts</td><td><a href="#sec-6-2">§6.2</a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="methodology"><span class="num">§0.1</span>Methodology</h2>
+<p>This audit is a deep-dive follow-up to the high-level production readiness review in PR #126. It was produced by dispatching five independent audit agents in parallel, each scoped to a different surface, then cross-referencing their findings against the source tree at branch <code>audit/production-readiness-comprehensive-may-2026</code> on commit <code>d6b7e3f</code> (May 14, 2026).</p>
+
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Agent</th><th>Scope</th><th>Files read (primary)</th></tr></thead>
+    <tbody>
+      <tr><td>A — Contracts &amp; Protocol</td><td>Solidity contracts, EIP-712 schemas, protocol spec §0–§8, USDC/ETH dual-asset paths, governance &amp; ownership</td><td><code>packages/contracts/src/*.sol</code>, <code>packages/protocol/src/*.ts</code>, <code>docs/protocol-spec.md</code>, <code>packages/contracts/script/*.sol</code></td></tr>
+      <tr><td>B — Runtime Services</td><td>Hub, watchtower, SDK, CLI: restart safety, concurrency, persistence, test coverage</td><td><code>apps/hub/src/**</code>, <code>apps/watchtower/src/**</code>, <code>apps/cli/src/**</code>, <code>packages/sdk/src/**</code>, <code>packages/state-machine/src/**</code></td></tr>
+      <tr><td>C — GKE &amp; Infra</td><td>K8s manifests, CI/CD, monitoring, alerting, backup/restore, hot-wallet ops</td><td><code>infra/k8s/**</code>, <code>infra/litestream/**</code>, <code>infra/monitoring/**</code>, <code>.github/workflows/**</code>, <code>docs/runbooks/**</code></td></tr>
+      <tr><td>D — Competitive Study</td><td>Refresh of <code>docs/competitive-analysis.html</code>, new entries (x402, Solana Pay, Stripe, etc.), threat scoring</td><td><code>docs/competitive-analysis.html</code>, web research (May 2026)</td></tr>
+      <tr><td>E — Threat / Security / Ops</td><td>Threat-model coverage matrix, operator gates, runbook completeness, disclosure flow, compliance, AI-agent threats</td><td><code>docs/threat-model.md</code>, <code>docs/launch-log.md</code>, <code>docs/runbooks/**</code>, <code>SECURITY.md</code>, GitHub issue #21</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-1"><span class="num">§1</span>Design-vs-Code Mismatch Audit</h2>
+<p style="color: var(--muted);">Cross-reference of protocol spec, threat model, ARCHITECTURE.md, release notes vs. actual code in contracts, hub, watchtower, state-machine, SDK.</p>
+
+<h3 id="sec-1-1">1.1 Reconciliation Baseline (from <code>docs/audit-status.md</code>)</h3>
+<p>Before adding new findings, the prior multi-pass DeepSeek audit baseline is summarized. 56 findings tracked, of which:</p>
+<div class="score-grid">
+  <div class="score-card">
+    <div class="score-label">Fixed</div>
+    <div class="score-value" style="color: var(--green);">39</div>
+    <div class="progress-bar"><div class="progress-fill green" style="width: 70%;"></div></div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Patched, not re-audited</div>
+    <div class="score-value" style="color: var(--yellow);">16</div>
+    <div class="progress-bar"><div class="progress-fill yellow" style="width: 29%;"></div></div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Open</div>
+    <div class="score-value" style="color: var(--red);">1</div>
+    <div class="progress-bar"><div class="progress-fill red" style="width: 2%;"></div></div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Won't-fix</div>
+    <div class="score-value" style="color: var(--muted);">0</div>
+    <div class="progress-bar"><div class="progress-fill green" style="width: 0%;"></div></div>
+  </div>
+</div>
+<p>The single <strong>Open</strong> baseline finding is <code>PC-09</code>: deployer EOA owns both proxies; on-chain transfer to a 2-of-N multisig with timelock has not yet occurred. The <strong>16 patched-not-reaudited</strong> items warrant focused re-review — see <a href="#sec-10">Appendix A.1</a> for the full enumeration.</p>
+
+<h3 id="sec-1-2">1.2 New Findings (post-baseline)</h3>
+
+<div class="finding-critical">
+  <p><strong><span class="badge badge-crit">CRITICAL</span> N-01 · EIP-712 domain <code>version</code> drift between spec and deployed code</strong></p>
+  <p><code>docs/protocol-spec.md</code> (§0, §6.1, §7 at lines 478, 484, 534) declares the EIP-712 domain <code>version: '1'</code>. The deployed code uses <code>version: '2'</code> at <code>packages/contracts/src/Adjudicator.sol:118</code> and <code>packages/protocol/src/eip712.ts:4</code> (<code>EIP712_DOMAIN_VERSION = '2'</code>). The TS test at <code>eip712.test.ts:44</code> uses <code>'2'</code>. Any external integrator writing a signer against the published "frozen, normative" spec will produce signatures that do not verify against the on-chain Adjudicator. Single-word doc fix, but every external SDK author hits this on first attempt.</p>
+  <p><strong>Fix:</strong> rewrite §0, §6.1, §6.2, §7 of <code>docs/protocol-spec.md</code> to declare <code>version: '2'</code>; document the v1→v2 typed-data additions (<code>htlcsCount</code>, <code>htlcsTotalLocked</code>, on-chain HTLC settlement).</p>
+</div>
+
+<div class="finding-high">
+  <p><strong><span class="badge badge-high">HIGH</span> N-02 · Spec §6.2 omits <code>htlcsCount</code> and <code>htlcsTotalLocked</code> from <code>ChannelState</code></strong></p>
+  <p><code>docs/protocol-spec.md:500</code> lists <code>ChannelState</code> fields as <code>channelId, version, balanceA, balanceB, htlcsRoot, finalized</code>. The on-chain typehash (<code>Adjudicator.sol:85-87</code>) includes <code>htlcsCount, htlcsTotalLocked</code>. EIP-712 hashing diverges for any signer following the spec literally.</p>
+  <p><strong>Fix:</strong> §6.2 must list the two additional fields in typehash order.</p>
+</div>
+
+<div class="finding-high">
+  <p><strong><span class="badge badge-high">HIGH</span> N-03 · Spec §5.2 contradicts §5.4 on <code>closeUnilateral</code> and HTLCs</strong></p>
+  <p>§5.2 (line 348) says <code>state.htlcsRoot</code> MUST be <code>bytes32(0)</code>. Code (<code>PaymentChannel.sol:362-390</code>) accepts non-empty roots; §5.4 (v2 on-chain HTLC settlement) supersedes §5.2 but the contradictory line remains.</p>
+  <p><strong>Fix:</strong> remove the stale line from §5.2.</p>
+</div>
+
+<div class="finding-medium">
+  <p><strong><span class="badge badge-med">MEDIUM</span> N-04 · <code>closeUnilateral</code> accepts dual-signed state with <code>version == 0</code></strong></p>
+  <p><code>PaymentChannel.sol:362-390</code> does not require <code>s.version &gt; 0</code> nor <code>s.version &gt; ch.postedVersion</code>. A buggy hub producing a v=0 dual-signed state could close at zero balances. Defense-in-depth: <code>require(s.version &gt; 0, "v=0");</code>.</p>
+</div>
+
+<div class="finding-medium">
+  <p><strong><span class="badge badge-med">MEDIUM</span> N-05 · <code>topUp</code> does not re-check <code>allowedTokens</code></strong></p>
+  <p><code>PaymentChannel.sol:429-498</code>. If the owner de-allowlists a token after a Circle pause incident, existing channels can still pull through <code>safeTransferFrom</code> on <code>topUp</code>. Likely intentional (avoid stranding users) but undocumented. Add to threat model.</p>
+</div>
+
+<div class="finding-low">
+  <p><strong><span class="badge badge-low">LOW</span> N-06 · <code>closeCooperative</code> does not check <code>signedAt ≤ validUntil</code> on-chain</strong></p>
+  <p><code>PaymentChannel.sol:336-356</code>. Off-chain SDK enforces it. Both signatures required, so a malicious counterparty cannot exploit a degenerate window unilaterally. Defense-in-depth fix only.</p>
+</div>
+
+<div class="finding-low">
+  <p><strong><span class="badge badge-low">LOW</span> N-07 · Stale line numbers in <code>docs/audit-status.md</code></strong></p>
+  <p>PC-01 cites <code>PaymentChannel.sol:255</code> for <code>dispute()</code>; actual location is <code>:519</code>. Evidence column line numbers across PC-01, PC-04, PC-06 drift from current source.</p>
+</div>
+
+<h3 id="sec-1-3">1.3 Verified Cross-Cuts</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Area</th><th>Verification</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Channel ID derivation includes <code>address(this)</code></td><td><code>PaymentChannel.sol:291</code></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Dual signatures on dispute / penalty / cooperative close</td><td><code>:519, :533, :574, :341</code></td><td><span class="check">✓</span></td></tr>
+      <tr><td>HTLC Merkle algorithm parity (Solidity ↔ TypeScript)</td><td><code>HTLC.sol:42-64, :80-120</code> vs <code>protocol/src/htlc-root.ts</code> (cross-fuzzed in <code>HTLC.merkleProof.t.sol</code>)</td><td><span class="check">✓</span></td></tr>
+      <tr><td>Dispute deadline once-restart on dispute</td><td><code>PaymentChannel.sol:541-544</code>; <code>PaymentChannel.t.sol:353-379</code></td><td><span class="check">✓</span></td></tr>
+      <tr><td>EIP-712 chainId cache + recompute (safe vs L2 chain-id changes)</td><td>OZ v4.9.6 <code>EIP712Upgradeable</code> caches at init, recomputes when <code>block.chainid != _CACHED_CHAIN_ID</code></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Reentrancy on ETH <code>call{value:}</code> paths</td><td><code>nonReentrant</code> + CEI ordering verified at <code>finalize:636</code>, <code>closeCooperative:349-350</code></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Owner cannot directly sweep channel funds</td><td>No <code>rescue()</code>/<code>sweep()</code> function exists on PaymentChannel; owner can only set allowlist/min/upgrade</td><td><span class="check">✓</span></td></tr>
+      <tr><td>UUPS storage gap correct after v2 additions</td><td><code>__gap[42]</code> after 7 new <code>Channel</code> fields</td><td><span class="check">✓</span></td></tr>
+      <tr><td><code>reinitializeV2</code> is owner-gated and <code>reinitializer(2)</code> protected</td><td><code>PaymentChannel.sol:214</code>; tested at <code>PaymentChannel.t.sol:759-799</code></td><td><span class="check">✓</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-1-4">1.4 Governance &amp; Ownership</h3>
+<ul>
+  <li><strong>Target topology:</strong> proxy <code>owner()</code> = <code>TimelockController(48h)</code>, with operator Safe as proposer/executor. <code>script/TransferOwnership.s.sol:60-65</code> rejects new owner without <code>getMinDelay() ≥ 48h</code>; <code>script/DeployTimelock.s.sol:24</code> rejects <code>MIN_DELAY &lt; 48h</code>.</li>
+  <li><strong>Current state:</strong> <code>Deploy.s.sol:30-32</code> requires owner code length &gt; 0 OR <code>ALLOW_EOA_OWNER=true</code>. Nothing in the deploy path forces a timelock. <strong>PC-09 remains correctly Open</strong> — on-chain proof of owner = timelock(48h) is the operator gate.</li>
+  <li><strong>No emergency pause.</strong> Only soft-kill is <code>setTokenAllowed(token, false)</code>, which blocks <em>new</em> channels only. Recommend adding Safe-controlled (not timelocked) <code>Pausable</code> on <code>openChannel</code> + <code>topUp</code>, leaving <code>finalize</code>/<code>dispute</code>/<code>closeCooperative</code> always callable so funds never trap.</li>
+  <li><strong>Upgrade path:</strong> UUPS with <code>_authorizeUpgrade</code> behind owner; 48h timelock makes upgrade-to-malicious attack require advance signaling.</li>
+</ul>
+
+<h3 id="sec-1-5">1.5 Unimplemented Spec/Architecture Features</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Feature</th><th>Status</th><th>Location</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>PTLCs (secp256k1 point HTLCs)</td><td><span class="partial">Scaffold</span></td><td><code>state-machine/src/ptlc.ts</code> — helper + toy test; not wired</td><td>Post-GA</td></tr>
+      <tr><td>Stealth addresses</td><td><span class="partial">SDK helper</span></td><td><code>sdk/src/stealth.ts</code> — not integrated into ChannelClient</td><td>Post-GA</td></tr>
+      <tr><td>Fee bucketing (privacy)</td><td><span class="partial">Helper</span></td><td><code>hub/src/fee-policy.ts</code> — not wired into router</td><td>Post-GA</td></tr>
+      <tr><td>Nostr DVM publisher</td><td><span class="cross">Not impl.</span></td><td>Kinds 30401–30408 reserved; no publisher</td><td>Post-GA</td></tr>
+      <tr><td>Multi-hub channels</td><td><span class="cross">Not impl.</span></td><td>CLI/SDK single-hub only</td><td>Post-GA</td></tr>
+      <tr><td>Watchtower-as-a-service</td><td><span class="cross">Rejected at config</span></td><td><code>watchtower/config-validate.ts</code> rejects <code>MODE=service</code></td><td>Post-GA</td></tr>
+      <tr><td>EIP-2612 <code>permit</code></td><td><span class="cross">Not impl.</span></td><td>Two-tx UX (approve + open); permit would be a v2.1 add</td><td>v2.1</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-2"><span class="num">§2</span>Test Coverage &amp; Runtime Safety</h2>
+
+<h3 id="sec-2-1">2.1 Test Inventory (counted)</h3>
+<p>Counts from <code>grep -rE '^\s*(it|test)\(' --include='*.test.ts'</code> at HEAD.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Package</th><th>Test files</th><th>Cases</th><th>Strong coverage</th><th>Gaps</th></tr></thead>
+    <tbody>
+      <tr><td><code>apps/hub</code></td><td>24</td><td>166</td><td>repos, envelope auth, config-validate, channel-pool concurrency, dispute-handler (retry, deadline), chain-watcher (reorg/bootstrap), topup-handler (21 cases incl. concurrency), server</td><td><strong>Router has only 5 happy-path cases</strong> (<code>router.test.ts:101-202</code>); no test for <code>hydrate()</code>, no concurrent-pay race, no per-counterparty cap, no <code>MAX_HTLCS_PER_CHANNEL</code>. <strong>Zero WS-layer tests</strong> for <code>htlcSettle</code>/<code>htlcFail</code> recipient-signer enforcement, unknown-htlc rejection, or <code>payDirect</code> signer-bind. <strong>No test</strong> for <code>payment-routes</code> durable round-trip across restart. <strong>No test</strong> for <code>KeyedMutex</code> lock-ordering when two channels lock both sides (<code>ws.ts:111</code> <code>lockOrder</code> is defined but never called).</td></tr>
+      <tr><td><code>apps/watchtower</code></td><td>11</td><td>81</td><td>responder (5 incl. gas-bump + stale revert), scheduler, recovery (10 for WTW-002/003/005/006/010), htlc-resolver, integration</td><td>No reorg-during-penalty-inclusion test (watcher rewinds via <code>storage.block-hash</code> but pending-tx behavior on reorg untested). No test for two concurrent <code>submitPenalty</code> calls on different channels sharing the wallet nonce sequence.</td></tr>
+      <tr><td><code>apps/cli</code></td><td>16</td><td>71</td><td>Every command file has <code>.test.ts</code>, plus runtime helpers + <code>pay-listen.integration.test.ts</code></td><td>No JSON-output stability snapshot; no test that <code>--private-key</code> warning lands on <strong>stderr</strong> vs stdout (CI scrapers could pick up); no test for <code>listen</code> restart preserving keysend keypair (<strong>regenerated each run</strong> — <code>listen.ts:105</code>).</td></tr>
+      <tr><td><code>packages/sdk</code></td><td>23</td><td>149</td><td>crypto, invoice, storage (file + indexeddb), client.crash, client.close, client.topup, client.mockhub, recipient-rotation, transport, signer</td><td><code>client.crash.test.ts</code> covers persist-before-send but <strong>no test for process restart with an in-flight HTLC</strong> (<code>recover()</code> called, no settle/fail arrives — what happens?). No per-kind <code>hub-protocol</code> schema strictness test (F-04 still patched-not-reaudited).</td></tr>
+      <tr><td><code>packages/state-machine</code></td><td>11</td><td>134</td><td>admit, htlc-admission, ptlc, replay, signing, topup, channel</td><td>Pure-function coverage is solid. No fuzz/property test for admission caps.</td></tr>
+      <tr><td><code>packages/protocol</code></td><td>5</td><td>65</td><td>eip712, htlc-root, topup-messages, constants</td><td>OK.</td></tr>
+      <tr><td><code>e2e</code></td><td>4</td><td>24</td><td>HTLC settlement, dispute, hub-down recovery, receiver-offline-resume, inbound-liquidity (11), scenarios.fork (gated by <code>E2E_FORK_URL</code>), backup-restore</td><td>Backup-restore has <strong>1 test</strong> for "synthetic hub db with row parity"; no test that actually restores from a litestream replica. No e2e for <strong>hub restart with in-flight HTLC</strong> (EOD-03 still patched-not-reaudited).</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-2-2">2.2 Runtime Safety Findings (new)</h3>
+
+<div class="finding-critical">
+  <p><strong><span class="badge badge-crit">CRITICAL</span> R-01 · Outgoing-channel race in <code>handlePay</code></strong></p>
+  <p>The comment at <code>apps/hub/src/api/ws.ts:255-256</code> claims "the per-outgoing-channel mutex is taken inside <code>router.route</code> via the channel-pool's existing locks." <strong>This is false.</strong> <code>router.route</code> (<code>router.ts:83-165</code>) only reads <code>channelPool.latest()</code>, a non-locking getter (<code>channel-pool.ts:100-102</code>). Two concurrent pays routing to the <strong>same outgoing channel</strong> through <strong>different incoming channels</strong> can both:</p>
+  <ol>
+    <li>Read the same <code>latestOutgoing</code> version N.</li>
+    <li>Each sign a distinct version N+1 state with different HTLCs.</li>
+    <li>First grabs the outgoing mutex, persists v(N+1). Second grabs the mutex, but <code>recordState</code> silently drops because <code>state.version ≤ existing.version</code> (<code>channel-pool.ts:67</code>). The second payment's <code>outgoingHubSigned</code> is in <code>payment_routes</code> but <strong>not in <code>signed_states</code></strong> → on restart the hub serves a stale view, and the recipient can present the higher-versioned (signed) state for dispute.</li>
+  </ol>
+  <p><strong>Fix:</strong> route under the outgoing-channel lock once the router resolves it (move <code>router.route()</code> inside the existing inner mutex, or split <code>findChannelBetween</code> then take the lock then read+sign).</p>
+</div>
+
+<div class="finding-high">
+  <p><strong><span class="badge badge-high">HIGH</span> R-02 · Hub payment durability — orphan signed-state window</strong></p>
+  <p><code>ws.ts:300-342</code> inserts into <code>htlcs</code>, <code>payments</code>, <code>payment_routes</code> in a single DB transaction. But <code>channelPool.recordState</code> for the outgoing happens <strong>outside</strong> that transaction (line 297). Crash window: outgoing-channel signed state persists, but htlc/route rows fail → on restart, <code>payment_routes</code> lacks the row, in-memory inflight is empty, hub has signed an outgoing state with no audit trail. <strong>Recipient can replay it.</strong></p>
+  <p><strong>Fix:</strong> persist the outgoing state inside the same DB transaction, or sign-and-store before the channel-pool write.</p>
+</div>
+
+<div class="finding-high">
+  <p><strong><span class="badge badge-high">HIGH</span> R-03 · No WS payload size limit or rate limiting</strong></p>
+  <p><code>@fastify/websocket</code> does not enforce a frame size by default. A malicious peer can submit a 100 MB JSON frame. <code>grep</code> for <code>@fastify/rate-limit</code> returns 0 hits — anyone with a valid envelope can flood <code>pay</code> messages. Per-channel mutex provides backpressure but the message queue is unbounded.</p>
+  <p><strong>Fix:</strong> register <code>websocket</code> plugin with <code>{ options: { maxPayload: 65536 } }</code>; add <code>@fastify/rate-limit</code> with per-IP and per-signer limits; add WS connection cap.</p>
+</div>
+
+<div class="finding-medium">
+  <p><strong><span class="badge badge-med">MEDIUM</span> R-04 · Watchtower concurrent <code>submitPenalty</code> nonce collision</strong></p>
+  <p><code>watchtower/responder.ts:167</code> re-reads <code>pending</code> nonce per call. Scheduler iterates synchronously, but <code>index.ts:351-355</code> calls <code>submitPenalty</code> from an event handler that can fire concurrently if multiple <code>closeUnilateral</code> events arrive in one poll. Two parallel calls pick the same nonce → one reverts.</p>
+  <p><strong>Fix:</strong> add a wallet-level mutex around <code>submitPenalty</code>.</p>
+</div>
+
+<div class="finding-medium">
+  <p><strong><span class="badge badge-med">MEDIUM</span> R-05 · Watchtower reorg-during-included-penalty</strong></p>
+  <p>If a previously-included penalty tx is reorg'd out, <code>getInFlight</code> still says "included" and the watchtower will not re-submit. Hub <code>chain-watcher.ts:276</code> has <code>rewindForReorg</code>, but the watchtower's <code>storage.ts</code> doesn't track block-hash for observations — only <code>meta key last_processed_block</code>.</p>
+  <p><strong>Fix:</strong> store <code>blockHash</code> per observation; re-evaluate inclusion on rewind.</p>
+</div>
+
+<div class="finding-medium">
+  <p><strong><span class="badge badge-med">MEDIUM</span> R-06 · Per-counterparty HTLC cap is hardcoded</strong></p>
+  <p><code>router.ts:334-340</code> hardcodes per-token caps (<code>ZERO=1 ETH</code>, <code>PTST=100 PTST</code>, USDC=<code>MAX_HTLC_VALUE_PER_COUNTERPARTY</code>). Not config-driven; new tokens require code change. Not exposed on <code>/v1/info</code>; clients can't surface "amount exceeds per-counterparty cap" and get a generic <code>router: ...</code> error.</p>
+  <p><strong>Fix:</strong> env-driven config per token; expose on info endpoint.</p>
+</div>
+
+<div class="finding-low">
+  <p><strong><span class="badge badge-low">LOW</span> R-07 · <code>KeyedMutex</code> memory leak</strong></p>
+  <p><code>apps/hub/src/mutex.ts:11-22</code> never deletes entries. Long-running hub processing many ephemeral channels grows the map unboundedly (~64 bytes each). Add <code>delete(key)</code> when <code>lock.tail</code> resolves to <code>Promise.resolve()</code>.</p>
+</div>
+
+<div class="finding-low">
+  <p><strong><span class="badge badge-low">LOW</span> R-08 · <code>lockOrder</code> dead code</strong></p>
+  <p><code>ws.ts:111-113</code> defines <code>lockOrder</code> but never calls it. If the intent was canonical-order locking to prevent deadlock, that intent is unimplemented. Either wire it or delete.</p>
+</div>
+
+<div class="finding-low">
+  <p><strong><span class="badge badge-low">LOW</span> R-09 · CLI <code>listen</code> regenerates keysend keypair every run</strong></p>
+  <p><code>apps/cli/src/commands/listen.ts:105</code>. A keysend payment in flight at restart cannot be decrypted by the new instance. Fund-safe (HTLC still settles) but memos lost. <strong>Fix:</strong> persist keypair beside channel storage, or drop keysend from v1.</p>
+</div>
+
+<div class="finding-low">
+  <p><strong><span class="badge badge-low">LOW</span> R-10 · Watchtower has no <code>_migrations</code> table</strong></p>
+  <p><code>watchtower/storage.ts:136</code> uses <code>IF NOT EXISTS</code> only; schema changes must stay backward-compatible or recreate. Adopt hub's <code>_migrations</code> pattern.</p>
+</div>
+
+<h3 id="sec-2-3">2.3 Missing Tests (prioritized)</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Suggested file</th><th>What it would verify</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td><code>apps/hub/src/router.concurrency.test.ts</code></td><td>Two concurrent <code>route()</code> calls on same outgoing channel produce one durable v(N+1) and one explicit rejection</td><td>R-01</td></tr>
+      <tr><td><code>apps/hub/src/router.hydrate.test.ts</code></td><td><code>Router.hydrate</code> rebuilds maps from <code>payment_routes</code>; settle for in-flight route from prior process succeeds</td><td>—</td></tr>
+      <tr><td><code>apps/hub/src/api/ws.htlcSettle.test.ts</code></td><td>Non-recipient settle is rejected; mismatched <code>channelId</code> rejected; settled route marked <code>state='settled'</code></td><td>—</td></tr>
+      <tr><td><code>apps/hub/src/api/ws.limits.test.ts</code></td><td>Frame exceeding <code>maxPayload</code> dropped; per-IP 429</td><td>R-03</td></tr>
+      <tr><td><code>apps/hub/src/api/ws.crashMid.test.ts</code></td><td>Crash between <code>recordState</code> and DB tx commit leaves no orphan signed state</td><td>R-02</td></tr>
+      <tr><td><code>apps/watchtower/src/responder.reorg.test.ts</code></td><td>Penalty tx whose block reorgs out is re-evaluated and re-submitted</td><td>R-05</td></tr>
+      <tr><td><code>apps/watchtower/src/responder.concurrentNonce.test.ts</code></td><td>Two concurrent <code>submitPenalty</code> calls on different channels don't produce the same nonce</td><td>R-04</td></tr>
+      <tr><td><code>packages/sdk/src/client.restart.test.ts</code></td><td>After process restart, <code>recover()</code> + hub-delivered <code>paymentSettle</code> for pre-crash invoice produces single <code>htlc:settled</code> event</td><td>—</td></tr>
+      <tr><td><code>e2e/src/hub-restart-inflight.test.ts</code></td><td>Hub <code>kill -9</code> with in-flight HTLC; relaunch from SQLite only; settle completes</td><td>EOD-03</td></tr>
+      <tr><td><code>e2e/src/litestream-restore.test.ts</code></td><td>Replicate to local minio, destroy hub volume, restore from replica, hub resumes</td><td>—</td></tr>
+      <tr><td><code>apps/cli/src/runtime/output.snapshot.test.ts</code></td><td>JSON shape per command (<code>stage:'verifying'</code>, <code>settled:bool</code>, etc.) locked so agent parsers don't regress</td><td>—</td></tr>
+      <tr><td><code>packages/contracts/test/PaymentChannel.eth.t.sol</code> (+ penalty)</td><td>ETH penalty path; <code>closeCooperative</code> revert on recipient receive-revert</td><td>Agent A C-02</td></tr>
+      <tr><td><code>packages/contracts/test/PaymentChannel.usdcFork.t.sol</code></td><td>Forge fork of Taiko mainnet: happy path, USDC-paused revert, USDC blocklist on participant</td><td>Agent A H-USDC</td></tr>
+      <tr><td><code>packages/contracts/test/PaymentChannel.reentrancy.t.sol</code></td><td>Reentrant ETH receiver into <code>topUp</code> during finalize is blocked by <code>nonReentrant</code></td><td>—</td></tr>
+      <tr><td><code>packages/state-machine/test/replay.cross-channel.test.ts</code></td><td><code>Update</code> wrapper <code>channelId</code> prevents cross-channel replay</td><td>H-01 baseline</td></tr>
+      <tr><td><code>e2e/src/watchtower-offline-steal.test.ts</code></td><td>Open channel → sign v2 → submit v1 → kill watchtower → 24h passes → stale state finalized</td><td>Baseline C-01</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-2-4">2.4 CI Coverage Gaps</h3>
+<ul>
+  <li>No coverage threshold enforced. Suggested: 80% line for contracts, 75% for TS packages.</li>
+  <li><code>forge coverage</code> not in CI pipeline.</li>
+  <li>No integration stage between unit + full e2e — add hub+watchtower against anvil.</li>
+  <li><code>e2e-fork</code> not in CI gate <code>needs</code> (<code>.github/workflows/ci.yml:219</code>) — silent failures.</li>
+</ul>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-3"><span class="num">§3</span>Deployment &amp; GKE Readiness</h2>
+
+<div class="callout">
+  <h4>Architecture-sound, observability-thin</h4>
+  <p>Digest pinning, Workload Identity Federation (CI-side), default-deny NetworkPolicy, secrets pre-deploy validation, automated quarterly restore drill, and a separate internal metrics port are all real and correctly implemented. The load-bearing GA gaps are <strong>operational</strong>: no hot-wallet observability, runbooks reference metrics that don't exist, no Cloud Armor on the public Ingress, no PodDisruptionBudget, single-replica everything with no canary or automated rollback.</p>
+</div>
+
+<h3 id="sec-3-1">3.1 K8s Manifest Findings</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>File:line</th><th>Issue</th><th>Severity</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td><code>infra/k8s/01-hub.yaml:165</code>, <code>02-watchtower.yaml:74</code></td><td><code>replicas: 1</code> for hub and watchtower; no HA, no rolling deploy without downtime</td><td><span class="badge badge-crit">CRITICAL</span></td><td>Watchtower active/standby (key-sharded RPC submitter); hub stays singleton (SQLite) but document RTO</td></tr>
+      <tr><td>whole tree</td><td><strong>No <code>PodDisruptionBudget</code></strong> anywhere — GKE Autopilot node upgrade can evict the singleton hub with no <code>minAvailable</code> guard</td><td><span class="badge badge-high">HIGH</span></td><td>Add <code>PDB minAvailable: 1</code> for <code>pico-hub</code>, <code>pico-watchtower</code>, <code>pico-prometheus</code>, <code>pico-alertmanager</code></td></tr>
+      <tr><td><code>01-hub.yaml:177-184</code>, <code>02-watchtower.yaml:86-93</code>, monitoring manifests</td><td>Missing <code>readOnlyRootFilesystem: true</code>, <code>allowPrivilegeEscalation: false</code>, <code>capabilities: drop: [ALL]</code> at container level</td><td><span class="badge badge-high">HIGH</span></td><td>Add three fields; verify <code>/tmp</code> writable via <code>emptyDir</code> if needed</td></tr>
+      <tr><td><code>01-hub.yaml:189</code>, <code>02-watchtower.yaml:96</code></td><td>Source uses <code>IMAGE:VERSION</code> placeholders; <code>render-manifests.sh:104</code> + <code>deploy.yml:131-156</code> resolve to <code>@sha256:</code> digests before apply</td><td><span class="badge badge-ok">PASS</span></td><td>Digest pinning enforced</td></tr>
+      <tr><td><code>01-hub.yaml:209-216</code>, <code>02-watchtower.yaml:115-121</code></td><td>No <code>startupProbe</code>; liveness fires at 30s — migrations + chain-watcher catch-up &gt; 90s causes restart loop</td><td><span class="badge badge-med">MEDIUM</span></td><td>Add <code>startupProbe</code> with <code>failureThreshold: 30, periodSeconds: 10</code> (5-min headroom)</td></tr>
+      <tr><td><code>01-hub.yaml:184</code>, <code>02-watchtower.yaml:93</code></td><td><code>terminationGracePeriodSeconds: 30</code> — too tight for clean drain of WS sessions + in-flight HTLCs; no <code>preStop</code> hook</td><td><span class="badge badge-high">HIGH</span></td><td>Raise to 60–90s; add <code>preStop</code> hook to close WS server and wait for HTLCs to settle/expire</td></tr>
+      <tr><td><code>01-hub.yaml:217-225</code>, <code>02-watchtower.yaml:122-130</code></td><td><code>cpu limit == request</code> (250m) throttles Node event loop during chain-watcher catch-up</td><td><span class="badge badge-med">MEDIUM</span></td><td>Keep memory limit == request (OOM signal); unset CPU limit or raise to 1000m for burst</td></tr>
+      <tr><td><code>01-hub.yaml:266</code>, <code>02-watchtower.yaml:171</code>, <code>03-prometheus.yaml:241</code></td><td>Hub PVC 5 Gi, watchtower 2 Gi, prometheus 5 Gi (15-day retention) — Prometheus 5 Gi may fill</td><td><span class="badge badge-med">MEDIUM</span></td><td>Raise Prometheus PVC to 20 Gi (matches the file's own comment); add disk-pressure alert</td></tr>
+      <tr><td><code>06-networkpolicy.yaml:70-80, 100-112, 178-187</code></td><td>Hub/watchtower/alertmanager egress is <code>0.0.0.0/0</code> on TCP/443 — permits exfil to any public host</td><td><span class="badge badge-med">MEDIUM</span></td><td>FQDN egress via NetworkPolicy v2 extension or a service-mesh egress gateway; or split RPC endpoint into a dedicated allowlist label</td></tr>
+      <tr><td><code>01-hub.yaml:259-267</code>, <code>02-watchtower.yaml:164-172</code></td><td>PVC <code>ReadWriteOnce</code> + <code>WaitForFirstConsumer</code> + <code>Retain</code>; no <code>topologySpreadConstraints</code>/<code>nodeAffinity</code> — single-zone outage = total downtime</td><td><span class="badge badge-high">HIGH</span></td><td>Switch to regional PD (<code>pd-balanced</code> → <code>pd-regional</code>) or accept single-zone RTO and document</td></tr>
+      <tr><td><code>01-hub.yaml:196-200</code>, <code>02-watchtower.yaml:101-105</code></td><td>Secrets injected via <code>envFrom: secretRef</code> — env vars leak to crash dumps and child procs; hub private key is env-only</td><td><span class="badge badge-high">HIGH</span></td><td>Mount as files via <code>volumeMounts</code> with <code>defaultMode: 0400</code>; read at app boot</td></tr>
+      <tr><td><code>04-alertmanager.yaml:83</code>, <code>04-alertmanager.yaml:137-156</code></td><td>Single-replica Alertmanager with <code>emptyDir</code> — alert dedup state lost on restart</td><td><span class="badge badge-med">MEDIUM</span></td><td>3-replica HA Alertmanager with gossip cluster, or accept duplicate pages on restart</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-3-2">3.2 GKE-Specific Gaps</h3>
+<p>Source: <code>infra/k8s/bootstrap-gcp.sh:105</code> provisions <strong>GKE Autopilot</strong>, regular release channel.</p>
+<ul>
+  <li><strong>No private nodes / private endpoint</strong> — <code>bootstrap-gcp.sh</code> does not set <code>--enable-private-nodes</code> / <code>--enable-master-authorized-networks</code>. Control plane reachable from any IP with credentials.</li>
+  <li><strong>No Cloud Armor / WAF</strong> — <code>01-hub.yaml:103-116</code> defines BackendConfig but no <code>securityPolicy</code>. Hub Ingress (<code>hub.pico.taiko.xyz</code>) faces the public internet with zero DDoS/L7 filtering.</li>
+  <li><strong>No SSL policy pinned</strong> — FrontendConfig at <code>01-hub.yaml:120-127</code> defaults to <code>COMPATIBLE</code> (allows TLS 1.0/1.1). No HSTS header.</li>
+  <li><strong>No Binary Authorization / attestations</strong> — <code>gke-images.yml</code> builds with Buildx but does not sign with <code>cosign</code> or attach SLSA provenance. Tag-overwrite guard at <code>gke-images.yml:97-105</code> blocks one path but does not verify signatures at deploy time.</li>
+  <li><strong>No Workload Identity Federation for in-cluster pods</strong> — only GitHub Actions has WIF (<code>bootstrap-gcp.sh:135-180</code>). R2 keys live as static K8s Secrets.</li>
+  <li><strong>No Spot / preemptible nodes</strong> — Autopilot defaults to Standard; no cost optimization for non-critical (Prometheus, Grafana).</li>
+</ul>
+
+<h3 id="sec-3-3">3.3 CI/CD Gaps</h3>
+<ul>
+  <li><code>ci.yml</code>: lint, typecheck, build, test-ts, test-solidity, e2e, e2e-fork, coverage. <strong>No image scanning</strong> (Trivy/grype), <strong>no SBOM</strong> (syft), <strong>no SAST</strong> beyond ESLint, <strong>no CodeQL workflow</strong>.</li>
+  <li><code>secret-scan.yml:21</code> runs a custom <code>scripts/scan-secrets.sh</code> — not gitleaks/trufflehog. Coverage unverified.</li>
+  <li><strong>No Dependabot</strong> (<code>.github/dependabot.yml</code> absent) or Renovate (<code>renovate.json</code> absent). Manual dep updates only.</li>
+  <li><code>gke-images.yml</code> + <code>deploy.yml</code>: <strong>no canary, no blue/green, no progressive rollout</strong>. <code>deploy.yml:183-198</code> does <code>kubectl apply</code> in series across all manifests — full cutover.</li>
+  <li><strong>No automated rollback</strong>; <code>rollout status</code> times out at 10m but does not revert.</li>
+  <li><strong>No staging environment</strong> — <code>deploy.yml:47</code> targets <code>production</code> directly on every <code>v*</code> tag.</li>
+  <li>WIF SA roles at <code>bootstrap-gcp.sh:124-132</code>: <code>container.developer</code> is overscoped — grants delete on workloads cluster-wide; should be namespace-scoped RoleBinding.</li>
+  <li><code>e2e-fork</code> not in CI gate <code>needs</code> (<code>.github/workflows/ci.yml:219</code>) — passes silently if it fails.</li>
+</ul>
+
+<h3 id="sec-3-4">3.4 Monitoring &amp; Alerting Gaps</h3>
+<p>Existing alerts (9 rules at <code>03-prometheus.yaml:60-147</code> + <code>infra/monitoring/alerts.yml</code>): <code>HubDown</code>, <code>WatchtowerDown</code>, <code>WatchtowerRpcDown</code>, <code>DisputeOpened</code>, <code>PenaltySubmissionStalled</code>, <code>PaymentFailureRateHigh</code>, <code>HubLiquidityLow</code>, <code>HubMemoryHigh</code>, <code>WatchtowerEvaluationStalled</code>.</p>
+<p><strong>Missing alerts — each is a GA blocker for a payment processor:</strong></p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Missing Alert</th><th>Why it matters</th><th>Severity</th></tr></thead>
+    <tbody>
+      <tr><td><code>HubHotWalletGasLow</code></td><td>Hub <code>eth_balance</code> not exposed (<code>apps/hub/src/metrics.ts</code> has no balance gauge). Hub runs out of gas → no on-chain ops, silent failure</td><td><span class="badge badge-crit">CRITICAL</span></td></tr>
+      <tr><td><code>WatchtowerHotWalletGasLow</code></td><td>Penalty txs require gas. <code>apps/watchtower/src/metrics.ts</code> has no balance gauge</td><td><span class="badge badge-crit">CRITICAL</span></td></tr>
+      <tr><td><code>LitestreamReplicationLag</code> / <code>LitestreamReplicationDown</code></td><td>No <code>litestream_replica_*_last_*</code> scrape; sidecar can be stuck without signal</td><td><span class="badge badge-high">HIGH</span></td></tr>
+      <tr><td><code>PodRestartLoop</code> (CrashLoopBackOff)</td><td>No kube-state-metrics scrape configured</td><td><span class="badge badge-high">HIGH</span></td></tr>
+      <tr><td><code>PvcAlmostFull</code></td><td>No <code>kubelet_volume_stats_*</code> scrape</td><td><span class="badge badge-high">HIGH</span></td></tr>
+      <tr><td><code>CertificateExpiringSoon</code></td><td>GCE ManagedCertificate not monitored</td><td><span class="badge badge-high">HIGH</span></td></tr>
+      <tr><td><code>ChainWatcherLagBlocks</code></td><td>Runbook <code>hub-incident.md:6</code> references <code>pico_hub_chain_watcher_lag_blocks</code> — <strong>metric is not defined</strong> in code</td><td><span class="badge badge-crit">CRITICAL</span></td></tr>
+      <tr><td><code>WatchtowerOldestPendingTxAge</code></td><td>Runbook references <code>pico_watchtower_oldest_pending_tx_age_ms</code> + <code>pico_watchtower_oldest_closing_deadline_remaining_ms</code> — <strong>neither defined</strong></td><td><span class="badge badge-crit">CRITICAL</span></td></tr>
+      <tr><td><code>RPCErrorRateHigh</code></td><td>No RPC client metric exposed</td><td><span class="badge badge-high">HIGH</span></td></tr>
+      <tr><td><code>WSConnectionDrops</code> / <code>WSReconnectStorm</code></td><td>WS is the hub's primary surface; zero WS metrics</td><td><span class="badge badge-high">HIGH</span></td></tr>
+      <tr><td><code>AlertmanagerNotificationsFailing</code></td><td>Alertmanager itself not monitored</td><td><span class="badge badge-med">MEDIUM</span></td></tr>
+      <tr><td><code>DiskIOPSExhaustion</code></td><td>pd-balanced has burstable IOPS; SQLite WAL needs sustained</td><td><span class="badge badge-med">MEDIUM</span></td></tr>
+      <tr><td><code>HubChannelOpenStalled</code></td><td>Opening a channel requires a tx; no failure rate alert</td><td><span class="badge badge-med">MEDIUM</span></td></tr>
+    </tbody>
+  </table>
+</div>
+<p><strong>Dashboards:</strong> only 2 (hub-overview, watchtower-overview) at <code>05-grafana.yaml:60-203</code>; 6 + 5 panels. Missing RPC, gas, dispute timeline, latency histograms (no histogram metrics defined), TCP queue, K8s health.</p>
+<p><strong>Logs:</strong> Fastify pino default; no Cloud Logging integration, no PII scrubbing config. Pod stdout retained ~30 days, not exported.</p>
+<p><strong>SLOs:</strong> none defined.</p>
+<p><strong>Webhook integration:</strong> generic <code>webhook_configs</code> with URLs in secret; no PagerDuty/Opsgenie/Slack-native receivers. <code>TODO(contact)</code> placeholders throughout runbooks.</p>
+
+<h3 id="sec-3-5">3.5 Backup / Disaster Recovery</h3>
+<ul>
+  <li>Litestream config (<code>infra/litestream/hub.yml</code>, <code>01-hub.yaml:45-58</code>): R2 retention 720h (30d), snapshot 1h, sync 10s. <strong>No bucket-versioning enforcement in IaC</strong> — <code>backup-restore.md:88</code> mentions R2 versioning but no terraform/IaC binding.</li>
+  <li><strong>Single R2 region per service</strong> — <code>backup-restore.md:84-85</code> claims hub→US-East, watchtower→EU-West, but <code>01-hub.yaml:53</code> and <code>02-watchtower.yaml:41</code> both use the same <code>LITESTREAM_R2_ENDPOINT</code> env var. Cross-region is convention, not enforcement.</li>
+  <li><strong>Drill cadence:</strong> <code>backup-drill-prod.yml</code> runs <strong>quarterly</strong> (<code>0 7 1 */3 *</code>); <code>backup-drill.yml</code> monthly against staging. <strong>Quarterly is too thin for a payments hub</strong> — recommend weekly.</li>
+  <li><strong>No RTO/RPO documented.</strong> <code>backup-restore.md</code> walks restore but does not state targets.</li>
+  <li><strong>No cross-region failover plan.</strong> DNS failover, IP migration, Ingress static IP recovery are undocumented.</li>
+  <li><code>restore-drill.sh:82-85</code> validates table presence but does not verify referential integrity or run the app against the restore.</li>
+  <li><strong>No R2 access alert</strong> — silent credential revocation surfaces only at next drill (worst case: 3 months).</li>
+</ul>
+
+<h3 id="sec-3-6">3.6 Hot Wallet Management</h3>
+<ul>
+  <li><strong>No metric</strong> for ETH balance of <code>HUB_PRIVATE_KEY</code> or <code>WATCHTOWER_PRIVATE_KEY</code> (confirmed via <code>metrics.ts</code>).</li>
+  <li><strong>No automated topup</strong> from treasury. <code>key-rotation.md:21-22</code> says "send minimum gas budget" — manual.</li>
+  <li><strong>No threshold alert</strong> — hub running out of gas yields silent failure of channel close/dispute paths.</li>
+  <li><strong>No spend-rate monitoring</strong> — nonce-reuse bug or accidental loop drains hot wallet undetected.</li>
+  <li><strong>No multi-sig refill flow</strong> documented.</li>
+</ul>
+
+<h3 id="sec-3-7">3.7 Production Secrets</h3>
+<ul>
+  <li>K8s Secrets = base64 + etcd encryption only. GKE Autopilot enables Application-layer Secrets Encryption (Cloud KMS envelope) by default in newer clusters, but <code>bootstrap-gcp.sh:100-108</code> does not pass <code>--database-encryption-key</code>. <strong>Verify post-bootstrap.</strong></li>
+  <li><strong>No KMS key rotation policy</strong> documented.</li>
+  <li><strong>No automated <code>pico-hub-secrets</code> rotation</strong> — manual via <code>secrets-bootstrap.sh</code>.</li>
+  <li>Webhook secrets, R2 keys, RPC URL, both private keys in the same Secret — blast radius is the whole Secret if one leaks.</li>
+  <li><code>secrets-bootstrap.sh:88-97</code> rejects known dev keys — <strong>good guard</strong>.</li>
+</ul>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-4"><span class="num">§4</span>USDC + ETH-Specific Risks</h2>
+<p>Dual-asset support introduces failure modes that pure-USDC or pure-ETH systems avoid. The contract handles both via a single <code>token</code> field with <code>token == address(0)</code> denoting native ETH. Findings below isolate dual-asset edge cases verified at code level.</p>
+
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Risk</th><th>File</th><th>Severity</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Recipient <code>receive()</code> reverts → channel funds stuck on <code>closeCooperative</code> / <code>finalize</code></td><td><code>PaymentChannel.sol:256-264</code></td><td><span class="badge badge-high">HIGH</span></td><td>Contract NatSpec (l.44-50) and threat-model §Malicious user acknowledge the failure mode. <strong>No pull-pattern escape hatch exists.</strong> No test exercises it.</td></tr>
+      <tr><td>Circle pauses USDC contract → every <code>safeTransferFrom</code>/<code>safeTransfer</code> reverts</td><td><code>PaymentChannel.sol:243-264</code></td><td><span class="badge badge-high">HIGH</span></td><td>No in-contract mitigation. <code>closeCooperative</code>, <code>finalize</code>, <code>topUp</code>, <code>openChannel</code> all revert — channels frozen until Circle unpauses. Should be enumerated in <code>docs/threat-model.md</code>.</td></tr>
+      <tr><td>Circle blocklist on userA or userB → <code>finalize</code> reverts permanently</td><td><code>PaymentChannel.sol:638-639</code></td><td><span class="badge badge-high">HIGH</span></td><td>Funds owed to the blocklisted side are stuck; pull-pattern (<code>pendingWithdrawals</code>) would let the unblocked side withdraw their share.</td></tr>
+      <tr><td>Hub fee floor (<code>FLAT = 1</code>) is dust for 18-decimal ETH, $0.000001 for 6-decimal USDC</td><td><code>protocol-spec.md:303-307</code>; <code>packages/protocol/src/constants.ts</code></td><td><span class="badge badge-med">MEDIUM</span></td><td>Decimal-agnostic flat fee yields very different effective minimums for ETH vs USDC. Small ETH payments effectively free; large ones still 10 bps. Document.</td></tr>
+      <tr><td><code>_pullFunds</code> does not verify received amount = requested</td><td><code>PaymentChannel.sol:243-247</code></td><td><span class="badge badge-low">LOW</span></td><td>Fee-on-transfer / rebasing tokens would break conservation. Mitigated only by owner allowlist. No test asserts the allowlist's rejection.</td></tr>
+      <tr><td>EIP-2612 <code>permit</code> not supported</td><td>n/a</td><td><span class="badge badge-low">LOW</span></td><td>Users must pre-<code>approve</code> before <code>openChannel</code>/<code>topUp</code>. Two-tx UX. v2.1 addition.</td></tr>
+      <tr><td><code>safeTransferFrom</code> non-zero-allowance race</td><td>n/a</td><td><span class="badge badge-ok">N/A</span></td><td>OZ's <code>SafeERC20.safeTransferFrom</code> just pulls; race irrelevant. Pico does not call <code>approve()</code> on behalf of users.</td></tr>
+      <tr><td>Reentrancy via ETH <code>call{value:}</code> sweep</td><td><code>PaymentChannel.sol:259</code></td><td><span class="badge badge-ok">N/A</span></td><td>All ETH paths use <code>nonReentrant</code> + CEI. Verified at <code>finalize:636</code>, <code>closeCooperative:349-350</code>.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-4-1">4.1 Pull-Pattern Withdraw — Recommended v2.1 Refactor</h3>
+<p>Three of the HIGH-severity rows above (recipient revert, Circle pause, Circle blocklist) all share a common fix: convert the push-pattern disbursement in <code>finalize</code>/<code>closeCooperative</code> into a credit to <code>mapping(address =&gt; uint256) pendingWithdrawals[token]</code>, with a separate <code>withdraw(token)</code> entry point. This isolates failed-recipient liability to that party only, and lets the un-blocklisted counterparty exit even while the blocklisted side stays stuck. Tracked as <strong>v2.1</strong>, not GA blocker (operator-side mitigation: don't operate during a USDC pause is a documentation answer, not an in-contract one).</p>
+
+<h3 id="sec-4-2">4.2 Operational Dependencies</h3>
+<ul>
+  <li><strong>USDC on Taiko mainnet:</strong> Circle-issued native USDC contract address pinned in <code>packages/protocol/src/constants.ts</code>. Verify deployment address matches Circle's announced address before mainnet hub launch.</li>
+  <li><strong>ETH gas reserves:</strong> Hub + watchtower both need ETH to submit on-chain transactions (topUp, dispute, penalty, finalize). Hot-wallet monitoring and topup runbook required — see §6.</li>
+  <li><strong>Decimals in CLI/SDK:</strong> User-facing amounts in CLI commands accept human-readable decimals; SDK normalizes to <code>uint256</code> wei (ETH) or 6-decimal units (USDC). Verify formatter parity in <code>apps/cli/src/format.ts</code> and <code>packages/sdk/src/format.ts</code> for both decimal positions (TODO test: round-trip parse/format).</li>
+</ul>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-5"><span class="num">§5</span>Security &amp; Threat-Model Coverage</h2>
+
+<h3 id="sec-5-1">5.1 Threat-Model Coverage Matrix</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Threat</th><th>Mitigation in code</th><th>Test</th><th>Residual risk</th></tr></thead>
+    <tbody>
+      <tr><td>Stale-state submission</td><td><code>PaymentChannel.sol:525,529</code> <code>dispute</code> rejects ≤ posted version; <code>state-machine/src/replay.ts:3</code>; 24h <code>DISPUTE_WINDOW</code></td><td><code>state-machine/src/replay.test.ts:8-18</code></td><td>Eclipsed user with no live watchtower for 24h — <strong>operator gate</strong></td></tr>
+      <tr><td>State-skip (no <code>Update</code> wrapper)</td><td><code>state-machine/src/channel.ts:22,34</code> rejects cross-channel + non-monotonic</td><td><code>channel.test.ts</code> + <code>replay.test.ts</code></td><td>None reachable on-chain</td></tr>
+      <tr><td>HTLC double-spend (v2)</td><td>Merkle proof + <code>verifyPreimage</code> (<code>HTLC.sol:33</code>); conservation invariant; <code>_verifyHtlcMembership</code> direction guard</td><td><code>e2e/src/scenarios.test.ts</code>; forge 181/181</td><td><code>HtlcClaimed</code> preimage emission is a deliberate v2 privacy trade-off; PTLCs deferred</td></tr>
+      <tr><td>Dust grief</td><td><code>PaymentChannel.sol:281</code> <code>amount&lt;min</code>; per-token floor at <code>:141, :231</code></td><td>contract tests</td><td>Tokens added without a seeded floor accept any non-zero amount — operator must set floor at <code>setTokenAllowed</code></td></tr>
+      <tr><td>Malicious hub — steal in-flight</td><td>Atomic HTLC preimage settlement; SDK admit gates <code>sdk/src/client.ts:20-23,348,586,744,869</code></td><td>F-01/F-07 (audit-status.md)</td><td>None for safety; liveness griefing is fundamental</td></tr>
+      <tr><td>Hub fee inflation</td><td>SDK uses <code>DEFAULT_HUB_FEE_BPS/FLAT</code> (<code>sdk/src/client.ts:111</code>)</td><td><code>constants.test.ts</code></td><td>H-10 patched-not-reaudited — hub-advertised fee policy not implemented</td></tr>
+      <tr><td>Network partition / eclipse</td><td>Watchtower redundancy + 24h window</td><td><code>watchtower/recovery.test.ts</code> 14/14</td><td>Single-watchtower deploys exposed; protocol-spec recommends 2-of-3 but no code-side enforcement</td></tr>
+      <tr><td>Chain reorg</td><td>≥12-block confirmations; <code>chainId</code> pinned in EIP-712; <code>hub/chain-watcher.ts</code> <code>rewindForReorg</code></td><td><code>watchtower/watcher.test.ts</code></td><td>Watchtower Fly manifest lacks litestream sidecar (issue #21 newly discovered gap)</td></tr>
+      <tr><td>Watchtower offline</td><td>Litestream restore (<code>infra/litestream/</code>); <code>watchtower/responder.ts:111-145</code> rebroadcast</td><td><code>recovery.test.ts</code></td><td><strong>Watchtower Fly deploy has NO litestream process</strong> — DB loss = unrecoverable <code>in_flight_txs</code></td></tr>
+      <tr><td>Privacy</td><td><code>docs/privacy.md</code> + PR #90 helpers</td><td>not e2e-wired</td><td>Stealth addresses, recipient rotation, ephemeral Nostr pubkeys all scaffolded but not in <code>ChannelClient</code></td></tr>
+      <tr><td>Malicious DVM</td><td>HTLC preimage-gated payment; <code>paymentHash</code> pinning client-side</td><td>SDK tests</td><td>DVM delivery dispute out of channel scope</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-5-2">5.2 AI-Agent-Specific Threats (uncovered)</h3>
+<p>The v1 framing positions the CLI as the agent runtime surface. This category is the <strong>largest uncovered risk class</strong>.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Threat</th><th>Status</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Prompt injection → unintended payment</td><td><span class="badge badge-crit">NO MITIGATION</span></td><td><code>apps/cli/src/commands/pay.ts:59-75</code> — zero confirmation prompts; hot key auto-decrypted via env passphrase</td></tr>
+      <tr><td>LLM hallucinated recipient</td><td><span class="badge badge-crit">NO MITIGATION</span></td><td>No recipient checksum / address-book / confirm prompt; <code>pay --to 0xRecipient --amount 0.05</code> ships immediately</td></tr>
+      <tr><td>Agent runaway spend</td><td><span class="badge badge-crit">NO LIMITS</span></td><td>No rate limit, no daily cap, no per-payment cap. <code>MAX_HTLC_VALUE_PER_COUNTERPARTY = 100 USDC</code> is a channel-side cap, not an agent spend cap</td></tr>
+      <tr><td>Hot key on disk</td><td><span class="badge badge-ok">ADEQUATE</span></td><td>scrypt + xsalsa20-poly1305 (<code>cli/commands/keys.ts:194</code>); 0o600 + fsync; decrypted key held in process memory; no HSM/TEE path</td></tr>
+      <tr><td>Replay across CLI invocations</td><td><span class="badge badge-med">PARTIAL</span></td><td>Invoice replay protected (<code>client.ts:379</code>); <strong>keysend has no equivalent replay guard</strong></td></tr>
+      <tr><td>Argv private-key leak</td><td><span class="badge badge-high">OPEN</span></td><td><code>--private-key &lt;hex&gt;</code> still accepted in production (<code>pay.ts:68</code>); F-06 documents "argv-key rejection in production not yet enforced"</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-5-3">5.3 Compliance / Regulatory Posture</h3>
+<ul>
+  <li><strong>OFAC / sanctions:</strong> zero code matches for OFAC / sanctions / blocklist in app code (only forge-std test fixtures). No hub-side or SDK-side sanctions screening on <code>--to</code> addresses. USDC contract enforces blocklist (causes <code>transfer</code> revert at withdrawal/finalize) but pico has no graceful detection or user-facing comms.</li>
+  <li><strong>USDC blocklist propagation:</strong> if a hub hot wallet is blocklisted mid-channel, ETH withdrawals work but USDC settlement reverts. <strong>No runbook</strong>; <code>dispute-response.md</code> doesn't cover this.</li>
+  <li><strong>Hub operator regulatory exposure:</strong> no MTL/MSB/VASP positioning documented. Hub is a custodial relay for stablecoin payments — likely money-transmitter posture in US/EU. <code>SECURITY.md</code> + runbooks make no compliance claims.</li>
+  <li><strong>User KYC:</strong> not defined. README §"Hard constraints" doesn't mention KYC posture. Acceptable for L2 micropayments target market but undocumented.</li>
+  <li><strong>Tax reporting hooks:</strong> no event surface for tax export.</li>
+</ul>
+<p>These are policy gaps, not code bugs, but should be addressed in <code>SECURITY.md</code> or a new <code>COMPLIANCE.md</code> before public marketing.</p>
+
+<h3 id="sec-5-4">5.4 Disclosure Path</h3>
+<ul>
+  <li><code>SECURITY.md:20-21</code> references <code>&lt;PICO_PGP_FINGERPRINT_TODO&gt;</code>; <code>pgp-key.asc.placeholder</code> still present. CI lint (<code>.github/workflows/security-md-lint.yml</code>) enforces atomic update, <strong>but no operator has run the GPG steps</strong>.</li>
+  <li>SLA defined (90-day default embargo). Hall of fame empty.</li>
+  <li><strong>No paid bounty</strong> ("may be retroactively rewarded subject to board approval"). For a fund-custody system, this is below industry norm.</li>
+  <li>No safe-harbor language. No defined scope tiers (critical/high/medium reward levels).</li>
+  <li>No CVE pre-assignment process; no embargo escalation path if reporter goes rogue.</li>
+  <li>External disclosure list = only <code>@dantaik</code>. Single point of contact.</li>
+</ul>
+
+<h3 id="sec-5-5">5.5 Documentation Gaps</h3>
+<ul>
+  <li><strong>Protocol spec §10 broken reference:</strong> <code>docs/release-notes-v2.md:113</code> cites "<code>docs/protocol-spec.md §10</code>" for PTLC / multi-token-pair watchtower work; spec ends at §8 (<code>protocol-spec.md:561</code>). Add §9 Privacy roadmap + §10 Future work, or fix the citation.</li>
+  <li><strong>ARCHITECTURE.md is v1-shaped:</strong> dispute flow description (lines 78-86) does not mention v2 <code>Status.ResolvingHtlcs</code>, <code>claimHtlc</code>/<code>refundHtlc</code>, or HTLC-set persistence requirement. Out of sync with <code>release-notes-v2.md:13-19</code>.</li>
+  <li><strong><code>audit-status.md:36</code> conflict:</strong> says 1 Open (PC-09); issue #21 narrative tracks 2 (PC-09 + H-10/H-11 follow-up). Reconcile.</li>
+  <li><strong>No <code>COMPLIANCE.md</code>; no <code>THREAT_MODEL_AI.md</code></strong> for the AI-agent surface specifically.</li>
+</ul>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-6"><span class="num">§6</span>Operations &amp; Runbook Readiness</h2>
+
+<h3 id="sec-6-1">6.1 Operator Gates (from <code>docs/launch-log.md</code> + issue #21)</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Gate</th><th>Status</th><th>Owner</th><th>Effort</th><th>GA Blocker?</th></tr></thead>
+    <tbody>
+      <tr><td>Current owner custody (<code>launch-log.md:8</code>)</td><td><span class="cross">PENDING</span></td><td>@dantaik</td><td>&lt;1d</td><td><span class="badge badge-crit">YES — PC-09</span></td></tr>
+      <tr><td>Deployer EOA retirement (<code>:16</code>)</td><td><span class="cross">PENDING</span></td><td>@dantaik</td><td>&lt;1d</td><td><span class="badge badge-crit">YES</span></td></tr>
+      <tr><td>Production restore drill (<code>:27</code>)</td><td><span class="cross">PENDING</span></td><td>infra</td><td>1d</td><td><span class="badge badge-crit">YES — Phase C</span></td></tr>
+      <tr><td>Paging drill (<code>:35</code>)</td><td><span class="cross">PENDING</span></td><td>ops</td><td>&lt;1d</td><td><span class="badge badge-crit">YES — Phase C</span></td></tr>
+      <tr><td>Security disclosure drill (<code>:42</code>)</td><td><span class="cross">PENDING</span></td><td>@dantaik</td><td>1d</td><td><span class="badge badge-crit">YES — Phase D</span></td></tr>
+      <tr><td>Real-USDC mainnet smoke (<code>:50</code>)</td><td><span class="cross">PENDING</span></td><td>@dantaik</td><td>1d</td><td><span class="badge badge-crit">YES — Phase B</span></td></tr>
+      <tr><td>Round-2 ETH+PTST smoke (<code>:57</code>)</td><td><span class="partial">PARTIAL</span></td><td>@dantaik</td><td>2d</td><td><span class="badge badge-high">YES (hub indexer + CLI/SDK ETH)</span></td></tr>
+    </tbody>
+  </table>
+</div>
+<p><strong>Gates missed in <code>launch-log.md</code> but tracked under issue #21 (newly discovered gaps):</strong></p>
+<ul>
+  <li>Watchtower Fly litestream sidecar absent (<code>infra/fly/watchtower/fly.toml</code>)</li>
+  <li>Hub Fly litestream retention 168h vs required 720h (<code>infra/fly/hub/litestream.yml</code>)</li>
+  <li><code>ChainEventWatcher.__forFlush()</code> test-only public export (<code>apps/watchtower/src/watcher.ts:179</code>)</li>
+  <li><code>e2e-fork</code> not in CI gate <code>needs</code> (<code>.github/workflows/ci.yml:219</code>)</li>
+  <li>Single CODEOWNER (<code>@dantaik</code>) — bus-factor risk</li>
+  <li>Metrics bind <code>127.0.0.1</code> vs GKE Prometheus scrape requirement</li>
+  <li>Alertmanager v0.27.0 crash on webhook (MAG-INF-005); manifest upgraded, rollout pending</li>
+  <li>External human audit firm (Spearbit/ToB/Cantina) — Phase B 0/4</li>
+</ul>
+<p>Issue #21 overall: <strong>7/29 launch items (24%) complete</strong>; ~45% production-ready.</p>
+
+<h3 id="sec-6-2">6.2 Runbook Inventory</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Runbook</th><th>DRAFT?</th><th>Phantom metrics?</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>README.md</code> (index)</td><td><span class="partial">DRAFT</span></td><td>—</td><td>"Treat each as fill-in-the-blanks until mainnet smoke channel signs off"</td></tr>
+      <tr><td><code>hub-incident.md</code></td><td><span class="partial">DRAFT</span></td><td>Yes — <code>pico_hub_chain_watcher_lag_blocks</code> not defined</td><td><code>TODO(contact)</code> at <code>:8</code>; references Fly.io commands alongside GKE (leftover from migration)</td></tr>
+      <tr><td><code>watchtower-down.md</code></td><td><span class="partial">DRAFT</span></td><td>Yes — <code>pico_watchtower_oldest_pending_tx_age_ms</code>, <code>pico_watchtower_pending_tx_count</code>, <code>pico_watchtower_submission_failed_total</code> not defined</td><td><code>TODO(contact)</code> at <code>:9</code></td></tr>
+      <tr><td><code>dispute-response.md</code></td><td><span class="partial">DRAFT</span></td><td>—</td><td><code>TODO(contact)</code> at <code>:11</code>; shows <code>cast send</code> example but no key-access flow</td></tr>
+      <tr><td><code>key-rotation.md</code></td><td><span class="partial">DRAFT</span></td><td>Yes — same phantom metric</td><td>Paging not set</td></tr>
+      <tr><td><code>backup-restore.md</code></td><td><span class="check">non-DRAFT</span></td><td>—</td><td>Walks restore but no RTO/RPO targets</td></tr>
+      <tr><td><code>ownership-transfer.md</code></td><td><span class="check">non-DRAFT</span></td><td>—</td><td>—</td></tr>
+      <tr><td><code>security-disclosure.md</code></td><td><span class="check">non-DRAFT</span></td><td>—</td><td>Setup steps :33-40 pending execution</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-6-3">6.3 Missing Playbooks</h3>
+<ul>
+  <li><strong>Hub key compromise</strong> — subsumed under generic <code>key-rotation.md</code>; no dedicated rotation + revocation + chain-side response playbook</li>
+  <li><strong>Watchtower key compromise</strong> — same</li>
+  <li><strong>RPC outage / poisoning</strong> — mentioned in <code>hub-incident.md:25</code> "fail over to secondary RPC"; no detection playbook for partial-RPC poisoning or wrong-chain RPC</li>
+  <li><strong>Taiko L2 reorg &gt; 12 blocks</strong></li>
+  <li><strong>USDC blocklist incident</strong> (Circle freezing hub hot wallet)</li>
+  <li><strong>Hub hot wallet drain</strong> (depositor reserve loss)</li>
+  <li><strong>Dispute storm</strong> (&gt; N simultaneous unilateral closes; watchtower nonce starvation)</li>
+  <li><strong>False-positive penalty submission</strong> (watchtower slashes a legitimate state)</li>
+  <li>No escalation matrix beyond "@dantaik 24/7"</li>
+  <li>No rollback procedure for v2 → v2.x contract upgrades</li>
+  <li>No communication templates (user-facing incident comms, status page text, post-mortem)</li>
+  <li>No drill log / schedule besides quarterly disclosure mention</li>
+</ul>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-7"><span class="num">§7</span>Competitive Study Refresh</h2>
+<p>Existing <code>docs/competitive-analysis.html</code> compares pico against Raiden, Connext, Perun, Lightning, Visa/Mastercard, Ripple/XRP. Below is a May-2026 refresh: stale entries updated and new categories added. A separate ready-to-apply HTML patch updates the comparison file (see <a href="#sec-10">Appendix A.2</a>).</p>
+
+<h3 id="sec-7-1">7.1 Stale Entries — May 2026 Updates</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>System</th><th>Old claim</th><th>May 2026 reality</th><th>Impact on pico</th></tr></thead>
+    <tbody>
+      <tr><td>Lightning</td><td>"BTC + stablecoin plugins"; "~8M tx/month"; "$280M cap"</td><td><strong>USDT live via Taproot Assets Mar 21, 2026</strong> (Tether + Lightning Labs). Capacity ~$490M (~5,637 BTC) at Dec 2025 peak; ~17k public nodes; ~40k channels. Amboss estimates ~$10B/yr volume.</td><td><strong>Pico's "USDC-native vs BTC-only" moat narrows.</strong> Lightning is now a direct stablecoin competitor.</td></tr>
+      <tr><td>Raiden</td><td>"Live (minimal adoption)"</td><td>Effectively <strong>dormant</strong>. Last major release 2021. Team reworking to sit on top of rollups.</td><td>Change badge to <code>tag-dormant</code>.</td></tr>
+      <tr><td>Connext / Everclear</td><td>"Live $71.9M TVL · pivoted"</td><td>Fully rebranded to <strong>Everclear</strong>; clearing layer for intent bridges. Channels deprecated. Token CLEAR (was NEXT).</td><td>Not a state-channel competitor any more; keep for historical context.</td></tr>
+      <tr><td>XRP Ledger</td><td>"XRP only"; "payment channels undocumented"</td><td><strong>RLUSD launched Dec 10, 2025</strong>; ~$293M cap on XRPL ($1.26B total). <strong>Mastercard pilot Nov 6, 2025</strong> settles credit cards via XRPL/RLUSD. EVM sidechain launched Q2 2025.</td><td>"XRP gas required / no stablecoin" critique is weaker.</td></tr>
+      <tr><td>Perun / Nitro</td><td>"Research-grade"</td><td>Unchanged. go-perun "neither ready for production." Nitro docs unchanged since ~2019.</td><td>Confirm as research, not threat.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-7-2">7.2 New Systems to Add</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>System</th><th>Chain</th><th>Model</th><th>Fee (~$1)</th><th>Status</th><th>AI-agent positioning</th><th>Threat</th></tr></thead>
+    <tbody>
+      <tr><td><strong>x402 (Coinbase)</strong></td><td>Base, Solana, Polygon, Stellar, SKALE</td><td>HTTP 402 + facilitator</td><td>~$0.0001 + ~0% protocol fee</td><td><strong>Live</strong>, 169M+ tx in year 1 · ~$600M annualized vol</td><td>AWS Bedrock AgentCore Payments integration May 2026</td><td><span class="badge badge-crit">HIGH</span></td></tr>
+      <tr><td><strong>Stripe MPP / x402</strong></td><td>Stellar, Tempo, Base</td><td>Session pre-auth + streamed micro-payments</td><td>~$0.0001</td><td><strong>Live</strong> Feb 2026; Stripe-funded</td><td>Stripe Agent Toolkit + Privy wallets for agents</td><td><span class="badge badge-crit">HIGH</span></td></tr>
+      <tr><td><strong>Solana Pay.sh</strong></td><td>Solana</td><td>Direct USDC per call</td><td>~$0.005</td><td><strong>Live</strong> Apr 2026; Solana Foundation + Google Cloud; 75+ APIs</td><td>Pay.sh marketplace integrates Gemini/BigQuery/Vertex</td><td><span class="badge badge-crit">HIGH</span></td></tr>
+      <tr><td><strong>AgentCore Payments</strong></td><td>USDC on Base + Solana</td><td>Bedrock-native agent wallet</td><td>—</td><td>GA May 2026 (AWS + Coinbase + Stripe)</td><td>Native agent runtime payments</td><td><span class="badge badge-crit">HIGH</span></td></tr>
+      <tr><td><strong>SKALE Expand on Base</strong></td><td>L3 on Base</td><td>Gasless x402 + ERC-8004 trustless agents</td><td>$0 user-facing</td><td><strong>Live</strong> Nov 2025; v4 Jan 2026; Private MPPs Mar 27, 2026</td><td>PayAI, HTTPayer, Khorus, Dexter AI deployed</td><td><span class="badge badge-high">MEDIUM</span></td></tr>
+      <tr><td><strong>Stellar (x402 + MPP)</strong></td><td>Stellar</td><td>Direct tx + Soroban-native MPP sessions</td><td>~$0.00001 XLM</td><td><strong>Live</strong>; MPP-native</td><td>MPP co-built by Stripe + Tempo</td><td><span class="badge badge-med">MEDIUM</span></td></tr>
+      <tr><td><strong>Celo (L2)</strong></td><td>Ethereum L2 (OP Stack + EigenDA)</td><td>Direct ERC-20 tx; MiniPay UX</td><td>&lt;$0.001</td><td><strong>Live</strong>; &gt;$65B stablecoin volume since L2 migration Mar 2025; 11M MiniPay wallets; 840k DAU</td><td>Stripe Bridge API integration May 2026</td><td><span class="badge badge-med">MEDIUM</span> (mobile-first, not agent-first)</td></tr>
+      <tr><td><strong>Polygon (x402)</strong></td><td>Polygon PoS / zkEVM (sunset Jul 1, 2026)</td><td>Direct USDC tx with x402 + Polygon Agent CLI</td><td>~$0.001</td><td>Live</td><td>Polygon Agent CLI for AI agents</td><td><span class="badge badge-med">MEDIUM</span></td></tr>
+      <tr><td>Noble / Cosmos IBC</td><td>Cosmos appchains via IBC</td><td>Native USDC issuance, IBC transfer</td><td>&lt;$0.01</td><td>Migrating (Noble going EVM L1)</td><td>Not agent-focused</td><td><span class="badge badge-low">LOW</span></td></tr>
+      <tr><td>Hyperliquid / Lighter</td><td>HyperEVM / Lighter L2</td><td>Orderbook (not payments)</td><td>N/A</td><td>Live</td><td>Different market</td><td><span class="badge badge-low">LOW</span></td></tr>
+      <tr><td>Sablier / Superfluid</td><td>EVM multi-chain</td><td>Per-second streaming</td><td>Setup cost only</td><td>Live (niche)</td><td>Payroll/vesting, not API metering</td><td><span class="badge badge-low">LOW</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-7-3">7.3 Strategic Insights</h3>
+<h4>Where pico wins</h4>
+<ol>
+  <li><strong>Trustless HTLC settlement.</strong> Every x402-style direct-tx competitor settles on-chain per payment → gas cost per tx at scale. Pico amortizes gas across thousands of in-channel updates.</li>
+  <li><strong>Sub-cent unit economics at sustained rates.</strong> 1M-call API session ≈ $200 in pico fees (0.02% × $1M); same on Solana Pay ≈ $5,000; on Base x402 ≈ $100–200 in L1 fees alone over time.</li>
+  <li><strong>Deterministic 1-hop routing.</strong> No facilitator-discovery overhead like x402; no congestion failures like Solana under load.</li>
+  <li><strong>No facilitator counterparty.</strong> x402 requires Coinbase/Stripe/Cloudflare; pico hub is structurally non-custodial (HTLCs).</li>
+  <li><strong>No protocol token / no governance.</strong> Real moat vs SKALE (SKL), Connext (CLEAR), Hyperliquid (HYPE).</li>
+</ol>
+
+<h4>Where pico loses</h4>
+<ol>
+  <li><strong>Adoption gap is structural.</strong> x402 = 169M+ tx, ~$600M annualized; pico is pre-GA. The narrative race is over — pico must compete on TCO at high volume, not on standard-setting.</li>
+  <li><strong>No facilitator discovery.</strong> x402 is a discovery layer; agents find paid APIs through Coinbase/AWS marketplace. Pico has no equivalent.</li>
+  <li><strong>Taiko vs Base/Solana/Stellar in TVL &amp; developer mindshare.</strong> Base + Solana are where x402 settles. Taiko's stablecoin TVL is materially smaller.</li>
+  <li><strong>No streaming/session model surfaced.</strong> Stripe MPP (Feb 2026) standardised session pre-auth + streamed micro-payments — semantically what pico channels already do, but not marketed that way.</li>
+  <li><strong>No ERC-8004 trustless-agent identity.</strong> SKALE shipped this Jan 2026.</li>
+  <li><strong>Privacy gap widens.</strong> SKALE Private MPPs (Mar 27, 2026) hide on-chain amounts; pico has no privacy story.</li>
+</ol>
+
+<div class="verdict-box warn">
+  <h4>Single most pressing threat: x402 (+ its ecosystem)</h4>
+  <p>x402 wraps Coinbase + AWS Bedrock AgentCore + Stripe + Cloudflare into a single de-facto agent-payment standard. It will be the default for AI agent payments in 2026. <strong>Pico cannot win the standard-setting race</strong>; it must position as the <em>channel-layer backend</em> underneath x402 for high-frequency callers. Concretely: ship an x402-compatible facilitator endpoint on top of pico channels so x402 calls settle through the user's open pico channel when both parties have one. This converts x402 from competitor to distribution.</p>
+</div>
+
+<h4>Recommended pico positioning shifts</h4>
+<ul>
+  <li>"Pico is the channel-layer accelerator for x402 / MPP." Frame pico as complementary infrastructure, not a competitor.</li>
+  <li>Document pico channels as MPP-compatible sessions: pre-authorized spend, streamed micro-payments, deterministic settle.</li>
+  <li>Concrete TCO table at scale: 1M API calls = $200 on pico vs $5,000 on Solana Pay vs $200 + $X facilitator-fee on x402.</li>
+  <li>Drop "competing with Lightning" framing. Lightning now has USDT (Taproot Assets); head-to-head on stablecoin liquidity is unwinnable. Pivot to "pico is to Taiko what Lightning was to Bitcoin — but for sustained high-frequency callers on EVM."</li>
+</ul>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-8"><span class="num">§8</span>Feature &amp; Roadmap Recommendations</h2>
+
+<h3 id="sec-8-1">8.1 Must-Have Before GA</h3>
+<ol>
+  <li><strong>Spec ↔ code reconciliation</strong> — N-01, N-02, N-03 (§1.2). 30 min — 1 hr of doc edits. Block any external SDK author until done.</li>
+  <li><strong>Fix runtime concurrency &amp; durability</strong> — R-01 (outgoing-channel race), R-02 (orphan state). 2–3 days.</li>
+  <li><strong>Harden hub WS surface</strong> — R-03: <code>maxPayload</code>, rate limit, connection cap. 1 day.</li>
+  <li><strong>Define missing Prometheus metrics</strong> referenced by runbooks (<code>chain_watcher_lag_blocks</code>, <code>watchtower_oldest_pending_tx_age_ms</code>, etc.). 3 days.</li>
+  <li><strong>Hot-wallet observability</strong> — ETH balance gauge for hub + watchtower; critical alerts. 2 days.</li>
+  <li><strong>Cloud Armor + SSL policy</strong> on hub Ingress. 1 day.</li>
+  <li><strong>PodDisruptionBudgets + secure container context</strong> — readOnlyRoot, capabilities drop, allowPrivilegeEscalation:false. 1 day.</li>
+  <li><strong>Transfer contract ownership to TimelockController(48h) + Safe</strong>; retire deployer EOA (closes PC-09). 1 day ops.</li>
+  <li><strong>AI-agent spend controls</strong> — daily cap, per-payment cap, recipient confirm flow; remove <code>--private-key</code> in production builds. 2 days.</li>
+  <li><strong>Real-USDC mainnet smoke + fork tests against Taiko USDC</strong>. 2 days.</li>
+  <li><strong>Engage external auditor</strong> (Spearbit / Trail of Bits / Cantina) before mainnet GA. 4–6 weeks calendar.</li>
+  <li><strong>Publish real PGP key + finish security disclosure drill</strong>. 1 day.</li>
+  <li><strong>Finalize 4 DRAFT runbooks; add missing playbooks</strong> for hub/WT key compromise, USDC blocklist, hot-wallet drain, dispute storm, false-positive penalty. 3–5 days.</li>
+  <li><strong>Restore drill against production R2 replica</strong> + RTO/RPO defined. 1–2 days.</li>
+  <li><strong>Add second CODEOWNER + paging rotation</strong> (bus-factor). 1 day.</li>
+</ol>
+
+<h3 id="sec-8-2">8.2 High-Priority Post-GA (3 months)</h3>
+<ol>
+  <li><strong>Pull-pattern withdraw refactor</strong> (v2.1) — credits to <code>pendingWithdrawals[token]</code> + <code>withdraw(token)</code>; isolates failed-recipient liability and handles Circle pause/blocklist gracefully. 1 week.</li>
+  <li><strong>x402-compatible facilitator endpoint</strong> on top of pico channels — convert x402 competitor traffic into pico-channel traffic for sustained callers. 2–3 weeks. <strong>Strategic.</strong></li>
+  <li><strong>MPP-compatible session model</strong> — document pico channels as Stripe MPP sessions; add a session-pre-auth wrapper. 1 week.</li>
+  <li><strong>Canary / blue-green deploy</strong> (Argo Rollouts), automated rollback. 1 week.</li>
+  <li><strong>Image signing</strong> (cosign) + SBOM (syft) + Trivy scanning + Dependabot config. 3 days.</li>
+  <li><strong>Hub-advertised fee policy</strong> — finish H-10; clients respect hub's <code>/v1/info</code> fees. 3 days.</li>
+  <li><strong>Watchtower active/standby</strong> + wallet-level mutex; track block-hash on observations for reorg handling. 1 week.</li>
+  <li><strong>Wire <code>lockOrder</code> or delete</strong> (R-08); persist keysend keypair (R-09); free <code>KeyedMutex</code> entries (R-07). 1 day total.</li>
+  <li><strong>HA Alertmanager</strong> (3 replicas, gossip); real PagerDuty/Opsgenie/Slack receivers. 2 days.</li>
+  <li><strong>Cloud Logging export</strong> with PII scrubbing; SLO log retention. 2 days.</li>
+  <li><strong>Coverage thresholds in CI</strong>: 80% contracts, 75% TS. 1 day.</li>
+  <li><strong>Forge fork tests in CI</strong> against Taiko mainnet USDC. 1 day.</li>
+  <li><strong>COMPLIANCE.md</strong>: OFAC posture, blocklist handling, MSB stance, tax export, KYC stance. 2 days.</li>
+  <li><strong>SECURITY.md bug-bounty program</strong>: scope, severity tiers, safe-harbor language, funded reward pool. 1 week (legal).</li>
+  <li><strong>Regional PD or documented single-zone RTO</strong>. 1 day.</li>
+</ol>
+
+<h3 id="sec-8-3">8.3 Feature Additions to Consider</h3>
+<ul>
+  <li><strong>EIP-2612 <code>permit</code> support</strong> on <code>openChannel</code> and <code>topUp</code> — one-tx UX for USDC and other permit-enabled tokens. v2.1.</li>
+  <li><strong>Per-token <code>maxPerCounterpartyValue</code></strong> via env config; expose on <code>/v1/info</code>.</li>
+  <li><strong>Safe-controlled <code>Pausable</code> on <code>openChannel</code> + <code>topUp</code></strong> (NOT on finalize/dispute/closeCooperative — funds must always escape). For fast Circle-blocklist response.</li>
+  <li><strong>PTLCs</strong> (secp256k1 point HTLCs) replacing SHA-256 HTLCs — closes the <code>HtlcClaimed</code> preimage correlation oracle. v2.x.</li>
+  <li><strong>Stealth addresses wired in <code>ChannelClient</code></strong> — break chain-graph analysis. Scaffold exists at <code>sdk/src/stealth.ts</code>.</li>
+  <li><strong>Fee bucketing wired into hub router</strong> — privacy. Scaffold exists at <code>hub/src/fee-policy.ts</code>.</li>
+  <li><strong>Python SDK</strong> — second-priority client (after CLI/TS) — broadens AI-agent reach.</li>
+  <li><strong>x402 facilitator compatibility</strong> + AgentCore Payments adapter (strategic).</li>
+  <li><strong>Streaming receipts / micropayment session model</strong> — surface pico channels as MPP-compatible sessions.</li>
+  <li><strong>ERC-8004 trustless-agent identity</strong> — match SKALE's offering.</li>
+</ul>
+
+<h3 id="sec-8-4">8.4 Business &amp; Adoption</h3>
+<p><strong>Positioning shift</strong> (from §7.3): "Pico is the channel-layer accelerator for x402 / MPP — for sustained, high-frequency agent → API callers." Not a competitor to x402; a backend that x402 calls route through when both parties have an open channel.</p>
+<p><strong>Target use cases</strong>: AI-agent → API metering (LangChain, CrewAI, ElizaOS, AgentCore), DVM/client payments, micro-tipping.</p>
+<p><strong>Key integrations to ship</strong>: x402 facilitator adapter; LangChain payment tool; AgentCore Payments connector; Nostr DVM publisher.</p>
+<p><strong>Concrete TCO table</strong> for marketing: 1M API calls = $200 on pico vs ~$5,000 on Solana Pay vs $200 + $X facilitator-fee on x402.</p>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-9"><span class="num">§9</span>Action Plan &amp; Timeline</h2>
+
+<div class="verdict-box">
+  <h4>Estimated time to GA: 5–8 weeks</h4>
+  <p>Two parallel critical paths: (a) <strong>code fixes</strong> (N-01, R-01, R-02, R-03, missing metrics, AI-agent controls) — 2 weeks engineering; (b) <strong>operator gates + external audit + GKE hardening</strong> — 4–6 weeks calendar. Items below are sized for one full-time engineer plus operator availability for drills.</p>
+</div>
+
+<h3 id="sec-9-1">9.1 GA Blockers — Prioritized</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th>Item</th><th>Severity</th><th>Effort</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Spec ↔ code reconciliation (N-01 domain version, N-02 ChannelState fields, N-03 §5.2 contradiction)</td><td><span class="badge badge-crit">CRIT</span></td><td>1 hr</td><td>Protocol</td></tr>
+      <tr><td>2</td><td>Fix outgoing-channel race in <code>handlePay</code> (R-01)</td><td><span class="badge badge-crit">CRIT</span></td><td>1 day</td><td>Hub</td></tr>
+      <tr><td>3</td><td>Move outgoing state write into payment DB transaction (R-02)</td><td><span class="badge badge-high">HIGH</span></td><td>0.5 day</td><td>Hub</td></tr>
+      <tr><td>4</td><td>Add WS <code>maxPayload</code>, rate limit, connection cap (R-03)</td><td><span class="badge badge-high">HIGH</span></td><td>1 day</td><td>Hub</td></tr>
+      <tr><td>5</td><td>Define missing Prometheus metrics + add hot-wallet ETH balance gauge</td><td><span class="badge badge-crit">CRIT</span></td><td>3 days</td><td>Runtime + Infra</td></tr>
+      <tr><td>6</td><td>Cloud Armor + SSL policy MODERN/RESTRICTED + HSTS on hub Ingress</td><td><span class="badge badge-high">HIGH</span></td><td>1 day</td><td>Infra</td></tr>
+      <tr><td>7</td><td>Add PDBs + container readOnlyRoot, capabilities drop, allowPrivilegeEscalation:false</td><td><span class="badge badge-high">HIGH</span></td><td>0.5 day</td><td>Infra</td></tr>
+      <tr><td>8</td><td>Mount private keys as files (0400) not env vars</td><td><span class="badge badge-high">HIGH</span></td><td>1 day</td><td>Infra + Hub</td></tr>
+      <tr><td>9</td><td>Add Trivy + syft + cosign signing + Dependabot in CI</td><td><span class="badge badge-high">HIGH</span></td><td>1 day</td><td>Infra</td></tr>
+      <tr><td>10</td><td>AI-agent spend controls (daily cap, per-tx cap, recipient confirm); reject <code>--private-key</code> in prod</td><td><span class="badge badge-crit">CRIT</span></td><td>2 days</td><td>CLI/SDK</td></tr>
+      <tr><td>11</td><td>Transfer ownership to TimelockController(48h) + Safe; retire deployer EOA (PC-09)</td><td><span class="badge badge-crit">CRIT</span></td><td>1 day</td><td>Ops</td></tr>
+      <tr><td>12</td><td>Real PGP key publication + complete disclosure drill</td><td><span class="badge badge-high">HIGH</span></td><td>1 day</td><td>Ops</td></tr>
+      <tr><td>13</td><td>Finalize 4 DRAFT runbooks; add 6 missing playbooks; fire-test paging</td><td><span class="badge badge-high">HIGH</span></td><td>4 days</td><td>Ops</td></tr>
+      <tr><td>14</td><td>Production restore drill from R2 replica; document RTO/RPO</td><td><span class="badge badge-high">HIGH</span></td><td>1.5 days</td><td>Ops</td></tr>
+      <tr><td>15</td><td>Real-USDC + real-ETH mainnet smoke test</td><td><span class="badge badge-crit">CRIT</span></td><td>1 day</td><td>Ops</td></tr>
+      <tr><td>16</td><td>Engage external auditor (Spearbit / ToB / Cantina) — Phase B</td><td><span class="badge badge-crit">CRIT</span></td><td>4–6 wks calendar</td><td>Ops</td></tr>
+      <tr><td>17</td><td>Add 16 missing tests (R-prefixed + Agent A test gaps)</td><td><span class="badge badge-high">HIGH</span></td><td>5 days</td><td>QA</td></tr>
+      <tr><td>18</td><td>Watchtower wallet-level mutex (R-04); block-hash on observations (R-05); per-token cap config (R-06)</td><td><span class="badge badge-med">MED</span></td><td>2 days</td><td>Watchtower</td></tr>
+      <tr><td>19</td><td>Second CODEOWNER + paging rotation</td><td><span class="badge badge-high">HIGH</span></td><td>1 day</td><td>Ops</td></tr>
+      <tr><td>20</td><td>Watchtower Fly litestream sidecar parity (issue #21 gap 1)</td><td><span class="badge badge-high">HIGH</span></td><td>0.5 day</td><td>Infra</td></tr>
+    </tbody>
+  </table>
+</div>
+<p style="color: var(--muted); font-size: 0.85rem;">Total engineering effort: ~5 person-weeks. Calendar time gated by external auditor (4–6 weeks) and operator-only drills (~1 week). Item 16 can run in parallel with items 1–10.</p>
+
+<h3 id="sec-9-2">9.2 Suggested Week-by-Week</h3>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Week</th><th>Focus</th><th>Deliverables</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>Kickoff</td><td>Engage external auditor; create sub-issues from this audit; bus-factor CODEOWNER added</td></tr>
+      <tr><td>1</td><td>Code fixes</td><td>N-01/02/03 doc edits; R-01 race fix; R-02 durability fix; R-03 WS hardening; AI-agent spend controls (item 10)</td></tr>
+      <tr><td>2</td><td>Observability</td><td>Hot-wallet metrics; missing Prometheus metrics; Cloud Armor; PDBs; cosign + Trivy; container hardening</td></tr>
+      <tr><td>3</td><td>Tests + Ownership</td><td>Add missing tests (R-* + Agent A gaps); ownership transfer to Timelock + Safe; PGP key publication</td></tr>
+      <tr><td>4</td><td>Drills</td><td>Restore drill; paging drill; disclosure drill; finalize runbooks; second CODEOWNER active</td></tr>
+      <tr><td>5</td><td>Smoke + Polish</td><td>Real-USDC mainnet smoke (3–4 cycles); fix remaining DRAFT-runbook gaps; staging-prod parity</td></tr>
+      <tr><td>6–8</td><td>External audit window</td><td>Address auditor findings; finalize bug bounty program; pull-pattern withdraw (v2.1)</td></tr>
+      <tr><td>9–16 (post-GA)</td><td>Hardening + adoption</td><td>x402 adapter; MPP session model; canary deploys; Python SDK; PTLCs; ERC-8004 identity</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<h2 id="sec-10"><span class="num">§10</span>Appendix</h2>
+
+<h3 id="sec-10-1">A.1 Patched-Not-Reaudited Inventory (re-review targets)</h3>
+<p>From <code>docs/audit-status.md</code>: 16 findings marked "patched but not reaudited." A focused re-review pass should re-cite line numbers and verify each against current HEAD.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>ID</th><th>Area</th><th>Original finding</th></tr></thead>
+    <tbody>
+      <tr><td>H-10</td><td>Hub</td><td>SDK didn't honor hub-advertised fees — partial implementation</td></tr>
+      <tr><td>H-11</td><td>Hub</td><td>Liquidity reservation could trail durable state — authoritative liquidity-from-states still partial</td></tr>
+      <tr><td>H-12</td><td>Hub</td><td>Full FK/CHECK enum constraints partial</td></tr>
+      <tr><td>WTW-007</td><td>Watchtower</td><td>Encrypted-at-rest SQLite deferred to Phase 2</td></tr>
+      <tr><td>WTW-008</td><td>Watchtower</td><td><code>MODE=service</code> rejection</td></tr>
+      <tr><td>WTW-012</td><td>Watchtower</td><td>Health endpoint partial</td></tr>
+      <tr><td>F-02</td><td>SDK</td><td>Restart consistency gaps; subscribe-ack <code>pendingHtlcs</code> consumption partial</td></tr>
+      <tr><td>F-04</td><td>SDK</td><td>Hub message decoding too permissive — full per-kind schema validation not implemented</td></tr>
+      <tr><td>F-06</td><td>CLI</td><td>Argv private-key not rejected in production</td></tr>
+      <tr><td>EOD-03</td><td>E2E/Ops</td><td>DB-only restart not proven end-to-end</td></tr>
+      <tr><td>EOD-05</td><td>Ops</td><td>Runbooks partial; drills incomplete</td></tr>
+      <tr><td>EOD-07</td><td>CI</td><td>Coverage thresholds not enforced</td></tr>
+      <tr><td>EOD-08</td><td>Security</td><td>PGP key/fingerprint pending</td></tr>
+      <tr><td>EOD-10</td><td>Watchtower</td><td>Encryption-at-rest unclear</td></tr>
+      <tr><td>Runbooks</td><td>Docs</td><td>4 of 8 runbooks still marked DRAFT</td></tr>
+      <tr><td>Stale claims</td><td>Docs</td><td><code>audit-status.md</code> line numbers drift from current source</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="sec-10-2">A.2 Competitive Analysis HTML Patch</h3>
+<p>Apply these edits to <code>docs/competitive-analysis.html</code> to bring the comparison study current with the May-2026 landscape. The patch adds new badge styles, three new comparison rows (x402, Stripe MPP, AgentCore), corrects Lightning/Raiden/Connext/XRP status, and adds a new "4b — Agent-Payment Standards Landscape" section. Full HTML snippet sequence is delivered as part of this PR; see <code>docs/competitive-analysis.html</code> for the applied result.</p>
+
+<h3 id="sec-10-3">A.3 File Reference Quick Index</h3>
+<ul style="columns: 2; column-gap: 1.4rem;">
+  <li><code>packages/contracts/src/PaymentChannel.sol</code></li>
+  <li><code>packages/contracts/src/Adjudicator.sol</code></li>
+  <li><code>packages/contracts/src/HTLC.sol</code></li>
+  <li><code>packages/contracts/script/{Deploy,DeployTimelock,TransferOwnership}.s.sol</code></li>
+  <li><code>packages/protocol/src/{eip712,constants,htlc-root}.ts</code></li>
+  <li><code>packages/state-machine/src/{replay,channel,htlc-admission}.ts</code></li>
+  <li><code>packages/sdk/src/client.ts</code></li>
+  <li><code>apps/hub/src/api/ws.ts</code></li>
+  <li><code>apps/hub/src/{router,channel-pool,chain-watcher,mutex}.ts</code></li>
+  <li><code>apps/hub/src/db/{sqlite,migrations}.ts</code></li>
+  <li><code>apps/hub/src/db/repos/route-repo.ts</code></li>
+  <li><code>apps/watchtower/src/{responder,scheduler,storage,watcher,recovery}.ts</code></li>
+  <li><code>apps/cli/src/commands/{pay,listen,channel,keys}.ts</code></li>
+  <li><code>infra/k8s/{00..06}*.yaml</code></li>
+  <li><code>infra/k8s/{bootstrap-gcp,secrets-bootstrap,render-manifests}.sh</code></li>
+  <li><code>infra/litestream/{hub,watchtower}.yml</code></li>
+  <li><code>infra/monitoring/alerts.yml</code></li>
+  <li><code>.github/workflows/{ci,gke-images,deploy,backup-drill,backup-drill-prod,secret-scan}.yml</code></li>
+  <li><code>docs/protocol-spec.md</code> §0–§8</li>
+  <li><code>docs/threat-model.md</code></li>
+  <li><code>docs/launch-log.md</code></li>
+  <li><code>docs/audit-status.md</code></li>
+  <li><code>docs/runbooks/{README,hub-incident,watchtower-down,dispute-response,key-rotation,backup-restore,ownership-transfer,security-disclosure}.md</code></li>
+  <li><code>SECURITY.md</code>, <code>SECURITY_HALL_OF_FAME.md</code></li>
+</ul>
+
+<h3 id="sec-10-4">A.4 Methodology Notes</h3>
+<ul>
+  <li>5 audit agents run in parallel; each scoped to a different surface; results cross-referenced.</li>
+  <li>Web research for §7 sourced from official blog posts, foundation announcements, and DefiLlama/CoinDesk/The Block (May 2026).</li>
+  <li>Severity rubric: <strong>Critical</strong> = funds at risk / GA blocker; <strong>High</strong> = correctness gap or significant ops risk; <strong>Medium</strong> = defense-in-depth or non-fund-critical correctness; <strong>Low</strong> = polish.</li>
+  <li>"Verified" claims required at least one direct file:line citation. Where the prior audit's line numbers drifted, the current line numbers are cited (e.g., <code>dispute()</code> at <code>:519</code> vs <code>:255</code> in older docs).</li>
+</ul>
+
+<footer>
+  <p>Generated May 2026 · 5-agent parallel audit (Anthropic Claude Opus 4.7) · Target: Taiko mainnet (167000) + GKE Autopilot</p>
+  <p style="margin-top: 0.3rem;">Cross-referenced against contracts, hub, watchtower, SDK, state-machine, K8s manifests, CI workflows, runbooks, threat model, and competitive landscape. Open items tracked under <a href="https://github.com/taikoxyz/pico/issues/21">issue #21</a>.</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

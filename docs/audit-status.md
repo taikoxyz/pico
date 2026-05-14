@@ -35,6 +35,13 @@ GPT-5, Gemini, etc.) are tracked under
 | Won't-fix | 0 |
 | **Total** | **56** |
 
+The single **Open** row is PC-09 (proxy ownership / multisig + timelock).
+H-10 and H-11 (hub-advertised fee policy and authoritative liquidity from
+states) land in **Patched-not-reaudited** above; both are tracked as
+follow-ups under [issue #21](https://github.com/taikoxyz/pico/issues/21)
+alongside PC-09, but they are not counted as Open because partial
+remediations have shipped (see Evidence column for each row).
+
 ## Protocol core
 
 Source: `deepseek_audit_report_protocol_core.md`. Most fixes landed in
@@ -42,14 +49,14 @@ commit `c4e4cd1` and PR #15.
 
 | ID | Severity | Description | Status | Evidence |
 |---|---|---|---|---|
-| PC-01 | Critical | `dispute()` accepted closer-only signature | Fixed | `packages/contracts/src/PaymentChannel.sol:255` — `dispute(...)` takes `sigA, sigB` and calls `_verifyDualSig` |
+| PC-01 | Critical | `dispute()` accepted closer-only signature | Fixed | `packages/contracts/src/PaymentChannel.sol:519,533` — `dispute(...)` takes `sigA, sigB` and calls `_verifyDualSig` |
 | PC-02 | High | HTLC + cooperative-close spec/impl divergence | Resolved in v2 | v2 implements on-chain HTLC settlement: `claimHtlc`/`refundHtlc` settle each HTLC during the new `Status.ResolvingHtlcs` phase after a unilateral close. `closeCooperative` still requires zero in-flight HTLCs (and signs `CooperativeClose` with no HTLC root) since it's a single-shot path. See `docs/protocol-spec.md` §5.4 + `docs/release-notes-v2.md`. |
-| PC-03 | High | Cooperative close didn't verify dual sig | Fixed | `PaymentChannel.sol:179-190` decodes `CooperativeClose` and calls `_verifyDualCooperativeClose` |
-| PC-04 | Critical | `submitPenaltyProof` missing dual sig | Fixed | `PaymentChannel.sol:291-307` requires `sigA, sigB` |
-| PC-05 | High | Dispute deadlines unchecked | Fixed | `PaymentChannel.sol:261, 275, 299` enforce `block.timestamp < disputeDeadline`; dispute resets the deadline once via `!ch.penalized` (#15) |
-| PC-06 | Medium | Channel ID collision risk | Fixed | `PaymentChannel.sol:148` includes `address(this)` in the keccak input |
+| PC-03 | High | Cooperative close didn't verify dual sig | Fixed | `PaymentChannel.sol:328,341` — `closeCooperative` decodes `CooperativeClose` and calls `_verifyDualCooperativeClose` |
+| PC-04 | Critical | `submitPenaltyProof` missing dual sig | Fixed | `PaymentChannel.sol:558,574` — `submitPenaltyProof(...sigA, sigB)` and `_verifyDualSig` |
+| PC-05 | High | Dispute deadlines unchecked | Fixed | `PaymentChannel.sol:525, 566, 603` enforce `block.timestamp < disputeDeadline` (`dispute`, `submitPenaltyProof`) and `>= disputeDeadline` (`finalize`); dispute resets the deadline once via `!ch.penalized` (#15) |
+| PC-06 | Medium | Channel ID collision risk | Fixed | `PaymentChannel.sol:291` includes `address(this)` in the keccak input |
 | PC-07 | Medium | State machine accepted cross-channel updates | Fixed | `packages/state-machine/src/channel.ts:22` rejects mismatched `channelId` |
-| PC-08 | Medium | Hoodi listed as supported in protocol constants | Fixed | `packages/protocol/src/constants.ts:11-14` removed Hoodi from `SUPPORTED_CHAIN_IDS` |
+| PC-08 | Medium | Hoodi listed as supported in protocol constants | Fixed | `packages/protocol/src/constants.ts:19-23` excludes `TAIKO_HOODI_CHAIN_ID` from `SUPPORTED_CHAIN_IDS` |
 | PC-09 | Critical | Deployer EOA owns both proxies; no multisig/timelock | **Open** | Deploy/transfer scripts now require contract owners and 48h timelock checks (`packages/contracts/script/{Deploy,DeployTimelock,TransferOwnership}.s.sol`), but on-chain owner-code/key-custody evidence is still an operator gate tracked under [issue #21](https://github.com/taikoxyz/pico/issues/21) and #35 |
 | PC-10 | Info | EIP-712 oracle should remain pinned and crosstested | Fixed | Oracle pinned via existing forge fuzz + crosstest; no regressions |
 
@@ -59,19 +66,19 @@ Source: `deepseek_audit_report_hub.md`. Closed by commit `e9bf7ec`.
 
 | ID | Severity | Description | Status | Evidence |
 |---|---|---|---|---|
-| H-01 | Critical | Unauthenticated payment messages routed funds | Fixed | `apps/hub/src/api/ws.ts:14-17,151,335,453,526` admit gates wired |
-| H-02 | Critical | No signed envelope on incoming WS messages | Fixed | `apps/hub/src/api/ws.ts:573-624,645-681` verifies signed envelope, binds signer to `msg.address`; mainnet requires envelopes (`config-validate.ts:42-46`) |
-| H-03 | Critical | Hub started on mainnet with deterministic dev keys if env empty | Fixed | `apps/hub/src/config-validate.ts:11-89` rejects known dev keys, requires explicit hub key, operator token, signed envelopes |
+| H-01 | Critical | Unauthenticated payment messages routed funds | Fixed | `apps/hub/src/api/ws.ts:20` imports `admitSignedState` from state-machine; admit gate invoked at `:594` and other ingestion paths |
+| H-02 | Critical | No signed envelope on incoming WS messages | Fixed | `apps/hub/src/api/ws.ts:26,848-864` verifies signed envelope via `verifyEnvelope`, binds signer; mainnet requires envelopes (`config-validate.ts`) |
+| H-03 | Critical | Hub started on mainnet with deterministic dev keys if env empty | Fixed | `apps/hub/src/config-validate.ts` rejects known dev keys, requires explicit hub key, operator token, signed envelopes |
 | H-04 | High | Concurrent route signing race | Fixed | Per-channel mutex around route construction in `apps/hub/src/router.ts` (e9bf7ec) |
-| H-05 | High | Reservations could occur after durable state | Fixed | `migrations/002_payment_routes.sql` + `apps/hub/src/route-repo.ts:208 loadInflight` + transactional pay path |
-| H-06 | High | Router lost in-flight routes on restart | Fixed | `apps/hub/src/router.ts:140-156` `loadInflight` rehydrates routes; logs "router: hydrated inflight routes from db" |
+| H-05 | High | Reservations could occur after durable state | Fixed | `migrations/002_payment_routes.sql` + `apps/hub/src/db/repos/route-repo.ts:213 loadInflight` + transactional pay path |
+| H-06 | High | Router lost in-flight routes on restart | Fixed | `apps/hub/src/router.ts:178,194` `loadInflight` rehydrates routes; logs "router: hydrated inflight routes from db" |
 | H-07 | High | Settle/fail not bound to persisted route + signer | Fixed | `apps/hub/src/api/ws.ts` validates settle/fail against the persisted route, expected recipient signer, recipient-signed outgoing state, and route HTLC id/payment hash |
 | H-08 | High | Dispute handler wrong state selection | Fixed | `apps/hub/src/dispute-handler.ts` selects dispute-eligible empty-HTLC state; receipt status checked |
 | H-09 | Medium | Chain watcher had reorg + chunking gaps | Fixed | `apps/hub/src/chain-watcher.ts` rewritten with `rewindForReorg`, deploy-block init, chunked log scans |
 | H-10 | Medium | SDK didn't honor hub-advertised fees | Patched-not-reaudited | SDK defaults to `DEFAULT_HUB_FEE_BPS/FLAT` from protocol constants (`packages/sdk/src/client.ts:111`); full hub-advertised fee policy not implemented |
 | H-11 | Medium | Liquidity reservation could trail durable state | Patched-not-reaudited | Reservations precede durable state changes (#16); authoritative liquidity-from-states still partial |
 | H-12 | Low | Missing NOT NULL / FK / CHECK constraints | Patched-not-reaudited | NOT NULL constraints exist; route-repo + update-result checks added; full FK/CHECK enum constraints partial |
-| H-13 | Low | `/metrics` exposed on public port | Fixed | `apps/hub/src/server.ts:110-118` binds `prometheusPort` on 127.0.0.1 |
+| H-13 | Low | `/metrics` exposed on public port | Fixed | `apps/hub/src/server.ts:223-229` binds `prometheusPort` on dedicated `metricsBindAddr` (defaults to 127.0.0.1) |
 
 ## Watchtower
 
@@ -79,16 +86,16 @@ Source: `deepseek_audit_report_watchtower.md`. Closed by commit `e9bf7ec`.
 
 | ID | Severity | Description | Status | Evidence |
 |---|---|---|---|---|
-| WTW-001 | Critical | Pending events never flushed without new logs | Fixed | `apps/watchtower/src/watcher.ts:114-150` `confirmationFlushInterval` independent flusher |
+| WTW-001 | Critical | Pending events never flushed without new logs | Fixed | `apps/watchtower/src/watcher.ts:135,164` `confirmationFlushInterval` independent flusher |
 | WTW-002 | Critical | Deferred penalties lost on restart | Fixed | Scheduler persists durable closing observations before advancing cursor |
-| WTW-003 | Critical | Dropped txs never re-broadcast | Fixed | `apps/watchtower/src/responder.ts:111-145` replaces stuck tx with same nonce + bumped fee after `inclusionTimeoutMs` |
+| WTW-003 | Critical | Dropped txs never re-broadcast | Fixed | `apps/watchtower/src/responder.ts:121-130` replaces stuck tx with same nonce + bumped fee after `inclusionTimeoutMs` |
 | WTW-004 | Critical | Watchtower started with deterministic keys if env empty | Fixed | `apps/watchtower/src/config-validate.ts` rejects known dev keys on non-anvil; mainnet gates explicit |
-| WTW-005 | High | `remember()` doesn't validate signatures | Fixed | `apps/watchtower/src/index.ts:371-377` rejects placeholder signatures, calls `validateSignedState`, then persists/remembers only validated states |
-| WTW-006 | High | Live path bypasses penalty threshold timing | Fixed | `apps/watchtower/src/index.ts:274-296` computes `submitByMs` and returns early while `Date.now() < evaluation.submitByMs`; scheduler remains the delayed path |
+| WTW-005 | High | `remember()` doesn't validate signatures | Fixed | `apps/watchtower/src/index.ts:261,453` defines and calls `validateSignedState`, persists/remembers only validated states |
+| WTW-006 | High | Live path bypasses penalty threshold timing | Fixed | `apps/watchtower/src/index.ts:339` `if (Date.now() < evaluation.submitByMs) return;` — live path returns early until the computed threshold; scheduler remains the delayed path |
 | WTW-007 | Medium | Plaintext SQLite DB | Patched-not-reaudited | README clarifies SQLite plaintext + filesystem encryption requirement; encrypted-at-rest implementation deferred to Phase 2 |
 | WTW-008 | Medium | `MODE=service` shouldn't be allowed in v1 | Patched-not-reaudited | `config-validate.ts` rejects `MODE=service` |
 | WTW-009 | Medium | Confirmations + reorg handling gaps | Fixed | Scheduler applies `confirmations`; storage block-hash rewind |
-| WTW-010 | Medium | Tx receipt status not checked | Fixed | `responder.ts:235, :144` checks `receipt.status === 'success'` |
+| WTW-010 | Medium | Tx receipt status not checked | Fixed | `responder.ts:144,237` checks `receipt.status === 'success'` |
 | WTW-011 | Low | Config parser too permissive | Fixed | `config-validate.ts` parses with explicit ranges/checks |
 | WTW-012 | Low | Health endpoint shallow | Patched-not-reaudited | Health includes scheduler tick + pending-tx age + RPC; full DB probe partial |
 | WTW-013 | Low | Recovery test suite incomplete | Fixed | `apps/watchtower/src/recovery.test.ts` covers watchtower restart/recovery scenarios for deferred observations and in-flight submissions |
@@ -99,9 +106,9 @@ Source: `deepseek_audit_report_client_runtime.md`. Closed by commit `e9bf7ec`.
 
 | ID | Severity | Description | Status | Evidence |
 |---|---|---|---|---|
-| F-01 | Critical | SDK trusts hub-supplied state without verification | Fixed | `packages/sdk/src/client.ts:20-23,348,586,744,869` admit gates from `@inferenceroom/pico-state-machine` wired into all signed-state ingestion paths |
+| F-01 | Critical | SDK trusts hub-supplied state without verification | Fixed | `packages/sdk/src/client.ts:20-23,389,627,785,916` admit gates from `@inferenceroom/pico-state-machine` wired into all signed-state ingestion paths |
 | F-02 | High | Restart consistency gaps | Patched-not-reaudited | Restart still has gaps; subscribe-ack `pendingHtlcs` consumption partial |
-| F-03 | High | Invoice replay possible | Fixed | `client.ts:379` rejects consumed invoice; `verifyInvoice` called (`client.ts:613`); `storage-file.ts:170-176` consumed-mark idempotent |
+| F-03 | High | Invoice replay possible | Fixed | `client.ts:419-421` rejects consumed invoice; `verifyInvoice` called (`client.ts:654`); `storage-file.ts:170` `markInvoiceConsumed` consumed-mark idempotent |
 | F-04 | Medium | Hub message decoding too permissive | Patched-not-reaudited | `packages/sdk/src/hub-protocol.ts:191-211` validates JSON shape, kind whitelist, id; full discriminated schema validation per kind not implemented; admit gates compensate downstream |
 | F-05 | Medium | Hot key file lacked fsync + perms | Fixed | `storage-file.ts:1,52-55,60,79,104-108` fsyncs file + parent dir, `0o600` files + `0o700` dirs |
 | F-06 | Medium | CLI leaks secrets via flags / preimage in stdout | Patched-not-reaudited | Warnings on `--private-key` / env var; `--reveal-preimage` redacts by default; argv-key rejection in production not yet enforced |

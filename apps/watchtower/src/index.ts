@@ -25,7 +25,14 @@ import { FraudDetector } from './detector.js';
 import { HtlcResolver } from './htlc-resolver.js';
 import { buildHttpServer } from './http.js';
 import { type Logger, logger as defaultLogger } from './logger.js';
-import { rpcUp } from './metrics.js';
+import {
+  hotWalletEthBalanceWei,
+  oldestClosingDeadlineRemainingMs,
+  oldestPendingTxAgeMs,
+  pendingTxCount,
+  rpcErrorsTotal,
+  rpcUp,
+} from './metrics.js';
 import { PenaltyResponder } from './responder.js';
 import { type ClosingChannelInfo, Scheduler } from './scheduler.js';
 import { SqliteWatchtowerStore, type WatchtowerStore } from './storage.js';
@@ -407,6 +414,51 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
   });
   await scheduler.start();
 
+  // Periodic sampler for operational gauges:
+  //  * hot-wallet ETH balance (for HotWalletGasLow alert)
+  //  * oldest in-flight penalty tx age + count
+  //  * minimum dispute-deadline remaining across closing channels
+  const watchtowerAccount = privateKeyToAccount(opts.privateKey);
+  async function sampleOperationalGauges(): Promise<void> {
+    try {
+      const wei = await sharedClient.getBalance({ address: watchtowerAccount.address });
+      hotWalletEthBalanceWei.set({ address: watchtowerAccount.address }, Number(wei));
+    } catch (err) {
+      rpcErrorsTotal.inc({ method: 'getBalance' });
+      log.warn(
+        { err: (err as Error).message, address: watchtowerAccount.address },
+        'hot-wallet ETH balance sample failed',
+      );
+    }
+    const inflight = store.listInFlight();
+    pendingTxCount.set(inflight.length);
+    if (inflight.length === 0) {
+      oldestPendingTxAgeMs.set(0);
+    } else {
+      const now = Date.now();
+      let oldest = 0;
+      for (const tx of inflight) {
+        const age = now - tx.submittedAtMs;
+        if (age > oldest) oldest = age;
+      }
+      oldestPendingTxAgeMs.set(oldest);
+    }
+    let minRemaining = Number.POSITIVE_INFINITY;
+    const now = Date.now();
+    for (const info of closingChannels.values()) {
+      const remaining = info.disputeDeadlineMs - now;
+      if (remaining < minRemaining) minRemaining = remaining;
+    }
+    oldestClosingDeadlineRemainingMs.set(
+      minRemaining === Number.POSITIVE_INFINITY ? 0 : minRemaining,
+    );
+  }
+  const samplerTimer = setInterval(() => {
+    void sampleOperationalGauges();
+  }, 60_000);
+  samplerTimer.unref?.();
+  void sampleOperationalGauges();
+
   let http: FastifyInstance | undefined;
   let httpUrl: string | undefined;
   if (opts.startHttp !== false) {
@@ -455,6 +507,7 @@ export async function startWatchtower(opts: StartWatchtowerOpts): Promise<Watcht
       detector.remember(state);
     },
     async stop(): Promise<void> {
+      clearInterval(samplerTimer);
       try {
         if (http) await http.close();
       } catch (err) {

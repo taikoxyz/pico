@@ -182,15 +182,23 @@ export class ChainWatcher {
     if (this.polling) return;
     this.polling = true;
     try {
-      const head = await this.client.getBlockNumber();
+      let head: bigint;
+      try {
+        head = await this.client.getBlockNumber();
+      } catch (err) {
+        this.deps.metrics.rpcErrorsTotal.inc({ method: 'getBlockNumber' });
+        throw err;
+      }
       const safeUpto = head >= this.confirmations ? head - this.confirmations : 0n;
-      this.lagBlocks = head > safeUpto ? head - safeUpto : 0n;
 
       // Reorg detection: re-fetch the block at our cursor and compare hashes.
       // Mismatch means our last_processed_block was in a fork that has since
       // been replaced. Rewind to the last common ancestor.
       const lastRaw = await this.deps.repos.kv.get(KV_KEY_LAST_BLOCK);
       let last = lastRaw ? BigInt(lastRaw) : 0n;
+      // Lag is (head - cursor); 0 when we've caught up with the safe head.
+      this.lagBlocks = head > last ? head - last : 0n;
+      this.deps.metrics.chainWatcherLagBlocks.set(Number(this.lagBlocks));
       const expectedHash = await this.deps.repos.kv.get(KV_KEY_LAST_BLOCK_HASH);
       if (expectedHash !== undefined && last > 0n) {
         try {
@@ -212,6 +220,7 @@ export class ChainWatcher {
             await this.deps.repos.kv.set(KV_KEY_LAST_BLOCK_HASH, '');
           }
         } catch (err) {
+          this.deps.metrics.rpcErrorsTotal.inc({ method: 'getBlock' });
           this.deps.logger.warn(
             { err: (err as Error).message, last: last.toString() },
             'reorg check failed; skipping this poll',
@@ -255,6 +264,7 @@ export class ChainWatcher {
       }
     } catch (err) {
       this.lastError = (err as Error).message;
+      this.deps.metrics.rpcErrorsTotal.inc({ method: 'pollOnce' });
       this.deps.logger.warn(
         { err: (err as Error).message },
         'chain watcher poll failed; will retry',

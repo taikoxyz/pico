@@ -10,6 +10,10 @@ export interface HubMetrics {
   readonly outboundLiquidityUsdc: Gauge<string>;
   readonly paymentsTotal: Counter<string>;
   readonly disputesTotal: Counter<string>;
+  readonly hotWalletEthBalanceWei: Gauge<'address'>;
+  readonly chainWatcherLagBlocks: Gauge<string>;
+  readonly wsActiveConnections: Gauge<string>;
+  readonly rpcErrorsTotal: Counter<'method'>;
   refreshGauges(snapshot: GaugeSnapshot): void;
 }
 
@@ -28,6 +32,10 @@ export function buildMetrics(reg: Registry): HubMetrics {
     'pico_hub_outbound_liquidity_usdc',
     'pico_hub_payments_total',
     'pico_hub_disputes_total',
+    'pico_hub_hot_wallet_eth_balance_wei',
+    'pico_hub_chain_watcher_lag_blocks',
+    'pico_hub_ws_active_connections',
+    'pico_hub_rpc_errors_total',
   ]) {
     reg.removeSingleMetric(name);
   }
@@ -64,6 +72,28 @@ export function buildMetrics(reg: Registry): HubMetrics {
     labelNames: ['outcome'],
     registers: [reg],
   });
+  const hotWalletEthBalanceWei = new Gauge({
+    name: 'pico_hub_hot_wallet_eth_balance_wei',
+    help: 'Hub hot-wallet ETH balance (wei). Sampled periodically.',
+    labelNames: ['address'] as const,
+    registers: [reg],
+  });
+  const chainWatcherLagBlocks = new Gauge({
+    name: 'pico_hub_chain_watcher_lag_blocks',
+    help: 'Blocks between chain head and the chain-watcher cursor',
+    registers: [reg],
+  });
+  const wsActiveConnections = new Gauge({
+    name: 'pico_hub_ws_active_connections',
+    help: 'Currently open WebSocket client connections',
+    registers: [reg],
+  });
+  const rpcErrorsTotal = new Counter({
+    name: 'pico_hub_rpc_errors_total',
+    help: 'Total errors raised while calling viem/RPC endpoints',
+    labelNames: ['method'] as const,
+    registers: [reg],
+  });
 
   return {
     channelsTotal,
@@ -72,6 +102,10 @@ export function buildMetrics(reg: Registry): HubMetrics {
     outboundLiquidityUsdc,
     paymentsTotal,
     disputesTotal,
+    hotWalletEthBalanceWei,
+    chainWatcherLagBlocks,
+    wsActiveConnections,
+    rpcErrorsTotal,
     refreshGauges(snap) {
       channelsTotal.set(snap.channelsTotal);
       htlcsInFlight.set(snap.htlcsInFlight);

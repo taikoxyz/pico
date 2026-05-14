@@ -104,13 +104,12 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   // dispatch accept/reject to the handler. Server wires both after construction.
   let topupHandler: TopUpHandler | undefined = deps.topupHandler;
   // Serializes route+sign+save per outgoing channel to prevent the hub
-  // from signing two conflicting same-version states under concurrency.
-  // Locks are taken in deterministic ChannelId order (lowest first) when a
-  // pay handler must lock both incoming and outgoing channels (H-04).
+  // from signing two conflicting same-version states under concurrency
+  // (H-04, R-01). The pay handler now takes the incoming-channel lock and
+  // then the outgoing-channel lock; ChannelId ordering between the two is
+  // unnecessary because the outgoing lock is taken inside the incoming
+  // lock and never the other way around, so a deadlock is impossible.
   const channelMutex = new KeyedMutex<ChannelId>();
-  function lockOrder(a: ChannelId, b: ChannelId): readonly [ChannelId, ChannelId] {
-    return a < b ? [a, b] : [b, a];
-  }
 
   function send(socket: WsWebSocket, msg: HubToClientMessage): void {
     socket.send(encodeHubMessage(msg));
@@ -247,31 +246,64 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     }
     await deps.channelPool.recordState(incomingChannel.id, msg.signedState);
 
-    // Serialize route+sign+persist per outgoing channel to prevent equivocation
-    // (H-04). We don't yet know the outgoing channel id until router.route()
-    // resolves it, so first take a sender-keyed lock to serialize concurrent
-    // pays from the same sender, then route under a per-outgoing-channel
-    // pre-route step. To keep things simple, lock the incoming channel here;
-    // the per-outgoing-channel mutex is taken inside router.route via the
-    // channel-pool's existing locks.
-    const result = await channelMutex.run(incomingChannel.id, async () => {
-      let routed: Awaited<ReturnType<typeof router.route>>;
-      try {
-        routed = await router.route({
-          incomingChannel,
-          incomingSignedState: msg.signedState,
-          incomingHtlc: msg.htlc,
-          recipient: msg.recipient,
-          amount: msg.amount,
-          paymentHash: msg.paymentHash,
-        });
-      } catch (err) {
-        return { kind: 'rejected' as const, reason: (err as Error).message };
-      }
+    // R-01 (PR #127): resolve the outgoing channel BEFORE entering the
+    // outgoing-channel lock so router.route()'s read of latestOutgoing + sign
+    // happens under the lock. Without this two concurrent pays through the
+    // same outgoing channel can both read v(N) and sign distinct v(N+1)
+    // states; recordState silently drops the second but its outgoingHubSigned
+    // already landed in payment_routes — replayable by the recipient.
+    const preResolvedOutgoing = router.resolveOutgoingChannel(msg.recipient);
+    if (!preResolvedOutgoing) {
+      sendError(
+        socket,
+        msg.id,
+        'INVALID_STATE',
+        `router: no channel between hub and ${msg.recipient}`,
+      );
+      return;
+    }
+    if (preResolvedOutgoing.id === incomingChannel.id) {
+      sendError(
+        socket,
+        msg.id,
+        'INVALID_STATE',
+        'router: incoming and outgoing channel are the same',
+      );
+      return;
+    }
 
-      // Hold the outgoing-channel mutex across the persistence sequence so
-      // two concurrent pays cannot both record same-version state.
-      return channelMutex.run(routed.outgoingChannel.id, async () => {
+    // Serialize route+sign+persist per outgoing channel to prevent equivocation
+    // (H-04, R-01). Lock the incoming channel first to serialize concurrent
+    // pays on the same incoming channel, then take the outgoing-channel mutex
+    // *around* router.route() so both the latestOutgoing read and the sign
+    // happen atomically with respect to other pays through the same outgoing.
+    const result = await channelMutex.run(incomingChannel.id, async () => {
+      // R-01: outgoing-mutex now spans router.route() AND the persistence
+      // sequence; previously route() ran outside the lock and could race.
+      return channelMutex.run(preResolvedOutgoing.id, async () => {
+        let routed: Awaited<ReturnType<typeof router.route>>;
+        try {
+          routed = await router.route({
+            incomingChannel,
+            incomingSignedState: msg.signedState,
+            incomingHtlc: msg.htlc,
+            recipient: msg.recipient,
+            amount: msg.amount,
+            paymentHash: msg.paymentHash,
+          });
+        } catch (err) {
+          return { kind: 'rejected' as const, reason: (err as Error).message };
+        }
+        if (routed.outgoingChannel.id !== preResolvedOutgoing.id) {
+          // Defense in depth: the outgoing channel must match what we locked.
+          // If a race / migration could ever cause divergence, refuse rather
+          // than committing to the wrong outgoing channel.
+          return {
+            kind: 'rejected' as const,
+            reason: 'router: outgoing channel changed between pre-resolve and route()',
+          };
+        }
+
         const inflight: InflightHtlc = {
           incomingChannelId: incomingChannel.id,
           incomingHtlcId: msg.htlc.id,
@@ -294,11 +326,14 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
           return { kind: 'rejected' as const, reason: (err as Error).message };
         }
 
-        await deps.channelPool.recordState(routed.outgoingChannel.id, routed.outgoingHubSigned);
-
+        // R-02 (PR #127): persist the outgoing signed state INSIDE the same
+        // DB transaction as htlcs/payments/routes. Previously recordState was
+        // called BEFORE the transaction; a crash between the two left an
+        // orphan signed state recoverable by the recipient.
         try {
           await deps.db.driver.transaction(async (tx) => {
             const txRepos = buildRepos(tx);
+            await txRepos.states.save(routed.outgoingHubSigned);
             await txRepos.htlcs.save({
               htlc: msg.htlc,
               channelId: incomingChannel.id,
@@ -344,6 +379,13 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
           deps.liquidity.releaseReservation(routed.outgoingChannel.id, routed.outgoingHtlc.amount);
           return { kind: 'tx_failed' as const, reason: (err as Error).message };
         }
+
+        // R-02: in-memory update only AFTER the DB transaction commits.
+        // recordStateMemoryOnly keeps the channelPool lock + version check.
+        await deps.channelPool.recordStateMemoryOnly(
+          routed.outgoingChannel.id,
+          routed.outgoingHubSigned,
+        );
 
         router.recordInflight(inflight);
         return { kind: 'ok' as const, routed };
@@ -883,12 +925,14 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   }
 
   app.get('/ws', { websocket: true }, (socket) => {
+    deps.metrics.wsActiveConnections.inc();
     socket.on('message', (raw: Buffer) => {
       void authorizeAndDispatch(socket, raw.toString('utf8')).catch((err) => {
         deps.logger.error({ err }, 'ws handler error');
       });
     });
     socket.on('close', () => {
+      deps.metrics.wsActiveConnections.dec();
       for (const [k, sess] of sessions) {
         if (sess.socket === socket) sessions.delete(k);
       }

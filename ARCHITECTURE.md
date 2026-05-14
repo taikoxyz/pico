@@ -78,11 +78,33 @@ their on-chain deposit via the contract's dedicated entry point.
 ## Data flow: dispute
 
 1. Counterparty publishes an old, but signed, state on-chain (`closeUnilateral`).
-2. The dispute window starts.
+   The state MAY carry a non-empty `htlcsRoot` in v2 (v1 rejected this).
+2. The dispute window starts (24h).
 3. The defending party (or their watchtower) calls `dispute` with a strictly newer
-   signed state. The Adjudicator verifies signatures and version monotonicity.
-4. After the window expires, `finalize` distributes funds based on the latest accepted
-   state.
+   signed state. The Adjudicator verifies signatures, version monotonicity, and
+   the v2 conservation invariant
+   `balanceA + balanceB + htlcsTotalLocked == amountA + amountB`.
+4. After the window expires, the first `finalize` call:
+   - takes the fast path if the posted state had `htlcsCount == 0` (byte-equivalent
+     to v1 finalize), or
+   - transitions to `Status.ResolvingHtlcs` if `htlcsCount > 0`, setting
+     `htlcResolutionDeadline = block.timestamp + MAX_HTLC_DURATION + HTLC_RESOLUTION_GRACE`
+     (~4h ceiling, safe under the off-chain HTLC duration cap).
+5. While in `Status.ResolvingHtlcs`, anyone may call
+   `claimHtlc(channelId, htlc, proof, sortedIndex, totalLeaves, preimage)` (when
+   `block.timestamp <= htlc.expiry`) or `refundHtlc(...)` (when `block.timestamp >
+   htlc.expiry`). Both verify an ordered Merkle proof against the posted
+   `htlcsRoot` and credit `pendingPayout` on the appropriate side. The
+   penalty path short-circuits this phase — if `penalized == true`, the entire
+   pot (including locked HTLC value) goes to the non-closer.
+6. A second `finalize` call (once every HTLC has been claimed or refunded, or
+   after `htlcResolutionDeadline` for force-refund) distributes
+   `postedBalance{A,B} + pendingPayout{A,B}` and closes the channel.
+
+> Watchtowers MUST persist the full HTLC set associated with each signed
+> state (not just the root) so they can construct Merkle proofs during
+> `Status.ResolvingHtlcs`. The hub forwards seen preimages over its existing
+> HTTP surface (`POST /v1/preimage`). See `docs/release-notes-v2.md`.
 
 ## Why 1-hop
 

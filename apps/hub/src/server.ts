@@ -44,7 +44,12 @@ export async function buildServer(
   const config = loadConfig(env);
   const app = Fastify({ logger: { level: config.logLevel } });
 
-  await app.register(websocket);
+  // R-03 (PR #127): cap WS frame size at 64 KiB. The hub's largest legitimate
+  // frame is a signed-state batch (~few KB); a 64 KiB ceiling rejects DoS
+  // attempts (the previous default was effectively unbounded).
+  await app.register(websocket, {
+    options: { maxPayload: 64 * 1024 },
+  });
 
   const db = openDatabase(config, { logger });
   await db.ready();
@@ -145,16 +150,21 @@ export async function buildServer(
   }
 
   async function readHotWalletBalance(token: `0x${string}`): Promise<bigint> {
-    if (token === '0x0000000000000000000000000000000000000000') {
-      return publicClientForChain.getBalance({ address: api.ws.hubAccount.address });
+    try {
+      if (token === '0x0000000000000000000000000000000000000000') {
+        return await publicClientForChain.getBalance({ address: api.ws.hubAccount.address });
+      }
+      const balance = (await publicClientForChain.readContract({
+        address: token,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [api.ws.hubAccount.address],
+      })) as bigint;
+      return balance;
+    } catch (err) {
+      metrics.rpcErrorsTotal.inc({ method: 'readHotWalletBalance' });
+      throw err;
     }
-    const balance = (await publicClientForChain.readContract({
-      address: token,
-      abi: erc20Abi,
-      functionName: 'balanceOf',
-      args: [api.ws.hubAccount.address],
-    })) as bigint;
-    return balance;
   }
 
   const topupHandler = new TopUpHandler({
@@ -242,7 +252,31 @@ export async function buildServer(
     });
   }
 
+  // Periodically sample the hub's native ETH balance so operators can be
+  // paged before the gas tank runs dry. 60s cadence is plenty for an alert
+  // that fires when balance drops below 0.05 ETH for 5m.
+  const hubAddressForBalance = api.ws.hubAccount.address;
+  async function sampleHotWalletBalance(): Promise<void> {
+    try {
+      const wei = await publicClientForChain.getBalance({ address: hubAddressForBalance });
+      metrics.hotWalletEthBalanceWei.set({ address: hubAddressForBalance }, Number(wei));
+    } catch (err) {
+      metrics.rpcErrorsTotal.inc({ method: 'getBalance' });
+      logger.warn(
+        { err: (err as Error).message, address: hubAddressForBalance },
+        'hot-wallet ETH balance sample failed',
+      );
+    }
+  }
+  const hotWalletTimer = setInterval(() => {
+    void sampleHotWalletBalance();
+  }, 60_000);
+  // Don't keep the event loop alive solely for metrics.
+  hotWalletTimer.unref?.();
+  void sampleHotWalletBalance();
+
   app.addHook('onClose', async () => {
+    clearInterval(hotWalletTimer);
     await chainWatcher.stop();
     if (metricsApp) await metricsApp.close();
     await db.close();
