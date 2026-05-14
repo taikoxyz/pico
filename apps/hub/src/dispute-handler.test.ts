@@ -6,6 +6,9 @@ import { type TestDb, makeTestDb } from './db/repos/_test-helpers.js';
 import { DisputeHandler } from './dispute-handler.js';
 import { logger } from './logger.js';
 
+// Non-sentinel placeholder signature: r/s are non-zero so it passes the
+// `isSentinelSig` guard introduced for the chain-watcher v0 bootstrap.
+const FAKE_SIG: Signature = { r: `0x${'11'.repeat(32)}`, s: `0x${'22'.repeat(32)}`, v: 27 };
 const ZERO_SIG: Signature = { r: `0x${'00'.repeat(32)}`, s: `0x${'00'.repeat(32)}`, v: 27 };
 
 const HUB_PK = '0x00000000000000000000000000000000000000000000000000000000000000bb' as const;
@@ -33,7 +36,7 @@ function signed(version: bigint): SignedState {
     htlcsTotalLocked: 0n,
     finalized: false,
   };
-  return { state, sigA: ZERO_SIG, sigB: ZERO_SIG };
+  return { state, sigA: FAKE_SIG, sigB: FAKE_SIG };
 }
 
 class FakeWallet {
@@ -110,6 +113,42 @@ describe('DisputeHandler', () => {
     expect(wallet.calls).toHaveLength(0);
     const disputes = await h.repos.disputes.list();
     expect(disputes[0]?.resolution).toBe('lost');
+  });
+
+  it('skips dispute and marks lost when our state has sentinel sigs (bootstrap-only)', async () => {
+    // chain-watcher's bootstrap path seeds a v0 sentinel-signed state so
+    // the router has something to apply HTLC updates onto; this state must
+    // never be submitted on-chain (the contract would revert with "bad sig").
+    const sentinelV9 = {
+      state: {
+        channelId: SAMPLE.id,
+        version: 9n,
+        balanceA: 100n,
+        balanceB: 0n,
+        htlcs: [],
+        htlcsCount: 0,
+        htlcsTotalLocked: 0n,
+        finalized: false,
+      },
+      sigA: ZERO_SIG,
+      sigB: ZERO_SIG,
+    };
+    await pool.recordState(SAMPLE.id, sentinelV9);
+    const wallet = new FakeWallet();
+    const handler = new DisputeHandler({
+      logger,
+      repos: h.repos,
+      channelPool: pool,
+      rpcUrl: 'http://test',
+      chainId: 31337,
+      paymentChannelAddress: SAMPLE.contract,
+      hubPrivateKey: HUB_PK,
+      publicClient: new FakePublic(SAMPLE.userA) as unknown as PublicClient,
+      walletClient: wallet as unknown as WalletClient,
+    });
+    await handler.handle({ channelId: SAMPLE.id, attackerVersion: 3n, observedAtMs: Date.now() });
+    expect(wallet.calls).toHaveLength(0);
+    expect((await h.repos.disputes.list())[0]?.resolution).toBe('lost');
   });
 
   it('submits dispute tx and records win when our state is newer', async () => {

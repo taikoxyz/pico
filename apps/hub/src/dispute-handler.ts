@@ -1,4 +1,4 @@
-import type { Address, ChainId, ChannelId, Hex } from '@inferenceroom/pico-protocol';
+import type { Address, ChainId, ChannelId, Hex, Signature } from '@inferenceroom/pico-protocol';
 import {
   encodeChannelStateForOnChain,
   paymentChannelAbi,
@@ -47,6 +47,20 @@ const channelsReadAbi = parseAbi([
 interface ChannelOnChain {
   readonly closer: Address;
   readonly disputeDeadlineMs: number;
+}
+
+/**
+ * A "sentinel" signature has both `r` and `s` set to all-zero bytes. It
+ * marks a state that the hub fabricated (bootstrap of an on-chain-only
+ * channel, or a `prev` state seed for §8 propose envelopes) without a
+ * counterparty's real ECDSA signature. The on-chain `dispute` function
+ * recovers the signer and reverts with `bad sig` on these, so the hub
+ * must refuse to submit them.
+ */
+function isSentinelSig(sig: Signature): boolean {
+  const rDigits = sig.r.startsWith('0x') ? sig.r.slice(2) : sig.r;
+  const sDigits = sig.s.startsWith('0x') ? sig.s.slice(2) : sig.s;
+  return /^0+$/.test(rDigits) && /^0+$/.test(sDigits);
 }
 
 function viemChainFor(chainId: ChainId) {
@@ -110,6 +124,22 @@ export class DisputeHandler {
           attackerVersion: attackerVersion.toString(),
         },
         'our state is not newer than the posted version; this is bad — possible compromised key or stale local DB',
+      );
+      await this.deps.repos.disputes.markResolution(channelId, attackerVersion, 'lost');
+      return;
+    }
+
+    // Round-4 smoke (issue #100 follow-up): the chain-watcher bootstrap seeds
+    // a v0 sentinel-signed state into the channel pool so the router has
+    // something to apply HTLC updates onto. But the sentinel signatures are
+    // not real userA/userB signatures, so submitting them to the on-chain
+    // `dispute(...)` function reverts with `bad sig`. Without this guard the
+    // hub busy-loops dispute retries for every observed unilateral close of
+    // a freshly-bootstrapped channel.
+    if (isSentinelSig(ourLatest.sigA) || isSentinelSig(ourLatest.sigB)) {
+      this.deps.logger.warn(
+        { channelId, attackerVersion: attackerVersion.toString() },
+        'dispute: latest known state has sentinel signatures (bootstrap-only); cannot dispute — marking lost',
       );
       await this.deps.repos.disputes.markResolution(channelId, attackerVersion, 'lost');
       return;
