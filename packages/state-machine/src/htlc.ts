@@ -108,6 +108,16 @@ export interface HtlcAdmissionContext {
   readonly perCounterpartyInflightValue: bigint;
   /** Smaller of the channel's two amounts (`min(amountA, amountB)`). */
   readonly maxPerChannelValue: bigint;
+  /**
+   * Per-counterparty value ceiling in the channel token's base units. Round-4
+   * smoke (issue #100 follow-up) showed `MAX_HTLC_VALUE_PER_COUNTERPARTY`
+   * (100 USDC at 6 decimals = 1e8 wei) being applied verbatim to native-ETH
+   * (18 decimals) traffic, which then rejected even a 0.00001 ETH payment
+   * (1e13 wei ≫ 1e8). Callers (the hub router) compute this per channel
+   * token. If omitted, the legacy `MAX_HTLC_VALUE_PER_COUNTERPARTY` is used
+   * for backwards-compatibility with existing tests.
+   */
+  readonly maxPerCounterpartyValue?: bigint;
   /** Current time in milliseconds (for expiry duration check). */
   readonly nowMs: bigint;
 }
@@ -126,11 +136,12 @@ export function checkHtlcAdmissible(htlc: Htlc, ctx: HtlcAdmissionContext): Htlc
   if (ctx.perChannelInflightValue + htlc.amount > ctx.maxPerChannelValue) {
     return { ok: false, reason: 'per-channel inflight value would exceed min(amountA, amountB)' };
   }
-  // 3. per-counterparty aggregate cap
-  if (ctx.perCounterpartyInflightValue + htlc.amount > MAX_HTLC_VALUE_PER_COUNTERPARTY) {
+  // 3. per-counterparty aggregate cap (per channel token's base units).
+  const maxPerCounterparty = ctx.maxPerCounterpartyValue ?? MAX_HTLC_VALUE_PER_COUNTERPARTY;
+  if (ctx.perCounterpartyInflightValue + htlc.amount > maxPerCounterparty) {
     return {
       ok: false,
-      reason: `per-counterparty inflight would exceed ${MAX_HTLC_VALUE_PER_COUNTERPARTY}`,
+      reason: `per-counterparty inflight would exceed ${maxPerCounterparty}`,
     };
   }
   // 4. duration bounds
