@@ -107,7 +107,7 @@ describe('SqliteWatchtowerStore', () => {
       expect(id).toBeGreaterThan(0);
 
       store.markObservationSubmitted(id, '0xdeadbeef' as `0x${string}`, 2_000);
-      store.markObservationIncluded(id, 3_000);
+      store.markObservationIncluded(id, 3_000, `0x${'ab'.repeat(32)}` as `0x${string}`, 99n);
 
       const row = db
         .prepare(

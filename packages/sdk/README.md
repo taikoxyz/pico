@@ -50,6 +50,33 @@ A full runnable example against a mock hub lives at
 [`examples/sdk-mock-flow.ts`](../../examples/sdk-mock-flow.ts) (no network or
 Anvil needed).
 
+## Hub info and per-counterparty caps (`GET /v1/info`)
+
+`GET /v1/info` returns hub identity and routing policy. The
+`perCounterpartyCaps` field is a map from lowercase token address to a bigint
+string representing the maximum aggregate HTLC value the hub will route to any
+single counterparty at one time. Clients should fetch this before sending a
+payment so they can surface a clear error ("amount exceeds per-counterparty
+cap") rather than a generic router rejection.
+
+```json
+{
+  "version": 1,
+  "hubAddress": "0x...",
+  "chainId": 167000,
+  "contracts": { "paymentChannel": "0x...", "adjudicator": "0x..." },
+  "requireSignedEnvelope": true,
+  "nonceWindowMs": 60000,
+  "perCounterpartyCaps": {
+    "0x0000000000000000000000000000000000000000": "1000000000000000000",
+    "0x3cf2321323c23c9f91dafe99e2b121cab5ce3759": "100000000000000000000"
+  }
+}
+```
+
+Caps are bigint-safe strings. Operators override them per-token via the env var
+`PICO_HUB_PER_COUNTERPARTY_CAP_<lowercase_token_hex>=<value>`.
+
 ## Inbound liquidity (§8 topUp)
 
 The SDK auto-handles incoming `proposeTopUp` envelopes from the hub: it

@@ -15,6 +15,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, taiko } from 'viem/chains';
 import type { Logger } from './logger.js';
 import { penaltiesSubmittedTotal, rpcErrorsTotal, submissionFailedTotal } from './metrics.js';
+import { Mutex } from './mutex.js';
 import type { InFlightTx, WatchtowerStore } from './storage.js';
 
 const penaltyAbi = parseAbi([
@@ -79,6 +80,9 @@ export class PenaltyResponder {
   private readonly gasBumpPercent: number;
   private readonly inclusionTimeoutMs: number;
   private readonly maxAttempts: number;
+  // R-04: serialize all submitPenalty calls on this wallet so concurrent
+  // closeUnilateral events cannot read the same pending nonce.
+  private readonly walletMutex = new Mutex();
 
   constructor(private readonly deps: PenaltyResponderDeps) {
     const chain = chainForId(deps.chainId);
@@ -98,7 +102,18 @@ export class PenaltyResponder {
     this.maxAttempts = deps.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   }
 
-  async submitPenalty(
+  submitPenalty(
+    channelId: ChannelId,
+    evidence: SignedState,
+    closerSide: 'A' | 'B',
+    observationId?: number,
+  ): Promise<Hash> {
+    return this.walletMutex.run(() =>
+      this._submitPenalty(channelId, evidence, closerSide, observationId),
+    );
+  }
+
+  private async _submitPenalty(
     channelId: ChannelId,
     evidence: SignedState,
     closerSide: 'A' | 'B',
@@ -142,7 +157,11 @@ export class PenaltyResponder {
           return existing.txHash;
         }
       } else if (receipt.status === 'success') {
-        this.recordIncluded(existing.observationId ?? observationId);
+        this.recordIncluded(
+          existing.observationId ?? observationId,
+          receipt.blockHash,
+          receipt.blockNumber,
+        );
         this.clearInFlight(channelId);
         this.deps.logger.info(
           { channelId, txHash: existing.txHash, observationId: existing.observationId },
@@ -253,7 +272,7 @@ export class PenaltyResponder {
           );
         }
         penaltiesSubmittedTotal.inc();
-        this.recordIncluded(observationId);
+        this.recordIncluded(observationId, receipt.blockHash, receipt.blockNumber);
         this.clearInFlight(channelId);
         this.deps.logger.info(
           {
@@ -373,8 +392,12 @@ export class PenaltyResponder {
     this.memoryInFlight.clear(channelId);
   }
 
-  private recordIncluded(observationId: number | undefined): void {
+  private recordIncluded(
+    observationId: number | undefined,
+    blockHash: `0x${string}`,
+    blockNumber: bigint,
+  ): void {
     if (observationId === undefined || !this.deps.store) return;
-    this.deps.store.markObservationIncluded(observationId, Date.now());
+    this.deps.store.markObservationIncluded(observationId, Date.now(), blockHash, blockNumber);
   }
 }
