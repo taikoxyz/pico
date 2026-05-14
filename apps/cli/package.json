@@ -21,7 +21,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "commander": "^12.1.0",
+    "commander": "^14.0.3",
     "picocolors": "^1.1.1",
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0",
