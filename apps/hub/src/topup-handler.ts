@@ -264,12 +264,19 @@ export class TopUpHandler {
       }
 
       try {
+        // Per-channel token (round-4 finding #21): handler-wide `this.deps.token`
+        // is set at startup to whatever the first registered channel uses, so
+        // it can't be trusted for mixed-token hubs. The on-chain topUp must
+        // be submitted with the actual channel's token (`address(0)` for
+        // native ETH, ERC-20 address otherwise) or the contract reverts —
+        // for ETH channels the chain adapter needs `value: amount` instead
+        // of an ERC-20 approve+transferFrom.
         const result = await this.deps.chain.topUp({
           channelId: offer.channelId,
           amount: offer.amount,
           prev,
           next: signed,
-          token: this.deps.token,
+          token: channel.token,
           approve: true,
         });
         // Move the reservation from `committed` → `submitted` and persist.
