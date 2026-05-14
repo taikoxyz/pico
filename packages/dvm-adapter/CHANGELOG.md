@@ -1,5 +1,13 @@
 # @inferenceroom/pico-dvm-adapter
 
+## 2.0.9
+
+### Patch Changes
+
+- Updated dependencies [3a5b8c8]
+  - @inferenceroom/pico-protocol@2.1.5
+  - @inferenceroom/pico-sdk@2.1.5
+
 ## 2.0.8
 
 ### Patch Changes
