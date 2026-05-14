@@ -99,6 +99,29 @@ spec:
 ---
 # Tells the GCE LB to use /v1/health for backend health checks instead of
 # the default `/`. Without this the LB will mark the backend unhealthy.
+#
+# securityPolicy references a Cloud Armor policy created out-of-band by the
+# operator. Apply the manifest after the policy exists; otherwise the GCE
+# Ingress controller will log a warning but still attach the backend.
+# Bootstrap snippets (run once per project):
+#   gcloud compute security-policies create pico-hub-armor \
+#     --description "WAF + rate-limit for hub.pico.taiko.xyz"
+#   gcloud compute security-policies rules create 1000 \
+#     --security-policy pico-hub-armor \
+#     --expression "evaluatePreconfiguredExpr('xss-v33-stable')" \
+#     --action deny-403
+#   gcloud compute security-policies rules create 2000 \
+#     --security-policy pico-hub-armor \
+#     --expression "evaluatePreconfiguredExpr('sqli-v33-stable')" \
+#     --action deny-403
+#   gcloud compute security-policies rules update default-rule \
+#     --security-policy pico-hub-armor \
+#     --action "throttle" \
+#     --rate-limit-threshold-count 100 \
+#     --rate-limit-threshold-interval-sec 60 \
+#     --conform-action allow \
+#     --exceed-action deny-429 \
+#     --enforce-on-key IP
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
@@ -114,8 +137,19 @@ spec:
     healthyThreshold: 1
     unhealthyThreshold: 3
   timeoutSec: 60
+  securityPolicy:
+    name: "pico-hub-armor"
 ---
-# HTTP -> HTTPS redirect at the GCE LB.
+# HTTP -> HTTPS redirect + MODERN SSL profile at the GCE LB.
+#
+# sslPolicy references a gcloud-provisioned SSL policy. Bootstrap:
+#   gcloud compute ssl-policies create pico-hub-ssl \
+#     --profile MODERN --min-tls-version 1.2
+#
+# HSTS: The GCE Ingress does not inject response headers. The hub app must
+# set `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+# on all responses. TODO(hub-app): wire HSTS middleware in apps/hub before
+# submitting the domain to https://hstspreload.org.
 apiVersion: networking.gke.io/v1beta1
 kind: FrontendConfig
 metadata:
@@ -125,6 +159,7 @@ spec:
   redirectToHttps:
     enabled: true
     responseCodeName: MOVED_PERMANENTLY_DEFAULT
+  sslPolicy: pico-hub-ssl
 ---
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
@@ -162,6 +197,8 @@ metadata:
     app.kubernetes.io/version: RELEASE_TAG
 spec:
   serviceName: pico-hub
+  # single-replica; topology spread N/A. PDB ensures availability across
+  # node upgrades. RTO single-zone: ~5 min restore from PVC + litestream.
   replicas: 1
   selector:
     matchLabels:
@@ -181,13 +218,19 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 30
+      # 90s gives preStop sleep 15 + graceful in-flight request drain headroom.
+      terminationGracePeriodSeconds: 90
       containers:
         - name: hub
           # Replace IMAGE with your Artifact Registry path. The image must be
           # built from apps/hub/Dockerfile.
           image: REGION-docker.pkg.dev/PROJECT/pico/hub:VERSION
           imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - name: http
               containerPort: 3030
@@ -196,8 +239,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: pico-hub-config
+            # Kept for compatibility. Once the hub app reads from
+            # PICO_SECRETS_DIR (see /etc/pico/secrets/ mount below), remove
+            # this envFrom block in a follow-on PR.
             - secretRef:
                 name: pico-hub-secrets
+          env:
+            # TODO(hub-app): implement env-fallback shim that reads files
+            # from PICO_SECRETS_DIR before falling back to process.env.
+            - name: PICO_SECRETS_DIR
+              value: /etc/pico/secrets
+          startupProbe:
+            httpGet:
+              path: /v1/health
+              port: 3030
+            failureThreshold: 30
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /v1/health
@@ -214,21 +271,41 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                # Sleep before SIGTERM so the GCE LB has time to mark this
+                # backend unhealthy and stop sending new requests.
+                command: ["/bin/sh", "-c", "sleep 15"]
           resources:
             requests:
               cpu: 250m
               memory: 512Mi
               ephemeral-storage: 1Gi
+            # CPU limit intentionally unset to allow event-loop burst on
+            # cold-start and lock contention. memory limit == request so
+            # OOM kills are deterministic.
             limits:
-              cpu: 250m
               memory: 512Mi
               ephemeral-storage: 1Gi
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+            - name: app-cache
+              mountPath: /app/.cache
+            - name: hub-secrets
+              mountPath: /etc/pico/secrets
+              readOnly: true
         - name: litestream
           image: litestream/litestream:0.3.13
           args: ["replicate", "-config", "/etc/litestream.yml"]
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           envFrom:
             - secretRef:
                 name: pico-hub-secrets
@@ -238,7 +315,6 @@ spec:
               memory: 128Mi
               ephemeral-storage: 256Mi
             limits:
-              cpu: 100m
               memory: 128Mi
               ephemeral-storage: 256Mi
           volumeMounts:
@@ -252,10 +328,25 @@ spec:
               mountPath: /etc/litestream.yml
               subPath: litestream.yml
               readOnly: true
+            - name: litestream-tmp
+              mountPath: /tmp
       volumes:
         - name: litestream-config
           configMap:
             name: pico-hub-litestream
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: app-cache
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: litestream-tmp
+          emptyDir:
+            sizeLimit: 32Mi
+        - name: hub-secrets
+          secret:
+            secretName: pico-hub-secrets
+            defaultMode: 0400
   volumeClaimTemplates:
     - metadata:
         name: data

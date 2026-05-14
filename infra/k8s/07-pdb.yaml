@@ -1,0 +1,63 @@
+# PodDisruptionBudgets for every StatefulSet/Deployment in the pico namespace.
+#
+# All workloads run with replicas: 1, so minAvailable: 1 means voluntary
+# disruptions (node drains, autoscaler evictions, GKE auto-upgrades) must
+# wait for the pod to be successfully recreated elsewhere before the old
+# one is killed. Involuntary disruptions (node hardware failure, kernel
+# panic) bypass PDBs and are covered by the litestream + PVC restore path
+# in docs/runbooks/.
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pico-hub
+  namespace: pico
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pico-hub
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pico-watchtower
+  namespace: pico
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pico-watchtower
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pico-prometheus
+  namespace: pico
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pico-prometheus
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pico-alertmanager
+  namespace: pico
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pico-alertmanager
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pico-grafana
+  namespace: pico
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pico-grafana

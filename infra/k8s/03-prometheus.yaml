@@ -197,6 +197,11 @@ spec:
             - "--storage.tsdb.path=/prometheus"
             - "--storage.tsdb.retention.time=15d"
             - "--web.enable-lifecycle"
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - name: http
               containerPort: 9090
@@ -218,7 +223,6 @@ spec:
               memory: 1Gi
               ephemeral-storage: 1Gi
             limits:
-              cpu: 250m
               memory: 1Gi
               ephemeral-storage: 1Gi
           volumeMounts:
@@ -227,10 +231,15 @@ spec:
               readOnly: true
             - name: data
               mountPath: /prometheus
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: config
           configMap:
             name: pico-prometheus-config
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
   volumeClaimTemplates:
     - metadata:
         name: data
