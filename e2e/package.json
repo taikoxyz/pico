@@ -19,7 +19,7 @@
     "@inferenceroom/pico-state-machine": "workspace:*",
     "@inferenceroom/pico-test-utils": "workspace:*",
     "@inferenceroom/pico-watchtower": "workspace:*",
-    "viem": "^2.21.0"
+    "viem": "^2.49.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

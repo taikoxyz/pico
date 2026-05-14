@@ -24,7 +24,7 @@
     "@inferenceroom/pico-protocol": "workspace:*",
     "@inferenceroom/pico-sdk": "workspace:*",
     "@inferenceroom/pico-state-machine": "workspace:*",
-    "viem": "^2.21.0",
+    "viem": "^2.49.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@inferenceroom/pico-protocol": "workspace:*",
-    "viem": "^2.21.0"
+    "viem": "^2.49.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
