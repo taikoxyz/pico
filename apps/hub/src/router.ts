@@ -10,6 +10,7 @@ import type {
   Preimage,
   SignedState,
 } from '@inferenceroom/pico-protocol';
+import { MAX_HTLC_VALUE_PER_COUNTERPARTY } from '@inferenceroom/pico-protocol';
 import { hexToSignature, randomHtlcId } from '@inferenceroom/pico-sdk';
 import {
   type HtlcAdmissionContext,
@@ -136,6 +137,7 @@ export class Router {
         sumHtlcAmounts(latestOutgoing.state.htlcs) + this.sumPendingOnChannel(outgoingChannel.id),
       perCounterpartyInflightValue: this.sumInflightToCounterparty(counterparty),
       maxPerChannelValue: this.maxPerChannelValueFor(outgoingChannel),
+      maxPerCounterpartyValue: this.maxPerCounterpartyValueFor(outgoingChannel.token),
       nowMs: BigInt(Date.now()),
     };
     const admit = checkHtlcAdmissible(outgoingHtlc, admissionCtx);
@@ -317,6 +319,24 @@ export class Router {
       total += this.sumPendingOnChannel(ch.id);
     }
     return total;
+  }
+
+  /**
+   * Per-counterparty aggregate value cap, in the channel token's base units.
+   * The protocol-level `MAX_HTLC_VALUE_PER_COUNTERPARTY` constant (`1e8` = 100
+   * USDC at 6 decimals) is the USDC default; for tokens with different decimal
+   * places (native ETH at 18, PTST at 18) the same scalar would clamp away
+   * any non-trivial payment. Round-4 smoke (issue #100 follow-up) showed
+   * even a 0.00001 ETH payment (1e13 wei) was being rejected against the
+   * 1e8 USDC scalar. Per-token overrides match the topup-policy intent
+   * (1 ETH and 100 PTST counterparts).
+   */
+  private maxPerCounterpartyValueFor(token: Address): bigint {
+    const ZERO = '0x0000000000000000000000000000000000000000';
+    const PTST = '0x3CF2321323C23c9F91daFe99E2b121cab5cE3759';
+    if (token.toLowerCase() === ZERO) return 1_000_000_000_000_000_000n; // 1 ETH
+    if (token.toLowerCase() === PTST.toLowerCase()) return 100_000_000_000_000_000_000n; // 100 PTST
+    return MAX_HTLC_VALUE_PER_COUNTERPARTY; // 100 USDC default
   }
 
   /**
