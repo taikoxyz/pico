@@ -189,6 +189,24 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         signedStateBeforeHtlc: item.outgoingHubSigned,
       });
     }
+    // §8: also re-push any topup offers that were proposed while the user
+    // was disconnected. pushProposeTopUp is fire-and-forget at original
+    // propose time; without this, a fresh-channel user who connects after
+    // the chain-watcher bootstrap fires will never see the inbound liquidity
+    // offer. Idempotent — offerId is stable; the SDK ignores duplicates.
+    if (topupHandler) {
+      try {
+        const pendingTopUps = await topupHandler.listPendingForCounterparty(msg.address);
+        for (const envelope of pendingTopUps) {
+          send(socket, envelope);
+        }
+      } catch (err) {
+        deps.logger.warn(
+          { err: (err as Error).message, address: msg.address },
+          'failed to re-push pending topup offers on subscribe',
+        );
+      }
+    }
   }
 
   async function handlePay(

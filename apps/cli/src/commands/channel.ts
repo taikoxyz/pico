@@ -31,6 +31,7 @@ import {
   formatCliError,
   parseAmount,
   readAllowance,
+  readMinChannelAmount,
   readTokenDecimals,
   resolveHubUrl,
   warnLocalhostHubOnMainnet,
@@ -147,6 +148,24 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
             rawMode: opts.rawAmount,
           });
 
+          // Pre-flight `minChannelAmount[token]` check (round-3 finding
+          // #15). The contract reverts with `amount<min` if the deposit is
+          // below the per-token floor, but viem surfaces only the opaque
+          // `chain error: Contract Call:`. Reading the floor here lets the
+          // CLI emit a clear actionable error before the on-chain call.
+          const minAmount = await readMinChannelAmount({
+            client: publicClient as unknown as PublicClient,
+            paymentChannelAddress,
+            token,
+          });
+          if (amount < minAmount) {
+            stderr.write(
+              `error: --amount must be ≥ ${formatUnits(minAmount, decimals)} (contract minChannelAmount[${token}] = ${minAmount} raw units)\n`,
+            );
+            process.exitCode = 1;
+            return;
+          }
+
           if (opts.approve && token !== ZERO_ADDRESS) {
             const current = await readAllowance({
               client: publicClient as unknown as PublicClient,
@@ -237,7 +256,11 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
             stderr.write(
               `warning: on-chain open succeeded but hub subscribe failed: ${err.cause.message}\nthe channel is recorded in local storage; retry by running \`pico listen\` to (re)subscribe.\n`,
             );
-            process.exitCode = 1;
+            // Round-2 finding #7: the channel IS open on-chain and locally
+            // persisted; the only thing that didn't complete is the WS
+            // subscribe. Exit 0 so JSON consumers and scripts see success.
+            // PR #102 + the chain-watcher bootstrap will register the
+            // channel hub-side within seconds; `pico listen` (re)subscribes.
             return;
           }
           stderr.write(formatCliError(err));
@@ -331,6 +354,37 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
           });
           try {
             await transport.connect();
+            // §5.2 anti-hostage auto-route (round-3 finding #14): if the
+            // channel has no off-chain state yet, `client.close` will fail
+            // inside the SDK with `no signed state for channel <id>` which
+            // surfaces as the opaque `chain error: Contract Call:` via the
+            // viem error wrapper. Route to `closeUnilateralFromOpen` so the
+            // user gets a working close instead of having to know about a
+            // separate `pico channel close-from-open` command.
+            const localState = await storage.loadLatestState(id as ChannelId);
+            if (!localState) {
+              stderr.write(
+                'channel has no off-chain state yet; routing to close-from-open (anti-hostage path, ~24h dispute window)\n',
+              );
+              const result = await client.closeUnilateralFromOpen(id as ChannelId);
+              const payload = {
+                channelId: id,
+                kind: 'unilateralFromOpen',
+                txHash: result.txHash,
+                blockNumber: result.blockNumber.toString(),
+                disputeDeadlineMs: result.disputeDeadlineMs.toString(),
+              };
+              if (opts.json) emit(payload, stdout);
+              else {
+                stdout.write(`close-from-open tx: ${result.txHash}\n`);
+                stdout.write(`channelId:          ${id}\n`);
+                stdout.write(`block:              ${result.blockNumber.toString()}\n`);
+                stdout.write(
+                  `disputeDeadline:    ${new Date(Number(result.disputeDeadlineMs)).toISOString()}\n`,
+                );
+              }
+              return;
+            }
             const result = await client.close(id as ChannelId, { cooperative: !opts.unilateral });
             const payload = {
               channelId: id,

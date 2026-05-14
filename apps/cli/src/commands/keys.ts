@@ -8,6 +8,7 @@ import {
 import {
   decryptPrivateKey,
   encryptPrivateKey,
+  inflatedFeesFromBlock,
   isEncryptedKeyFile,
   parseKeyFile,
   serializeKeyFile,
@@ -245,6 +246,12 @@ async function runDrain(opts: DrainOpts, deps: KeysDeps): Promise<void> {
 
     const swept: SweptToken[] = [];
 
+    // Compute fees BEFORE the loops so token sweeps and the native sweep
+    // use the same gas math. Round-3 finding #13/#4 showed viem's default
+    // gasPrice can be ~3× below the chain's current basefee on Taiko,
+    // causing both stuck txs and false-positive "balance < cost" errors.
+    const fees = await inflatedFeesFromBlock(publicClient);
+
     for (const token of tokens) {
       const balance = (await publicClient.readContract({
         address: token,
@@ -261,32 +268,54 @@ async function runDrain(opts: DrainOpts, deps: KeysDeps): Promise<void> {
         args: [opts.to, balance],
         account,
         chain,
+        ...fees,
       });
       await publicClient.waitForTransactionReceipt({ hash: txHash });
       swept.push({ token, amount: balance.toString(), decimals, txHash });
     }
 
-    // Sweep residual native ETH last so we don't lose the gas budget for token sweeps.
-    // Reserve enough wei for the final transfer's gas at the current price + 50% buffer.
+    // Sweep residual native ETH last so we don't lose the gas budget for
+    // token sweeps. Reserve enough wei for the final transfer's gas at the
+    // INFLATED maxFeePerGas (round-3 finding #4). On near-empty wallets the
+    // native sweep can legitimately not fit; if so, swallow the error,
+    // surface a warning in the payload, and exit 0 — the token sweeps that
+    // already succeeded are still useful and the caller can finish the
+    // native dust via cast or just leave it.
     const eth = await publicClient.getBalance({ address: account.address });
-    const gasPrice = (await publicClient.getGasPrice()) ?? 1n;
-    const reserve = (gasPrice * 21000n * 15n) / 10n;
+    const maxFeePerWei = 'maxFeePerGas' in fees ? fees.maxFeePerGas : fees.gasPrice;
+    // 2× the 21000 gas budget — a single sendTransaction never uses more,
+    // but viem's pre-flight balance check uses maxFeePerGas * gasLimit.
+    const reserve = maxFeePerWei * 21000n * 2n;
     let nativeSwept: { amount: string; txHash: `0x${string}` } | undefined;
+    let nativeSkipped: string | undefined;
     if (eth > reserve) {
       const value = eth - reserve;
-      const txHash = await walletClient.sendTransaction({
-        to: opts.to,
-        value,
-        account,
-        chain,
-        gas: 21000n,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
-      nativeSwept = { amount: value.toString(), txHash };
+      try {
+        const txHash = await walletClient.sendTransaction({
+          to: opts.to,
+          value,
+          account,
+          chain,
+          gas: 21000n,
+          ...fees,
+        });
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        nativeSwept = { amount: value.toString(), txHash };
+      } catch (err) {
+        nativeSkipped = (err as Error).message;
+      }
+    } else {
+      nativeSkipped = 'balance below gas reserve';
     }
 
     if (opts.json) {
-      const payload = { from: account.address, to: opts.to, native: nativeSwept, tokens: swept };
+      const payload = {
+        from: account.address,
+        to: opts.to,
+        native: nativeSwept,
+        tokens: swept,
+        ...(nativeSkipped ? { nativeSkipped } : {}),
+      };
       stdout.write(`${JSON.stringify(payload)}\n`);
       return;
     }
@@ -301,7 +330,7 @@ async function runDrain(opts: DrainOpts, deps: KeysDeps): Promise<void> {
         `  native ETH: ${formatUnits(BigInt(nativeSwept.amount), 18)} (tx ${nativeSwept.txHash})\n`,
       );
     } else {
-      stdout.write('  native ETH: below gas reserve, left as dust\n');
+      stdout.write(`  native ETH: skipped — ${nativeSkipped ?? 'unknown'}\n`);
     }
   } catch (err) {
     (deps.stdout ?? process.stdout).write(formatCliError(err));

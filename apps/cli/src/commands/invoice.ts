@@ -148,7 +148,10 @@ export function invoiceCommand(deps: InvoiceDeps = {}): Command {
   cmd
     .command('create')
     .description('Create a signed invoice and persist it locally')
-    .requiredOption('--amount <usdc>', 'Amount in USDC base units (6 decimals)')
+    .requiredOption(
+      '--amount <raw>',
+      "Amount in raw base units of the paying channel's token (e.g. 1000000 = 1 USDC at 6 decimals, or 1000000000000000 = 0.001 ETH at 18 decimals). The invoice itself is token-agnostic; the paying channel's token decides what the units mean.",
+    )
     .option('--memo <s>', 'Optional memo')
     .option('--expiry <s>', 'Expiry seconds from now', '3600')
     .option('--hub-hint <url>', 'Optional hub URL hint for the payer')

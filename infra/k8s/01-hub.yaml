@@ -28,6 +28,10 @@ data:
   HUB_REQUIRE_SIGNED_ENVELOPE: "true"
   CHAIN_ID: "167000"
   NODE_ENV: "production"
+  # Substituted by render-manifests.sh at deploy time. Surfaced in
+  # `/v1/health.version` (round-2 finding #3). When unset (e.g. in tests
+  # or local dev), the hub falls back to its package.json version.
+  HUB_RELEASE_TAG: "RELEASE_TAG"
 ---
 # Litestream config mounted into the sidecar at /etc/litestream.yml.
 # Same shape as infra/litestream/hub.yml. ${LITESTREAM_*} resolve from

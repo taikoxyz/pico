@@ -28,8 +28,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # changesets/action does two things on a `push: main` build:
+      #   1. If unreleased changesets exist → open a "Version Packages" PR.
+      #   2. If a "Version Packages" PR has just been merged → publish to npm.
+      # The npm publish call inevitably fails today because the
+      # `@inferenceroom/*` scope isn't registered on npmjs.org. That's a
+      # separate operational problem (the SDK was never meant to ship to
+      # public npm); for the CI pipeline's purpose we only need the
+      # version-PR + version-bump-commit path to work. `continue-on-error`
+      # makes the publish-half failure non-fatal so the next step (Docker
+      # tag) still runs.
       - name: Publish or open version PR
         id: changesets
+        continue-on-error: true
         uses: changesets/action@v1
         with:
           publish: pnpm release
@@ -38,23 +49,62 @@ jobs:
           NPM_CONFIG_PROVENANCE: 'true'
           LEFTHOOK: '0'
 
+      # Decoupled from npm publish (round-3 finding #12, issue #100): the
+      # GKE deploy must fire whenever a deploy-relevant package version
+      # bumps on main, regardless of whether `changeset publish` succeeded
+      # on npm. Previously this step was gated on `published == 'true'`,
+      # which meant a single npm registry failure (e.g. the `@inferenceroom`
+      # scope not existing) silently blocked all GKE rollouts.
+      #
+      # New gate: diff the deploy-relevant `package.json` versions at HEAD
+      # against the most recent `v*` tag. If any of them moved, cut a tag.
       - name: Tag release for Docker build
-        if: steps.changesets.outputs.published == 'true'
         env:
-          PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
-          DEPLOY_PKGS: '["@inferenceroom/pico-protocol","@inferenceroom/pico-state-machine","@inferenceroom/pico-sdk"]'
+          DEPLOY_PKG_PATHS: |
+            packages/protocol/package.json
+            packages/state-machine/package.json
+            packages/sdk/package.json
         run: |
           set -euo pipefail
-          DEPLOY_VERSION=$(echo "$PUBLISHED" | jq -r --argjson pkgs "$DEPLOY_PKGS" \
-            'map(select(.name as $n | $pkgs | index($n))) | (.[0].version // "")')
-          if [ -z "$DEPLOY_VERSION" ] || [ "$DEPLOY_VERSION" = "null" ]; then
-            echo "No deployment-relevant package published; skipping Docker tag."
+
+          # Find the most recent v* tag (semver, reverse-chronological).
+          LAST_TAG="$(git tag --list 'v*' --sort=-creatordate | head -n1 || true)"
+          if [ -z "${LAST_TAG}" ]; then
+            echo "No prior v* tag; cannot diff. Defaulting to current packages/sdk version."
+            HEAD_VERSION="$(jq -r .version packages/sdk/package.json)"
+            BUMPED=true
+          else
+            echo "Last tag: ${LAST_TAG}"
+            BUMPED=false
+            HEAD_VERSION=""
+            for path in ${DEPLOY_PKG_PATHS}; do
+              head_v="$(jq -r .version "${path}")"
+              # `git show TAG:path` may fail if the file didn't exist at the tag.
+              if old_blob="$(git show "${LAST_TAG}:${path}" 2>/dev/null)"; then
+                old_v="$(printf '%s' "${old_blob}" | jq -r .version)"
+              else
+                old_v=""
+              fi
+              if [ "${head_v}" != "${old_v}" ]; then
+                echo "  ${path}: ${old_v:-<missing>} → ${head_v} (changed)"
+                BUMPED=true
+                if [ -z "${HEAD_VERSION}" ]; then HEAD_VERSION="${head_v}"; fi
+              else
+                echo "  ${path}: ${head_v} (unchanged)"
+              fi
+            done
+          fi
+
+          if [ "${BUMPED}" != "true" ]; then
+            echo "No deploy-relevant package version changed since ${LAST_TAG}; skipping Docker tag."
             exit 0
           fi
-          TAG="v${DEPLOY_VERSION}"
+
+          TAG="v${HEAD_VERSION}"
           if git rev-parse --verify --quiet "refs/tags/${TAG}"; then
             echo "Tag ${TAG} already exists; skipping."
             exit 0
           fi
+          echo "Cutting tag ${TAG} (deploy-relevant package version bumped)."
           git tag "${TAG}"
           git push origin "${TAG}"

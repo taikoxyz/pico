@@ -57,7 +57,10 @@ export function payCommand(deps: PayDeps = {}): Command {
     .option('--invoice <s>', 'Invoice envelope to pay')
     .option('--keysend', 'Push payment without an invoice', false)
     .option('--to <addr>', 'Recipient address (required with --keysend)')
-    .option('--amount <usdc>', 'Amount in USDC base units (required with --keysend)')
+    .option(
+      '--amount <raw>',
+      "Amount in raw base units of the channel's token (required with --keysend). For invoice payments the amount comes from the invoice.",
+    )
     .option('--memo <s>', 'Optional memo (keysend only)')
     .option('--recipient-pubkey <hex>', 'Recipient encryption pubkey (required with --keysend)')
     .option('--via <url>', 'Hub WebSocket URL', 'ws://127.0.0.1:9050')

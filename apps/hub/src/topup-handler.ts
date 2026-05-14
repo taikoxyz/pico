@@ -32,7 +32,7 @@ import type { Logger } from './logger.js';
 import type { HubMetrics } from './metrics.js';
 import type { KeyedMutex } from './mutex.js';
 import type { TopUpPolicyConfig } from './topup-policy.js';
-import { evaluateTopUp } from './topup-policy.js';
+import { evaluateTopUp, resolveDefaultOfferAmount } from './topup-policy.js';
 
 export const HOT_WALLET_KEY = 'hot-wallet';
 
@@ -76,8 +76,12 @@ export interface TopUpHandlerDeps {
   readonly token: Address;
   readonly policyConfig: TopUpPolicyConfig;
   readonly hotWalletMutex: KeyedMutex<string>;
-  /** Reads the hub's current USDC balance (RPC-backed in production). */
-  readonly readUsdcBalance: () => Promise<bigint>;
+  /**
+   * Reads the hub's current hot-wallet balance of `token` (RPC-backed in
+   * production). `ZERO_ADDRESS` means native ETH. Per-token because §8
+   * supports multi-token channel networks (round-3 finding #9).
+   */
+  readonly readHotWalletBalance: (token: Address) => Promise<bigint>;
   /** Push a `proposeTopUp` envelope to the user; returns true if a session was found. */
   readonly pushProposeTopUp: (toAddress: Address, msg: ProposeTopUpMessage) => boolean;
   /** Notify the user that the on-chain topUp has confirmed; returns true if delivered. */
@@ -133,14 +137,18 @@ export class TopUpHandler {
     if (!counterparty) return;
 
     await this.deps.hotWalletMutex.run(HOT_WALLET_KEY, async () => {
-      const ctx = await this.buildEvalContext(counterparty);
+      const ctx = await this.buildEvalContext(counterparty, channel.token);
       const decision = evaluateTopUp(this.deps.policyConfig, ctx);
       if (decision.approve === null) {
         this.deps.logger.info(
           { channelId: channel.id, counterparty, reason: decision.reason },
           'topup: queuing — admission policy rejected',
         );
-        await this.queueOffer(channel, counterparty, this.deps.policyConfig.defaultOfferAmount);
+        await this.queueOffer(
+          channel,
+          counterparty,
+          resolveDefaultOfferAmount(this.deps.policyConfig, channel.token),
+        );
         return;
       }
       await this.proposeUnderLock(channel, counterparty, decision.approve);
@@ -422,14 +430,18 @@ export class TopUpHandler {
     return undefined;
   }
 
-  private async buildEvalContext(counterparty: Address): Promise<{
+  private async buildEvalContext(
+    counterparty: Address,
+    token: Address,
+  ): Promise<{
     counterparty: Address;
-    hubHotWalletUsdc: bigint;
+    token: Address;
+    hubHotWalletBalance: bigint;
     committedToCounterparty: bigint;
     outboundToCounterparty: bigint;
     totalCommitted: bigint;
   }> {
-    const hubHotWalletUsdc = await this.deps.readUsdcBalance();
+    const hubHotWalletBalance = await this.deps.readHotWalletBalance(token);
     const committedToCounterparty =
       this.deps.liquidity.perCounterpartyCommitted(counterparty) +
       this.deps.liquidity.perCounterpartySubmitted(counterparty);
@@ -445,7 +457,8 @@ export class TopUpHandler {
       this.deps.liquidity.totalCommitted() + this.deps.liquidity.totalSubmitted();
     return {
       counterparty,
-      hubHotWalletUsdc,
+      token,
+      hubHotWalletBalance,
       committedToCounterparty,
       outboundToCounterparty,
       totalCommitted,
@@ -591,6 +604,48 @@ export class TopUpHandler {
     );
     return row;
   }
+
+  /**
+   * Returns proposed-but-not-yet-accepted offer envelopes for `counterparty`,
+   * suitable for re-pushing over a freshly reopened WS session. Re-pushing
+   * is idempotent on the user side (offerId is stable) and does not mutate
+   * the persisted row.
+   */
+  async listPendingForCounterparty(counterparty: Address): Promise<ProposeTopUpMessage[]> {
+    const offers = await this.deps.repos.topupOffers.listByCounterparty(counterparty, ['proposed']);
+    const nowSec = BigInt(Math.floor(this.now() / 1000));
+    const envelopes: ProposeTopUpMessage[] = [];
+    for (const row of offers) {
+      if (row.validUntilSec < nowSec) continue;
+      envelopes.push(buildProposeTopUpEnvelope(row));
+    }
+    return envelopes;
+  }
+}
+
+/**
+ * Reconstructs a `ProposeTopUpMessage` envelope from a persisted
+ * `TopUpOfferRow`. Used by `listPendingForCounterparty` to re-push
+ * undelivered proposals on WS resubscribe. Must match the envelope
+ * shape produced inside `proposeUnderLock`.
+ */
+function buildProposeTopUpEnvelope(row: TopUpOfferRow): ProposeTopUpMessage {
+  return {
+    id: `proposeTopUp-${row.offerId}`,
+    kind: 'proposeTopUp',
+    channelId: row.channelId,
+    offerId: row.offerId,
+    amount: row.amount,
+    prevStateVersion: row.prevVersion,
+    newState: row.newState,
+    validUntil: row.validUntilSec,
+    feePolicy: null,
+    minLifetime: null,
+    maxInFlightHtlcs: 5,
+    partialAccepted: false,
+    prevSig: row.hubSigPrev,
+    newSig: row.hubSigNew,
+  };
 }
 
 export { hexToSignature };

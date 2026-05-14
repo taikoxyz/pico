@@ -1,4 +1,5 @@
 import type { Channel, ChannelState, Signature, SignedState } from '@inferenceroom/pico-protocol';
+import { EMPTY_SIG_BYTES } from '@inferenceroom/pico-protocol';
 import { Registry } from 'prom-client';
 import type { PublicClient } from 'viem';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -211,6 +212,20 @@ describe('ChainWatcher', () => {
     const amounts = await h.repos.channels.getAmounts(newChannelId);
     expect(amounts?.amountA).toBe(1234n);
     expect(amounts?.amountB).toBe(0n);
+
+    // Bootstrap must seed a sentinel-signed v0 state so the router has
+    // something to apply HTLC updates onto. Without this, any forwarded
+    // pay rejects with `no signed state for outgoing channel`.
+    const v0 = pool.latest(newChannelId);
+    expect(v0).toBeDefined();
+    expect(v0?.state.version).toBe(0n);
+    expect(v0?.state.balanceA).toBe(1234n);
+    expect(v0?.state.balanceB).toBe(0n);
+    expect(v0?.state.htlcs).toEqual([]);
+    expect(v0?.state.finalized).toBe(false);
+    expect(v0?.sigA.r).toBe(EMPTY_SIG_BYTES);
+    expect(v0?.sigB.r).toBe(EMPTY_SIG_BYTES);
+    expect(v0?.sigA.v).toBe(0);
   });
 
   it('falls back to wall-clock openedAt when getBlock fails on bootstrap', async () => {
