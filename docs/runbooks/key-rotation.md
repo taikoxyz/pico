@@ -1,4 +1,9 @@
-# Key rotation (DRAFT — verify before P10)
+# Key rotation
+
+> Replace `<paging-contact>` with your PagerDuty/Opsgenie escalation policy
+> before mainnet operations. For suspected compromise, also page
+> `<paging-contact>` and follow [hub-key-compromise.md](./hub-key-compromise.md)
+> or [watchtower-key-compromise.md](./watchtower-key-compromise.md).
 
 ## When to rotate
 
@@ -20,13 +25,13 @@
 1. Generate the new key in an isolated host (offline preferred):
    `cast wallet new` or your KMS export.
 2. Funded amounts: send minimum gas budget to the new address.
-3. Deploy the new secret:
-   - GKE: rerun `infra/k8s/secrets-bootstrap.sh --service hub --env-file <new-env>` and then restart the StatefulSet.
-   - Fly: `fly secrets set HUB_PRIVATE_KEY=0x...`.
+3. Deploy the new secret: rerun
+   `infra/k8s/secrets-bootstrap.sh --service hub --env-file <new-env>` and
+   then restart the StatefulSet.
 4. Restart the service:
-   - GKE: `kubectl rollout restart statefulset/pico-hub -n pico`.
-   - Fly: `fly machine restart -a pico-hub`.
-5. Verify `/v1/health` returns 200.
+   `kubectl rollout restart statefulset/pico-hub -n pico`.
+5. Verify `/v1/health` returns 200 and
+   `pico_hub_hot_wallet_eth_balance_wei` reflects the newly funded address.
 6. Once confirmed, sweep gas from the old key back to a treasury address.
 7. Document the rotation in `docs/incidents/YYYY-MM-DD-rotation.md`.
 
@@ -41,5 +46,7 @@
 ## Verification
 
 - `pico_hub_chain_watcher_lag_blocks` returns to baseline.
+- `pico_hub_hot_wallet_eth_balance_wei` and
+  `pico_watchtower_hot_wallet_eth_balance_wei` reflect the new hot wallets.
 - WS subscribers can reconnect and exchange a `ping` round-trip.
 - Operator REST `GET /v1/channels` works only with the new bearer token.
