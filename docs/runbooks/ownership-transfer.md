@@ -50,7 +50,7 @@ cast code $CURRENT_OWNER --rpc-url taiko_mainnet
 Both `owner()` calls must equal `$CURRENT_OWNER`, and `$CURRENT_OWNER` must have
 code unless the deployment is intentionally in an emergency EOA-owner state. If
 the owner has no code, do not run the real-USDC smoke test until key custody is
-documented in `docs/launch-log.md`.
+documented in `final_readiness_report.html` (§13 launch gates).
 
 ### 1. Deploy the timelock
 
