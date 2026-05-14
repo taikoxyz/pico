@@ -66,6 +66,11 @@ contract PaymentChannelGenericErc20Test is Fixtures {
 
         channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
+        vm.prank(alice);
+        channel.withdraw(address(weth18));
+        vm.prank(bob);
+        channel.withdraw(address(weth18));
+
         assertEq(weth18.balanceOf(alice), aliceBefore + 2 * ONE);
         assertEq(weth18.balanceOf(bob), bobBefore + 6 * ONE);
         assertEq(weth18.balanceOf(address(channel)), 0);
@@ -82,6 +87,11 @@ contract PaymentChannelGenericErc20Test is Fixtures {
         uint256 aliceBefore = weth18.balanceOf(alice);
         uint256 bobBefore = weth18.balanceOf(bob);
         channel.finalize(id);
+
+        vm.prank(alice);
+        channel.withdraw(address(weth18));
+        vm.prank(bob);
+        channel.withdraw(address(weth18));
 
         assertEq(weth18.balanceOf(alice), aliceBefore + 4 * ONE);
         assertEq(weth18.balanceOf(bob), bobBefore + 4 * ONE);
@@ -102,6 +112,10 @@ contract PaymentChannelGenericErc20Test is Fixtures {
         uint256 aliceBefore = weth18.balanceOf(alice);
         uint256 bobBefore = weth18.balanceOf(bob);
         channel.finalize(id);
+
+        vm.prank(bob);
+        channel.withdraw(address(weth18));
+
         assertEq(weth18.balanceOf(alice), aliceBefore, "cheater gets nothing");
         assertEq(weth18.balanceOf(bob), bobBefore + FUND_A + FUND_B, "honest party gets full pot");
     }

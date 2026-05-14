@@ -436,6 +436,14 @@ describe('integration: watchtower catches stale-state fraud on anvil', () => {
     });
     await fixture.publicClient.waitForTransactionReceipt({ hash: finalizeHash });
 
+    const withdrawHash = await aliceWallet.writeContract({
+      address: fixture.paymentChannel,
+      abi: parseAbi(['function withdraw(address token) external']),
+      functionName: 'withdraw',
+      args: [fixture.usdc],
+    });
+    await fixture.publicClient.waitForTransactionReceipt({ hash: withdrawHash });
+
     const aliceUsdc = await fixture.publicClient.readContract({
       address: fixture.usdc,
       abi: erc20Abi,

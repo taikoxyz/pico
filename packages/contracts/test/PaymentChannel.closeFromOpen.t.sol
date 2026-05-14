@@ -46,6 +46,10 @@ contract PaymentChannelCloseFromOpenTest is Fixtures {
         emit IPaymentChannel.ChannelFinalized(id, FUND_A, FUND_B);
         channel.finalize(id);
 
+        vm.prank(alice);
+        channel.withdraw(address(token));
+        // bob deposited 0 so nothing to withdraw
+
         // Caller (alice) deposited FUND_A and gets FUND_A back; bob deposited 0, gets 0.
         assertEq(token.balanceOf(alice), balA0 + FUND_A);
         assertEq(token.balanceOf(bob), balB0 + FUND_B);
@@ -64,6 +68,10 @@ contract PaymentChannelCloseFromOpenTest is Fixtures {
         uint256 balA0 = token.balanceOf(alice);
         uint256 balB0 = token.balanceOf(bob);
         channel.finalize(id);
+
+        vm.prank(alice);
+        channel.withdraw(address(token));
+
         assertEq(token.balanceOf(alice), balA0 + FUND_A);
         assertEq(token.balanceOf(bob), balB0 + FUND_B);
     }

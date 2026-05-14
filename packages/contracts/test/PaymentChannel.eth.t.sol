@@ -124,6 +124,11 @@ contract PaymentChannelEthTest is Fixtures {
 
         channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
+        vm.prank(alice);
+        channel.withdraw(ETH);
+        vm.prank(bob);
+        channel.withdraw(ETH);
+
         assertEq(alice.balance, aliceBefore + 0.4 ether);
         assertEq(bob.balance, bobBefore + 0.6 ether);
         assertEq(address(channel).balance, 0);
@@ -144,6 +149,11 @@ contract PaymentChannelEthTest is Fixtures {
         uint256 aliceBefore = alice.balance;
         uint256 bobBefore = bob.balance;
         channel.finalize(id);
+
+        vm.prank(alice);
+        channel.withdraw(ETH);
+        vm.prank(bob);
+        channel.withdraw(ETH);
 
         assertEq(alice.balance, aliceBefore + 0.3 ether);
         assertEq(bob.balance, bobBefore + 0.7 ether);
@@ -168,6 +178,9 @@ contract PaymentChannelEthTest is Fixtures {
         uint256 aliceBefore = alice.balance;
         uint256 bobBefore = bob.balance;
         channel.finalize(id);
+
+        vm.prank(bob);
+        channel.withdraw(ETH);
 
         // 100% slash: cheater (alice) gets nothing; full pot to honest party (bob).
         assertEq(alice.balance, aliceBefore, "cheater gets nothing");

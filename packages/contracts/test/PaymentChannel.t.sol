@@ -193,6 +193,11 @@ contract PaymentChannelTest is Fixtures {
         emit IPaymentChannel.ChannelClosedCooperative(id, 30_000_000, 50_000_000, ts);
         channel.closeCooperative(id, abi.encode(cc), sigA, sigB);
 
+        vm.prank(alice);
+        channel.withdraw(address(token));
+        vm.prank(bob);
+        channel.withdraw(address(token));
+
         assertEq(token.balanceOf(alice), balA0 + 30_000_000);
         assertEq(token.balanceOf(bob), balB0 + 50_000_000);
         assertEq(uint256(channel.channels(id).status), uint256(PaymentChannel.Status.Closed));
@@ -662,6 +667,11 @@ contract PaymentChannelTest is Fixtures {
         emit IPaymentChannel.ChannelFinalized(id, 60_000_000, 20_000_000);
         channel.finalize(id);
 
+        vm.prank(alice);
+        channel.withdraw(address(token));
+        vm.prank(bob);
+        channel.withdraw(address(token));
+
         assertEq(token.balanceOf(alice), balA0 + 60_000_000);
         assertEq(token.balanceOf(bob), balB0 + 20_000_000);
         assertEq(token.balanceOf(address(channel)), 0);
@@ -687,6 +697,9 @@ contract PaymentChannelTest is Fixtures {
         uint256 balB0 = token.balanceOf(bob);
         channel.finalize(id);
 
+        vm.prank(bob);
+        channel.withdraw(address(token));
+
         // 100% slash: full pot to honest party (bob)
         assertEq(token.balanceOf(alice), balA0, "cheater gets nothing");
         assertEq(token.balanceOf(bob), balB0 + FUND_A + FUND_B, "honest party gets full pot");
@@ -707,6 +720,10 @@ contract PaymentChannelTest is Fixtures {
         uint256 balA0 = token.balanceOf(alice);
         uint256 balB0 = token.balanceOf(bob);
         channel.finalize(id);
+
+        vm.prank(alice);
+        channel.withdraw(address(token));
+
         assertEq(token.balanceOf(bob), balB0, "cheater gets nothing");
         assertEq(token.balanceOf(alice), balA0 + FUND_A + FUND_B, "honest party gets full pot");
     }

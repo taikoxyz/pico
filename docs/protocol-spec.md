@@ -93,10 +93,21 @@ construction.
 **ETH channels** (`token == address(0)`): the same `amountB == 0` rule applies,
 plus the opener attaches `msg.value == amountA` (no `approve` step exists for
 native ETH). Counterparty inbound liquidity is added later via `topUp` (`payable`,
-`msg.value == amount`). Disbursements at `closeCooperative` and `finalize` use
-`call{value:}`; if either participant is a contract whose `receive()` reverts,
-the disbursement reverts and the channel is stuck. ETH channel counterparties
-SHOULD be EOAs or contracts with a trivial `receive() external payable {}`.
+`msg.value == amount`).
+
+**Disbursement — pull pattern (v2.1)**: `closeCooperative` and `finalize` do NOT
+push funds directly to participants. Instead they credit `pendingWithdrawals[token][user]`
+on the contract. Each party claims their balance by calling `withdraw(token)` in a
+separate transaction. This means:
+
+- A reverting `receive()` (U-02), a USDC pause (U-01), or a Circle blocklist entry
+  (U-03) on one party cannot block the channel's state transition or the other
+  party's withdrawal.
+- Reentrancy in `withdraw` is blocked by `nonReentrant`; CEI ordering zeroes the
+  balance before any external call.
+- Credits accumulate across multiple channels: a second `closeCooperative` adds to
+  any existing `pendingWithdrawals` balance, and a single `withdraw` drains the
+  entire accumulated credit.
 
 **Unilateral close from initial state**: the on-chain `ChannelOpened` event
 records the funded amounts, which together imply an "implicit version-0 state"
