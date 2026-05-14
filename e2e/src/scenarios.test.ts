@@ -18,6 +18,7 @@ import {
   buildAliceClient,
   buildClient,
   timeWarp,
+  withdrawPending,
 } from './harness.js';
 
 const paymentChannelStatusAbi = parseAbi([
@@ -88,6 +89,8 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
 
     await alice.client.close(channel.id, { cooperative: true });
 
+    await withdrawPending(h, h.alice, h.usdc);
+    await withdrawPending(h, h.hub, h.usdc);
     expect(await readUsdcBalance(h, h.alice.address)).toBe(95n * ONE_USDC);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(105n * ONE_USDC);
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
@@ -113,6 +116,8 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     expect(stored?.state.balanceB).toBe(10n * ONE_USDC);
 
     await alice.client.close(channel.id, { cooperative: true });
+    await withdrawPending(h, h.alice, h.usdc);
+    await withdrawPending(h, h.hub, h.usdc);
     expect(await readUsdcBalance(h, h.alice.address)).toBe(90n * ONE_USDC);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(110n * ONE_USDC);
   });
@@ -132,6 +137,8 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
 
     await alice.client.close(channel.id, { cooperative: true });
 
+    await withdrawPending(h, h.alice, h.usdc);
+    await withdrawPending(h, h.hub, h.usdc);
     expect(await readUsdcBalance(h, h.alice.address)).toBe(aliceBefore);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(hubBefore);
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
@@ -154,6 +161,8 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     await alice.client.payDirect(channel.id, { amount: 10n * ONE_USDC });
     await alice.client.close(channel.id, { cooperative: true });
 
+    await withdrawPending(h, h.alice, h.usdc);
+    await withdrawPending(h, h.hub, h.usdc);
     expect(await readUsdcBalance(h, h.alice.address)).toBe(90n * ONE_USDC);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(110n * ONE_USDC);
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
@@ -178,6 +187,8 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     expect(stored?.state.balanceA).toBe(10n * ONE_USDC);
 
     await alice.client.close(channel.id, { cooperative: true });
+    await withdrawPending(h, h.alice, h.usdc);
+    await withdrawPending(h, h.hub, h.usdc);
     expect(await readUsdcBalance(h, h.alice.address)).toBe(100n * ONE_USDC);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(100n * ONE_USDC);
   });
@@ -283,6 +294,8 @@ describe('e2e — phase 1 alice→hub scenarios on vanilla anvil', () => {
     ).opts.chain.finalize(channel.id);
     expect(finalizedResult).toBeDefined();
 
+    await withdrawPending(h, h.alice, h.usdc);
+    await withdrawPending(h, h.hub, h.usdc);
     expect(await readUsdcBalance(h, h.alice.address)).toBe(95n * ONE_USDC);
     expect(await readUsdcBalance(h, h.hub.address)).toBe(105n * ONE_USDC);
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
@@ -480,6 +493,7 @@ describe('e2e — phase 2C dispute → finalize (watchtower wins)', () => {
       await h.publicClient.waitForTransactionReceipt({ hash: fHash });
 
       expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
+      await withdrawPending(h, h.alice, h.usdc);
       const aliceUsdc = await readUsdcBalance(h, h.alice.address);
       const hubUsdc = await readUsdcBalance(h, h.hub.address);
       expect(aliceUsdc).toBe(100n * ONE_USDC);
@@ -514,6 +528,7 @@ describe('e2e — phase 2D hot-key rotation', () => {
       }
       await k1Bundle.client.payDirect(ch1.id, { amount: 5n * ONE_USDC });
       await k1Bundle.client.close(ch1.id, { cooperative: true });
+      await withdrawPending(h, h.alice, h.usdc);
       expect(await readUsdcBalance(h, h.alice.address)).toBe(95n * ONE_USDC);
     } finally {
       await k1Bundle.transport.close();
@@ -546,6 +561,7 @@ describe('e2e — phase 2D hot-key rotation', () => {
       await k2Bundle.client.payDirect(ch2.id, { amount: 3n * ONE_USDC });
       await k2Bundle.client.close(ch2.id, { cooperative: true });
 
+      await withdrawPending(h, newParty, h.usdc);
       expect(await readUsdcBalance(h, newParty.address)).toBe(47n * ONE_USDC);
     } finally {
       await k2Bundle.transport.close();
@@ -872,6 +888,8 @@ describe('e2e — v2 HTLC settlement (M7)', () => {
     });
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
 
+    await withdrawPending(h, h.alice, h.usdc);
+    await withdrawPending(h, h.hub, h.usdc);
     const aliceWalletAfter = await readUsdcBalance(h, h.alice.address);
     const hubWalletAfter = await readUsdcBalance(h, h.hub.address);
     // The before-snapshot is captured *after* `open()` drained 100 USDC into
@@ -957,6 +975,7 @@ describe('e2e — v2 HTLC settlement (M7)', () => {
     });
     expect(await readChannelStatus(h, channel.id)).toBe(STATUS_CLOSED);
 
+    await withdrawPending(h, h.alice, h.usdc);
     const aliceWalletAfter = await readUsdcBalance(h, h.alice.address);
     const hubWalletAfter = await readUsdcBalance(h, h.hub.address);
     // Before-snapshot is captured after `open()` drained 100 USDC into the

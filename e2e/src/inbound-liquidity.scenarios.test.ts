@@ -23,6 +23,7 @@ import {
   buildAliceClient,
   buildBobClient,
   timeWarp,
+  withdrawPending,
 } from './harness.js';
 
 const ONE_USDC = 1_000_000n;
@@ -552,6 +553,7 @@ describe('inbound-liquidity scenarios', () => {
     //   - received 2 from Alice's coop (Alice 8, Hub 2).
     //   - received 4 from Bob's coop (Bob 11, Hub 4).
     // Net: -5 + 2 + 4 = +1 USDC.
+    await withdrawPending(h, h.hub, h.usdc);
     const hubUsdcEnd = await readUsdcBalance(h, h.hub.address);
     expect(hubUsdcEnd - hubUsdcStart).toBe(1n * ONE_USDC);
   });
@@ -620,6 +622,7 @@ describe('inbound-liquidity scenarios', () => {
     const finalRow = await readChannelRow(h, bobChannel.id);
     expect(finalRow.status).toBe(STATUS_CLOSED);
     // Bob got his full deposit back.
+    await withdrawPending(h, h.bob, h.usdc);
     const bobUsdcAfter = await readUsdcBalance(h, h.bob.address);
     expect(bobUsdcAfter).toBe(bobUsdcBefore);
   }, 90_000);

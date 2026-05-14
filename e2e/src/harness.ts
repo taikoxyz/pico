@@ -32,6 +32,7 @@ import {
   createWalletClient,
   encodeFunctionData,
   erc20Abi,
+  parseAbi,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, taiko } from 'viem/chains';
@@ -582,4 +583,35 @@ export async function timeWarp(rpcUrl: string, seconds: number): Promise<void> {
   };
   await post('evm_increaseTime', [seconds]);
   await post('evm_mine', []);
+}
+
+const pendingWithdrawalsAbi = parseAbi([
+  'function pendingWithdrawals(address token, address user) view returns (uint256)',
+  'function withdraw(address token) external',
+]);
+
+export async function withdrawPending(
+  h: E2EHandle,
+  party: E2EParty,
+  token: Address,
+): Promise<void> {
+  const pending = await h.publicClient.readContract({
+    address: h.paymentChannel,
+    abi: pendingWithdrawalsAbi,
+    functionName: 'pendingWithdrawals',
+    args: [token, party.address],
+  });
+  if (pending === 0n) return;
+  const wallet = createWalletClient({
+    account: privateKeyToAccount(party.privateKey),
+    chain: viemChainFor(h.chainId),
+    transport: http(h.rpcUrl),
+  });
+  const hash = await wallet.writeContract({
+    address: h.paymentChannel,
+    abi: pendingWithdrawalsAbi,
+    functionName: 'withdraw',
+    args: [token],
+  });
+  await h.publicClient.waitForTransactionReceipt({ hash });
 }

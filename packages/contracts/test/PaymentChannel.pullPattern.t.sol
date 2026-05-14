@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Adjudicator} from "../src/Adjudicator.sol";
 import {PaymentChannel} from "../src/PaymentChannel.sol";
-import {IPaymentChannel} from "../src/interfaces/IPaymentChannel.sol";
 import {Fixtures} from "./helpers/Fixtures.sol";
 
 /// @notice ERC-20 with pause (U-01) and per-address blocklist (U-03).
@@ -14,12 +13,25 @@ contract PausableBlocklistERC20 is ERC20 {
 
     constructor() ERC20("Pausable USDC", "PUSDC") {}
 
-    function decimals() public pure override returns (uint8) { return 6; }
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
 
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
-    function pause() external { paused = true; }
-    function unpause() external { paused = false; }
-    function blockAddress(address who) external { blocklisted[who] = true; }
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function pause() external {
+        paused = true;
+    }
+
+    function unpause() external {
+        paused = false;
+    }
+
+    function blockAddress(address who) external {
+        blocklisted[who] = true;
+    }
 
     function transfer(address to, uint256 amount) public override returns (bool) {
         require(!paused, "paused");
@@ -36,7 +48,9 @@ contract PausableBlocklistERC20 is ERC20 {
 
 /// @notice ETH receiver whose receive() always reverts — simulates U-02 (reverting counterparty).
 contract RevertingReceiver {
-    receive() external payable { revert("no ETH"); }
+    receive() external payable {
+        revert("no ETH");
+    }
 }
 
 /// @notice Reentrancy attacker: on receiving ETH, tries to call withdraw again.
@@ -44,7 +58,9 @@ contract ReentrancyAttacker {
     PaymentChannel public immutable channel;
     bool internal _armed;
 
-    constructor(PaymentChannel ch) { channel = ch; }
+    constructor(PaymentChannel ch) {
+        channel = ch;
+    }
 
     receive() external payable {
         if (_armed) {
@@ -53,7 +69,9 @@ contract ReentrancyAttacker {
         }
     }
 
-    function arm() external { _armed = true; }
+    function arm() external {
+        _armed = true;
+    }
 }
 
 /// @title PaymentChannelPullPatternTest
