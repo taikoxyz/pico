@@ -18,7 +18,7 @@ issue. Two channels, in order of preference:
    triggers a notification immediately.
 
 2. **Encrypted email** to `security@taiko.xyz` with PGP. Fingerprint:
-   `<PICO_PGP_FINGERPRINT_TODO>`. Until that marker is replaced with a real
+   `0000 0000 0000 0000 0000 0000 0000 0000 0000 0000  (placeholder — see below)`. Until that marker is replaced with a real
    fingerprint and `pgp-key.asc` exists at the repo root, **PGP-encrypted
    email is not yet accepted — use the GitHub advisory channel above.** See
    [`docs/runbooks/security-disclosure.md`](docs/runbooks/security-disclosure.md)
@@ -89,3 +89,5 @@ Current on-call: **@dantaik** (sole maintainer per `CODEOWNERS`). GitHub
 private advisory creation auto-notifies this account. Paging configuration
 for additional maintainers lives in
 [`docs/runbooks/security-disclosure.md`](docs/runbooks/security-disclosure.md).
+
+> **Note:** The PGP key fingerprint above is a placeholder. A maintainer should generate a real keypair using `gpg --full-generate-key`, export the public key to `pgp-key.asc`, and update the fingerprint in this file.
