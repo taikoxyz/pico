@@ -129,12 +129,11 @@ jobs:
 
             Review this PR thoroughly. Be direct - flag only real issues.`;
 
-            // `deepseek-v4-pro` was returning 200 OK with empty content (invalid /
-            // aliased id routed to a fallback). Default to the documented `deepseek-chat`
-            // model, which returns visible content directly; both the model and the
-            // token budget are overridable via repo variables without a code change.
-            const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
-            const maxTokens = parseInt(process.env.DEEPSEEK_MAX_TOKENS || '8192', 10);
+            // `deepseek-v4-pro` was returning 200 OK with empty content because the
+            // 4096-token budget was consumed before any visible output. Keep the model
+            // but raise the budget and retry below; both are overridable via repo vars.
+            const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
+            const maxTokens = parseInt(process.env.DEEPSEEK_MAX_TOKENS || String(8192 * 8), 10);
 
             async function requestReview() {
               const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
