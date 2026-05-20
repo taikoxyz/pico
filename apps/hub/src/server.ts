@@ -5,13 +5,14 @@ import { http, type WalletClient, createPublicClient, createWalletClient, erc20A
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, taiko } from 'viem/chains';
 import { type ApiHandle, registerRoutes } from './api/index.js';
+import { AutoCloseSweeper } from './auto-close.js';
 import { AutoRecycle } from './auto-recycle.js';
 import { ChainWatcher } from './chain-watcher.js';
 import { ChannelPool } from './channel-pool.js';
 import { type HubConfig, loadConfig } from './config.js';
 import { type Database, openDatabase } from './db/index.js';
 import { type Repos, buildRepos } from './db/repos/index.js';
-import { DisputeHandler } from './dispute-handler.js';
+import { DisputeHandler, channelsReadAbi } from './dispute-handler.js';
 import { LiquidityTracker } from './liquidity.js';
 import { logger } from './logger.js';
 import { type HubMetrics, buildMetrics, registry } from './metrics.js';
@@ -116,6 +117,11 @@ export async function buildServer(
     paymentRetentionPerChannel: config.paymentRetentionPerChannel,
     operatorToken: config.operatorToken,
     perCounterpartyCaps: config.perCounterpartyCaps,
+    autoClose: {
+      enabled: config.autoCloseEnabled,
+      afterMs: config.autoCloseAfterMs,
+      checkIntervalMs: config.autoCloseCheckIntervalMs,
+    },
   });
 
   // Build the §8 inbound liquidity stack. It needs the WS push callback and
@@ -212,6 +218,39 @@ export async function buildServer(
     hubAddress: api.ws.hubAccount.address,
   });
 
+  // Auto-close idle channels: the hub posts the latest co-signed state
+  // on-chain (unilateral close) for channels with no payment activity past the
+  // configured threshold, then finalizes once the dispute window elapses.
+  async function readDisputeDeadlineMs(channelId: `0x${string}`): Promise<number> {
+    try {
+      const row = (await publicClientForChain.readContract({
+        address: config.paymentChannelAddress,
+        abi: channelsReadAbi,
+        functionName: 'channels',
+        args: [channelId],
+      })) as readonly unknown[];
+      // Tuple index 6 is `disputeDeadline` (uint64 seconds).
+      return Number(row[6] as bigint) * 1000;
+    } catch (err) {
+      metrics.rpcErrorsTotal.inc({ method: 'readDisputeDeadline' });
+      throw err;
+    }
+  }
+  const autoCloseSweeper = config.autoCloseEnabled
+    ? new AutoCloseSweeper({
+        logger,
+        channelPool,
+        channelRepo: repos.channels,
+        chain: chainAdapter,
+        hubAddress: api.ws.hubAccount.address,
+        hotWalletMutex,
+        metrics,
+        afterMs: config.autoCloseAfterMs,
+        intervalMs: config.autoCloseCheckIntervalMs,
+        readDisputeDeadlineMs,
+      })
+    : undefined;
+
   // Metrics serving:
   //  - If PROMETHEUS_PORT is set AND differs from the main port, bind /metrics
   //    on a separate Fastify instance. METRICS_BIND_ADDR controls whether the
@@ -278,12 +317,14 @@ export async function buildServer(
 
   app.addHook('onClose', async () => {
     clearInterval(hotWalletTimer);
+    await autoCloseSweeper?.stop();
     await chainWatcher.stop();
     if (metricsApp) await metricsApp.close();
     await db.close();
   });
 
   await chainWatcher.start();
+  autoCloseSweeper?.start();
   // paymentChannelAbi is exported above to keep tree-shaking honest; reference
   // it once so unused-import linters don't strip it.
   void paymentChannelAbi;

@@ -65,6 +65,12 @@ export interface HubConfig {
   readonly operatorToken: string | undefined;
   /** R-06: per-token per-counterparty HTLC cap map (lowercase token address → bigint). */
   readonly perCounterpartyCaps: ReadonlyMap<string, bigint>;
+  /** When true, the hub unilaterally closes channels idle past `autoCloseAfterMs`. */
+  readonly autoCloseEnabled: boolean;
+  /** Idle threshold (ms since last co-signed state) before a channel is auto-closed. */
+  readonly autoCloseAfterMs: number;
+  /** How often the auto-close sweeper runs (ms). */
+  readonly autoCloseCheckIntervalMs: number;
 }
 
 function parseChainId(raw: string | undefined): ChainId {
@@ -127,6 +133,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     ),
     operatorToken: env.HUB_OPERATOR_TOKEN,
     perCounterpartyCaps: parsePerCounterpartyCaps(env),
+    autoCloseEnabled: env.HUB_AUTO_CLOSE_ENABLED !== 'false',
+    autoCloseAfterMs: parseNonNegativeIntegerEnv(
+      'HUB_AUTO_CLOSE_AFTER_MS',
+      env.HUB_AUTO_CLOSE_AFTER_MS,
+      24 * 60 * 60 * 1000,
+    ),
+    autoCloseCheckIntervalMs: parseNonNegativeIntegerEnv(
+      'HUB_AUTO_CLOSE_CHECK_INTERVAL_MS',
+      env.HUB_AUTO_CLOSE_CHECK_INTERVAL_MS,
+      5 * 60 * 1000,
+    ),
   };
 
   if (env.PICO_SKIP_PROD_ASSERT !== 'true') {

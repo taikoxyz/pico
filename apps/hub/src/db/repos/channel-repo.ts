@@ -90,6 +90,26 @@ export class ChannelRepo {
     return rows.map(rowToChannel);
   }
 
+  /**
+   * Lists `open` channels whose most recent co-signed state was recorded before
+   * `cutoffMs` (i.e. idle since then). Every known channel has at least the v0
+   * sentinel state seeded at bootstrap, so the subquery is never NULL in
+   * practice; the COALESCE guards channels somehow missing a state row.
+   */
+  async listIdleOpen(cutoffMs: number): Promise<readonly Channel[]> {
+    const rows = await this.db.query<ChannelRow>(
+      `SELECT c.* FROM channels c
+       WHERE c.status = 'open'
+         AND COALESCE(
+           (SELECT MAX(CAST(s.recorded_at AS INTEGER))
+            FROM signed_states s WHERE s.channel_id = c.id),
+           0
+         ) < ?`,
+      [cutoffMs],
+    );
+    return rows.map(rowToChannel);
+  }
+
   async setStatus(id: ChannelId, status: ChannelStatus): Promise<void> {
     await this.db.exec('UPDATE channels SET status = ? WHERE id = ?', [status, id]);
   }

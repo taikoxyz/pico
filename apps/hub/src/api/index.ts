@@ -64,6 +64,12 @@ export interface ApiDeps {
   readonly operatorToken: string | undefined;
   /** R-06: per-token per-counterparty cap map (lowercase token → bigint string). */
   readonly perCounterpartyCaps?: ReadonlyMap<string, bigint>;
+  /** Auto-close settings, surfaced on the `/v1/channels/closures` view. */
+  readonly autoClose: {
+    readonly enabled: boolean;
+    readonly afterMs: number;
+    readonly checkIntervalMs: number;
+  };
 }
 
 export interface ApiHandle {
@@ -172,6 +178,58 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
         status: c.status,
         chainId: c.chainId,
       })),
+    };
+  });
+
+  // Operator-only: auto-close visibility. `upcoming` lists open channels with
+  // their idle timing and whether/when the hub will unilaterally close them;
+  // `closed` lists channels already closing or closed. Gated like
+  // /v1/channels because rows reveal per-channel counterparties. Timestamps are
+  // ms epoch.
+  const CLOSED_STATUSES = new Set([
+    'closing-cooperative',
+    'closing-unilateral',
+    'resolving-htlcs',
+    'disputed',
+    'closed',
+  ]);
+  app.get('/v1/channels/closures', async (req, reply) => {
+    if (!isOperator(req.headers.authorization)) {
+      void reply.code(401);
+      return { error: 'unauthorized' };
+    }
+    const now = Date.now();
+    const lastActivity = await deps.repos.states.lastActivityByChannel();
+    const upcoming: Array<Record<string, unknown>> = [];
+    const closed: Array<Record<string, unknown>> = [];
+    for (const c of deps.channelPool.list()) {
+      if (c.status === 'open') {
+        const last = lastActivity.get(c.id);
+        const closeEligibleAt = last !== undefined ? last + deps.autoClose.afterMs : undefined;
+        upcoming.push({
+          id: c.id,
+          userA: c.userA,
+          userB: c.userB,
+          token: c.token,
+          status: c.status,
+          ...(last !== undefined ? { lastActivityAt: last, idleMs: now - last } : {}),
+          ...(closeEligibleAt !== undefined ? { closeEligibleAt } : {}),
+          eligibleNow: closeEligibleAt !== undefined ? now >= closeEligibleAt : false,
+        });
+      } else if (CLOSED_STATUSES.has(c.status)) {
+        closed.push({ id: c.id, userA: c.userA, userB: c.userB, token: c.token, status: c.status });
+      }
+    }
+    // Soonest-to-close (most idle) first.
+    upcoming.sort((a, b) => ((b.idleMs as number) ?? -1) - ((a.idleMs as number) ?? -1));
+    return {
+      autoClose: {
+        enabled: deps.autoClose.enabled,
+        afterMs: deps.autoClose.afterMs,
+        checkIntervalMs: deps.autoClose.checkIntervalMs,
+      },
+      upcoming,
+      closed,
     };
   });
 
