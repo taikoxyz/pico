@@ -77,6 +77,8 @@ export interface HubConfig {
   readonly maxQueuedRelayDestinations: number;
   /** TTL for a buffered relay message before it is evicted (ms). */
   readonly relayQueueTtlMs: number;
+  /** Max concurrent relay sessions (connection-flood bound). */
+  readonly maxRelaySessions: number;
 }
 
 function parseChainId(raw: string | undefined): ChainId {
@@ -154,6 +156,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
       'HUB_RELAY_QUEUE_TTL_MS',
       env.HUB_RELAY_QUEUE_TTL_MS,
       5 * 60_000,
+    ),
+    maxRelaySessions: parseNonNegativeIntegerEnv(
+      'HUB_MAX_RELAY_SESSIONS',
+      env.HUB_MAX_RELAY_SESSIONS,
+      4096,
     ),
   };
 

@@ -120,6 +120,7 @@ export async function buildServer(
     maxQueuedRelayPerPeer: config.maxQueuedRelayPerPeer,
     maxQueuedRelayDestinations: config.maxQueuedRelayDestinations,
     relayQueueTtlMs: config.relayQueueTtlMs,
+    maxRelaySessions: config.maxRelaySessions,
   });
 
   // Build the §8 inbound liquidity stack. It needs the WS push callback and

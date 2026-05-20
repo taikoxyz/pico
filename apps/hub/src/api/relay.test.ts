@@ -202,6 +202,25 @@ describe('hub relay queue bounds', () => {
     a.close();
   });
 
+  it('caps the number of concurrent relay sessions', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'hub-relaysess-'));
+    built = await buildServer(baseEnv(tmp, true, { HUB_MAX_RELAY_SESSIONS: '1' }));
+    baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
+    wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws`;
+
+    const a = await openWs(wsUrl);
+    await subscribe(a, ALICE);
+    // Second distinct address exceeds the cap of 1 → rejected.
+    const b = await openWs(wsUrl);
+    const reply = nextMsg(b);
+    send(b, { id: 'sub-bob', kind: 'subscribe', address: BOB, channelIds: [] });
+    const got = await reply;
+    expect(got.kind).toBe('error');
+    expect((got as { code: string }).code).toBe('RELAY_BUSY');
+    a.close();
+    b.close();
+  });
+
   it('evicts buffered messages past their TTL', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'hub-relayttl-'));
     built = await buildServer(baseEnv(tmp, true, { HUB_RELAY_QUEUE_TTL_MS: '40' }));

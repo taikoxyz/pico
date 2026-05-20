@@ -72,6 +72,8 @@ export interface WsDeps {
   readonly maxQueuedRelayDestinations?: number;
   /** TTL for a buffered relay message before it is evicted (default 5 min). */
   readonly relayQueueTtlMs?: number;
+  /** Max concurrent relay sessions (connection-flood bound, default 4096). */
+  readonly maxRelaySessions?: number;
 }
 
 export interface RelayStats {
@@ -97,6 +99,8 @@ export interface WsHandle {
   relayStats(): RelayStats;
   /** Connected relay/peer sessions with their queued-message counts. */
   relaySessions(): { address: Address; queued: number }[];
+  /** Buffered queues for destinations that are NOT currently connected. */
+  relayQueuedOffline(): { address: Address; queued: number }[];
 }
 
 function isSignedEnvelope(value: unknown): value is SignedEnvelope {
@@ -151,6 +155,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   // unbounded).
   const maxQueuedRelayDestinations = deps.maxQueuedRelayDestinations ?? 1024;
   const relayQueueTtlMs = deps.relayQueueTtlMs ?? 5 * 60_000;
+  const maxRelaySessions = deps.maxRelaySessions ?? 4096;
   const relayQueue = new Map<string, { inner: HubMessage; ts: number }[]>();
   let relayForwarded = 0;
   let relayQueued = 0;
@@ -267,6 +272,12 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     msg: Extract<ClientToHubMessage, { kind: 'subscribe' }>,
   ): Promise<void> {
     const key = msg.address.toLowerCase();
+    // Relay mode accepts a session from any address (peers needn't share a hub
+    // channel), so cap the total to bound a connection/session flood.
+    if (relayEnabled && !sessions.has(key) && sessions.size >= maxRelaySessions) {
+      sendError(socket, msg.id, 'RELAY_BUSY', 'relay session capacity reached');
+      return;
+    }
     sessions.set(key, { socket, address: msg.address });
     const channels = deps.channelPool
       .list()
@@ -1099,6 +1110,14 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         address: s.address,
         queued: relayQueue.get(s.address.toLowerCase())?.length ?? 0,
       }));
+    },
+    relayQueuedOffline(): { address: Address; queued: number }[] {
+      sweepRelayQueue();
+      const offline: { address: Address; queued: number }[] = [];
+      for (const [key, q] of relayQueue) {
+        if (!sessions.has(key)) offline.push({ address: key as Address, queued: q.length });
+      }
+      return offline;
     },
   };
 }

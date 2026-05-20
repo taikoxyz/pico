@@ -133,8 +133,12 @@ drop delivery but **cannot forge a state or move funds** — a misrouted message
 fails the recipient's signature check. There is no hub-side watchtower, so each
 peer is responsible for watching the chain (or running its own watchtower) to
 `dispute` a stale unilateral close. The relay is opt-in on the hub
-(`HUB_ENABLE_RELAY`), and its status is exposed at `GET /v1/info`, `GET
-/v1/stats`, and the operator-gated `GET /v1/relay/sessions`. On the client, the
+(`HUB_ENABLE_RELAY`) and bounded against abuse — buffered messages for offline
+peers expire (`HUB_RELAY_QUEUE_TTL_MS`) and are capped per-peer and by distinct
+destination (`HUB_MAX_QUEUED_RELAY_DESTINATIONS`), and concurrent relay sessions
+are capped (`HUB_MAX_RELAY_SESSIONS`). Its status is exposed at `GET /v1/info`,
+`GET /v1/stats`, and the operator-gated `GET /v1/relay/sessions` (which also
+lists buffered queues for offline peers). On the client, the
 SDK's `RelayTransport` + `ChannelClient({ peerMode: true })` drive it, surfaced
 by the CLI as `--peer` on `channel open`, `pay`, `channel close`, and `listen`.
 

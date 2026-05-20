@@ -72,6 +72,8 @@ export interface ApiDeps {
   readonly maxQueuedRelayDestinations?: number;
   /** TTL for a buffered relay message before eviction (default 5 min). */
   readonly relayQueueTtlMs?: number;
+  /** Max concurrent relay sessions (default 4096). */
+  readonly maxRelaySessions?: number;
 }
 
 export interface ApiHandle {
@@ -337,6 +339,7 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
       enabled: ws.relayEnabled,
       stats: ws.relayStats(),
       sessions: ws.relaySessions(),
+      queuedOffline: ws.relayQueuedOffline(),
     };
   });
 
@@ -364,6 +367,7 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
       ? { maxQueuedRelayDestinations: deps.maxQueuedRelayDestinations }
       : {}),
     ...(deps.relayQueueTtlMs !== undefined ? { relayQueueTtlMs: deps.relayQueueTtlMs } : {}),
+    ...(deps.maxRelaySessions !== undefined ? { maxRelaySessions: deps.maxRelaySessions } : {}),
   });
 
   return { ws };
