@@ -7,6 +7,7 @@ import type {
   CloseUnilateralOnChainArgs,
   CloseUnilateralOnChainResult,
   FinalizedResult,
+  OnChainChannelInfo,
   OpenChannelOnChainArgs,
   OpenChannelOnChainResult,
   TopUpOnChainArgs,
@@ -86,6 +87,20 @@ export class MockChainAdapter implements ChainAdapter {
       openedAtMs,
       txHash: fakeHash(`open-tx|${id}`),
       blockNumber: BigInt(this.nonce),
+    };
+  }
+
+  async getChannel(channelId: ChannelId): Promise<OnChainChannelInfo | undefined> {
+    const ch = this.channels.get(channelId);
+    if (!ch) return undefined;
+    const statusCode = ch.status === 'open' ? 1 : ch.status === 'closing' ? 2 : 4;
+    return {
+      status: statusCode,
+      userA: ch.userA,
+      userB: ch.userB,
+      token: ch.token,
+      amountA: ch.amountA,
+      amountB: ch.amountB,
     };
   }
 

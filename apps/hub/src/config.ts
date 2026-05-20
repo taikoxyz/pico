@@ -71,6 +71,20 @@ export interface HubConfig {
   readonly autoCloseAfterMs: number;
   /** How often the auto-close sweeper runs (ms). */
   readonly autoCloseCheckIntervalMs: number;
+  /**
+   * Enable the direct peer-channel message relay (off by default). When on, the
+   * hub forwards `relay` envelopes between two subscribed peers without being a
+   * party to (or co-signing) the channel.
+   */
+  readonly enableRelay: boolean;
+  /** Max relay messages buffered per offline peer before new ones are dropped. */
+  readonly maxQueuedRelayPerPeer: number;
+  /** Max distinct offline destinations buffered at once (memory-DoS bound). */
+  readonly maxQueuedRelayDestinations: number;
+  /** TTL for a buffered relay message before it is evicted (ms). */
+  readonly relayQueueTtlMs: number;
+  /** Max concurrent relay sessions (connection-flood bound). */
+  readonly maxRelaySessions: number;
 }
 
 function parseChainId(raw: string | undefined): ChainId {
@@ -143,6 +157,27 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
       'HUB_AUTO_CLOSE_CHECK_INTERVAL_MS',
       env.HUB_AUTO_CLOSE_CHECK_INTERVAL_MS,
       5 * 60 * 1000,
+    ),
+    enableRelay: env.HUB_ENABLE_RELAY === 'true',
+    maxQueuedRelayPerPeer: parseNonNegativeIntegerEnv(
+      'HUB_MAX_QUEUED_RELAY_PER_PEER',
+      env.HUB_MAX_QUEUED_RELAY_PER_PEER,
+      256,
+    ),
+    maxQueuedRelayDestinations: parseNonNegativeIntegerEnv(
+      'HUB_MAX_QUEUED_RELAY_DESTINATIONS',
+      env.HUB_MAX_QUEUED_RELAY_DESTINATIONS,
+      1024,
+    ),
+    relayQueueTtlMs: parseNonNegativeIntegerEnv(
+      'HUB_RELAY_QUEUE_TTL_MS',
+      env.HUB_RELAY_QUEUE_TTL_MS,
+      5 * 60_000,
+    ),
+    maxRelaySessions: parseNonNegativeIntegerEnv(
+      'HUB_MAX_RELAY_SESSIONS',
+      env.HUB_MAX_RELAY_SESSIONS,
+      4096,
     ),
   };
 

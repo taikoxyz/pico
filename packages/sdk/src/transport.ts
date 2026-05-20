@@ -1,7 +1,9 @@
+import type { Address, ChannelId } from '@inferenceroom/pico-protocol';
 import { buildEnvelope } from './envelope.js';
 import { TransportClosedError } from './errors.js';
 import {
   type ClientToHubMessage,
+  type HubMessage,
   type HubToClientMessage,
   decodeHubMessage,
   encodeHubMessage,
@@ -17,9 +19,14 @@ export interface TransportMessage {
 export interface Transport {
   connect(): Promise<void>;
   close(): Promise<void>;
-  send(msg: ClientToHubMessage): Promise<void>;
+  /**
+   * Sends a message. Accepts the full `HubMessage` union because a direct
+   * peer-channel client also emits hub-role messages (e.g. `htlcOffer`,
+   * `payDirectAck`, `closeResponse`) toward its peer over the relay.
+   */
+  send(msg: HubMessage): Promise<void>;
   request(msg: ClientToHubMessage, opts?: { timeoutMs?: number }): Promise<HubToClientMessage>;
-  onMessage(handler: (msg: HubToClientMessage) => void): () => void;
+  onMessage(handler: (msg: HubMessage) => void): () => void;
   onReconnect(handler: () => void | Promise<void>): () => void;
   isConnected(): boolean;
 }
@@ -89,7 +96,7 @@ export class WebSocketTransport implements Transport {
   private heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
   private missedPongs = 0;
 
-  private readonly messageHandlers = new Set<(msg: HubToClientMessage) => void>();
+  private readonly messageHandlers = new Set<(msg: HubMessage) => void>();
   private readonly reconnectHandlers = new Set<() => void | Promise<void>>();
   private readonly pending = new Map<string, PendingRequest>();
 
@@ -104,7 +111,7 @@ export class WebSocketTransport implements Transport {
     this.signer = opts.signer;
   }
 
-  private async encodeForWire(msg: ClientToHubMessage): Promise<string> {
+  private async encodeForWire(msg: HubMessage): Promise<string> {
     const payload = encodeHubMessage(msg);
     if (!this.signer) return payload;
     const env = await buildEnvelope(this.signer, payload);
@@ -165,9 +172,9 @@ export class WebSocketTransport implements Transport {
         : data instanceof ArrayBuffer
           ? new TextDecoder().decode(data)
           : data.toString('utf8');
-    let msg: HubToClientMessage;
+    let msg: HubMessage;
     try {
-      msg = decodeHubMessage(text) as HubToClientMessage;
+      msg = decodeHubMessage(text);
     } catch {
       return;
     }
@@ -175,7 +182,7 @@ export class WebSocketTransport implements Transport {
     if (pending) {
       this.pending.delete(msg.id);
       clearTimeout(pending.timer);
-      pending.resolve(msg);
+      pending.resolve(msg as HubToClientMessage);
     }
     for (const h of this.messageHandlers) {
       try {
@@ -272,7 +279,7 @@ export class WebSocketTransport implements Transport {
     }
   }
 
-  async send(msg: ClientToHubMessage): Promise<void> {
+  async send(msg: HubMessage): Promise<void> {
     if (!this.connected || !this.ws) {
       throw new TransportClosedError();
     }
@@ -305,7 +312,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
-  onMessage(handler: (msg: HubToClientMessage) => void): () => void {
+  onMessage(handler: (msg: HubMessage) => void): () => void {
     this.messageHandlers.add(handler);
     return () => this.messageHandlers.delete(handler);
   }
@@ -313,6 +320,146 @@ export class WebSocketTransport implements Transport {
   onReconnect(handler: () => void | Promise<void>): () => void {
     this.reconnectHandlers.add(handler);
     return () => this.reconnectHandlers.delete(handler);
+  }
+}
+
+/**
+ * Transport for direct (hub-less) peer channels. Wraps a base transport (a
+ * `WebSocketTransport` connected to a hub running in relay mode) and tunnels
+ * every channel message to the channel counterparty inside a `RelayMessage`,
+ * while passing hub-bound control messages (`subscribe`) straight through.
+ *
+ * The destination is derived from the message's channel: for messages with a
+ * `channelId` (or a `channel` record) the counterparty is resolved via
+ * `resolveCounterparty`. Request/response correlation is keyed on the inner
+ * message id — the hub forwards the peer's reply verbatim (same id), so it
+ * lands back here and resolves the pending request.
+ */
+export interface RelayTransportOptions {
+  readonly base: Transport;
+  readonly resolveCounterparty: (channelId: ChannelId) => Promise<Address | undefined>;
+  readonly requestTimeoutMs?: number;
+}
+
+export class RelayTransport implements Transport {
+  private readonly base: Transport;
+  private readonly resolveCounterparty: (channelId: ChannelId) => Promise<Address | undefined>;
+  private readonly requestTimeoutMs: number;
+  private readonly messageHandlers = new Set<(msg: HubMessage) => void>();
+  private readonly pending = new Map<string, PendingRequest>();
+  private baseUnsub: (() => void) | undefined;
+
+  constructor(opts: RelayTransportOptions) {
+    this.base = opts.base;
+    this.resolveCounterparty = opts.resolveCounterparty;
+    this.requestTimeoutMs = opts.requestTimeoutMs ?? 30_000;
+  }
+
+  private installBaseHandler(): void {
+    if (this.baseUnsub) return;
+    this.baseUnsub = this.base.onMessage((msg) => {
+      const p = this.pending.get(msg.id);
+      if (p) {
+        this.pending.delete(msg.id);
+        clearTimeout(p.timer);
+        p.resolve(msg as HubToClientMessage);
+      }
+      for (const h of this.messageHandlers) {
+        try {
+          h(msg);
+        } catch {
+          // swallow; client provides its own error handling
+        }
+      }
+    });
+  }
+
+  private isPassthrough(msg: HubMessage): boolean {
+    // `subscribe` (and top-up accept/reject) are addressed to the hub itself,
+    // not to a peer, so they bypass the relay envelope.
+    return msg.kind === 'subscribe' || msg.kind === 'acceptTopUp' || msg.kind === 'rejectTopUp';
+  }
+
+  private channelIdOf(msg: HubMessage): ChannelId | undefined {
+    if ('channelId' in msg && msg.channelId !== undefined) return msg.channelId as ChannelId;
+    if (msg.kind === 'channelAnnounce') return msg.channel.id;
+    return undefined;
+  }
+
+  private async wrap(msg: HubMessage): Promise<ClientToHubMessage> {
+    const channelId = this.channelIdOf(msg);
+    if (channelId === undefined) {
+      throw new Error(`RelayTransport: cannot resolve peer for message kind '${msg.kind}'`);
+    }
+    const to = await this.resolveCounterparty(channelId);
+    if (!to) {
+      throw new Error(`RelayTransport: no known counterparty for channel ${channelId}`);
+    }
+    return { id: msg.id, kind: 'relay', to, inner: msg };
+  }
+
+  async connect(): Promise<void> {
+    await this.base.connect();
+    this.installBaseHandler();
+  }
+
+  async close(): Promise<void> {
+    for (const [id, p] of this.pending) {
+      clearTimeout(p.timer);
+      p.reject(new TransportClosedError());
+      this.pending.delete(id);
+    }
+    if (this.baseUnsub) {
+      this.baseUnsub();
+      this.baseUnsub = undefined;
+    }
+    await this.base.close();
+  }
+
+  isConnected(): boolean {
+    return this.base.isConnected();
+  }
+
+  async send(msg: HubMessage): Promise<void> {
+    if (this.isPassthrough(msg)) {
+      await this.base.send(msg);
+      return;
+    }
+    await this.base.send(await this.wrap(msg));
+  }
+
+  async request(
+    msg: ClientToHubMessage,
+    opts: { timeoutMs?: number } = {},
+  ): Promise<HubToClientMessage> {
+    if (this.isPassthrough(msg)) {
+      return this.base.request(msg, opts);
+    }
+    this.installBaseHandler();
+    const wrapped = await this.wrap(msg);
+    const timeoutMs = opts.timeoutMs ?? this.requestTimeoutMs;
+    return new Promise<HubToClientMessage>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(msg.id);
+        reject(new Error(`relay request '${msg.kind}' timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      this.pending.set(msg.id, { resolve, reject, timer });
+      this.base.send(wrapped).catch((err) => {
+        clearTimeout(timer);
+        this.pending.delete(msg.id);
+        reject(err as Error);
+      });
+    });
+  }
+
+  onMessage(handler: (msg: HubMessage) => void): () => void {
+    this.installBaseHandler();
+    this.messageHandlers.add(handler);
+    return () => this.messageHandlers.delete(handler);
+  }
+
+  onReconnect(handler: () => void | Promise<void>): () => void {
+    return this.base.onReconnect(handler);
   }
 }
 
