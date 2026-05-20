@@ -162,8 +162,8 @@ export class StateRepo {
    * for idle/auto-close reporting.
    */
   async lastActivityByChannel(): Promise<ReadonlyMap<ChannelId, number>> {
-    const rows = await this.db.query<{ channel_id: string; last: string | null }>(
-      `SELECT channel_id, MAX(CAST(recorded_at AS INTEGER)) AS last
+    const rows = await this.db.query<{ channel_id: string; last: string | number | null }>(
+      `SELECT channel_id, MAX(CAST(recorded_at AS BIGINT)) AS last
        FROM signed_states
        GROUP BY channel_id`,
     );

@@ -101,7 +101,7 @@ export class ChannelRepo {
       `SELECT c.* FROM channels c
        WHERE c.status = 'open'
          AND COALESCE(
-           (SELECT MAX(CAST(s.recorded_at AS INTEGER))
+           (SELECT MAX(CAST(s.recorded_at AS BIGINT))
             FROM signed_states s WHERE s.channel_id = c.id),
            0
          ) < ?`,
