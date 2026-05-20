@@ -156,6 +156,24 @@ export class StateRepo {
     return rowToSignedState(row);
   }
 
+  /**
+   * Returns the most recent `recorded_at` (ms) per channel — i.e. the last time
+   * a co-signed state was persisted, used as the "last payment activity" signal
+   * for idle/auto-close reporting.
+   */
+  async lastActivityByChannel(): Promise<ReadonlyMap<ChannelId, number>> {
+    const rows = await this.db.query<{ channel_id: string; last: string | number | null }>(
+      `SELECT channel_id, MAX(CAST(recorded_at AS BIGINT)) AS last
+       FROM signed_states
+       GROUP BY channel_id`,
+    );
+    const out = new Map<ChannelId, number>();
+    for (const r of rows) {
+      if (r.last !== null) out.set(r.channel_id as ChannelId, Number(r.last));
+    }
+    return out;
+  }
+
   async loadAllLatest(): Promise<ReadonlyMap<ChannelId, SignedState>> {
     const rows = await this.db.query<StateRow>(
       `SELECT s.channel_id, s.version, s.state_json, s.sig_a, s.sig_b

@@ -1,0 +1,191 @@
+import type { Address, Channel, ChannelId } from '@inferenceroom/pico-protocol';
+import type { ChainAdapter } from '@inferenceroom/pico-sdk';
+import type { ChannelPool } from './channel-pool.js';
+import type { ChannelRepo } from './db/repos/index.js';
+import type { Logger } from './logger.js';
+import type { HubMetrics } from './metrics.js';
+import type { KeyedMutex } from './mutex.js';
+import { HOT_WALLET_KEY } from './topup-handler.js';
+
+/** PaymentChannel.sol `Status.ClosingUnilateral` enum value (None=0, Open=1, ClosingUnilateral=2, ResolvingHtlcs=3, Closed=4). */
+const ONCHAIN_STATUS_CLOSING_UNILATERAL = 2;
+
+export interface OnChainCloseInfo {
+  /** Dispute deadline in ms epoch; 0 if the channel is not closing. */
+  readonly disputeDeadlineMs: number;
+  /** On-chain channel status enum value. */
+  readonly status: number;
+  /** Number of HTLCs in the posted (closing) state. */
+  readonly htlcsCount: number;
+}
+
+export interface AutoCloseSweeperDeps {
+  readonly logger: Logger;
+  readonly channelPool: ChannelPool;
+  readonly channelRepo: ChannelRepo;
+  readonly chain: ChainAdapter;
+  readonly hubAddress: Address;
+  readonly hotWalletMutex: KeyedMutex<string>;
+  readonly metrics: HubMetrics;
+  /** Idle threshold (ms since last co-signed state) before a channel is closed. */
+  readonly afterMs: number;
+  /** Sweep cadence (ms). */
+  readonly intervalMs: number;
+  /** Reads on-chain close info (dispute deadline, status, HTLC count) for a channel. */
+  readonly readOnChainClose: (channelId: ChannelId) => Promise<OnChainCloseInfo>;
+  /** Injectable clock for tests. */
+  readonly now?: () => number;
+}
+
+/**
+ * Periodically closes channels the hub is a party to that have seen no payment
+ * (no new co-signed state) for `afterMs`. Because an idle counterparty is
+ * likely offline, cooperative close is not viable, so the hub posts the latest
+ * co-signed state on-chain (`closeUnilateral`) — or `closeUnilateralFromOpen`
+ * for never-used channels — and finalizes once the dispute window elapses.
+ *
+ * Modeled on the chain-watcher's recursive-`setTimeout` loop so sweeps never
+ * overlap. On-chain txs serialize with top-ups/auto-recycle via the shared
+ * hot-wallet mutex to avoid nonce collisions.
+ */
+export class AutoCloseSweeper {
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private stopped = false;
+  private readonly now: () => number;
+  private readonly hubAddressLower: string;
+
+  constructor(private readonly deps: AutoCloseSweeperDeps) {
+    this.now = deps.now ?? Date.now;
+    this.hubAddressLower = deps.hubAddress.toLowerCase();
+  }
+
+  start(): void {
+    this.stopped = false;
+    this.scheduleNext();
+  }
+
+  async stop(): Promise<void> {
+    this.stopped = true;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+  }
+
+  private scheduleNext(): void {
+    if (this.stopped) return;
+    this.timer = setTimeout(() => {
+      void this.sweepOnce().finally(() => this.scheduleNext());
+    }, this.deps.intervalMs);
+    this.timer.unref?.();
+  }
+
+  private hubSideOf(channel: Channel): 'A' | 'B' | undefined {
+    if (channel.userA.toLowerCase() === this.hubAddressLower) return 'A';
+    if (channel.userB.toLowerCase() === this.hubAddressLower) return 'B';
+    return undefined;
+  }
+
+  async sweepOnce(): Promise<void> {
+    await this.initiatePhase();
+    await this.finalizePhase();
+  }
+
+  private async initiatePhase(): Promise<void> {
+    const cutoff = this.now() - this.deps.afterMs;
+    let idle: readonly Channel[];
+    try {
+      idle = await this.deps.channelRepo.listIdleOpen(cutoff);
+    } catch (err) {
+      this.deps.logger.error({ err: (err as Error).message }, 'auto-close: listIdleOpen failed');
+      this.deps.metrics.autoCloseErrorsTotal.inc({ phase: 'initiate' });
+      return;
+    }
+    for (const channel of idle) {
+      const side = this.hubSideOf(channel);
+      if (!side) continue;
+      const latest = this.deps.channelPool.latest(channel.id);
+      if (!latest) continue;
+      if (latest.state.htlcs.length > 0) {
+        this.deps.logger.warn(
+          { channelId: channel.id, htlcs: latest.state.htlcs.length },
+          'auto-close: skipping idle channel with in-flight HTLCs',
+        );
+        continue;
+      }
+      try {
+        await this.deps.hotWalletMutex.run(HOT_WALLET_KEY, async () => {
+          if (latest.state.version === 0n) {
+            await this.deps.chain.closeUnilateralFromOpen({ channelId: channel.id });
+            this.deps.metrics.autoCloseInitiatedTotal.inc({ result: 'from_open' });
+          } else {
+            await this.deps.chain.closeUnilateral({
+              channelId: channel.id,
+              state: latest,
+              mySide: side,
+            });
+            this.deps.metrics.autoCloseInitiatedTotal.inc({ result: 'unilateral' });
+          }
+        });
+        // Optimistically mark closing so the next sweep skips it; the
+        // chain-watcher sets the same status when it observes the event.
+        await this.deps.channelPool.setStatus(channel.id, 'closing-unilateral');
+        this.deps.logger.info(
+          { channelId: channel.id, version: latest.state.version.toString() },
+          'auto-close: initiated unilateral close on idle channel',
+        );
+      } catch (err) {
+        this.deps.logger.error(
+          { err: (err as Error).message, channelId: channel.id },
+          'auto-close: failed to initiate close',
+        );
+        this.deps.metrics.autoCloseErrorsTotal.inc({ phase: 'initiate' });
+      }
+    }
+  }
+
+  private async finalizePhase(): Promise<void> {
+    const closing = this.deps.channelPool
+      .list()
+      .filter((c) => c.status === 'closing-unilateral' && this.hubSideOf(c) !== undefined);
+    for (const channel of closing) {
+      let info: OnChainCloseInfo;
+      try {
+        info = await this.deps.readOnChainClose(channel.id);
+      } catch (err) {
+        // A read failure is RPC-level (a view call doesn't revert per channel),
+        // so every remaining channel this sweep would fail identically. Log and
+        // count once, then abort; the next tick retries.
+        this.deps.logger.error(
+          { err: (err as Error).message },
+          'auto-close: on-chain read failed; aborting finalize sweep',
+        );
+        this.deps.metrics.autoCloseErrorsTotal.inc({ phase: 'finalize' });
+        return;
+      }
+      // Only finalize channels that will actually settle to Closed: still in
+      // ClosingUnilateral on-chain (not already Closed or resolving), dispute
+      // window elapsed, and no posted HTLCs — finalize() on a channel with
+      // HTLCs flips it into ResolvingHtlcs, a phase the sweeper doesn't drive.
+      if (info.status !== ONCHAIN_STATUS_CLOSING_UNILATERAL) continue;
+      if (info.htlcsCount > 0) continue;
+      if (info.disputeDeadlineMs <= 0 || this.now() < info.disputeDeadlineMs) continue;
+      try {
+        await this.deps.hotWalletMutex.run(HOT_WALLET_KEY, async () => {
+          await this.deps.chain.finalize(channel.id);
+        });
+        this.deps.metrics.autoCloseFinalizedTotal.inc();
+        this.deps.logger.info(
+          { channelId: channel.id },
+          'auto-close: finalized channel after dispute window',
+        );
+      } catch (err) {
+        this.deps.logger.error(
+          { err: (err as Error).message, channelId: channel.id },
+          'auto-close: failed to finalize',
+        );
+        this.deps.metrics.autoCloseErrorsTotal.inc({ phase: 'finalize' });
+      }
+    }
+  }
+}

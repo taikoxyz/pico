@@ -43,6 +43,34 @@ describe('ChannelRepo', () => {
     expect(await h.repos.channels.get('0xff')).toBeUndefined();
   });
 
+  it('listIdleOpen returns only open channels whose latest state predates the cutoff', async () => {
+    async function insertState(
+      channelId: string,
+      version: string,
+      recordedAt: number,
+    ): Promise<void> {
+      await h.driver.exec(
+        'INSERT INTO signed_states (channel_id, version, state_json, sig_a, sig_b, recorded_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [channelId, version, '{}', '0x', '0x', String(recordedAt)],
+      );
+    }
+    // open + idle (old state) → included
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x10', status: 'open' });
+    await insertState('0x10', '1', 1000);
+    // open but the newest state is recent → excluded
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x11', status: 'open' });
+    await insertState('0x11', '1', 1000);
+    await insertState('0x11', '2', 9000);
+    // idle but not open → excluded by status
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x12', status: 'closing-unilateral' });
+    await insertState('0x12', '1', 1000);
+    // open with no state at all → COALESCE(0) < cutoff → included
+    await h.repos.channels.upsert({ ...SAMPLE, id: '0x13', status: 'open' });
+
+    const idle = await h.repos.channels.listIdleOpen(5000);
+    expect(idle.map((c) => c.id).sort()).toEqual(['0x10', '0x13']);
+  });
+
   it('countByStatus returns all seven statuses, defaulting missing ones to zero', async () => {
     const empty = await h.repos.channels.countByStatus();
     expect(empty).toEqual({

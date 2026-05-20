@@ -50,6 +50,22 @@ describe('StateRepo', () => {
     );
   });
 
+  it('lastActivityByChannel returns the newest recorded_at per channel', async () => {
+    async function insert(channelId: string, version: string, recordedAt: string): Promise<void> {
+      await h.driver.exec(
+        'INSERT INTO signed_states (channel_id, version, state_json, sig_a, sig_b, recorded_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [channelId, version, '{}', '0x', '0x', recordedAt],
+      );
+    }
+    await insert('0xaa', '1', '1000');
+    await insert('0xaa', '2', '3000');
+    await insert('0xbb', '1', '2000');
+
+    const m = await h.repos.states.lastActivityByChannel();
+    expect(m.get('0xaa' as never)).toBe(3000);
+    expect(m.get('0xbb' as never)).toBe(2000);
+  });
+
   it('loadAllLatest returns one entry per channel at the highest version', async () => {
     await h.repos.states.save(signed(makeState('0xaa', 1n)));
     await h.repos.states.save(signed(makeState('0xaa', 2n)));

@@ -178,6 +178,8 @@
 
 <p>Meanwhile, <code>chain-watcher</code> is running its own loop, calling <code>viem.watchContractEvent</code> against <code>PaymentChannel.sol</code> for the four event types the contract emits. When a <code>ChannelClosingUnilateral</code> arrives, the dispute handler is invoked: it compares the version posted on chain to the version it has in SQLite, and if its own state is fresher it builds a <code>dispute()</code> transaction, signs it with the hub's hot wallet, and submits it before the dispute window closes.</p>
 
+<p>A second background loop, <code>auto-close.ts</code>, reclaims liquidity from dormant channels. Hub capital is locked into channels, and a channel that stops seeing payments ties up that capital indefinitely — so on a fixed cadence (<code>HUB_AUTO_CLOSE_CHECK_INTERVAL_MS</code>, default 5m) the sweeper looks for channels the hub is a party to whose newest co-signed state is older than <code>HUB_AUTO_CLOSE_AFTER_MS</code> (default 24h). Because an idle counterparty is usually offline, a cooperative close (which needs both signatures) is not an option; instead the hub posts the latest co-signed state on-chain with <code>closeUnilateral</code> — or <code>closeUnilateralFromOpen</code> for a channel that never saw a payment — and then calls <code>finalize()</code> once the dispute window elapses to settle the funds. The feature is on by default and can be disabled with <code>HUB_AUTO_CLOSE_ENABLED=false</code>. On-chain transactions share the hot-wallet mutex with top-ups so the hub never collides on a nonce.</p>
+
 <div class="note"><strong>Wire protocol vs. agent surface.</strong> The hub speaks the v1 wire protocol. Agents in v1 do not implement that protocol directly — they shell out to <code>pico pay</code>, which uses the SDK, which uses this WebSocket. Non-TS agents reach the hub by going through the CLI, not by reimplementing the protocol.</div>
 
 <h2>Public surface</h2>
@@ -190,6 +192,7 @@
     <tr><td>GET /v1/health</td><td>DB ping, chain RPC reachability check, version, channel count.</td></tr>
     <tr><td>GET /v1/metrics</td><td>Prometheus exposition over plain HTTP.</td></tr>
     <tr><td>GET /v1/channels</td><td>List open channels (operator auth required).</td></tr>
+    <tr><td>GET /v1/channels/closures</td><td>Auto-close visibility (operator auth): <code>autoClose</code> settings, <code>upcoming</code> open channels with idle timing and eligibility, and already <code>closed</code>/closing channels.</td></tr>
     <tr><td>POST /v1/channels/open</td><td>Open a channel with the caller; returns channelId and tx hash.</td></tr>
     <tr><td>POST /v1/payments</td><td>Short-lived WebSocket suitable for one-shot pays from a CLI.</td></tr>
     <tr><td>WS /v1/ws</td><td>Long-lived bidirectional session: state updates, payment.send / payment.settle, dispute notifications. Used by <code>pico listen</code>.</td></tr>

@@ -14,6 +14,9 @@ export interface HubMetrics {
   readonly chainWatcherLagBlocks: Gauge<string>;
   readonly wsActiveConnections: Gauge<string>;
   readonly rpcErrorsTotal: Counter<'method'>;
+  readonly autoCloseInitiatedTotal: Counter<'result'>;
+  readonly autoCloseFinalizedTotal: Counter<string>;
+  readonly autoCloseErrorsTotal: Counter<'phase'>;
   readonly relayMessagesForwarded: Counter<string>;
   readonly relayMessagesQueued: Counter<string>;
   readonly relayMessagesDropped: Counter<string>;
@@ -40,6 +43,9 @@ export function buildMetrics(reg: Registry): HubMetrics {
     'pico_hub_chain_watcher_lag_blocks',
     'pico_hub_ws_active_connections',
     'pico_hub_rpc_errors_total',
+    'pico_hub_auto_close_initiated_total',
+    'pico_hub_auto_close_finalized_total',
+    'pico_hub_auto_close_errors_total',
     'pico_hub_relay_messages_forwarded_total',
     'pico_hub_relay_messages_queued_total',
     'pico_hub_relay_messages_dropped_total',
@@ -102,6 +108,23 @@ export function buildMetrics(reg: Registry): HubMetrics {
     labelNames: ['method'] as const,
     registers: [reg],
   });
+  const autoCloseInitiatedTotal = new Counter({
+    name: 'pico_hub_auto_close_initiated_total',
+    help: 'Idle channels for which the hub initiated a unilateral close',
+    labelNames: ['result'] as const,
+    registers: [reg],
+  });
+  const autoCloseFinalizedTotal = new Counter({
+    name: 'pico_hub_auto_close_finalized_total',
+    help: 'Auto-closed channels the hub finalized after the dispute window',
+    registers: [reg],
+  });
+  const autoCloseErrorsTotal = new Counter({
+    name: 'pico_hub_auto_close_errors_total',
+    help: 'Errors raised during the auto-close sweep',
+    labelNames: ['phase'] as const,
+    registers: [reg],
+  });
   const relayMessagesForwarded = new Counter({
     name: 'pico_hub_relay_messages_forwarded_total',
     help: 'Peer-channel relay messages forwarded to a connected counterparty',
@@ -134,6 +157,9 @@ export function buildMetrics(reg: Registry): HubMetrics {
     chainWatcherLagBlocks,
     wsActiveConnections,
     rpcErrorsTotal,
+    autoCloseInitiatedTotal,
+    autoCloseFinalizedTotal,
+    autoCloseErrorsTotal,
     relayMessagesForwarded,
     relayMessagesQueued,
     relayMessagesDropped,

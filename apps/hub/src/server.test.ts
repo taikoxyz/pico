@@ -202,6 +202,30 @@ describe('buildServer integration', () => {
     expect(json.channels[0]?.id).toBe(ch.id);
   });
 
+  it('GET /v1/channels/closures reports upcoming and closed channels', async () => {
+    const alice = privateKeyToAccount(ALICE_PK).address;
+    const hub = privateKeyToAccount(HUB_PK).address;
+    const ch = makeChannel(bytes32('ac'), alice, hub);
+    const initial = await buildAliceState(ch, 100n, 0n);
+    await built.api.ws.registerChannel(ch, initial);
+
+    const r = await fetch(`${baseUrl}/v1/channels/closures`);
+    const json = (await r.json()) as {
+      autoClose: { enabled: boolean; afterMs: number };
+      upcoming: { id: Hex; status: string; eligibleNow: boolean; idleMs?: number }[];
+      closed: { id: Hex }[];
+    };
+    expect(r.status).toBe(200);
+    expect(json.autoClose.enabled).toBe(true);
+    expect(json.autoClose.afterMs).toBe(24 * 60 * 60 * 1000);
+    expect(json.upcoming).toHaveLength(1);
+    expect(json.upcoming[0]?.id).toBe(ch.id);
+    // freshly registered → not yet eligible for auto-close
+    expect(json.upcoming[0]?.eligibleNow).toBe(false);
+    expect(typeof json.upcoming[0]?.idleMs).toBe('number');
+    expect(json.closed).toHaveLength(0);
+  });
+
   it('POST /v1/channels/open registers the channel', async () => {
     const alice = privateKeyToAccount(ALICE_PK).address;
     const hub = privateKeyToAccount(HUB_PK).address;

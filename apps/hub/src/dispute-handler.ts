@@ -40,7 +40,7 @@ export interface DisputeHandlerDeps {
   readonly nowMs?: () => number;
 }
 
-const channelsReadAbi = parseAbi([
+export const channelsReadAbi = parseAbi([
   'function channels(bytes32) view returns (address userA, address userB, address token, uint256 amountA, uint256 amountB, uint64 openedAt, uint64 disputeDeadline, uint64 postedVersion, uint256 postedBalanceA, uint256 postedBalanceB, bool penalized, uint8 status, address closer, bytes32 postedHtlcsRoot, uint256 htlcsTotalLocked, uint16 htlcsCount, uint64 htlcResolutionDeadline, uint256 pendingPayoutA, uint256 pendingPayoutB)',
 ]);
 

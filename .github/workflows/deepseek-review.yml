@@ -56,6 +56,9 @@ jobs:
         uses: actions/github-script@v8
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
+          DEEPSEEK_MAX_TOKENS: ${{ vars.DEEPSEEK_MAX_TOKENS }}
+          DEEPSEEK_MAX_DIFF: ${{ vars.DEEPSEEK_MAX_DIFF }}
         with:
           script: |
             const prNumber = parseInt('${{ steps.pr.outputs.number }}');
@@ -81,12 +84,19 @@ jobs:
               return 'No diff to review.';
             }
 
-            const MAX_DIFF = 50000;
+            // deepseek-v4-pro has a ~1M-token window, so don't truncate real
+            // PRs. Default to 2,000,000 chars (~600k tokens) — comfortably
+            // inside the window even after reserving the 65k-token output
+            // budget, so no realistic PR is cut. The remaining ceiling exists
+            // only so a pathological multi-MB diff (lockfiles, generated files)
+            // can't overflow the context and hard-fail the API call; raise or
+            // remove it via the DEEPSEEK_MAX_DIFF repo var.
+            const MAX_DIFF = parseInt(process.env.DEEPSEEK_MAX_DIFF || '2000000', 10);
             const truncatedDiff = diffText.length > MAX_DIFF
               ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
               : diffText;
 
-            const systemPrompt = `You are a senior software engineer performing a code review on the pico monorepo (codename: dakar).
+            const systemPrompt = `You are a senior software engineer performing a code review on the pico monorepo.
 
             pico is a trustless 1-hop state-channel network for stablecoin (USDC) micro-payments on Taiko L2. v1 is an AI-agent payments system; the agent surface is the pico CLI. No native token, no governance, no bridges. The repo contains:
             - Solidity 0.8.26 contracts (Foundry) in packages/contracts: PaymentChannel, Adjudicator, HTLC
@@ -127,57 +137,64 @@ jobs:
 
             Review this PR thoroughly. Be direct - flag only real issues.`;
 
-            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
-              },
-              body: JSON.stringify({
-                model: 'deepseek-v4-pro',
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  { role: 'user', content: userPrompt }
-                ],
-                max_tokens: 4096,
-                temperature: 0.3
-              })
-            });
+            // `deepseek-v4-pro` was returning 200 OK with empty content because the
+            // 4096-token budget was consumed before any visible output. Keep the model
+            // but raise the budget and retry below; both are overridable via repo vars.
+            const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
+            const maxTokens = parseInt(process.env.DEEPSEEK_MAX_TOKENS || String(8192 * 8), 10);
 
-            const data = await response.json();
-
-            if (!response.ok) {
-              throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
+            async function requestReview() {
+              const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+                },
+                body: JSON.stringify({
+                  model,
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                  ],
+                  max_tokens: maxTokens,
+                  temperature: 0.3
+                })
+              });
+              const data = await response.json();
+              if (!response.ok) {
+                throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
+              }
+              const choice = data.choices && data.choices[0];
+              return {
+                reviewText: ((choice && choice.message && choice.message.content) || '').trim(),
+                finishReason: (choice && choice.finish_reason) || 'unknown',
+                usage: data.usage ? JSON.stringify(data.usage) : 'unknown'
+              };
             }
 
-            const choice = data.choices && data.choices[0];
-            const reviewText = (choice && choice.message && choice.message.content || '').trim();
-            const finishReason = choice && choice.finish_reason;
-
-            // Defensive guard: the API occasionally returns `200 OK` with empty content
-            // (content filter, length cap that triggers before the first token, model
-            // routing fallback, etc.). Without this check, the comment template
-            // ("## 🐋 DeepSeek Code Review\n\n${reviewText}\n\n---") posts with nothing
-            // between the header and footer — which is what was happening on PR updates.
+            // Retry once on empty content (content filter / token budget exhausted
+            // before the first token), then surface the outcome in the comment instead
+            // of silently leaving the job green with no report.
+            let { reviewText, finishReason, usage } = await requestReview();
             if (!reviewText) {
-              const usage = data.usage ? JSON.stringify(data.usage) : 'unknown';
               core.warning(
-                `DeepSeek returned no review content (finish_reason=${finishReason || 'unknown'}, usage=${usage}). ` +
-                `Skipping comment to avoid posting an empty review.`
+                `DeepSeek returned no content (model=${model}, finish_reason=${finishReason}, usage=${usage}); retrying once.`
               );
-              return { success: false, reason: 'empty-content', finishReason };
+              ({ reviewText, finishReason, usage } = await requestReview());
             }
 
             const triggerInfo = context.eventName === 'pull_request'
               ? 'Automatically triggered on PR update'
               : 'Triggered by `@deepseek` comment';
+            const footer = `*${triggerInfo} • model: \`${model}\`*`;
 
-            const commentBody = `## 🐋 DeepSeek Code Review
-
-            ${reviewText}
-
-            ---
-            *${triggerInfo} • [DeepSeek V4](https://deepseek.com)*`;
+            const commentBody = reviewText
+              ? `## 🐋 DeepSeek Code Review\n\n${reviewText}\n\n---\n${footer}`
+              : `## 🐋 DeepSeek Code Review\n\n⚠️ The model returned no review content after a retry `
+                + `(model: \`${model}\`, finish_reason: \`${finishReason}\`, usage: \`${usage}\`). `
+                + `This usually means the configured model id is invalid/aliased or the token budget was `
+                + `exhausted before any visible output. Override via the \`DEEPSEEK_MODEL\` / `
+                + `\`DEEPSEEK_MAX_TOKENS\` repo variables.\n\n---\n${footer}`;
 
             const comments = await github.rest.issues.listComments({
               owner, repo,
