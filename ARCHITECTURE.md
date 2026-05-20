@@ -106,6 +106,38 @@ their on-chain deposit via the contract's dedicated entry point.
 > `Status.ResolvingHtlcs`. The hub forwards seen preimages over its existing
 > HTTP surface (`POST /v1/preimage`). See `docs/release-notes-v2.md`.
 
+## Data flow: direct peer channel (hub as relay)
+
+The on-chain `PaymentChannel` is a generic two-party contract (`userA`/`userB`,
+no hub role), so two users can open a channel **directly between themselves**.
+In this mode the hub is demoted to an untrusted **message relay** — it is not a
+party, holds no liquidity, charges no fee, and never co-signs.
+
+1. The opener creates the channel on-chain with the peer's address as the
+   counterparty, then sends a `channelAnnounce` (channel record + half-signed
+   v1 state) to the peer over the relay.
+2. The relay forwards the message to the peer's session (or queues it until the
+   peer subscribes). The peer verifies it (optionally reading the channel
+   on-chain), counter-signs the v1 state, and replies `channelAnnounceAck` — the
+   channel now starts fully dual-signed on both sides.
+3. Payments reuse the existing messages, just addressed to the peer instead of
+   the hub: `payDirect`/`payDirectAck` for balance transfers, and
+   `htlcOffer`→`htlcSettle` for conditional (single-channel) HTLC payments. The
+   SDK runs the co-signing **peer responder** that the hub runs in the routed
+   topology.
+4. Cooperative close negotiates `closeRequest`→`closeResponse` over the relay;
+   the closer submits `closeCooperative` on-chain.
+
+Because both peers co-sign each other's states directly, the relay can stall or
+drop delivery but **cannot forge a state or move funds** — a misrouted message
+fails the recipient's signature check. There is no hub-side watchtower, so each
+peer is responsible for watching the chain (or running its own watchtower) to
+`dispute` a stale unilateral close. The relay is opt-in on the hub
+(`HUB_ENABLE_RELAY`), and its status is exposed at `GET /v1/info`, `GET
+/v1/stats`, and the operator-gated `GET /v1/relay/sessions`. On the client, the
+SDK's `RelayTransport` + `ChannelClient({ peerMode: true })` drive it, surfaced
+by the CLI as `--peer` on `channel open`, `pay`, `channel close`, and `listen`.
+
 ## Why 1-hop
 
 - **Routing is trivial.** A hub knows its own channels; no onion routing, no global

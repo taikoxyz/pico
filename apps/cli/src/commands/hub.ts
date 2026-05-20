@@ -56,6 +56,18 @@ export function hubCommand(deps: HubDeps = {}): Command {
       if (h.checks) stdout.write(`checks:      ${JSON.stringify(h.checks)}\n`);
       const channels = s.channels as Record<string, unknown> | undefined;
       if (channels) stdout.write(`channels:    ${JSON.stringify(channels)}\n`);
+      const relayInfo = i.relay as Record<string, unknown> | undefined;
+      const relayStats = s.relay as Record<string, unknown> | undefined;
+      if (relayInfo || relayStats) {
+        const enabled = relayInfo?.enabled ?? relayStats?.enabled ?? false;
+        stdout.write(`relay:       ${enabled ? 'enabled' : 'disabled'}`);
+        if (relayStats && enabled) {
+          stdout.write(
+            ` (sessions=${relayStats.activeSessions ?? 0}, queued=${relayStats.queuedTotal ?? 0}, forwarded=${relayStats.messagesForwarded ?? 0})`,
+          );
+        }
+        stdout.write('\n');
+      }
       if ((h as { error?: string }).error) {
         stderr.write(`warning: /v1/health returned ${(h as { error: string }).error}\n`);
       }

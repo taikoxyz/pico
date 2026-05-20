@@ -65,6 +65,14 @@ export interface HubConfig {
   readonly operatorToken: string | undefined;
   /** R-06: per-token per-counterparty HTLC cap map (lowercase token address → bigint). */
   readonly perCounterpartyCaps: ReadonlyMap<string, bigint>;
+  /**
+   * Enable the direct peer-channel message relay (off by default). When on, the
+   * hub forwards `relay` envelopes between two subscribed peers without being a
+   * party to (or co-signing) the channel.
+   */
+  readonly enableRelay: boolean;
+  /** Max relay messages buffered per offline peer before new ones are dropped. */
+  readonly maxQueuedRelayPerPeer: number;
 }
 
 function parseChainId(raw: string | undefined): ChainId {
@@ -127,6 +135,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     ),
     operatorToken: env.HUB_OPERATOR_TOKEN,
     perCounterpartyCaps: parsePerCounterpartyCaps(env),
+    enableRelay: env.HUB_ENABLE_RELAY === 'true',
+    maxQueuedRelayPerPeer: parseNonNegativeIntegerEnv(
+      'HUB_MAX_QUEUED_RELAY_PER_PEER',
+      env.HUB_MAX_QUEUED_RELAY_PER_PEER,
+      256,
+    ),
   };
 
   if (env.PICO_SKIP_PROD_ASSERT !== 'true') {

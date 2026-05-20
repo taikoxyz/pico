@@ -64,6 +64,10 @@ export interface ApiDeps {
   readonly operatorToken: string | undefined;
   /** R-06: per-token per-counterparty cap map (lowercase token → bigint string). */
   readonly perCounterpartyCaps?: ReadonlyMap<string, bigint>;
+  /** Enable the direct peer-channel message relay (default false). */
+  readonly enableRelay?: boolean;
+  /** Max relay messages buffered per offline peer (default 256). */
+  readonly maxQueuedRelayPerPeer?: number;
 }
 
 export interface ApiHandle {
@@ -258,6 +262,10 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
       requireSignedEnvelope: deps.requireSignedEnvelope,
       nonceWindowMs: deps.nonceWindowMs,
       perCounterpartyCaps,
+      relay: {
+        enabled: ws.relayEnabled,
+        maxQueuedPerPeer: deps.maxQueuedRelayPerPeer ?? 256,
+      },
     };
   });
 
@@ -309,6 +317,22 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
       disputes: {
         total: Number(disputeRows[0]?.n ?? 0),
       },
+      relay: { enabled: ws.relayEnabled, ...ws.relayStats() },
+    };
+  });
+
+  // Operator-only: connected relay/peer sessions and their queued-message
+  // counts. Gated like /v1/channels because the addresses reveal who is
+  // transacting over the relay.
+  app.get('/v1/relay/sessions', async (req, reply) => {
+    if (!isOperator(req.headers.authorization)) {
+      void reply.code(401);
+      return { error: 'unauthorized' };
+    }
+    return {
+      enabled: ws.relayEnabled,
+      stats: ws.relayStats(),
+      sessions: ws.relaySessions(),
     };
   });
 
@@ -328,6 +352,10 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     nonceWindowMs: deps.nonceWindowMs,
     paymentRetentionPerChannel: deps.paymentRetentionPerChannel,
     ...(deps.perCounterpartyCaps ? { perCounterpartyCaps: deps.perCounterpartyCaps } : {}),
+    ...(deps.enableRelay !== undefined ? { enableRelay: deps.enableRelay } : {}),
+    ...(deps.maxQueuedRelayPerPeer !== undefined
+      ? { maxQueuedRelayPerPeer: deps.maxQueuedRelayPerPeer }
+      : {}),
   });
 
   return { ws };

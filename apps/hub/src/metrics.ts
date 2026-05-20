@@ -14,6 +14,10 @@ export interface HubMetrics {
   readonly chainWatcherLagBlocks: Gauge<string>;
   readonly wsActiveConnections: Gauge<string>;
   readonly rpcErrorsTotal: Counter<'method'>;
+  readonly relayMessagesForwarded: Counter<string>;
+  readonly relayMessagesQueued: Counter<string>;
+  readonly relayMessagesDropped: Counter<string>;
+  readonly relayActiveSessions: Gauge<string>;
   refreshGauges(snapshot: GaugeSnapshot): void;
 }
 
@@ -36,6 +40,10 @@ export function buildMetrics(reg: Registry): HubMetrics {
     'pico_hub_chain_watcher_lag_blocks',
     'pico_hub_ws_active_connections',
     'pico_hub_rpc_errors_total',
+    'pico_hub_relay_messages_forwarded_total',
+    'pico_hub_relay_messages_queued_total',
+    'pico_hub_relay_messages_dropped_total',
+    'pico_hub_relay_active_sessions',
   ]) {
     reg.removeSingleMetric(name);
   }
@@ -94,6 +102,26 @@ export function buildMetrics(reg: Registry): HubMetrics {
     labelNames: ['method'] as const,
     registers: [reg],
   });
+  const relayMessagesForwarded = new Counter({
+    name: 'pico_hub_relay_messages_forwarded_total',
+    help: 'Peer-channel relay messages forwarded to a connected counterparty',
+    registers: [reg],
+  });
+  const relayMessagesQueued = new Counter({
+    name: 'pico_hub_relay_messages_queued_total',
+    help: 'Peer-channel relay messages queued for an offline counterparty',
+    registers: [reg],
+  });
+  const relayMessagesDropped = new Counter({
+    name: 'pico_hub_relay_messages_dropped_total',
+    help: 'Peer-channel relay messages dropped (per-peer queue full)',
+    registers: [reg],
+  });
+  const relayActiveSessions = new Gauge({
+    name: 'pico_hub_relay_active_sessions',
+    help: 'Currently subscribed relay/peer sessions',
+    registers: [reg],
+  });
 
   return {
     channelsTotal,
@@ -106,6 +134,10 @@ export function buildMetrics(reg: Registry): HubMetrics {
     chainWatcherLagBlocks,
     wsActiveConnections,
     rpcErrorsTotal,
+    relayMessagesForwarded,
+    relayMessagesQueued,
+    relayMessagesDropped,
+    relayActiveSessions,
     refreshGauges(snap) {
       channelsTotal.set(snap.channelsTotal);
       htlcsInFlight.set(snap.htlcsInFlight);

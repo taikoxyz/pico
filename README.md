@@ -68,6 +68,27 @@ pnpm pico listen --hub https://hub.example &          # receive payments
 
 Any-language agents shell out to the CLI; non-TS callers parse the `--json` output.
 
+## Direct peer channels (hub as relay)
+
+The on-chain contract is a generic two-party channel, so two users can open a
+channel **directly between themselves** with the hub acting only as an untrusted
+message relay (not a party, no liquidity, no fee, no co-signing). Run a
+relay-enabled hub (`HUB_ENABLE_RELAY=true`); then, sharing that relay URL:
+
+```bash
+# recipient: co-sign inbound peer payments
+pnpm pico listen --peer --via ws://relay.example/ws &
+# opener: open a direct channel, pay, and cooperatively close
+pnpm pico channel open --peer 0xPeer --amount 25 --via ws://relay.example/ws
+pnpm pico pay --invoice <peer-invoice> --peer --via ws://relay.example/ws
+pnpm pico channel close <channelId> --peer --via ws://relay.example/ws
+```
+
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) and
+[`docs/learning/09-peer-channels.html`](./docs/learning/09-peer-channels.html)
+for the data flow and trade-offs (each peer watches the chain itself; no
+hub-side watchtower).
+
 ## Toolchain
 
 | Concern             | Tool                              |

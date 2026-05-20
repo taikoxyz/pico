@@ -7,7 +7,9 @@ import {
 } from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
+  RelayTransport,
   type Signer,
+  type Transport,
   ViemChainAdapter,
   WebSocketTransport,
   generateKeysendKeypair,
@@ -15,6 +17,7 @@ import {
 import { Command } from 'commander';
 import { http, type Chain, createPublicClient, createWalletClient, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { relayCounterpartyResolver } from '../runtime/cli-helpers.js';
 import { decodeInvoiceEnvelope } from '../runtime/invoice-envelope.js';
 import { emit } from '../runtime/output.js';
 import { assertArgvKeyAllowed, resolvePrivateKey } from '../runtime/signer.js';
@@ -64,7 +67,8 @@ export function payCommand(deps: PayDeps = {}): Command {
     )
     .option('--memo <s>', 'Optional memo (keysend only)')
     .option('--recipient-pubkey <hex>', 'Recipient encryption pubkey (required with --keysend)')
-    .option('--via <url>', 'Hub WebSocket URL', 'ws://127.0.0.1:9050')
+    .option('--via <url>', 'Hub/relay WebSocket URL', 'ws://127.0.0.1:9050')
+    .option('--peer', 'Pay over a direct (hub-less) peer channel via the relay (zero fee)', false)
     .option('--rpc <url>', 'RPC URL (used for read-side; fees only)')
     .option('--private-key <hex>', 'Private key (test/CI only)')
     .option('--key-file <path>', 'Encrypted or plaintext key file')
@@ -83,6 +87,7 @@ export function payCommand(deps: PayDeps = {}): Command {
         memo?: string;
         recipientPubkey?: `0x${string}`;
         via: string;
+        peer: boolean;
         rpc?: string;
         privateKey?: `0x${string}`;
         keyFile?: string;
@@ -132,10 +137,16 @@ export function payCommand(deps: PayDeps = {}): Command {
         });
         const signer: Signer =
           deps.signerOverride ?? (await import('@inferenceroom/pico-sdk')).localSigner(privateKey);
-        const transport = new WebSocketTransport(
+        const storage = openStorage(env, deps.storageOverride);
+        const baseTransport = new WebSocketTransport(
           deps.transportOverride ?? { url: opts.via, autoReconnect: false, signer },
         );
-        const storage = openStorage(env, deps.storageOverride);
+        const transport: Transport = opts.peer
+          ? new RelayTransport({
+              base: baseTransport,
+              resolveCounterparty: relayCounterpartyResolver(storage, account.address),
+            })
+          : baseTransport;
 
         let encryptionPubkey: `0x${string}` | undefined;
         let encryptionSecretKey: `0x${string}` | undefined;
@@ -154,6 +165,7 @@ export function payCommand(deps: PayDeps = {}): Command {
           verifyingContract,
           ...(encryptionPubkey !== undefined ? { encryptionPubkey } : {}),
           ...(encryptionSecretKey !== undefined ? { encryptionSecretKey } : {}),
+          ...(opts.peer ? { peerMode: true } : {}),
         });
 
         try {

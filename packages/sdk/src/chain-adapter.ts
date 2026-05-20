@@ -138,8 +138,26 @@ export interface HtlcResolutionResult {
   readonly txHash: Hash;
 }
 
+/** Minimal on-chain channel view used to verify a peer-announced channel exists. */
+export interface OnChainChannelInfo {
+  /** Contract `Status` enum: 0 None, 1 Open, 2 ClosingUnilateral, 3 ResolvingHtlcs, 4 Closed. */
+  readonly status: number;
+  readonly userA: Address;
+  readonly userB: Address;
+  readonly token: Address;
+  readonly amountA: bigint;
+  readonly amountB: bigint;
+}
+
 export interface ChainAdapter {
   openChannel(args: OpenChannelOnChainArgs): Promise<OpenChannelOnChainResult>;
+  /**
+   * Read a channel's on-chain record, or `undefined` if it does not exist
+   * (status `None`). Optional: used by direct peer channels to verify an
+   * announced channel is real before co-signing. Implemented by
+   * `ViemChainAdapter`.
+   */
+  getChannel?(channelId: ChannelId): Promise<OnChainChannelInfo | undefined>;
   closeCooperative(args: CloseCooperativeOnChainArgs): Promise<CloseOnChainResult>;
   closeUnilateral(args: CloseUnilateralOnChainArgs): Promise<CloseUnilateralOnChainResult>;
   closeUnilateralFromOpen(
@@ -367,6 +385,32 @@ export class ViemChainAdapter implements ChainAdapter {
       openedAtMs: block.timestamp * 1000n,
       txHash,
       blockNumber: receipt.blockNumber,
+    };
+  }
+
+  async getChannel(channelId: ChannelId): Promise<OnChainChannelInfo | undefined> {
+    const { publicClient, paymentChannelAddress } = this.opts;
+    const ch = (await publicClient.readContract({
+      address: paymentChannelAddress,
+      abi: paymentChannelAbi,
+      functionName: 'channels',
+      args: [channelId],
+    })) as {
+      status: number;
+      userA: Address;
+      userB: Address;
+      token: Address;
+      amountA: bigint;
+      amountB: bigint;
+    };
+    if (!ch || ch.status === 0) return undefined;
+    return {
+      status: ch.status,
+      userA: ch.userA,
+      userB: ch.userB,
+      token: ch.token,
+      amountA: ch.amountA,
+      amountB: ch.amountB,
     };
   }
 

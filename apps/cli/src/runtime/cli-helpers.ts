@@ -1,10 +1,29 @@
 import {
   type ChainId,
+  type Channel,
+  type ChannelId,
   TAIKO_HOODI_CHAIN_ID,
   TAIKO_MAINNET_CHAIN_ID,
   ZERO_ADDRESS,
 } from '@inferenceroom/pico-protocol';
 import { type Address, type PublicClient, erc20Abi, parseUnits } from 'viem';
+
+/// Build the `resolveCounterparty` callback a `RelayTransport` needs: given a
+/// channel id, return the party that is NOT us (the peer we relay to). Backed
+/// by local channel storage. Used by the direct peer-channel CLI commands.
+export function relayCounterpartyResolver(
+  storage: { loadChannel(id: ChannelId): Promise<Channel | undefined> },
+  self: Address,
+): (channelId: ChannelId) => Promise<Address | undefined> {
+  const selfLower = self.toLowerCase();
+  return async (channelId: ChannelId): Promise<Address | undefined> => {
+    const ch = await storage.loadChannel(channelId);
+    if (!ch) return undefined;
+    if (ch.userA.toLowerCase() === selfLower) return ch.userB;
+    if (ch.userB.toLowerCase() === selfLower) return ch.userA;
+    return undefined;
+  };
+}
 
 /// Default WebSocket URLs per chain. Override via PICO_HUB_URL or --via.
 export const DEFAULT_HUB_URL: Record<ChainId, string> = {

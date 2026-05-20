@@ -116,6 +116,8 @@ export async function buildServer(
     paymentRetentionPerChannel: config.paymentRetentionPerChannel,
     operatorToken: config.operatorToken,
     perCounterpartyCaps: config.perCounterpartyCaps,
+    enableRelay: config.enableRelay,
+    maxQueuedRelayPerPeer: config.maxQueuedRelayPerPeer,
   });
 
   // Build the §8 inbound liquidity stack. It needs the WS push callback and

@@ -34,6 +34,8 @@ export interface MockHubOptions {
   readonly verifyingContract: Address;
   readonly hubPrivateKey?: Hex;
   readonly hubFeeBps?: bigint;
+  /** Enable direct peer-channel relay forwarding (default false). */
+  readonly enableRelay?: boolean;
 }
 
 export interface PendingHtlc {
@@ -103,8 +105,14 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
 
   const sessions = new Map<Address, SubscriberSession>();
   const pendingHtlcs = new Map<HtlcId, PendingHtlc>();
+  const relayEnabled = opts.enableRelay === true;
+  const relayQueue = new Map<string, HubMessage[]>();
 
   function send(socket: WebSocket, msg: HubToClientMessage): void {
+    socket.send(encodeHubMessage(msg));
+  }
+
+  function sendRaw(socket: WebSocket, msg: HubMessage): void {
     socket.send(encodeHubMessage(msg));
   }
 
@@ -141,6 +149,28 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         channels: yours,
         pendingHtlcs: yourPending,
       });
+      if (relayEnabled) {
+        const key = msg.address.toLowerCase();
+        const queued = relayQueue.get(key);
+        if (queued && queued.length > 0) {
+          relayQueue.delete(key);
+          for (const inner of queued) sendRaw(socket, inner);
+        }
+      }
+      return;
+    }
+
+    if (msg.kind === 'relay') {
+      if (!relayEnabled) return;
+      const key = msg.to.toLowerCase();
+      const dest = sessions.get(key as Address);
+      if (dest) {
+        sendRaw(dest.socket, msg.inner);
+      } else {
+        const q = relayQueue.get(key) ?? [];
+        q.push(msg.inner);
+        relayQueue.set(key, q);
+      }
       return;
     }
 
@@ -395,7 +425,8 @@ export async function startMockHub(opts: MockHubOptions): Promise<MockHubHandle>
         msg.kind === 'payDirect' ||
         msg.kind === 'htlcSettle' ||
         msg.kind === 'htlcFail' ||
-        msg.kind === 'closeRequest'
+        msg.kind === 'closeRequest' ||
+        msg.kind === 'relay'
       ) {
         void handleMessage(socket, msg);
       }

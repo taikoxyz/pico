@@ -28,6 +28,13 @@ export interface VerifyEnvelopeArgs {
   readonly nonceRepo: NonceRepo;
   readonly nowMs?: number;
   readonly windowMs?: number;
+  /**
+   * When true, skip the `knownSigners` membership check and accept any
+   * validly-recovered signer (replay/window protection still applies). Used by
+   * the peer-channel relay: relayers need not share a channel with the hub, and
+   * per-message authorization is enforced downstream (peers co-sign each other).
+   */
+  readonly allowUnknownSigner?: boolean;
 }
 
 const DEFAULT_WINDOW_MS = 60_000;
@@ -61,10 +68,12 @@ export async function verifyEnvelope(args: VerifyEnvelopeArgs): Promise<Envelope
   } catch (err) {
     return { ok: false, reason: `signature recovery failed: ${(err as Error).message}` };
   }
-  const lower = signer.toLowerCase();
-  const known = Array.from(args.knownSigners).map((a) => a.toLowerCase());
-  if (!known.includes(lower)) {
-    return { ok: false, reason: `signer ${signer} not a known channel party` };
+  if (args.allowUnknownSigner !== true) {
+    const lower = signer.toLowerCase();
+    const known = Array.from(args.knownSigners).map((a) => a.toLowerCase());
+    if (!known.includes(lower)) {
+      return { ok: false, reason: `signer ${signer} not a known channel party` };
+    }
   }
 
   if (await args.nonceRepo.isSeen(args.envelope.nonce)) {

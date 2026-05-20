@@ -64,6 +64,18 @@ export interface WsDeps {
   readonly topupHandler?: TopUpHandler;
   /** R-06: per-token per-counterparty cap map passed through to the Router. */
   readonly perCounterpartyCaps?: ReadonlyMap<string, bigint>;
+  /** Enable the direct peer-channel message relay (default false). */
+  readonly enableRelay?: boolean;
+  /** Max relay messages buffered per offline peer (default 256). */
+  readonly maxQueuedRelayPerPeer?: number;
+}
+
+export interface RelayStats {
+  readonly activeSessions: number;
+  readonly queuedTotal: number;
+  readonly messagesForwarded: number;
+  readonly messagesQueued: number;
+  readonly messagesDropped: number;
 }
 
 export interface WsHandle {
@@ -75,6 +87,12 @@ export interface WsHandle {
   pushProposeTopUp(toAddress: Address, msg: ProposeTopUpMessage): boolean;
   /** Send a `topUpComplete` notification to a connected user. */
   pushTopUpComplete(toAddress: Address, msg: TopUpCompleteMessage): boolean;
+  /** True when the direct peer-channel relay is enabled. */
+  readonly relayEnabled: boolean;
+  /** Aggregate relay forwarding stats (for `/v1/stats` and `/metrics`). */
+  relayStats(): RelayStats;
+  /** Connected relay/peer sessions with their queued-message counts. */
+  relaySessions(): { address: Address; queued: number }[];
 }
 
 function isSignedEnvelope(value: unknown): value is SignedEnvelope {
@@ -116,6 +134,53 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
 
   function send(socket: WsWebSocket, msg: HubToClientMessage): void {
     socket.send(encodeHubMessage(msg));
+  }
+
+  // ---- Direct peer-channel relay ----
+  // The hub forwards `relay` envelopes between two subscribed peers without
+  // being a party to the channel. It never parses or co-signs the inner state.
+  const relayEnabled = deps.enableRelay === true;
+  const maxQueuedRelayPerPeer = deps.maxQueuedRelayPerPeer ?? 256;
+  const relayQueue = new Map<string, HubMessage[]>();
+  let relayForwarded = 0;
+  let relayQueued = 0;
+  let relayDropped = 0;
+
+  function sendRaw(socket: WsWebSocket, msg: HubMessage): void {
+    socket.send(encodeHubMessage(msg));
+  }
+
+  async function handleRelay(
+    socket: WsWebSocket,
+    msg: Extract<ClientToHubMessage, { kind: 'relay' }>,
+  ): Promise<void> {
+    const key = msg.to.toLowerCase();
+    const dest = sessions.get(key);
+    if (dest) {
+      sendRaw(dest.socket, msg.inner);
+      relayForwarded += 1;
+      deps.metrics.relayMessagesForwarded.inc();
+      return;
+    }
+    const q = relayQueue.get(key) ?? [];
+    if (q.length >= maxQueuedRelayPerPeer) {
+      relayDropped += 1;
+      deps.metrics.relayMessagesDropped.inc();
+      deps.logger.warn({ to: msg.to }, 'relay queue full; dropping message');
+      return;
+    }
+    q.push(msg.inner);
+    relayQueue.set(key, q);
+    relayQueued += 1;
+    deps.metrics.relayMessagesQueued.inc();
+    void socket; // sender ack is implicit; relayed replies flow back through the relay
+  }
+
+  function flushRelayQueue(socket: WsWebSocket, key: string): void {
+    const queued = relayQueue.get(key);
+    if (!queued || queued.length === 0) return;
+    relayQueue.delete(key);
+    for (const inner of queued) sendRaw(socket, inner);
   }
 
   function sendError(socket: WsWebSocket, requestId: string, code: string, message: string): void {
@@ -208,6 +273,10 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
           'failed to re-push pending topup offers on subscribe',
         );
       }
+    }
+    if (relayEnabled) {
+      deps.metrics.relayActiveSessions.set(sessions.size);
+      flushRelayQueue(socket, key);
     }
   }
 
@@ -874,6 +943,13 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         }
         return handleRejectTopUp(socket, msg);
       }
+      case 'relay': {
+        if (!relayEnabled) {
+          sendError(socket, msg.id, 'RELAY_DISABLED', 'peer-channel relay not enabled on this hub');
+          return;
+        }
+        return handleRelay(socket, msg);
+      }
       default:
         return;
     }
@@ -904,6 +980,9 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
         knownSigners,
         nonceRepo: deps.repos.nonces,
         windowMs: deps.nonceWindowMs,
+        // Relay peers need not share a channel with the hub; per-message
+        // authorization is enforced in `dispatch`, and peers co-sign each other.
+        allowUnknownSigner: relayEnabled,
       });
       if (!verify.ok) {
         deps.logger.warn({ reason: verify.reason }, 'envelope verification failed');
@@ -939,6 +1018,7 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       for (const [k, sess] of sessions) {
         if (sess.socket === socket) sessions.delete(k);
       }
+      if (relayEnabled) deps.metrics.relayActiveSessions.set(sessions.size);
     });
   });
 
@@ -960,5 +1040,23 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
     },
     pushProposeTopUp,
     pushTopUpComplete,
+    relayEnabled,
+    relayStats(): RelayStats {
+      let queuedTotal = 0;
+      for (const q of relayQueue.values()) queuedTotal += q.length;
+      return {
+        activeSessions: sessions.size,
+        queuedTotal,
+        messagesForwarded: relayForwarded,
+        messagesQueued: relayQueued,
+        messagesDropped: relayDropped,
+      };
+    },
+    relaySessions(): { address: Address; queued: number }[] {
+      return Array.from(sessions.values()).map((s) => ({
+        address: s.address,
+        queued: relayQueue.get(s.address.toLowerCase())?.length ?? 0,
+      }));
+    },
   };
 }

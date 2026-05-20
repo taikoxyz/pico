@@ -863,6 +863,57 @@ Items deferred past v2 and tracked under [issue #21](https://github.com/taikoxyz
   would harden against malicious `receive()` reverts on ETH channels (§1
   "ETH channels" note).
 
+## 11. Direct peer channels (hub as relay)
+
+The on-chain `PaymentChannel` and the off-chain state machine are symmetric in
+`userA`/`userB` — nothing requires either party to be a hub. Two users MAY
+therefore open a channel directly with each other and use a hub purely as an
+**untrusted message relay**. The relay is opt-in on the hub
+(`HUB_ENABLE_RELAY`).
+
+### 11.1 Relay envelope
+
+A peer wraps each message destined for its counterparty in:
+
+```
+RelayMessage { id, kind: "relay", to: Address, inner: <peer message> }
+```
+
+The hub forwards `inner` verbatim to the session subscribed as `to` (keyed by
+address, as for routed delivery), or queues it (bounded per peer) until that
+address subscribes. The hub MUST NOT parse, validate, or co-sign `inner`. The
+inner message keeps its own `id` so request/response correlation resolves
+end-to-end. Hub-bound control messages (`subscribe`) are sent un-wrapped.
+
+Because the two peers co-sign each other's states directly, the relay is fully
+untrusted: it can stall or drop delivery but cannot forge a state — a misrouted
+or tampered `inner` fails the recipient's EIP-712 signature check (§2). When a
+hub runs in relay mode, signed-envelope (§6.3) membership against known channel
+parties is relaxed for relayed senders; replay/window protection still applies.
+
+### 11.2 Open handshake
+
+After opening the channel on-chain (§1), the opener sends
+`channelAnnounce { channel, signedState }` (its half-signed v1 state) to the
+peer over the relay. The peer:
+
+1. confirms it is `userA` or `userB` of the announced channel;
+2. SHOULD verify the channel exists on-chain;
+3. validates the opener's signature on the v1 state (§2);
+4. counter-signs and replies `channelAnnounceAck { channelId, signedState }`.
+
+The channel then starts fully dual-signed on both sides.
+
+### 11.3 Payments and close
+
+Payments reuse the §2/§3 messages, addressed to the peer rather than the hub:
+`payDirect`/`payDirectAck` for balance transfers, and `htlcOffer`→`htlcSettle`
+(or `htlcFail`) for conditional HTLC payments **within the single channel**
+(no routing hop, hence no hub fee and no `HTLC_TIMEOUT_DELTA` margin — §4).
+Cooperative close negotiates `closeRequest`→`closeResponse` over the relay; the
+closer submits `closeCooperative` (§1). Each peer is responsible for its own
+dispute watching (§5.6) — there is no hub-side watchtower in a direct channel.
+
 ## See also
 
 - [`inbound-liquidity-scenarios.md`](./inbound-liquidity-scenarios.md) —
