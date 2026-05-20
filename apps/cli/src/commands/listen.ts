@@ -8,7 +8,9 @@ import {
 } from '@inferenceroom/pico-protocol';
 import {
   ChannelClient,
+  RelayTransport,
   type Signer,
+  type Transport,
   ViemChainAdapter,
   WebSocketTransport,
 } from '@inferenceroom/pico-sdk';
@@ -16,6 +18,7 @@ import { Command } from 'commander';
 import pino from 'pino';
 import { http, type Chain, createPublicClient, createWalletClient, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { relayCounterpartyResolver } from '../runtime/cli-helpers.js';
 import { loadOrCreateKeysendKeypair } from '../runtime/keysend-keypair.js';
 import { resolvePrivateKey } from '../runtime/signer.js';
 import { openStorage } from '../runtime/storage.js';
@@ -56,7 +59,12 @@ function chainFor(id: ChainId): Chain {
 export function listenCommand(deps: ListenDeps = {}): Command {
   return new Command('listen')
     .description('Run as a long-lived receiver, settling inbound payments')
-    .option('--hub <url>', 'Hub WebSocket URL', 'ws://127.0.0.1:9050')
+    .option('--hub <url>', 'Hub/relay WebSocket URL', 'ws://127.0.0.1:9050')
+    .option(
+      '--peer',
+      'Direct peer-channel mode: co-sign inbound peer payments, opens and closes via the relay',
+      false,
+    )
     .option('--rpc <url>', 'RPC URL (optional, used for chain reads)')
     .option('--channel <id...>', 'Subscribe to specific channel ids (default: all)')
     .option('--private-key <hex>', 'Private key (test/CI only)')
@@ -65,6 +73,7 @@ export function listenCommand(deps: ListenDeps = {}): Command {
     .action(
       async (opts: {
         hub: string;
+        peer: boolean;
         rpc?: string;
         channel?: string[];
         privateKey?: `0x${string}`;
@@ -98,10 +107,16 @@ export function listenCommand(deps: ListenDeps = {}): Command {
         });
         const signer: Signer =
           deps.signerOverride ?? (await import('@inferenceroom/pico-sdk')).localSigner(privateKey);
-        const transport = new WebSocketTransport(
+        const storage = openStorage(env, deps.storageOverride);
+        const baseTransport = new WebSocketTransport(
           deps.transportOverride ?? { url: opts.hub, autoReconnect: true, signer },
         );
-        const storage = openStorage(env, deps.storageOverride);
+        const transport: Transport = opts.peer
+          ? new RelayTransport({
+              base: baseTransport,
+              resolveCounterparty: relayCounterpartyResolver(storage, account.address),
+            })
+          : baseTransport;
         // R-09: persist the keysend keypair so in-flight keysend payloads remain
         // decryptable across `listen` restarts. Without this the keypair was
         // regenerated each run and any in-flight keysend memo became unreadable.
@@ -116,6 +131,7 @@ export function listenCommand(deps: ListenDeps = {}): Command {
           verifyingContract,
           encryptionPubkey: keypair.publicKey,
           encryptionSecretKey: keypair.secretKey,
+          ...(opts.peer ? { peerMode: true } : {}),
         });
 
         const offSettled = client.on('htlc:settled', (p) => {

@@ -18,6 +18,7 @@ import {
   type StateAdmissionError,
   addHtlc,
   admitClose,
+  admitHtlcFail,
   admitHtlcOffer,
   admitHtlcSettle,
   admitSignedState,
@@ -40,9 +41,16 @@ import {
 } from './errors.js';
 import { type SdkEventMap, TypedEventEmitter } from './events.js';
 import type {
+  ChannelAnnounceMessage,
   ClientToHubMessage,
+  CloseRequestMessage,
+  HtlcFailMessage,
   HtlcOfferMessage,
+  HtlcSettleAckMessage,
+  HtlcSettleMessage,
+  HubMessage,
   HubToClientMessage,
+  PayDirectMessage,
   PaymentSettleMessage,
   ProposeTopUpMessage,
 } from './hub-protocol.js';
@@ -71,6 +79,14 @@ export interface ChannelClientOptions {
   readonly encryptionSecretKey?: Hex;
   readonly closeRequestTimeoutMs?: number;
   readonly settleTimeoutMs?: number;
+  /**
+   * Direct (hub-less) peer-channel mode. When true the counterparty is another
+   * user (not a hub): `open` performs a peer co-sign handshake over the relay,
+   * payments are offered directly to the peer (zero fee), and the client acts
+   * as the co-signing responder for inbound peer messages. Requires a
+   * `RelayTransport`.
+   */
+  readonly peerMode?: boolean;
 }
 
 export interface OpenChannelArgs {
@@ -120,6 +136,14 @@ export class ChannelClient {
   private readonly disputeWindowMs: number;
   private readonly closeRequestTimeoutMs: number;
   private readonly settleTimeoutMs: number;
+  private readonly peerMode: boolean;
+  /** Peer-channel HTLC payments awaiting the payee's settle/fail (keyed by htlcId). */
+  private readonly peerInflight = new Map<
+    string,
+    { resolve(msg: HtlcSettleMessage): void; reject(err: Error): void }
+  >();
+  /** Serializes locally-initiated payments per channel (see acquireChannelLock). */
+  private readonly channelMutex = new Map<ChannelId, Promise<void>>();
 
   constructor(private readonly opts: ChannelClientOptions) {
     this.hubFeeBps = opts.hubFeeBps ?? DEFAULT_HUB_FEE_BPS;
@@ -129,6 +153,12 @@ export class ChannelClient {
     this.disputeWindowMs = opts.disputeWindowMs ?? 24 * 60 * 60 * 1000;
     this.closeRequestTimeoutMs = opts.closeRequestTimeoutMs ?? 60_000;
     this.settleTimeoutMs = opts.settleTimeoutMs ?? 30_000;
+    this.peerMode = opts.peerMode === true;
+    if (this.peerMode) {
+      // Direct peer channels carry no routing hop, so the hub fee never applies.
+      this.hubFeeBps = 0n;
+      this.hubFeeFlat = 0n;
+    }
   }
 
   on<E extends keyof SdkEventMap>(event: E, handler: (p: SdkEventMap[E]) => void): () => void {
@@ -166,6 +196,28 @@ export class ChannelClient {
     if (this.myAddress) return this.myAddress;
     this.myAddress = await this.opts.signer.address();
     return this.myAddress;
+  }
+
+  /**
+   * Serializes locally-initiated payments (`pay`/`payDirect`) per channel so two
+   * concurrent calls can't both read the same latest state and build conflicting
+   * `v(n+1)` updates. Returns a release function. Inbound co-sign handlers
+   * deliberately do NOT take this lock — the initiator holds it across its await
+   * for the response, and taking the lock inside the awaited handler would
+   * deadlock.
+   */
+  private async acquireChannelLock(channelId: ChannelId): Promise<() => void> {
+    const prev = this.channelMutex.get(channelId) ?? Promise.resolve();
+    let release!: () => void;
+    const mine = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.channelMutex.set(
+      channelId,
+      prev.then(() => mine),
+    );
+    await prev.catch(() => undefined);
+    return release;
   }
 
   async createInvoice(args: {
@@ -247,8 +299,55 @@ export class ChannelClient {
     } catch (err) {
       throw new PostOpenSubscribeError(opened, err as Error);
     }
+    if (this.peerMode) {
+      await this.announceToPeer(channel, signedState, iAmA);
+    }
     this.emitter.emit('channel:opened', { channel });
     return opened;
+  }
+
+  /**
+   * Peer-channel open handshake: send the channel record + our half-signed v1
+   * state to the counterparty over the relay and await their counter-signed
+   * v1 state. On success the channel starts fully dual-signed in storage.
+   */
+  private async announceToPeer(
+    channel: Channel,
+    mySigned: SignedState,
+    iAmA: boolean,
+  ): Promise<void> {
+    const counterparty = iAmA ? channel.userB : channel.userA;
+    const reply = await this.opts.transport.request(
+      {
+        id: newRequestId('announce'),
+        kind: 'channelAnnounce',
+        channel,
+        signedState: mySigned,
+      },
+      { timeoutMs: this.closeRequestTimeoutMs },
+    );
+    if (reply.kind === 'error') throw new Error(`channelAnnounce rejected: ${reply.message}`);
+    if (reply.kind !== 'channelAnnounceAck') {
+      throw new Error(`channelAnnounce: unexpected reply kind '${reply.kind}'`);
+    }
+    await admitSignedState(
+      reply.signedState,
+      { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+      {
+        prev: undefined,
+        expectedVersion: 1n,
+        allowPartialSigs: true,
+        requireSignerAddresses: [counterparty],
+      },
+    );
+    if (
+      reply.signedState.state.version !== mySigned.state.version ||
+      reply.signedState.state.balanceA !== mySigned.state.balanceA ||
+      reply.signedState.state.balanceB !== mySigned.state.balanceB
+    ) {
+      throw new Error('channelAnnounceAck: peer-acked state does not match our initial state');
+    }
+    await this.opts.storage.saveState(channel.id, reply.signedState);
   }
 
   async ensureSubscribed(channelIds: readonly ChannelId[]): Promise<void> {
@@ -319,7 +418,29 @@ export class ChannelClient {
     });
   }
 
-  private async handleInbound(msg: HubToClientMessage): Promise<void> {
+  private async handleInbound(msg: HubMessage): Promise<void> {
+    if (this.peerMode) {
+      switch (msg.kind) {
+        case 'payDirect':
+          await this.respondPayDirect(msg);
+          return;
+        case 'closeRequest':
+          await this.respondCloseRequest(msg);
+          return;
+        case 'channelAnnounce':
+          await this.respondChannelAnnounce(msg);
+          return;
+        case 'htlcSettle':
+          await this.handlePeerHtlcSettle(msg);
+          return;
+        case 'htlcSettleAck':
+          await this.applyHtlcSettleAck(msg);
+          return;
+        case 'htlcFail':
+          await this.handlePeerHtlcFail(msg);
+          return;
+      }
+    }
     if (msg.kind === 'paymentSettle') {
       const pending = this.inflight.get(msg.htlcId);
       if (pending) {
@@ -566,6 +687,18 @@ export class ChannelClient {
     channelId: ChannelId,
     args: { amount: bigint },
   ): Promise<{ channelId: ChannelId; version: bigint }> {
+    const release = await this.acquireChannelLock(channelId);
+    try {
+      return await this.payDirectImpl(channelId, args);
+    } finally {
+      release();
+    }
+  }
+
+  private async payDirectImpl(
+    channelId: ChannelId,
+    args: { amount: bigint },
+  ): Promise<{ channelId: ChannelId; version: bigint }> {
     if (args.amount <= 0n) throw new Error('payDirect: amount must be positive');
     const me = await this.address();
     const channel = await this.opts.storage.loadChannel(channelId);
@@ -649,6 +782,21 @@ export class ChannelClient {
   }
 
   async pay(req: PaymentRequest): Promise<PaymentResult> {
+    // Resolve the target channel up-front so concurrent payments on the same
+    // channel serialize (preventing two calls from building the same version).
+    const target = req.invoice?.recipient ?? req.to;
+    if (!target) throw new Error('pay: invoice or {to} required');
+    const targetChannel = await this.findChannelTo(target);
+    if (!targetChannel) throw new ChannelNotOpenError(target, 'no open channel');
+    const release = await this.acquireChannelLock(targetChannel.id);
+    try {
+      return await this.payImpl(req);
+    } finally {
+      release();
+    }
+  }
+
+  private async payImpl(req: PaymentRequest): Promise<PaymentResult> {
     const me = await this.address();
     if (req.invoice) {
       await verifyInvoice(req.invoice, { chainId: this.opts.chainId });
@@ -715,6 +863,10 @@ export class ChannelClient {
       sigB: iAmA ? signed.sigB : hexToSignature(mySig),
     };
     await this.opts.storage.saveState(channel.id, lockedSigned); // PERSIST BEFORE SEND
+
+    if (this.peerMode) {
+      return this.payPeerHtlc({ channel, htlc, lockedSigned, paymentHash, iAmA, keysendPayload });
+    }
 
     const settlePromise = new Promise<PaymentSettleMessage>((resolve, reject) => {
       this.inflight.set(htlc.id, { htlcId: htlc.id, resolve, reject });
@@ -823,6 +975,411 @@ export class ChannelClient {
       preimage: settled.preimage,
       settledAtMs: Date.now(),
     };
+  }
+
+  // ---- Direct (hub-less) peer-channel paths ----
+
+  /**
+   * Payer side of a direct-channel HTLC: offer the locked HTLC straight to the
+   * peer (the role a hub plays in the routed flow) and wait for the peer's
+   * `htlcSettle`. The inbound `htlcSettle` handler validates the preimage,
+   * co-signs the settled state, and resolves the awaited promise.
+   */
+  private async payPeerHtlc(args: {
+    channel: Channel;
+    htlc: Htlc;
+    lockedSigned: SignedState;
+    paymentHash: PaymentHash;
+    iAmA: boolean;
+    keysendPayload: ReturnType<typeof sealForRecipient> | undefined;
+  }): Promise<PaymentResult> {
+    const { channel, htlc, lockedSigned, paymentHash, iAmA, keysendPayload } = args;
+    const settlePromise = new Promise<HtlcSettleMessage>((resolve, reject) => {
+      this.peerInflight.set(htlc.id, { resolve, reject });
+    });
+    await this.opts.transport.send({
+      id: newRequestId('offer'),
+      kind: 'htlcOffer',
+      channelId: channel.id,
+      htlc,
+      signedStateBeforeHtlc: lockedSigned,
+      ...(keysendPayload !== undefined ? { keysendPayload } : {}),
+    });
+
+    const safety = Number(this.safetyMarginMs);
+    const remainingMs = Math.max(
+      Number(this.settleTimeoutMs),
+      Math.min(Number(htlc.expiryMs - BigInt(Date.now())) - safety, Number(this.htlcExpiryMs)),
+    );
+    let settled: HtlcSettleMessage;
+    try {
+      settled = await Promise.race([
+        settlePromise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new HtlcExpiredLocallyError(htlc.id)), remainingMs),
+        ),
+      ]);
+    } catch (err) {
+      this.peerInflight.delete(htlc.id);
+      const failedState = failHtlc(lockedSigned.state, htlc.id);
+      const failedNext: ChannelState = { ...failedState, version: failedState.version + 1n };
+      const failSig = await this.opts.signer.signChannelState(
+        failedNext,
+        this.opts.chainId,
+        this.opts.verifyingContract,
+      );
+      const failedSigned: SignedState = {
+        state: failedNext,
+        sigA: iAmA ? hexToSignature(failSig) : lockedSigned.sigA,
+        sigB: iAmA ? lockedSigned.sigB : hexToSignature(failSig),
+      };
+      await this.opts.storage.saveState(channel.id, failedSigned);
+      await this.opts.transport.send({
+        id: newRequestId('fail'),
+        kind: 'htlcFail',
+        channelId: channel.id,
+        htlcId: htlc.id,
+        reason: (err as Error).message,
+        signedState: failedSigned,
+      });
+      this.emitter.emit('htlc:failed', {
+        channelId: channel.id,
+        htlc,
+        reason: (err as Error).message,
+      });
+      throw err;
+    }
+    if (preimageDigest(settled.preimage).toLowerCase() !== paymentHash.toLowerCase()) {
+      throw new PreimageMismatchError();
+    }
+    return { channelId: channel.id, preimage: settled.preimage, settledAtMs: Date.now() };
+  }
+
+  /** Payer side: peer revealed the preimage. Validate, co-sign, persist. */
+  private async handlePeerHtlcSettle(msg: HtlcSettleMessage): Promise<void> {
+    const inflight = this.peerInflight.get(msg.htlcId);
+    try {
+      const me = await this.address();
+      const channel = await this.opts.storage.loadChannel(msg.channelId);
+      const latest = await this.opts.storage.loadLatestState(msg.channelId);
+      if (!channel || !latest) throw new Error(`htlcSettle for unknown channel ${msg.channelId}`);
+      const locked = latest.state;
+      const htlc = locked.htlcs.find((h) => h.id === msg.htlcId);
+      if (!htlc) throw new Error(`htlcSettle for unknown/settled htlc ${msg.htlcId}`);
+      const iAmA = channel.userA.toLowerCase() === me.toLowerCase();
+      const counterparty = iAmA ? channel.userB : channel.userA;
+      await admitHtlcSettle(
+        msg.signedState,
+        { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+        {
+          prev: locked,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [counterparty],
+          htlcId: msg.htlcId,
+          preimage: msg.preimage,
+          expectedPaymentHash: htlc.paymentHash,
+        },
+      );
+      const settledState = settleHtlc(locked, msg.htlcId, msg.preimage);
+      const settledNext: ChannelState = { ...settledState, version: settledState.version + 1n };
+      const mySig = await this.opts.signer.signChannelState(
+        settledNext,
+        this.opts.chainId,
+        this.opts.verifyingContract,
+      );
+      const signedState: SignedState = {
+        state: settledNext,
+        sigA: iAmA ? hexToSignature(mySig) : msg.signedState.sigA,
+        sigB: iAmA ? msg.signedState.sigB : hexToSignature(mySig),
+      };
+      await this.opts.storage.saveState(channel.id, signedState);
+      // Return the fully dual-signed settled state to the payee so it converges
+      // on an enforceable state instead of holding a half-signed one.
+      await this.opts.transport.send({
+        id: newRequestId('settleAck'),
+        kind: 'htlcSettleAck',
+        channelId: channel.id,
+        htlcId: msg.htlcId,
+        signedState,
+      });
+      this.emitter.emit('htlc:settled', {
+        channelId: channel.id,
+        htlc,
+        preimage: msg.preimage,
+        direction: 'outgoing',
+      });
+      if (inflight) {
+        this.peerInflight.delete(msg.htlcId);
+        inflight.resolve(msg);
+      }
+    } catch (err) {
+      if (inflight) {
+        this.peerInflight.delete(msg.htlcId);
+        inflight.reject(err as Error);
+      }
+      this.emitter.emit('error', { error: err as Error, context: 'peerHtlcSettle' });
+    }
+  }
+
+  /**
+   * Payee side: the payer returned the dual-signed settled state. Replace our
+   * half-signed copy with the fully counter-signed one so the settled balance is
+   * independently enforceable on-chain.
+   */
+  private async applyHtlcSettleAck(msg: HtlcSettleAckMessage): Promise<void> {
+    try {
+      const me = await this.address();
+      const channel = await this.opts.storage.loadChannel(msg.channelId);
+      const latest = await this.opts.storage.loadLatestState(msg.channelId);
+      if (!channel || !latest) return;
+      // Only upgrade the exact settled state we already hold.
+      if (
+        msg.signedState.state.version !== latest.state.version ||
+        msg.signedState.state.balanceA !== latest.state.balanceA ||
+        msg.signedState.state.balanceB !== latest.state.balanceB ||
+        msg.signedState.state.htlcs.length !== 0
+      ) {
+        return;
+      }
+      const counterparty =
+        channel.userA.toLowerCase() === me.toLowerCase() ? channel.userB : channel.userA;
+      await admitSignedState(
+        msg.signedState,
+        { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+        {
+          prev: undefined,
+          expectedVersion: latest.state.version,
+          requireSignerAddresses: [counterparty],
+        },
+      );
+      await this.opts.storage.saveState(msg.channelId, msg.signedState);
+    } catch (err) {
+      this.emitter.emit('error', { error: err as Error, context: 'htlcSettleAck' });
+    }
+  }
+
+  /** Payer side: peer rejected the HTLC. Validate the failed state, co-sign, persist. */
+  private async handlePeerHtlcFail(msg: HtlcFailMessage): Promise<void> {
+    const inflight = this.peerInflight.get(msg.htlcId);
+    try {
+      const me = await this.address();
+      const channel = await this.opts.storage.loadChannel(msg.channelId);
+      const latest = await this.opts.storage.loadLatestState(msg.channelId);
+      if (!channel || !latest) throw new Error(`htlcFail for unknown channel ${msg.channelId}`);
+      const locked = latest.state;
+      const htlc = locked.htlcs.find((h) => h.id === msg.htlcId);
+      if (!htlc) throw new Error(`htlcFail for unknown/settled htlc ${msg.htlcId}`);
+      const iAmA = channel.userA.toLowerCase() === me.toLowerCase();
+      const counterparty = iAmA ? channel.userB : channel.userA;
+      await admitHtlcFail(
+        msg.signedState,
+        { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+        {
+          prev: locked,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [counterparty],
+          htlcId: msg.htlcId,
+        },
+      );
+      const failedState = failHtlc(locked, msg.htlcId);
+      const failedNext: ChannelState = { ...failedState, version: failedState.version + 1n };
+      const mySig = await this.opts.signer.signChannelState(
+        failedNext,
+        this.opts.chainId,
+        this.opts.verifyingContract,
+      );
+      const signedState: SignedState = {
+        state: failedNext,
+        sigA: iAmA ? hexToSignature(mySig) : msg.signedState.sigA,
+        sigB: iAmA ? msg.signedState.sigB : hexToSignature(mySig),
+      };
+      await this.opts.storage.saveState(channel.id, signedState);
+      this.emitter.emit('htlc:failed', { channelId: channel.id, htlc, reason: msg.reason });
+      if (inflight) {
+        this.peerInflight.delete(msg.htlcId);
+        inflight.reject(new Error(`peer rejected HTLC: ${msg.reason}`));
+      }
+    } catch (err) {
+      if (inflight) {
+        this.peerInflight.delete(msg.htlcId);
+        inflight.reject(err as Error);
+      }
+      this.emitter.emit('error', { error: err as Error, context: 'peerHtlcFail' });
+    }
+  }
+
+  /** Responder side: co-sign a peer's direct balance transfer and ack it. */
+  private async respondPayDirect(msg: PayDirectMessage): Promise<void> {
+    try {
+      const me = await this.address();
+      const channel = await this.opts.storage.loadChannel(msg.channelId);
+      if (!channel) return; // unknown channel; requester times out
+      const iAmA = channel.userA.toLowerCase() === me.toLowerCase();
+      const sender = iAmA ? channel.userB : channel.userA;
+      const prev = await this.opts.storage.loadLatestState(msg.channelId);
+      await admitSignedState(
+        msg.signedState,
+        { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+        {
+          prev: prev?.state,
+          allowEqualVersion: true,
+          allowPartialSigs: true,
+          requireSignerAddresses: [sender],
+        },
+      );
+      const mySig = await this.opts.signer.signChannelState(
+        msg.signedState.state,
+        this.opts.chainId,
+        this.opts.verifyingContract,
+      );
+      const acked: SignedState = {
+        state: msg.signedState.state,
+        sigA: iAmA ? hexToSignature(mySig) : msg.signedState.sigA,
+        sigB: iAmA ? msg.signedState.sigB : hexToSignature(mySig),
+      };
+      await this.opts.storage.saveState(msg.channelId, acked);
+      await this.opts.transport.send({
+        id: msg.id,
+        kind: 'payDirectAck',
+        channelId: msg.channelId,
+        signedState: acked,
+      });
+    } catch (err) {
+      this.emitter.emit('error', { error: err as Error, context: 'respondPayDirect' });
+    }
+  }
+
+  /** Responder side: co-sign a peer's cooperative-close request and respond. */
+  private async respondCloseRequest(msg: CloseRequestMessage): Promise<void> {
+    try {
+      const me = await this.address();
+      const channel = await this.opts.storage.loadChannel(msg.channelId);
+      const latest = await this.opts.storage.loadLatestState(msg.channelId);
+      if (!channel || !latest) return;
+      const fs = msg.signedState.state;
+      const cc = msg.signedCooperativeClose.close;
+      if (
+        latest.state.htlcs.length > 0 ||
+        fs.htlcs.length > 0 ||
+        fs.channelId !== msg.channelId ||
+        fs.version !== latest.state.version + 1n ||
+        fs.balanceA !== latest.state.balanceA ||
+        fs.balanceB !== latest.state.balanceB ||
+        !fs.finalized ||
+        cc.channelId !== msg.channelId ||
+        cc.finalBalanceA !== fs.balanceA ||
+        cc.finalBalanceB !== fs.balanceB
+      ) {
+        return; // does not match our state; requester times out
+      }
+      const iAmA = channel.userA.toLowerCase() === me.toLowerCase();
+      const sender = iAmA ? channel.userB : channel.userA;
+      await admitClose(
+        msg.signedState,
+        { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+        { allowPartialSigs: true, requireSignerAddresses: [sender] },
+      );
+      const mySig = await this.opts.signer.signChannelState(
+        fs,
+        this.opts.chainId,
+        this.opts.verifyingContract,
+      );
+      const myCloseSig = hexToSignature(
+        await this.opts.signer.signCooperativeClose(
+          cc,
+          this.opts.chainId,
+          this.opts.verifyingContract,
+        ),
+      );
+      const countersigned: SignedState = {
+        state: fs,
+        sigA: iAmA ? hexToSignature(mySig) : msg.signedState.sigA,
+        sigB: iAmA ? msg.signedState.sigB : hexToSignature(mySig),
+      };
+      const countersignedClose: SignedCooperativeClose = {
+        close: cc,
+        sigA: iAmA ? myCloseSig : msg.signedCooperativeClose.sigA,
+        sigB: iAmA ? msg.signedCooperativeClose.sigB : myCloseSig,
+      };
+      await this.opts.storage.saveState(msg.channelId, countersigned);
+      await this.opts.transport.send({
+        id: msg.id,
+        kind: 'closeResponse',
+        channelId: msg.channelId,
+        signedCloseState: countersigned,
+        signedCooperativeClose: countersignedClose,
+      });
+      await this.markClosed(channel);
+    } catch (err) {
+      this.emitter.emit('error', { error: err as Error, context: 'respondCloseRequest' });
+    }
+  }
+
+  /** Responder side: verify a peer's channel-open announce, co-sign v1, ack. */
+  private async respondChannelAnnounce(msg: ChannelAnnounceMessage): Promise<void> {
+    try {
+      const me = await this.address();
+      const channel = msg.channel;
+      const meLower = me.toLowerCase();
+      if (channel.userA.toLowerCase() !== meLower && channel.userB.toLowerCase() !== meLower) {
+        return; // not a party of this channel; ignore
+      }
+      const iAmA = channel.userA.toLowerCase() === meLower;
+      const opener = iAmA ? channel.userB : channel.userA;
+      // Bind the announced channel + v1 state to the on-chain record before
+      // co-signing: a malicious opener must not be able to get us to sign a v1
+      // whose parties/token/balances don't match the actual funding (which would
+      // violate the contract's conservation invariant and strand the channel).
+      if (!this.opts.chain.getChannel) {
+        throw new Error('peer channelAnnounce requires a chain adapter that implements getChannel');
+      }
+      const onChain = await this.opts.chain.getChannel(channel.id);
+      if (!onChain) throw new Error(`announced channel ${channel.id} not found on-chain`);
+      const v1 = msg.signedState.state;
+      if (
+        onChain.userA.toLowerCase() !== channel.userA.toLowerCase() ||
+        onChain.userB.toLowerCase() !== channel.userB.toLowerCase() ||
+        onChain.token.toLowerCase() !== channel.token.toLowerCase() ||
+        v1.balanceA !== onChain.amountA ||
+        v1.balanceB !== onChain.amountB
+      ) {
+        throw new Error(`announced channel ${channel.id} does not match its on-chain record`);
+      }
+      await admitSignedState(
+        msg.signedState,
+        { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+        {
+          prev: undefined,
+          expectedVersion: 1n,
+          allowPartialSigs: true,
+          requireSignerAddresses: [opener],
+        },
+      );
+      await this.opts.storage.saveChannel(channel);
+      const mySig = await this.opts.signer.signChannelState(
+        msg.signedState.state,
+        this.opts.chainId,
+        this.opts.verifyingContract,
+      );
+      const dual: SignedState = {
+        state: msg.signedState.state,
+        sigA: iAmA ? hexToSignature(mySig) : msg.signedState.sigA,
+        sigB: iAmA ? msg.signedState.sigB : hexToSignature(mySig),
+      };
+      await this.opts.storage.saveState(channel.id, dual);
+      this.subscribedChannelIds.add(channel.id);
+      await this.opts.transport.send({
+        id: msg.id,
+        kind: 'channelAnnounceAck',
+        channelId: channel.id,
+        signedState: dual,
+      });
+      this.emitter.emit('channel:opened', { channel });
+    } catch (err) {
+      this.emitter.emit('error', { error: err as Error, context: 'respondChannelAnnounce' });
+    }
   }
 
   private async findChannelTo(counterparty: Address): Promise<Channel | undefined> {

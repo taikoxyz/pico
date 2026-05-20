@@ -11,6 +11,8 @@ import {
 import {
   ChannelClient,
   PostOpenSubscribeError,
+  RelayTransport,
+  type Transport,
   ViemChainAdapter,
   WebSocketTransport,
   localSigner,
@@ -33,6 +35,7 @@ import {
   readAllowance,
   readMinChannelAmount,
   readTokenDecimals,
+  relayCounterpartyResolver,
   resolveHubUrl,
   warnLocalhostHubOnMainnet,
 } from '../runtime/cli-helpers.js';
@@ -79,8 +82,12 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
 
   cmd
     .command('open')
-    .description('Open a new payment channel with a hub')
-    .requiredOption('--hub <addr>', 'Hub EVM address (counterparty)')
+    .description('Open a payment channel with a hub, or a direct channel with a peer (--peer)')
+    .option('--hub <addr>', 'Hub EVM address (counterparty for a hub channel)')
+    .option(
+      '--peer <addr>',
+      'Peer EVM address for a direct (hub-less) channel. The hub at --via only relays messages.',
+    )
     .requiredOption(
       '--amount <amount>',
       'Amount in human units (e.g. 10 or 10.5). Use --raw-amount for raw base units.',
@@ -88,7 +95,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
     .option('--raw-amount', 'Interpret --amount as raw integer base units (legacy behavior)', false)
     .option(
       '--via <url>',
-      'Hub WebSocket URL (defaults to chain-canonical or $PICO_HUB_URL)',
+      'Hub/relay WebSocket URL (defaults to chain-canonical or $PICO_HUB_URL)',
       'ws://127.0.0.1:9050',
     )
     .option('--rpc <url>', 'RPC URL (defaults to PICO_RPC_URL or chain default)')
@@ -99,7 +106,8 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
     .option('--json', 'Emit JSON output', false)
     .action(
       async (opts: {
-        hub: Address;
+        hub?: Address;
+        peer?: Address;
         amount: string;
         rawAmount: boolean;
         via: string;
@@ -113,6 +121,18 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
         const env = deps.env ?? process.env;
         const stdout = deps.stdout ?? process.stdout;
         const stderr = deps.stderr ?? process.stderr;
+        const peerMode = opts.peer !== undefined;
+        const counterparty = opts.peer ?? opts.hub;
+        if (!counterparty) {
+          stderr.write('error: one of --hub <addr> or --peer <addr> is required\n');
+          process.exitCode = 1;
+          return;
+        }
+        if (opts.peer !== undefined && opts.hub !== undefined) {
+          stderr.write('error: --hub and --peer are mutually exclusive\n');
+          process.exitCode = 1;
+          return;
+        }
         const chainId = deps.chainIdOverride ?? TAIKO_MAINNET_CHAIN_ID;
         const rpcUrl =
           deps.rpcUrlOverride ??
@@ -192,10 +212,16 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
           }
 
           const signer = localSigner(privateKey);
-          const transport = new WebSocketTransport(
+          const storage = openStorage(env, deps.storageOverride);
+          const baseTransport = new WebSocketTransport(
             deps.transportOverride ?? { url: hubUrl, autoReconnect: false, signer },
           );
-          const storage = openStorage(env, deps.storageOverride);
+          const transport: Transport = peerMode
+            ? new RelayTransport({
+                base: baseTransport,
+                resolveCounterparty: relayCounterpartyResolver(storage, account.address),
+              })
+            : baseTransport;
           const chainAdapter = new ViemChainAdapter({
             publicClient,
             walletClient,
@@ -209,11 +235,12 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
             chainId,
             verifyingContract: adjudicatorAddress,
             defaultToken: token,
+            ...(peerMode ? { peerMode: true } : {}),
           });
           try {
             await transport.connect();
             const opened = await client.open({
-              counterparty: opts.hub,
+              counterparty,
               amount,
               token,
             });
@@ -288,8 +315,13 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
     .option('--cooperative', 'Try cooperative close first (default true)', true)
     .option('--unilateral', 'Skip cooperative attempt and force unilateral close', false)
     .option(
+      '--peer',
+      'Direct peer channel: negotiate the cooperative close with the peer via the relay',
+      false,
+    )
+    .option(
       '--via <url>',
-      'Hub WebSocket URL (defaults to chain-canonical or $PICO_HUB_URL)',
+      'Hub/relay WebSocket URL (defaults to chain-canonical or $PICO_HUB_URL)',
       'ws://127.0.0.1:9050',
     )
     .option('--rpc <url>', 'RPC URL')
@@ -302,6 +334,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
         opts: {
           cooperative: boolean;
           unilateral: boolean;
+          peer: boolean;
           via: string;
           rpc?: string;
           privateKey?: `0x${string}`;
@@ -335,10 +368,16 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
           const adjudicatorAddress =
             deps.adjudicatorAddressOverride ?? CONTRACT_ADDRESSES[chainId].Adjudicator;
           const signer = localSigner(privateKey);
-          const transport = new WebSocketTransport(
+          const storage = openStorage(env, deps.storageOverride);
+          const baseTransport = new WebSocketTransport(
             deps.transportOverride ?? { url: hubUrl, autoReconnect: false, signer },
           );
-          const storage = openStorage(env, deps.storageOverride);
+          const transport: Transport = opts.peer
+            ? new RelayTransport({
+                base: baseTransport,
+                resolveCounterparty: relayCounterpartyResolver(storage, account.address),
+              })
+            : baseTransport;
           const chainAdapter = new ViemChainAdapter({
             publicClient,
             walletClient,
@@ -351,6 +390,7 @@ export function channelCommand(deps: ChannelDeps = {}): Command {
             chain: chainAdapter,
             chainId,
             verifyingContract: adjudicatorAddress,
+            ...(opts.peer ? { peerMode: true } : {}),
           });
           try {
             await transport.connect();

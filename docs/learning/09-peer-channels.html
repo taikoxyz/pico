@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pico · learning · direct peer channels</title>
+<style>
+  :root {
+    --ink: #1d1d1b;
+    --ink-soft: #4a4a48;
+    --paper: #fbfaf6;
+    --paper-warm: #f4efe6;
+    --rule: #d8d3c7;
+    --rule-soft: #ece7db;
+    --accent: #b3185f;
+    --accent-soft: #f1d9e6;
+    --code-bg: #efece4;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 28px 96px; }
+  .topnav {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 14px;
+    margin-bottom: 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .topnav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dashed transparent; }
+  .topnav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  h1 { font-size: 38px; line-height: 1.15; margin: 0 0 6px 0; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { font-style: italic; color: var(--ink-soft); margin: 0 0 36px 0; font-size: 18px; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 13.5px;
+    line-height: 1.55;
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 18px;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0 30px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { background: var(--paper-warm); font-weight: 600; border-bottom: 1px solid var(--rule); }
+  td:first-child {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    width: 30%;
+    color: var(--accent);
+  }
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 18px;
+    margin: 18px 0;
+    font-size: 15.5px;
+  }
+  .footer {
+    margin-top: 80px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="topnav">
+  <span>pico · learning</span>
+  <span><a href="./index.html">⤺ index</a></span>
+</nav>
+
+<h1>09 · <span class="accent">direct peer channels</span></h1>
+<p class="subtitle">Two users open a channel <em>between themselves</em> — the hub only relays messages, it is never a party.</p>
+
+<h2>Why this exists</h2>
+<p>pico's default topology is 1-hop: every channel terminates at a hub, and payments flow <code>client → hub → recipient</code>. But the on-chain <code>PaymentChannel</code> is a generic two-party contract — <code>userA</code> and <code>userB</code> are just addresses, with no hub role baked in. A <strong>direct peer channel</strong> uses that fact: two users open a channel with each other, and the hub is demoted to a dumb message relay. No hub liquidity, no hub fee, no hub co-signing.</p>
+
+<h2>What was missing</h2>
+<p>The contracts and the off-chain state machine were already symmetric, so a direct channel was always <em>possible</em> on-chain. The gap was off-chain: the only way two parties exchanged signed states was through the hub's WebSocket server, and the "counterparty" co-signing logic lived only inside the hub. Direct channels add two pieces:</p>
+<table>
+  <tr><th>Piece</th><th>Where</th></tr>
+  <tr><td>relay envelope</td><td>The hub forwards a <code>relay{to, inner}</code> message to the destination peer (queuing it if the peer is offline). It never reads or signs <code>inner</code>.</td></tr>
+  <tr><td>peer responder</td><td>The SDK <code>ChannelClient</code> in <code>peerMode</code> co-signs inbound <code>payDirect</code>, HTLC, <code>closeRequest</code>, and the open handshake — the role the hub used to play.</td></tr>
+</table>
+
+<div class="note">The relay is <strong>untrusted</strong>. Because the two peers co-sign each other's states directly, a malicious or buggy relay can stall or drop delivery, but it can never forge a state or steal funds. A misrouted message simply fails the recipient's signature check.</div>
+
+<h2>The flow</h2>
+<pre><code>   userA (party)            hub (relay only)            userB (party)
+        │                        │                          │
+        │  subscribe(addr=A) ───▶│◀─── subscribe(addr=B)     │
+        │  channelAnnounce ─────▶│ forward inner to B ──────▶│   B co-signs v1
+        │◀───────── channelAnnounceAck (relayed back) ───────│
+        │  htlcOffer / payDirect ▶│ forward ────────────────▶│   B settles / co-signs
+        │◀────── htlcSettle / payDirectAck (relayed back) ───│</code></pre>
+
+<p>The opener (A) creates the channel on-chain, then sends a <code>channelAnnounce</code> carrying the channel record plus its half-signed v1 state. B verifies (optionally reading the channel on-chain), counter-signs, and replies — so the channel starts fully dual-signed on both sides. Payments and the cooperative close reuse the existing <code>payDirect</code> / HTLC / <code>closeRequest</code> messages; only the destination differs (a peer, not the hub).</p>
+
+<h2>Try it</h2>
+<p>Run a relay-enabled hub (<code>HUB_ENABLE_RELAY=true</code>), then, as two separate users sharing that relay URL:</p>
+<pre><code># Bob: run the responder so he co-signs inbound peer messages
+pico listen --peer --via ws://relay.example/ws
+
+# Alice: open a direct channel with Bob (the hub is not a party)
+pico channel open --peer 0xBob --amount 25 --via ws://relay.example/ws
+
+# Alice: pay Bob's invoice directly (zero fee, no routing)
+pico pay --invoice &lt;bob-invoice&gt; --peer --via ws://relay.example/ws
+
+# Alice: cooperatively close, negotiated with Bob over the relay
+pico channel close &lt;channelId&gt; --peer --via ws://relay.example/ws</code></pre>
+
+<p>Operators can confirm the relay is live with <code>pico hub status &lt;url&gt;</code>, or directly via <code>GET /v1/info</code> (advertises <code>relay.enabled</code>), <code>GET /v1/stats</code> (forwarded / queued counts), and the operator-gated <code>GET /v1/relay/sessions</code>.</p>
+
+<h2>Trade-offs to know</h2>
+<table>
+  <tr><th>Concern</th><th>Direct peer channel</th></tr>
+  <tr><td>fees</td><td>None — there is no routing hop.</td></tr>
+  <tr><td>liveness</td><td>The responder peer must be online (running <code>pico listen --peer</code>) to co-sign, just as a hub must be up.</td></tr>
+  <tr><td>fraud watching</td><td>No hub-side watchtower. Each peer must watch the chain (or run its own watchtower) to dispute a stale unilateral close. <code>closeUnilateral</code> / <code>dispute</code> work as usual.</td></tr>
+  <tr><td>funding</td><td>Single-sided by default (opener funds, peer starts at 0). Dual-funded ERC-20 needs both parties to approve the contract.</td></tr>
+  <tr><td>discovery</td><td>Out of band for now: you pass <code>--peer &lt;addr&gt;</code> and <code>--via &lt;relay&gt;</code>. Nostr-based discovery is a later enhancement.</td></tr>
+</table>
+
+<div class="footer">pico · learning · 09 — direct peer channels</div>
+</div>
+</body>
+</html>

@@ -339,6 +339,14 @@ describe('buildServer integration', () => {
       payments: { total: '0', settled: '0', failed: '0', inFlightHtlcs: 0 },
       usdc: { settled: '0', feesCollected: '0' },
       disputes: { total: 0 },
+      relay: {
+        enabled: false,
+        activeSessions: 0,
+        queuedTotal: 0,
+        messagesForwarded: 0,
+        messagesQueued: 0,
+        messagesDropped: 0,
+      },
     });
   });
 
