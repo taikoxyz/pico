@@ -68,6 +68,10 @@ export interface WsDeps {
   readonly enableRelay?: boolean;
   /** Max relay messages buffered per offline peer (default 256). */
   readonly maxQueuedRelayPerPeer?: number;
+  /** Max distinct offline destinations buffered at once (default 1024). */
+  readonly maxQueuedRelayDestinations?: number;
+  /** TTL for a buffered relay message before it is evicted (default 5 min). */
+  readonly relayQueueTtlMs?: number;
 }
 
 export interface RelayStats {
@@ -141,13 +145,33 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   // being a party to the channel. It never parses or co-signs the inner state.
   const relayEnabled = deps.enableRelay === true;
   const maxQueuedRelayPerPeer = deps.maxQueuedRelayPerPeer ?? 256;
-  const relayQueue = new Map<string, HubMessage[]>();
+  // Bound the number of distinct offline destinations we buffer for, and expire
+  // stale entries, so a sender cannot exhaust hub memory by relaying to many
+  // never-connecting addresses (the per-peer cap alone leaves the key count
+  // unbounded).
+  const maxQueuedRelayDestinations = deps.maxQueuedRelayDestinations ?? 1024;
+  const relayQueueTtlMs = deps.relayQueueTtlMs ?? 5 * 60_000;
+  const relayQueue = new Map<string, { inner: HubMessage; ts: number }[]>();
   let relayForwarded = 0;
   let relayQueued = 0;
   let relayDropped = 0;
 
   function sendRaw(socket: WsWebSocket, msg: HubMessage): void {
     socket.send(encodeHubMessage(msg));
+  }
+
+  /** Drop expired entries for one destination; remove the key if it empties. */
+  function pruneRelayQueueEntry(key: string): void {
+    const q = relayQueue.get(key);
+    if (!q) return;
+    const cutoff = Date.now() - relayQueueTtlMs;
+    const live = q.filter((e) => e.ts >= cutoff);
+    if (live.length === 0) relayQueue.delete(key);
+    else if (live.length !== q.length) relayQueue.set(key, live);
+  }
+
+  function sweepRelayQueue(): void {
+    for (const key of [...relayQueue.keys()]) pruneRelayQueueEntry(key);
   }
 
   async function handleRelay(
@@ -162,14 +186,24 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       deps.metrics.relayMessagesForwarded.inc();
       return;
     }
+    pruneRelayQueueEntry(key);
     const q = relayQueue.get(key) ?? [];
     if (q.length >= maxQueuedRelayPerPeer) {
       relayDropped += 1;
       deps.metrics.relayMessagesDropped.inc();
-      deps.logger.warn({ to: msg.to }, 'relay queue full; dropping message');
+      deps.logger.warn({ to: msg.to }, 'relay queue full for peer; dropping message');
       return;
     }
-    q.push(msg.inner);
+    if (!relayQueue.has(key) && relayQueue.size >= maxQueuedRelayDestinations) {
+      sweepRelayQueue(); // evict expired destinations before giving up
+      if (relayQueue.size >= maxQueuedRelayDestinations) {
+        relayDropped += 1;
+        deps.metrics.relayMessagesDropped.inc();
+        deps.logger.warn({ to: msg.to }, 'relay destination cap reached; dropping message');
+        return;
+      }
+    }
+    q.push({ inner: msg.inner, ts: Date.now() });
     relayQueue.set(key, q);
     relayQueued += 1;
     deps.metrics.relayMessagesQueued.inc();
@@ -177,10 +211,11 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
   }
 
   function flushRelayQueue(socket: WsWebSocket, key: string): void {
+    pruneRelayQueueEntry(key);
     const queued = relayQueue.get(key);
     if (!queued || queued.length === 0) return;
     relayQueue.delete(key);
-    for (const inner of queued) sendRaw(socket, inner);
+    for (const e of queued) sendRaw(socket, e.inner);
   }
 
   function sendError(socket: WsWebSocket, requestId: string, code: string, message: string): void {

@@ -68,6 +68,10 @@ export interface ApiDeps {
   readonly enableRelay?: boolean;
   /** Max relay messages buffered per offline peer (default 256). */
   readonly maxQueuedRelayPerPeer?: number;
+  /** Max distinct offline destinations buffered at once (default 1024). */
+  readonly maxQueuedRelayDestinations?: number;
+  /** TTL for a buffered relay message before eviction (default 5 min). */
+  readonly relayQueueTtlMs?: number;
 }
 
 export interface ApiHandle {
@@ -356,6 +360,10 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
     ...(deps.maxQueuedRelayPerPeer !== undefined
       ? { maxQueuedRelayPerPeer: deps.maxQueuedRelayPerPeer }
       : {}),
+    ...(deps.maxQueuedRelayDestinations !== undefined
+      ? { maxQueuedRelayDestinations: deps.maxQueuedRelayDestinations }
+      : {}),
+    ...(deps.relayQueueTtlMs !== undefined ? { relayQueueTtlMs: deps.relayQueueTtlMs } : {}),
   });
 
   return { ws };

@@ -142,6 +142,8 @@ export class ChannelClient {
     string,
     { resolve(msg: HtlcSettleMessage): void; reject(err: Error): void }
   >();
+  /** Serializes locally-initiated payments per channel (see acquireChannelLock). */
+  private readonly channelMutex = new Map<ChannelId, Promise<void>>();
 
   constructor(private readonly opts: ChannelClientOptions) {
     this.hubFeeBps = opts.hubFeeBps ?? DEFAULT_HUB_FEE_BPS;
@@ -194,6 +196,28 @@ export class ChannelClient {
     if (this.myAddress) return this.myAddress;
     this.myAddress = await this.opts.signer.address();
     return this.myAddress;
+  }
+
+  /**
+   * Serializes locally-initiated payments (`pay`/`payDirect`) per channel so two
+   * concurrent calls can't both read the same latest state and build conflicting
+   * `v(n+1)` updates. Returns a release function. Inbound co-sign handlers
+   * deliberately do NOT take this lock — the initiator holds it across its await
+   * for the response, and taking the lock inside the awaited handler would
+   * deadlock.
+   */
+  private async acquireChannelLock(channelId: ChannelId): Promise<() => void> {
+    const prev = this.channelMutex.get(channelId) ?? Promise.resolve();
+    let release!: () => void;
+    const mine = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.channelMutex.set(
+      channelId,
+      prev.then(() => mine),
+    );
+    await prev.catch(() => undefined);
+    return release;
   }
 
   async createInvoice(args: {
@@ -663,6 +687,18 @@ export class ChannelClient {
     channelId: ChannelId,
     args: { amount: bigint },
   ): Promise<{ channelId: ChannelId; version: bigint }> {
+    const release = await this.acquireChannelLock(channelId);
+    try {
+      return await this.payDirectImpl(channelId, args);
+    } finally {
+      release();
+    }
+  }
+
+  private async payDirectImpl(
+    channelId: ChannelId,
+    args: { amount: bigint },
+  ): Promise<{ channelId: ChannelId; version: bigint }> {
     if (args.amount <= 0n) throw new Error('payDirect: amount must be positive');
     const me = await this.address();
     const channel = await this.opts.storage.loadChannel(channelId);
@@ -746,6 +782,21 @@ export class ChannelClient {
   }
 
   async pay(req: PaymentRequest): Promise<PaymentResult> {
+    // Resolve the target channel up-front so concurrent payments on the same
+    // channel serialize (preventing two calls from building the same version).
+    const target = req.invoice?.recipient ?? req.to;
+    if (!target) throw new Error('pay: invoice or {to} required');
+    const targetChannel = await this.findChannelTo(target);
+    if (!targetChannel) throw new ChannelNotOpenError(target, 'no open channel');
+    const release = await this.acquireChannelLock(targetChannel.id);
+    try {
+      return await this.payImpl(req);
+    } finally {
+      release();
+    }
+  }
+
+  private async payImpl(req: PaymentRequest): Promise<PaymentResult> {
     const me = await this.address();
     if (req.invoice) {
       await verifyInvoice(req.invoice, { chainId: this.opts.chainId });
@@ -1277,9 +1328,24 @@ export class ChannelClient {
       }
       const iAmA = channel.userA.toLowerCase() === meLower;
       const opener = iAmA ? channel.userB : channel.userA;
-      if (this.opts.chain.getChannel) {
-        const onChain = await this.opts.chain.getChannel(channel.id);
-        if (!onChain) throw new Error(`announced channel ${channel.id} not found on-chain`);
+      // Bind the announced channel + v1 state to the on-chain record before
+      // co-signing: a malicious opener must not be able to get us to sign a v1
+      // whose parties/token/balances don't match the actual funding (which would
+      // violate the contract's conservation invariant and strand the channel).
+      if (!this.opts.chain.getChannel) {
+        throw new Error('peer channelAnnounce requires a chain adapter that implements getChannel');
+      }
+      const onChain = await this.opts.chain.getChannel(channel.id);
+      if (!onChain) throw new Error(`announced channel ${channel.id} not found on-chain`);
+      const v1 = msg.signedState.state;
+      if (
+        onChain.userA.toLowerCase() !== channel.userA.toLowerCase() ||
+        onChain.userB.toLowerCase() !== channel.userB.toLowerCase() ||
+        onChain.token.toLowerCase() !== channel.token.toLowerCase() ||
+        v1.balanceA !== onChain.amountA ||
+        v1.balanceB !== onChain.amountB
+      ) {
+        throw new Error(`announced channel ${channel.id} does not match its on-chain record`);
       }
       await admitSignedState(
         msg.signedState,

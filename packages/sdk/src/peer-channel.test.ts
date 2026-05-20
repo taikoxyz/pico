@@ -3,6 +3,8 @@ import {
   CONTRACT_ADDRESSES,
   type Channel,
   type ChannelId,
+  type ChannelState,
+  type Signature,
   TAIKO_MAINNET_CHAIN_ID,
   USDC_TOKENS,
 } from '@inferenceroom/pico-protocol';
@@ -13,7 +15,13 @@ import {
   startMockHub,
 } from '@inferenceroom/pico-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import WebSocket from 'ws';
 import { ChannelClient } from './client.js';
+import {
+  type ChannelAnnounceMessage,
+  type RelayMessage,
+  encodeHubMessage,
+} from './hub-protocol.js';
 import { MemoryStorage } from './storage.js';
 import { RelayTransport, WebSocketTransport } from './transport.js';
 
@@ -33,15 +41,24 @@ interface Peer {
   readonly address: Address;
 }
 
-async function makePeer(privateKey: `0x${string}`, hubUrl: string): Promise<Peer> {
+async function makePeer(
+  privateKey: `0x${string}`,
+  hubUrl: string,
+  chainOverride?: MockChainAdapter,
+): Promise<Peer> {
   const signer = new InMemorySigner(privateKey);
   const address = await signer.address();
   const storage = new MemoryStorage();
-  const chain = new MockChainAdapter({
-    chainId: CHAIN_ID,
-    contract: VERIFYING_CONTRACT,
-    userA: address,
-  });
+  // Both peers read the *same* chain (real peers read the same on-chain state),
+  // so the responder's channelAnnounce on-chain binding check can find the
+  // channel the opener created.
+  const chain =
+    chainOverride ??
+    new MockChainAdapter({
+      chainId: CHAIN_ID,
+      contract: VERIFYING_CONTRACT,
+      userA: address,
+    });
   const base = new WebSocketTransport({ url: hubUrl, autoReconnect: false });
   const selfLower = address.toLowerCase();
   const transport = new RelayTransport({
@@ -90,7 +107,8 @@ describe('direct peer channel (hub as relay)', () => {
       enableRelay: true,
     });
     alice = await makePeer(ALICE_KEY, hub.url);
-    bob = await makePeer(BOB_KEY, hub.url);
+    // Bob shares Alice's chain view so his channelAnnounce binding check resolves.
+    bob = await makePeer(BOB_KEY, hub.url, alice.chain);
     // Bob plays the responder: subscribe to the relay so the announce reaches him.
     await bob.transport.connect();
     await bob.client.ensureSubscribed([]);
@@ -186,5 +204,72 @@ describe('direct peer channel (hub as relay)', () => {
     await alice.client.payDirect(channel.id, { amount: 250n });
     const res = await alice.client.close(channel.id, { cooperative: true });
     expect(res.kind).toBe('cooperative');
+  });
+
+  it('serializes concurrent payments on the same channel', async () => {
+    const channel = await openChannel();
+    // Without per-channel serialization both reads would see v1 and build a
+    // conflicting v2; the lock forces v2 then v3.
+    await Promise.all([
+      alice.client.payDirect(channel.id, { amount: 100n }),
+      alice.client.payDirect(channel.id, { amount: 250n }),
+    ]);
+    const a = await alice.storage.loadLatestState(channel.id);
+    expect(a?.state.version).toBe(3n);
+    expect(a?.state.balanceA).toBe(1_000_000n - 350n);
+    expect(a?.state.balanceB).toBe(350n);
+    const b = await bob.storage.loadLatestState(channel.id);
+    expect(b?.state.version).toBe(3n);
+    expect(b?.state.balanceB).toBe(350n);
+  });
+
+  it('rejects a channelAnnounce that does not match the on-chain channel', async () => {
+    // A real on-chain channel funded entirely on side A (amountB === 0).
+    const onchain = await alice.chain.openChannel({
+      userB: bob.address,
+      token: TOKEN,
+      amountA: 1_000n,
+      amountB: 0n,
+    });
+    // Tampered v1 claims the peer holds 500 — inconsistent with on-chain funding.
+    const tampered: ChannelState = {
+      channelId: onchain.channelId,
+      version: 1n,
+      balanceA: 1_000n,
+      balanceB: 500n,
+      htlcs: [],
+      htlcsCount: 0,
+      htlcsTotalLocked: 0n,
+      finalized: false,
+    };
+    const zeroSig: Signature = { r: `0x${'00'.repeat(32)}`, s: `0x${'00'.repeat(32)}`, v: 27 };
+    const announce: ChannelAnnounceMessage = {
+      id: 'mal-1',
+      kind: 'channelAnnounce',
+      channel: {
+        id: onchain.channelId,
+        chainId: CHAIN_ID,
+        contract: VERIFYING_CONTRACT,
+        userA: onchain.userA,
+        userB: onchain.userB,
+        token: TOKEN,
+        status: 'open',
+        openedAt: onchain.openedAtMs,
+        disputeWindowMs: 24 * 60 * 60 * 1000,
+      },
+      signedState: { state: tampered, sigA: zeroSig, sigB: zeroSig },
+    };
+    const relay: RelayMessage = { id: 'r-mal', kind: 'relay', to: bob.address, inner: announce };
+
+    const mal = new WebSocket(hub.url);
+    await new Promise<void>((resolve, reject) => {
+      mal.on('open', () => resolve());
+      mal.on('error', reject);
+    });
+    mal.send(encodeHubMessage(relay));
+    await new Promise((r) => setTimeout(r, 200));
+    // Bob must refuse to co-sign / persist the mismatched announce.
+    expect(await bob.storage.loadLatestState(onchain.channelId)).toBeUndefined();
+    mal.close();
   });
 });

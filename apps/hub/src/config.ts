@@ -73,6 +73,10 @@ export interface HubConfig {
   readonly enableRelay: boolean;
   /** Max relay messages buffered per offline peer before new ones are dropped. */
   readonly maxQueuedRelayPerPeer: number;
+  /** Max distinct offline destinations buffered at once (memory-DoS bound). */
+  readonly maxQueuedRelayDestinations: number;
+  /** TTL for a buffered relay message before it is evicted (ms). */
+  readonly relayQueueTtlMs: number;
 }
 
 function parseChainId(raw: string | undefined): ChainId {
@@ -140,6 +144,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
       'HUB_MAX_QUEUED_RELAY_PER_PEER',
       env.HUB_MAX_QUEUED_RELAY_PER_PEER,
       256,
+    ),
+    maxQueuedRelayDestinations: parseNonNegativeIntegerEnv(
+      'HUB_MAX_QUEUED_RELAY_DESTINATIONS',
+      env.HUB_MAX_QUEUED_RELAY_DESTINATIONS,
+      1024,
+    ),
+    relayQueueTtlMs: parseNonNegativeIntegerEnv(
+      'HUB_RELAY_QUEUE_TTL_MS',
+      env.HUB_RELAY_QUEUE_TTL_MS,
+      5 * 60_000,
     ),
   };
 

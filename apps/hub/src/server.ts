@@ -118,6 +118,8 @@ export async function buildServer(
     perCounterpartyCaps: config.perCounterpartyCaps,
     enableRelay: config.enableRelay,
     maxQueuedRelayPerPeer: config.maxQueuedRelayPerPeer,
+    maxQueuedRelayDestinations: config.maxQueuedRelayDestinations,
+    relayQueueTtlMs: config.relayQueueTtlMs,
   });
 
   // Build the §8 inbound liquidity stack. It needs the WS push callback and

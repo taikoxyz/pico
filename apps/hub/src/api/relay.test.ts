@@ -17,7 +17,11 @@ const ALICE = privateKeyToAccount(ALICE_PK).address;
 const BOB = privateKeyToAccount(BOB_PK).address;
 const CAROL = privateKeyToAccount(CAROL_PK).address;
 
-function baseEnv(tmp: string, enableRelay: boolean): NodeJS.ProcessEnv {
+function baseEnv(
+  tmp: string,
+  enableRelay: boolean,
+  extra: Record<string, string> = {},
+): NodeJS.ProcessEnv {
   return {
     DB_DRIVER: 'sqlite',
     DB_URL: join(tmp, 'test.sqlite'),
@@ -34,8 +38,11 @@ function baseEnv(tmp: string, enableRelay: boolean): NodeJS.ProcessEnv {
     PICO_SKIP_PROD_ASSERT: 'true',
     PROMETHEUS_PORT: '0',
     ...(enableRelay ? { HUB_ENABLE_RELAY: 'true' } : {}),
+    ...extra,
   } as NodeJS.ProcessEnv;
 }
+
+const ADDR = (n: number): string => `0x${n.toString(16).padStart(40, '0')}`;
 
 async function openWs(url: string): Promise<WebSocket> {
   const ws = new WebSocket(url);
@@ -159,6 +166,65 @@ describe('hub peer-channel relay', () => {
     );
 
     a.close();
+  });
+});
+
+describe('hub relay queue bounds', () => {
+  let tmp: string;
+  let built: BuildServerResult;
+  let baseUrl: string;
+  let wsUrl: string;
+
+  afterEach(async () => {
+    await built.app.close();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('drops messages beyond the destination cap', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'hub-relaycap-'));
+    built = await buildServer(baseEnv(tmp, true, { HUB_MAX_QUEUED_RELAY_DESTINATIONS: '2' }));
+    baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
+    wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws`;
+
+    const a = await openWs(wsUrl);
+    await subscribe(a, ALICE);
+    // 3 distinct offline destinations, cap is 2 → at least one dropped.
+    send(a, { id: 'q1', kind: 'relay', to: ADDR(1), inner: innerError('i1') });
+    send(a, { id: 'q2', kind: 'relay', to: ADDR(2), inner: innerError('i2') });
+    send(a, { id: 'q3', kind: 'relay', to: ADDR(3), inner: innerError('i3') });
+    await new Promise((r) => setTimeout(r, 100));
+
+    const stats = (await (await fetch(`${baseUrl}/v1/stats`)).json()) as {
+      relay: { messagesQueued: number; messagesDropped: number };
+    };
+    expect(stats.relay.messagesQueued).toBe(2);
+    expect(stats.relay.messagesDropped).toBeGreaterThanOrEqual(1);
+    a.close();
+  });
+
+  it('evicts buffered messages past their TTL', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'hub-relayttl-'));
+    built = await buildServer(baseEnv(tmp, true, { HUB_RELAY_QUEUE_TTL_MS: '40' }));
+    baseUrl = await built.app.listen({ port: 0, host: '127.0.0.1' });
+    wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws`;
+
+    const a = await openWs(wsUrl);
+    await subscribe(a, ALICE);
+    send(a, { id: 'qt', kind: 'relay', to: CAROL, inner: innerError('i-ttl') });
+    // Wait past the TTL, then connect Carol — the entry must have expired.
+    await new Promise((r) => setTimeout(r, 120));
+
+    const carol = await openWs(wsUrl);
+    let received = 0;
+    carol.on('message', (raw: Buffer) => {
+      if (decodeHubMessage(raw.toString('utf8')).kind === 'error') received += 1;
+    });
+    send(carol, { id: 'sub-carol', kind: 'subscribe', address: CAROL, channelIds: [] });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(received).toBe(0); // expired entry was evicted, not delivered
+
+    a.close();
+    carol.close();
   });
 });
 
