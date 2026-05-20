@@ -5,7 +5,7 @@ import { http, type WalletClient, createPublicClient, createWalletClient, erc20A
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, taiko } from 'viem/chains';
 import { type ApiHandle, registerRoutes } from './api/index.js';
-import { AutoCloseSweeper } from './auto-close.js';
+import { AutoCloseSweeper, type OnChainCloseInfo } from './auto-close.js';
 import { AutoRecycle } from './auto-recycle.js';
 import { ChainWatcher } from './chain-watcher.js';
 import { ChannelPool } from './channel-pool.js';
@@ -221,7 +221,7 @@ export async function buildServer(
   // Auto-close idle channels: the hub posts the latest co-signed state
   // on-chain (unilateral close) for channels with no payment activity past the
   // configured threshold, then finalizes once the dispute window elapses.
-  async function readDisputeDeadlineMs(channelId: `0x${string}`): Promise<number> {
+  async function readOnChainClose(channelId: `0x${string}`): Promise<OnChainCloseInfo> {
     try {
       const row = (await publicClientForChain.readContract({
         address: config.paymentChannelAddress,
@@ -229,10 +229,14 @@ export async function buildServer(
         functionName: 'channels',
         args: [channelId],
       })) as readonly unknown[];
-      // Tuple index 6 is `disputeDeadline` (uint64 seconds).
-      return Number(row[6] as bigint) * 1000;
+      // Tuple layout: [6]=disputeDeadline (uint64 s), [11]=status (uint8), [15]=htlcsCount (uint16).
+      return {
+        disputeDeadlineMs: Number(row[6] as bigint) * 1000,
+        status: Number(row[11] as number),
+        htlcsCount: Number(row[15] as number),
+      };
     } catch (err) {
-      metrics.rpcErrorsTotal.inc({ method: 'readDisputeDeadline' });
+      metrics.rpcErrorsTotal.inc({ method: 'readOnChainClose' });
       throw err;
     }
   }
@@ -247,7 +251,7 @@ export async function buildServer(
         metrics,
         afterMs: config.autoCloseAfterMs,
         intervalMs: config.autoCloseCheckIntervalMs,
-        readDisputeDeadlineMs,
+        readOnChainClose,
       })
     : undefined;
 

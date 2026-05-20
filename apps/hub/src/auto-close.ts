@@ -7,6 +7,18 @@ import type { HubMetrics } from './metrics.js';
 import type { KeyedMutex } from './mutex.js';
 import { HOT_WALLET_KEY } from './topup-handler.js';
 
+/** PaymentChannel.sol `Status.ClosingUnilateral` enum value (None=0, Open=1, ClosingUnilateral=2, ResolvingHtlcs=3, Closed=4). */
+const ONCHAIN_STATUS_CLOSING_UNILATERAL = 2;
+
+export interface OnChainCloseInfo {
+  /** Dispute deadline in ms epoch; 0 if the channel is not closing. */
+  readonly disputeDeadlineMs: number;
+  /** On-chain channel status enum value. */
+  readonly status: number;
+  /** Number of HTLCs in the posted (closing) state. */
+  readonly htlcsCount: number;
+}
+
 export interface AutoCloseSweeperDeps {
   readonly logger: Logger;
   readonly channelPool: ChannelPool;
@@ -19,8 +31,8 @@ export interface AutoCloseSweeperDeps {
   readonly afterMs: number;
   /** Sweep cadence (ms). */
   readonly intervalMs: number;
-  /** Reads the on-chain dispute deadline (ms epoch) for a channel; 0 if none. */
-  readonly readDisputeDeadlineMs: (channelId: ChannelId) => Promise<number>;
+  /** Reads on-chain close info (dispute deadline, status, HTLC count) for a channel. */
+  readonly readOnChainClose: (channelId: ChannelId) => Promise<OnChainCloseInfo>;
   /** Injectable clock for tests. */
   readonly now?: () => number;
 }
@@ -137,8 +149,14 @@ export class AutoCloseSweeper {
       .filter((c) => c.status === 'closing-unilateral' && this.hubSideOf(c) !== undefined);
     for (const channel of closing) {
       try {
-        const deadlineMs = await this.deps.readDisputeDeadlineMs(channel.id);
-        if (deadlineMs <= 0 || this.now() < deadlineMs) continue;
+        const info = await this.deps.readOnChainClose(channel.id);
+        // Only finalize channels that will actually settle to Closed: still in
+        // ClosingUnilateral on-chain (not already Closed or resolving), dispute
+        // window elapsed, and no posted HTLCs — finalize() on a channel with
+        // HTLCs flips it into ResolvingHtlcs, a phase the sweeper doesn't drive.
+        if (info.status !== ONCHAIN_STATUS_CLOSING_UNILATERAL) continue;
+        if (info.htlcsCount > 0) continue;
+        if (info.disputeDeadlineMs <= 0 || this.now() < info.disputeDeadlineMs) continue;
         await this.deps.hotWalletMutex.run(HOT_WALLET_KEY, async () => {
           await this.deps.chain.finalize(channel.id);
         });

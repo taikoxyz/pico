@@ -25,7 +25,7 @@ import { Registry } from 'prom-client';
 import type { Hash } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AutoCloseSweeper } from './auto-close.js';
+import { AutoCloseSweeper, type OnChainCloseInfo } from './auto-close.js';
 import { ChannelPool } from './channel-pool.js';
 import { type TestDb, makeTestDb } from './db/repos/_test-helpers.js';
 import { logger } from './logger.js';
@@ -146,7 +146,7 @@ describe('AutoCloseSweeper', () => {
   let pool: ChannelPool;
   let chain: StubChain;
   let metrics: HubMetrics;
-  let deadlines: Map<ChannelId, number>;
+  let onchain: Map<ChannelId, OnChainCloseInfo>;
   let sweeper: AutoCloseSweeper;
 
   beforeEach(async () => {
@@ -154,7 +154,7 @@ describe('AutoCloseSweeper', () => {
     pool = new ChannelPool({ logger, channelRepo: h.repos.channels, stateRepo: h.repos.states });
     chain = new StubChain();
     metrics = buildMetrics(new Registry());
-    deadlines = new Map();
+    onchain = new Map();
     sweeper = new AutoCloseSweeper({
       logger,
       channelPool: pool,
@@ -165,7 +165,8 @@ describe('AutoCloseSweeper', () => {
       metrics,
       afterMs: AFTER_MS,
       intervalMs: 999_999,
-      readDisputeDeadlineMs: async (id) => deadlines.get(id) ?? 0,
+      readOnChainClose: async (id) =>
+        onchain.get(id) ?? { disputeDeadlineMs: 0, status: 0, htlcsCount: 0 },
       now: () => NOW,
     });
   });
@@ -250,7 +251,7 @@ describe('AutoCloseSweeper', () => {
   it('finalizes a closing-unilateral channel once the dispute window elapses', async () => {
     const ch = makeChannel('ff', ALICE, hub, 'closing-unilateral');
     await pool.register(ch);
-    deadlines.set(ch.id, NOW - 1000); // deadline already passed
+    onchain.set(ch.id, { disputeDeadlineMs: NOW - 1000, status: 2, htlcsCount: 0 });
 
     await sweeper.sweepOnce();
 
@@ -260,7 +261,28 @@ describe('AutoCloseSweeper', () => {
   it('does not finalize before the dispute window elapses', async () => {
     const ch = makeChannel('1a', ALICE, hub, 'closing-unilateral');
     await pool.register(ch);
-    deadlines.set(ch.id, NOW + HOUR); // deadline in the future
+    onchain.set(ch.id, { disputeDeadlineMs: NOW + HOUR, status: 2, htlcsCount: 0 });
+
+    await sweeper.sweepOnce();
+
+    expect(chain.finalizeCalls).toHaveLength(0);
+  });
+
+  it('does not finalize when the posted state still has HTLCs (would enter ResolvingHtlcs)', async () => {
+    const ch = makeChannel('1c', ALICE, hub, 'closing-unilateral');
+    await pool.register(ch);
+    onchain.set(ch.id, { disputeDeadlineMs: NOW - 1000, status: 2, htlcsCount: 1 });
+
+    await sweeper.sweepOnce();
+
+    expect(chain.finalizeCalls).toHaveLength(0);
+  });
+
+  it('does not finalize when the on-chain status is no longer ClosingUnilateral', async () => {
+    const ch = makeChannel('1d', ALICE, hub, 'closing-unilateral');
+    await pool.register(ch);
+    // status 4 = Closed (already finalized by someone else); finalize() would revert.
+    onchain.set(ch.id, { disputeDeadlineMs: NOW - 1000, status: 4, htlcsCount: 0 });
 
     await sweeper.sweepOnce();
 
