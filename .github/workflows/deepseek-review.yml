@@ -58,6 +58,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
           DEEPSEEK_MAX_TOKENS: ${{ vars.DEEPSEEK_MAX_TOKENS }}
+          DEEPSEEK_MAX_DIFF: ${{ vars.DEEPSEEK_MAX_DIFF }}
         with:
           script: |
             const prNumber = parseInt('${{ steps.pr.outputs.number }}');
@@ -83,7 +84,12 @@ jobs:
               return 'No diff to review.';
             }
 
-            const MAX_DIFF = 50000;
+            // deepseek-v4-pro has a ~1M-token window, so the old 50k-char cap
+            // was needlessly truncating real PRs. Default to 800k chars
+            // (~250k tokens) — generous enough that no realistic PR is cut,
+            // while still bounding a pathological multi-MB diff (lockfiles,
+            // generated files). Override via the DEEPSEEK_MAX_DIFF repo var.
+            const MAX_DIFF = parseInt(process.env.DEEPSEEK_MAX_DIFF || '800000', 10);
             const truncatedDiff = diffText.length > MAX_DIFF
               ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
               : diffText;
