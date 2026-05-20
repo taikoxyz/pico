@@ -206,6 +206,13 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
       if (c.status === 'open') {
         const last = lastActivity.get(c.id);
         const closeEligibleAt = last !== undefined ? last + deps.autoClose.afterMs : undefined;
+        // Mirror the sweeper's eligibility: idle past the threshold AND the hub
+        // is a party AND no in-flight HTLCs. Without these extra checks the flag
+        // would claim channels the sweeper will never touch are eligible.
+        const lc = hubAddress.toLowerCase();
+        const hubIsParty = c.userA.toLowerCase() === lc || c.userB.toLowerCase() === lc;
+        const hasInflightHtlcs = (deps.channelPool.latest(c.id)?.state.htlcs.length ?? 0) > 0;
+        const pastThreshold = closeEligibleAt !== undefined && now >= closeEligibleAt;
         upcoming.push({
           id: c.id,
           userA: c.userA,
@@ -214,7 +221,7 @@ export async function registerRoutes(app: FastifyInstance, deps: ApiDeps): Promi
           status: c.status,
           ...(last !== undefined ? { lastActivityAt: last, idleMs: now - last } : {}),
           ...(closeEligibleAt !== undefined ? { closeEligibleAt } : {}),
-          eligibleNow: closeEligibleAt !== undefined ? now >= closeEligibleAt : false,
+          eligibleNow: pastThreshold && hubIsParty && !hasInflightHtlcs,
         });
       } else if (CLOSED_STATUSES.has(c.status)) {
         closed.push({ id: c.id, userA: c.userA, userB: c.userB, token: c.token, status: c.status });

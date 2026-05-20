@@ -266,4 +266,21 @@ describe('AutoCloseSweeper', () => {
 
     expect(chain.finalizeCalls).toHaveLength(0);
   });
+
+  it('records an error and leaves the channel open when the close tx fails', async () => {
+    const ch = makeChannel('1b', ALICE, hub);
+    await pool.register(ch, signedState(ch.id, 1n), { amountA: 100n, amountB: 0n });
+    await setRecordedAt(ch.id, NOW - 25 * HOUR);
+    chain.closeUnilateral = async () => {
+      throw new Error('rpc down');
+    };
+
+    await expect(sweeper.sweepOnce()).resolves.toBeUndefined();
+
+    // Close failed → status untouched, and the error is counted (not swallowed).
+    expect(pool.get(ch.id)?.status).toBe('open');
+    const counter = await metrics.autoCloseErrorsTotal.get();
+    const initiate = counter.values.find((v) => v.labels.phase === 'initiate');
+    expect(initiate?.value).toBe(1);
+  });
 });
