@@ -84,12 +84,14 @@ jobs:
               return 'No diff to review.';
             }
 
-            // deepseek-v4-pro has a ~1M-token window, so the old 50k-char cap
-            // was needlessly truncating real PRs. Default to 800k chars
-            // (~250k tokens) — generous enough that no realistic PR is cut,
-            // while still bounding a pathological multi-MB diff (lockfiles,
-            // generated files). Override via the DEEPSEEK_MAX_DIFF repo var.
-            const MAX_DIFF = parseInt(process.env.DEEPSEEK_MAX_DIFF || '800000', 10);
+            // deepseek-v4-pro has a ~1M-token window, so don't truncate real
+            // PRs. Default to 2,000,000 chars (~600k tokens) — comfortably
+            // inside the window even after reserving the 65k-token output
+            // budget, so no realistic PR is cut. The remaining ceiling exists
+            // only so a pathological multi-MB diff (lockfiles, generated files)
+            // can't overflow the context and hard-fail the API call; raise or
+            // remove it via the DEEPSEEK_MAX_DIFF repo var.
+            const MAX_DIFF = parseInt(process.env.DEEPSEEK_MAX_DIFF || '2000000', 10);
             const truncatedDiff = diffText.length > MAX_DIFF
               ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
               : diffText;
