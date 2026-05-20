@@ -52,9 +52,11 @@ export class AutoCloseSweeper {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private stopped = false;
   private readonly now: () => number;
+  private readonly hubAddressLower: string;
 
   constructor(private readonly deps: AutoCloseSweeperDeps) {
     this.now = deps.now ?? Date.now;
+    this.hubAddressLower = deps.hubAddress.toLowerCase();
   }
 
   start(): void {
@@ -79,9 +81,8 @@ export class AutoCloseSweeper {
   }
 
   private hubSideOf(channel: Channel): 'A' | 'B' | undefined {
-    const hub = this.deps.hubAddress.toLowerCase();
-    if (channel.userA.toLowerCase() === hub) return 'A';
-    if (channel.userB.toLowerCase() === hub) return 'B';
+    if (channel.userA.toLowerCase() === this.hubAddressLower) return 'A';
+    if (channel.userB.toLowerCase() === this.hubAddressLower) return 'B';
     return undefined;
   }
 
@@ -148,15 +149,28 @@ export class AutoCloseSweeper {
       .list()
       .filter((c) => c.status === 'closing-unilateral' && this.hubSideOf(c) !== undefined);
     for (const channel of closing) {
+      let info: OnChainCloseInfo;
       try {
-        const info = await this.deps.readOnChainClose(channel.id);
-        // Only finalize channels that will actually settle to Closed: still in
-        // ClosingUnilateral on-chain (not already Closed or resolving), dispute
-        // window elapsed, and no posted HTLCs — finalize() on a channel with
-        // HTLCs flips it into ResolvingHtlcs, a phase the sweeper doesn't drive.
-        if (info.status !== ONCHAIN_STATUS_CLOSING_UNILATERAL) continue;
-        if (info.htlcsCount > 0) continue;
-        if (info.disputeDeadlineMs <= 0 || this.now() < info.disputeDeadlineMs) continue;
+        info = await this.deps.readOnChainClose(channel.id);
+      } catch (err) {
+        // A read failure is RPC-level (a view call doesn't revert per channel),
+        // so every remaining channel this sweep would fail identically. Log and
+        // count once, then abort; the next tick retries.
+        this.deps.logger.error(
+          { err: (err as Error).message },
+          'auto-close: on-chain read failed; aborting finalize sweep',
+        );
+        this.deps.metrics.autoCloseErrorsTotal.inc({ phase: 'finalize' });
+        return;
+      }
+      // Only finalize channels that will actually settle to Closed: still in
+      // ClosingUnilateral on-chain (not already Closed or resolving), dispute
+      // window elapsed, and no posted HTLCs — finalize() on a channel with
+      // HTLCs flips it into ResolvingHtlcs, a phase the sweeper doesn't drive.
+      if (info.status !== ONCHAIN_STATUS_CLOSING_UNILATERAL) continue;
+      if (info.htlcsCount > 0) continue;
+      if (info.disputeDeadlineMs <= 0 || this.now() < info.disputeDeadlineMs) continue;
+      try {
         await this.deps.hotWalletMutex.run(HOT_WALLET_KEY, async () => {
           await this.deps.chain.finalize(channel.id);
         });

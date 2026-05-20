@@ -147,6 +147,7 @@ describe('AutoCloseSweeper', () => {
   let chain: StubChain;
   let metrics: HubMetrics;
   let onchain: Map<ChannelId, OnChainCloseInfo>;
+  let onChainReadError: Error | undefined;
   let sweeper: AutoCloseSweeper;
 
   beforeEach(async () => {
@@ -155,6 +156,7 @@ describe('AutoCloseSweeper', () => {
     chain = new StubChain();
     metrics = buildMetrics(new Registry());
     onchain = new Map();
+    onChainReadError = undefined;
     sweeper = new AutoCloseSweeper({
       logger,
       channelPool: pool,
@@ -165,8 +167,10 @@ describe('AutoCloseSweeper', () => {
       metrics,
       afterMs: AFTER_MS,
       intervalMs: 999_999,
-      readOnChainClose: async (id) =>
-        onchain.get(id) ?? { disputeDeadlineMs: 0, status: 0, htlcsCount: 0 },
+      readOnChainClose: async (id) => {
+        if (onChainReadError) throw onChainReadError;
+        return onchain.get(id) ?? { disputeDeadlineMs: 0, status: 0, htlcsCount: 0 };
+      },
       now: () => NOW,
     });
   });
@@ -304,5 +308,20 @@ describe('AutoCloseSweeper', () => {
     const counter = await metrics.autoCloseErrorsTotal.get();
     const initiate = counter.values.find((v) => v.labels.phase === 'initiate');
     expect(initiate?.value).toBe(1);
+  });
+
+  it('aborts the finalize sweep after a single on-chain read failure (no per-channel flood)', async () => {
+    for (const id of ['c1', 'c2', 'c3']) {
+      await pool.register(makeChannel(id, ALICE, hub, 'closing-unilateral'));
+    }
+    onChainReadError = new Error('rpc down');
+
+    await expect(sweeper.sweepOnce()).resolves.toBeUndefined();
+
+    expect(chain.finalizeCalls).toHaveLength(0);
+    const counter = await metrics.autoCloseErrorsTotal.get();
+    const finalize = counter.values.find((v) => v.labels.phase === 'finalize');
+    // Counted once for the whole sweep, not once per closing channel.
+    expect(finalize?.value).toBe(1);
   });
 });
