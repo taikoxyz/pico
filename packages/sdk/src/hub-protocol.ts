@@ -94,6 +94,19 @@ export interface PaymentSettleMessage {
   readonly signedStateAfterSettle: SignedState;
 }
 
+/**
+ * Direct peer channels only: the payer returns the fully dual-signed settled
+ * state to the payee after co-signing, so the payee converges on an enforceable
+ * (counter-signed) state rather than holding a half-signed one.
+ */
+export interface HtlcSettleAckMessage {
+  readonly id: string;
+  readonly kind: 'htlcSettleAck';
+  readonly channelId: ChannelId;
+  readonly htlcId: HtlcId;
+  readonly signedState: SignedState;
+}
+
 export interface PaymentFailedMessage {
   readonly id: string;
   readonly kind: 'paymentFailed';
@@ -194,6 +207,7 @@ export type HubToClientMessage =
   | PayDirectAckMessage
   | CloseResponseMessage
   | ChannelAnnounceAckMessage
+  | HtlcSettleAckMessage
   | ErrorMessage
   | ProposeTopUpMessage
   | TopUpCompleteMessage;
@@ -234,6 +248,7 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set([
   'payDirectAck',
   'htlcOffer',
   'htlcSettle',
+  'htlcSettleAck',
   'htlcFail',
   'paymentSettle',
   'paymentFailed',

@@ -69,6 +69,15 @@ async function makePeer(privateKey: `0x${string}`, hubUrl: string): Promise<Peer
   return { client, chain, storage, transport, address };
 }
 
+async function waitFor(check: () => Promise<boolean>, timeoutMs = 2_000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  throw new Error('waitFor: condition not met within timeout');
+}
+
 describe('direct peer channel (hub as relay)', () => {
   let hub: MockHubHandle;
   let alice: Peer;
@@ -134,6 +143,28 @@ describe('direct peer channel (hub as relay)', () => {
     const b = await bob.storage.loadLatestState(channel.id);
     expect(b?.state.balanceA).toBe(1_000_000n - 100n);
     expect(b?.state.balanceB).toBe(100n);
+  });
+
+  it('payee converges on a fully dual-signed settled state', async () => {
+    const channel = await openChannel();
+    const { invoice } = await bob.client.createInvoice({ amount: 100n });
+    await alice.client.pay({ invoice });
+
+    // The payer returns the dual-signed settled state via htlcSettleAck
+    // (fire-and-forget over the relay), so wait for Bob to apply it.
+    await waitFor(async () => {
+      const a = await alice.storage.loadLatestState(channel.id);
+      const b = await bob.storage.loadLatestState(channel.id);
+      return !!a && !!b && b.sigA.r === a.sigA.r && b.sigA.s === a.sigA.s;
+    });
+
+    const a = await alice.storage.loadLatestState(channel.id);
+    const b = await bob.storage.loadLatestState(channel.id);
+    // Both peers hold the identical, fully counter-signed settled state.
+    expect(b?.state).toEqual(a?.state);
+    expect(b?.sigA).toEqual(a?.sigA);
+    expect(b?.sigB).toEqual(a?.sigB);
+    expect(b?.state.htlcs).toEqual([]);
   });
 
   it('payDirect transfers balance with the peer co-signing', async () => {

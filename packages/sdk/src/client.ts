@@ -46,6 +46,7 @@ import type {
   CloseRequestMessage,
   HtlcFailMessage,
   HtlcOfferMessage,
+  HtlcSettleAckMessage,
   HtlcSettleMessage,
   HubMessage,
   HubToClientMessage,
@@ -407,6 +408,9 @@ export class ChannelClient {
           return;
         case 'htlcSettle':
           await this.handlePeerHtlcSettle(msg);
+          return;
+        case 'htlcSettleAck':
+          await this.applyHtlcSettleAck(msg);
           return;
         case 'htlcFail':
           await this.handlePeerHtlcFail(msg);
@@ -1039,6 +1043,15 @@ export class ChannelClient {
         sigB: iAmA ? msg.signedState.sigB : hexToSignature(mySig),
       };
       await this.opts.storage.saveState(channel.id, signedState);
+      // Return the fully dual-signed settled state to the payee so it converges
+      // on an enforceable state instead of holding a half-signed one.
+      await this.opts.transport.send({
+        id: newRequestId('settleAck'),
+        kind: 'htlcSettleAck',
+        channelId: channel.id,
+        htlcId: msg.htlcId,
+        signedState,
+      });
       this.emitter.emit('htlc:settled', {
         channelId: channel.id,
         htlc,
@@ -1055,6 +1068,43 @@ export class ChannelClient {
         inflight.reject(err as Error);
       }
       this.emitter.emit('error', { error: err as Error, context: 'peerHtlcSettle' });
+    }
+  }
+
+  /**
+   * Payee side: the payer returned the dual-signed settled state. Replace our
+   * half-signed copy with the fully counter-signed one so the settled balance is
+   * independently enforceable on-chain.
+   */
+  private async applyHtlcSettleAck(msg: HtlcSettleAckMessage): Promise<void> {
+    try {
+      const me = await this.address();
+      const channel = await this.opts.storage.loadChannel(msg.channelId);
+      const latest = await this.opts.storage.loadLatestState(msg.channelId);
+      if (!channel || !latest) return;
+      // Only upgrade the exact settled state we already hold.
+      if (
+        msg.signedState.state.version !== latest.state.version ||
+        msg.signedState.state.balanceA !== latest.state.balanceA ||
+        msg.signedState.state.balanceB !== latest.state.balanceB ||
+        msg.signedState.state.htlcs.length !== 0
+      ) {
+        return;
+      }
+      const counterparty =
+        channel.userA.toLowerCase() === me.toLowerCase() ? channel.userB : channel.userA;
+      await admitSignedState(
+        msg.signedState,
+        { channel, chainId: this.opts.chainId, verifyingContract: this.opts.verifyingContract },
+        {
+          prev: undefined,
+          expectedVersion: latest.state.version,
+          requireSignerAddresses: [counterparty],
+        },
+      );
+      await this.opts.storage.saveState(msg.channelId, msg.signedState);
+    } catch (err) {
+      this.emitter.emit('error', { error: err as Error, context: 'htlcSettleAck' });
     }
   }
 

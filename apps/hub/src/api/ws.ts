@@ -970,30 +970,37 @@ export async function registerWsRoutes(app: FastifyInstance, deps: WsDeps): Prom
       return;
     }
     if (isSignedEnvelope(parsedAny)) {
+      // Decode the inner payload first so the relaxed signer rule is scoped to
+      // exactly the message types relay peers send (`relay` + `subscribe`).
+      // Every other message type (pay, htlc*, closeRequest, …) stays bound to a
+      // known channel party even when the relay is enabled — preserving the
+      // envelope membership check as defence-in-depth for the non-relay paths.
+      let peeked: HubMessage;
+      try {
+        peeked = decodeHubMessage(parsedAny.payload);
+      } catch (err) {
+        deps.logger.warn({ err: (err as Error).message }, 'inner payload decode failed');
+        return;
+      }
       const channels = deps.channelPool.list();
       const knownSigners = new Set<Address>();
       for (const c of channels) {
         for (const a of knownPartiesForChannel(c)) knownSigners.add(a);
       }
+      const allowUnknownSigner =
+        relayEnabled && (peeked.kind === 'relay' || peeked.kind === 'subscribe');
       const verify = await verifyEnvelope({
         envelope: parsedAny,
         knownSigners,
         nonceRepo: deps.repos.nonces,
         windowMs: deps.nonceWindowMs,
-        // Relay peers need not share a channel with the hub; per-message
-        // authorization is enforced in `dispatch`, and peers co-sign each other.
-        allowUnknownSigner: relayEnabled,
+        allowUnknownSigner,
       });
       if (!verify.ok) {
         deps.logger.warn({ reason: verify.reason }, 'envelope verification failed');
         return;
       }
-      try {
-        inner = decodeHubMessage(verify.payload);
-      } catch (err) {
-        deps.logger.warn({ err: (err as Error).message }, 'inner payload decode failed');
-        return;
-      }
+      inner = peeked;
       signer = verify.signer;
     } else {
       try {
