@@ -16,7 +16,6 @@ RUN pnpm --filter @inferenceroom/pico-protocol build && \
 FROM node:26-alpine
 ARG INCLUDE_LITESTREAM=0
 WORKDIR /app
-RUN npm install -g pnpm@9.15.0
 RUN if [ "$INCLUDE_LITESTREAM" = "1" ]; then \
       apk add --no-cache curl ca-certificates && \
       curl -fL https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz \
