@@ -1,6 +1,6 @@
 FROM node:26-alpine AS builder
 WORKDIR /repo
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN npm install -g pnpm@9.15.0
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY apps/hub/package.json ./apps/hub/
 COPY packages/protocol/package.json ./packages/protocol/
@@ -16,7 +16,7 @@ RUN pnpm --filter @inferenceroom/pico-protocol build && \
 FROM node:26-alpine
 ARG INCLUDE_LITESTREAM=0
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN npm install -g pnpm@9.15.0
 RUN if [ "$INCLUDE_LITESTREAM" = "1" ]; then \
       apk add --no-cache curl ca-certificates && \
       curl -fL https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz \
