@@ -23,7 +23,7 @@
   "dependencies": {
     "@inferenceroom/pico-protocol": "workspace:*",
     "@inferenceroom/pico-sdk": "workspace:*",
-    "nostr-tools": "^2.10.4"
+    "nostr-tools": "^2.23.12"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
