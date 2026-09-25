@@ -23,7 +23,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@fastify/websocket": "^11.0.1",
+    "@fastify/websocket": "^11.3.0",
     "@inferenceroom/pico-protocol": "workspace:*",
     "@inferenceroom/pico-sdk": "workspace:*",
     "@inferenceroom/pico-state-machine": "workspace:*",
