@@ -36,13 +36,13 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.10.0",
+    "@types/node": "^26.1.1",
     "@types/pg": "^8.11.10",
     "@types/ws": "^8.5.13",
-    "@vitest/coverage-v8": "^2.1.8",
-    "tsx": "^4.19.2",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.8",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
     "ws": "^8.18.0"
   }
 }
