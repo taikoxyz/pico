@@ -12,7 +12,7 @@
     "@inferenceroom/pico-test-utils": "workspace:*"
   },
   "devDependencies": {
-    "tsx": "^4.19.0",
-    "typescript": "^5.5.4"
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
   }
 }
