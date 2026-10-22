@@ -267,8 +267,8 @@ importers:
         specifier: workspace:*
         version: link:../sdk
       nostr-tools:
-        specifier: ^2.10.4
-        version: 2.23.3(typescript@5.9.3)
+        specifier: ^2.24.1
+        version: 2.24.1(typescript@5.9.3)
     devDependencies:
       typescript:
         specifier: ^5.5.4
@@ -1838,8 +1838,8 @@ packages:
     resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
     hasBin: true
 
-  nostr-tools@2.23.3:
-    resolution: {integrity: sha512-AALyt9k8xPdF4UV2mlLJ2mgCn4kpTB0DZ8t2r6wjdUh6anfx2cTVBsHUlo9U0EY/cKC5wcNyiMAmRJV5OVEalA==}
+  nostr-tools@2.24.1:
+    resolution: {integrity: sha512-KdrKjC74n/rr6J3eCSfZj8dcbZFvolHYe4S22SefNZ5YWbhHiB0KL/mmJjEZ0u6B9mZK0YcQtl+WQ46KzwapeQ==}
     peerDependencies:
       typescript: '>=5.0.0'
     peerDependenciesMeta:
@@ -3838,7 +3838,7 @@ snapshots:
   node-gyp-build@4.8.4:
     optional: true
 
-  nostr-tools@2.23.3(typescript@5.9.3):
+  nostr-tools@2.24.1(typescript@5.9.3):
     dependencies:
       '@noble/ciphers': 2.1.1
       '@noble/curves': 2.0.1
